@@ -147,6 +147,68 @@ export async function GET() {
         0
       )
 
+      // Group holdings by name to merge same shares
+      const holdingsByName: Record<string, typeof account.investmentHoldings> = {}
+      account.investmentHoldings.forEach((h) => {
+        const key = h.name.toLowerCase().trim()
+        if (!holdingsByName[key]) {
+          holdingsByName[key] = []
+        }
+        holdingsByName[key].push(h)
+      })
+
+      // Create merged holdings with individual purchase details
+      const mergedHoldings = Object.entries(holdingsByName).map(([key, holdings]) => {
+        // Calculate totals
+        const totalShares = holdings.reduce(
+          (sum, h) => sum + (h.numberOfShares || 0),
+          0
+        )
+        const totalAmount = holdings.reduce((sum, h) => sum + h.amount, 0)
+        
+        // Calculate weighted average price
+        let averagePrice = 0
+        if (totalShares > 0) {
+          const totalCost = holdings.reduce((sum, h) => {
+            if (h.numberOfShares && h.pricePerUnit) {
+              return sum + h.numberOfShares * h.pricePerUnit
+            }
+            return sum + h.amount
+          }, 0)
+          averagePrice = totalCost / totalShares
+        } else if (totalAmount > 0) {
+          // Fallback: if no shares info, use amount-based average
+          averagePrice = totalAmount / holdings.length
+        }
+
+        // Get individual purchases (sorted by date, newest first)
+        const purchases = holdings
+          .map((h) => ({
+            id: h.id,
+            pricePerUnit: h.pricePerUnit,
+            numberOfShares: h.numberOfShares,
+            amount: h.amount,
+            date: h.date,
+          }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+        return {
+          name: holdings[0].name, // Use the original name (preserving case)
+          totalShares,
+          totalAmount,
+          averagePrice,
+          purchases, // Individual purchase details
+          firstPurchaseDate: holdings.reduce(
+            (earliest, h) => (h.date < earliest ? h.date : earliest),
+            holdings[0].date
+          ),
+          lastPurchaseDate: holdings.reduce(
+            (latest, h) => (h.date > latest ? h.date : latest),
+            holdings[0].date
+          ),
+        }
+      })
+
       return {
         id: account.id,
         name: account.name,
@@ -154,14 +216,7 @@ export async function GET() {
         balance: account.balance,
         investedAmount,
         totalValue: investedAmount + account.balance,
-        holdings: account.investmentHoldings.map((h) => ({
-          id: h.id,
-          name: h.name,
-          amount: h.amount,
-          pricePerUnit: h.pricePerUnit,
-          numberOfShares: h.numberOfShares,
-          date: h.date,
-        })),
+        holdings: mergedHoldings,
       }
     })
 
