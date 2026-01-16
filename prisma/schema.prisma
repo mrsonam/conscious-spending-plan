@@ -1,0 +1,184 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  fundAllocation FundAllocation?
+  incomeEntries IncomeEntry[]
+  accounts      Account[]
+  transfers     Transfer[]
+  expenses      Expense[]
+  categoryBalances CategoryBalance[]
+  categoryTransactions CategoryTransaction[]
+  investmentHoldings InvestmentHolding[]
+  defaultAccountId String?
+}
+
+model FundAllocation {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Allocation types: 'percentage' or 'fixed'
+  fixedCostsType        String   @default("percentage") // 'percentage' or 'fixed'
+  fixedCostsValue       Float    @default(50) // percentage or fixed amount
+  fixedCostsCap         Float?   // Optional cap amount (null = no cap)
+  
+  savingsType           String   @default("percentage") // 'percentage' or 'fixed'
+  savingsValue          Float    @default(20) // percentage or fixed amount
+  savingsCap            Float?   // Optional cap amount (null = no cap)
+  
+  investmentType        String   @default("percentage") // 'percentage' or 'fixed'
+  investmentValue       Float    @default(10) // percentage or fixed amount
+  investmentCap         Float?   // Optional cap amount (null = no cap)
+  
+  guiltFreeSpendingType String   @default("percentage") // 'percentage' or 'fixed'
+  guiltFreeSpendingValue Float   @default(20) // percentage or fixed amount
+  guiltFreeSpendingCap  Float?   // Optional cap amount (null = no cap)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model IncomeEntry {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount        Float
+  description   String?  // Optional description for the income entry
+  date          DateTime @default(now()) // Date when income was received
+  periodStart   DateTime
+  periodEnd     DateTime
+  accountId     String?  // Account where income was deposited
+  account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([accountId])
+}
+
+model Account {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  bankName      String
+  accountType   String   // e.g., "checking", "savings", "investment", "credit"
+  balance       Float    @default(0)
+  startingFunds Float   @default(0)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  outgoingTransfers Transfer[] @relation("FromAccount")
+  incomingTransfers Transfer[] @relation("ToAccount")
+  expenses      Expense[]
+  incomeEntries IncomeEntry[]
+  investmentHoldings InvestmentHolding[]
+  
+  @@index([userId])
+}
+
+model Transfer {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccountId String
+  fromAccount   Account  @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Cascade)
+  toAccountId   String
+  toAccount     Account  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Cascade)
+  amount        Float
+  description   String?
+  category      String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
+  date          DateTime @default(now()) // Date when transfer occurred
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([userId, category])
+}
+
+model CategoryBalance {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  balance       Float    @default(0) // Accumulated amount for this category for the current month
+  month         Int      // Month (1-12)
+  year          Int      // Year
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([userId, category, month, year])
+  @@index([userId])
+  @@index([userId, month, year])
+}
+
+model Expense {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount          Float
+  description     String?
+  category        String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
+  expenseCategory String?  // Expense category: 'food', 'transport', 'bills', 'entertainment', etc.
+  date            DateTime // Date of the expense
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([accountId])
+  @@index([userId, date])
+  @@index([userId, expenseCategory])
+}
+
+model CategoryTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  type          String   // 'expense' or 'income'
+  amount        Float
+  description   String?
+  date          DateTime
+  month         Int      // Month (1-12) for tracking
+  year          Int      // Year for tracking
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([userId, category, month, year])
+  @@index([userId, date])
+}
+
+model InvestmentHolding {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name          String   // Name of the share / fund / asset
+  amount        Float    // Total amount invested (numberOfShares × pricePerUnit)
+  pricePerUnit  Float?   // Price per share/unit (optional for backward compatibility)
+  numberOfShares Float?  // Number of shares/units bought (optional for backward compatibility)
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([userId, name])
+}
