@@ -291,10 +291,10 @@ export default function DashboardPage() {
     }).format(amount)
   }
 
-  if (!session) return null
-
   // Show header and tabs even during loading
   const isLoading = status === "loading" || (loading && !criticalDataLoaded)
+
+  if (!session && status !== "loading") return null
 
   const chartData = breakdown
     ? [
