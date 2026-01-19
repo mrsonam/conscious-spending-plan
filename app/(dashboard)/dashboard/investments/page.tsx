@@ -454,6 +454,54 @@ export default function InvestmentsPage() {
 
   if (!session) return null
 
+  // Show empty state if no investment accounts exist
+  if (!loadingForm && !loadingSummary && !loadingAccounts && investmentAccounts.length === 0) {
+    return (
+      <>
+        <Header title="Investments" />
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="rounded-full bg-indigo-100 p-4">
+                    <TrendingUp className="h-12 w-12 text-indigo-600" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-gray-900">No Investment Accounts Found</h2>
+                  <p className="text-gray-600 max-w-md mx-auto">
+                    To start tracking your investments, you'll need to create an investment account first.
+                  </p>
+                </div>
+                <div className="pt-4 space-y-3">
+                  <p className="text-sm text-gray-500">
+                    Here's what you need to do:
+                  </p>
+                  <ol className="text-left text-sm text-gray-600 space-y-2 max-w-md mx-auto list-decimal list-inside">
+                    <li>Go to the Accounts page and create a new account</li>
+                    <li>Select "Investment" as the account type</li>
+                    <li>Transfer money to your investment account using the Transfer feature</li>
+                    <li>Come back here to start adding your investments</li>
+                  </ol>
+                </div>
+                <div className="pt-6">
+                  <Button
+                    onClick={() => router.push("/dashboard/accounts")}
+                    className="inline-flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Go to Accounts Page
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <Header title="Investments" />
@@ -607,7 +655,34 @@ export default function InvestmentsPage() {
                     </Card>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <TrendingUp className="h-12 w-12 text-indigo-600" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Investment Data Available</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          Start tracking your investments by adding your first investment. You'll see summary statistics and account overviews here.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => setActiveTab("add")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Your First Investment
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Current Prices Input Section - Compact in Overview */}
               {loadingAccounts ? null : investmentAccounts.length > 0 && investmentAccounts.some(acc => acc.holdings.length > 0) ? (
@@ -793,6 +868,33 @@ export default function InvestmentsPage() {
                           </div>
                         )
                       })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : investmentAccounts.length > 0 && investmentAccounts.every(acc => acc.holdings.length === 0) ? (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <Briefcase className="h-12 w-12 text-indigo-600" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Holdings Found</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          You have investment accounts set up, but no investments have been added yet. Start tracking your investments by adding your first holding.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => setActiveTab("add")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Investment
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1021,6 +1123,33 @@ export default function InvestmentsPage() {
                     </Card>
                   )}
                 </div>
+              ) : investmentAccounts.length > 0 && investmentAccounts.every(acc => acc.holdings.length === 0) ? (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <BarChart3 className="h-12 w-12 text-indigo-600" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Analytics Data Available</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          Analytics charts and visualizations will appear here once you've added investments. Start tracking your investments to see distribution charts and trends.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => setActiveTab("add")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add Investment
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ) : null}
 
               {/* Share Allocation Pie Chart */}
@@ -1160,15 +1289,58 @@ export default function InvestmentsPage() {
                     </div>
                   )}
                   {investmentAccounts.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No investment accounts found</p>
-                      <p className="text-sm mt-2">Create an investment account and add investments to see profit/loss calculations</p>
-                    </div>
+                    <Card>
+                      <CardContent className="pt-12 pb-12">
+                        <div className="text-center space-y-4">
+                          <div className="flex justify-center">
+                            <div className="rounded-full bg-indigo-100 p-4">
+                              <Target className="h-12 w-12 text-indigo-600" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-gray-900">No Investment Accounts Found</h3>
+                            <p className="text-gray-600 max-w-md mx-auto">
+                              Create an investment account and add investments to track profit/loss calculations. You'll be able to fetch current market prices and see your gains or losses.
+                            </p>
+                          </div>
+                          <div className="pt-4">
+                            <Button
+                              onClick={() => router.push("/dashboard/accounts")}
+                              className="inline-flex items-center gap-2"
+                            >
+                              Go to Accounts Page
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ) : investmentAccounts.every(acc => acc.holdings.length === 0) ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No investments found</p>
-                      <p className="text-sm mt-2">Add investments to track profit/loss</p>
-                    </div>
+                    <Card>
+                      <CardContent className="pt-12 pb-12">
+                        <div className="text-center space-y-4">
+                          <div className="flex justify-center">
+                            <div className="rounded-full bg-indigo-100 p-4">
+                              <Target className="h-12 w-12 text-indigo-600" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-gray-900">No Investments Found</h3>
+                            <p className="text-gray-600 max-w-md mx-auto">
+                              Add investments to your accounts to start tracking profit/loss. Once you have investments, you can fetch current market prices and calculate your gains or losses.
+                            </p>
+                          </div>
+                          <div className="pt-4">
+                            <Button
+                              onClick={() => setActiveTab("add")}
+                              className="inline-flex items-center gap-2"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Investment
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ) : (
                     <div className="space-y-6">
                       {investmentAccounts.map((acc) => {

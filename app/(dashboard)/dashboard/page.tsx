@@ -291,15 +291,10 @@ export default function DashboardPage() {
     }).format(amount)
   }
 
-  if (status === "loading") {
-    return <DashboardSkeleton />
-  }
-
-  if (loading && !criticalDataLoaded) {
-    return <DashboardSkeleton />
-  }
-
   if (!session) return null
+
+  // Show header and tabs even during loading
+  const isLoading = status === "loading" || (loading && !criticalDataLoaded)
 
   const chartData = breakdown
     ? [
@@ -418,7 +413,11 @@ export default function DashboardPage() {
 
         {/* Tab Content */}
         <div className="space-y-6">
-          {!breakdown ? (
+          {isLoading ? (
+            <DashboardSkeleton />
+          ) : (
+            <>
+              {!breakdown ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center py-12">
@@ -1341,6 +1340,8 @@ export default function DashboardPage() {
                   )}
                 </>
               )}
+            </>
+          )}
             </>
           )}
         </div>

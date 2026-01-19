@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { TrendingDown, Wallet, TrendingUp, PiggyBank, CreditCard, BarChart3 } from "lucide-react"
+import { TrendingDown, Wallet, TrendingUp, PiggyBank, CreditCard, BarChart3, Activity, PieChart as PieChartIcon, Target, Lightbulb } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts"
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from "recharts"
 
 interface CategoryTracking {
   allocated: number
@@ -41,6 +41,9 @@ export default function CategoryTrackingPage() {
   const [loadingCharts, setLoadingCharts] = useState(true)
   const [loadingDetails, setLoadingDetails] = useState(true)
   const [loadingExpenses, setLoadingExpenses] = useState(true)
+  
+  // State for active tab/view
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "details" | "insights">("overview")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -142,110 +145,503 @@ export default function CategoryTrackingPage() {
 
   if (!session) return null
 
+  // Calculate additional insights
+  const totalAllocated = tracking ? Object.values(tracking).reduce((sum, cat) => sum + cat.allocated, 0) : 0
+  const totalSpent = tracking ? Object.values(tracking).reduce((sum, cat) => sum + cat.spent, 0) : 0
+  const totalRemaining = tracking ? Object.values(tracking).reduce((sum, cat) => sum + cat.remaining, 0) : 0
+  const overallUsage = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
+
+  // Category comparison data for pie chart
+  const categoryDistribution = tracking ? CATEGORIES.map(cat => {
+    const data = tracking[cat.key]
+    return {
+      name: cat.label,
+      value: data?.spent || 0,
+      color: cat.colorHex,
+    }
+  }).filter(item => item.value > 0) : []
+
   return (
     <>
       <Header title="Category Tracking" />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Category Budget Tracking</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            View spending and remaining budget for each fund category. Log expenses from the{" "}
-            <button
-              onClick={() => router.push("/dashboard/expenses")}
-              className="text-indigo-600 hover:underline font-medium"
-            >
-              Expenses page
-            </button>
-            {" "}and select a fund category.
-          </p>
+        {/* Modern Tab Navigation */}
+        <div className="flex flex-wrap gap-2 pb-2">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "overview"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Overview
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "analytics"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("details")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "details"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Details
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("insights")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "insights"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4" />
+              Insights
+            </div>
+          </button>
         </div>
 
-        {/* Summary Cards - Dashboard Style */}
-        {loadingSummary ? (
-          <SummaryCardsSkeleton />
-        ) : tracking ? (
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {CATEGORIES.map((cat) => {
-            const data = tracking[cat.key]
-            if (!data) return null
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {/* Overview Tab */}
+          {activeTab === "overview" && (
+            <>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Category Budget Tracking</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  View spending and remaining budget for each fund category. Log expenses from the{" "}
+                  <button
+                    onClick={() => router.push("/dashboard/expenses")}
+                    className="text-indigo-600 hover:underline font-medium"
+                  >
+                    Expenses page
+                  </button>
+                  {" "}and select a fund category.
+                </p>
+              </div>
 
-            const isOverspent = data.overspent > 0
-            const Icon = cat.icon
+              {/* Overall Summary Cards */}
+              {loadingSummary ? (
+                <SummaryCardsSkeleton />
+              ) : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(totalAllocated)}</div>
+                      <p className="text-xs text-gray-500 mt-1">This month's total budget</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+                      <TrendingDown className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">{formatCurrency(totalSpent)}</div>
+                      <p className="text-xs text-gray-500 mt-1">{overallUsage.toFixed(1)}% of budget used</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Remaining</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRemaining)}</div>
+                      <p className="text-xs text-gray-500 mt-1">Available balance</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Budget Usage</CardTitle>
+                      <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{overallUsage.toFixed(1)}%</div>
+                      <p className="text-xs text-gray-500 mt-1">Overall utilization</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <Activity className="h-12 w-12 text-indigo-600" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Budget Data Available</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          You need to set up fund allocation and add income to start tracking your budget categories.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => router.push("/dashboard")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          Go to Dashboard
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-            return (
-              <Card key={cat.key} className={cn(isOverspent && "border-red-300")}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{cat.label}</CardTitle>
-                  <Icon className={cn("h-4 w-4", isOverspent ? "text-red-500" : `text-${cat.color}-600`)} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatCurrency(data.remaining)}
-                  </div>
-                  <p className={cn(
-                    "text-xs mt-1",
-                    isOverspent ? "text-red-600" : "text-gray-500"
-                  )}>
-                    {isOverspent ? `Overspent by ${formatCurrency(data.overspent)}` : "Remaining"}
-                  </p>
-                  <div className="mt-2 text-xs text-gray-600">
-                    <div className="flex justify-between">
-                      <span>Allocated:</span>
-                      <span className="font-medium">{formatCurrency(data.allocated)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Spent:</span>
-                      <span className="font-medium text-red-600">{formatCurrency(data.spent)}</span>
-                    </div>
-                    {data.transferred > 0 && (
-                      <div className="flex justify-between">
-                        <span>Transferred:</span>
-                        <span className="font-medium text-blue-600">{formatCurrency(data.transferred)}</span>
-                      </div>
-                    )}
-                    {(data.carryover > 0 || data.overspending > 0) && (
-                      <div className="mt-1 pt-1 border-t">
-                        {data.carryover > 0 && (
-                          <div className="flex justify-between text-green-600">
-                            <span>Carryover:</span>
-                            <span>+{formatCurrency(data.carryover)}</span>
+              {/* Category Summary Cards */}
+              {loadingSummary ? (
+                <SummaryCardsSkeleton />
+              ) : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  {CATEGORIES.map((cat) => {
+                    const data = tracking[cat.key]
+                    if (!data) return null
+
+                    const isOverspent = data.overspent > 0
+                    const Icon = cat.icon
+                    const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+
+                    return (
+                      <Card key={cat.key} className={cn(isOverspent && "border-red-300")}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">{cat.label}</CardTitle>
+                          <Icon className={cn("h-4 w-4", isOverspent ? "text-red-500" : `text-${cat.color}-600`)} />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">
+                            {formatCurrency(data.remaining)}
                           </div>
-                        )}
-                        {data.overspending > 0 && (
-                          <div className="flex justify-between text-red-600">
-                            <span>Overspent:</span>
-                            <span>-{formatCurrency(data.overspending)}</span>
+                          <p className={cn(
+                            "text-xs mt-1",
+                            isOverspent ? "text-red-600" : "text-gray-500"
+                          )}>
+                            {isOverspent ? `Overspent by ${formatCurrency(data.overspent)}` : "Remaining"}
+                          </p>
+                          <div className="mt-2 text-xs text-gray-600">
+                            <div className="flex justify-between">
+                              <span>Allocated:</span>
+                              <span className="font-medium">{formatCurrency(data.allocated)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Spent:</span>
+                              <span className="font-medium text-red-600">{formatCurrency(data.spent)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Usage:</span>
+                              <span className={cn(
+                                "font-medium",
+                                isOverspent ? "text-red-600" : usagePercent > 80 ? "text-yellow-600" : "text-green-600"
+                              )}>
+                                {usagePercent.toFixed(1)}%
+                              </span>
+                            </div>
+                            {data.transferred > 0 && (
+                              <div className="flex justify-between">
+                                <span>Transferred:</span>
+                                <span className="font-medium text-blue-600">{formatCurrency(data.transferred)}</span>
+                              </div>
+                            )}
+                            {(data.carryover > 0 || data.overspending > 0) && (
+                              <div className="mt-1 pt-1 border-t">
+                                {data.carryover > 0 && (
+                                  <div className="flex justify-between text-green-600">
+                                    <span>Carryover:</span>
+                                    <span>+{formatCurrency(data.carryover)}</span>
+                                  </div>
+                                )}
+                                {data.overspending > 0 && (
+                                  <div className="flex justify-between text-red-600">
+                                    <span>Overspent:</span>
+                                    <span>-{formatCurrency(data.overspending)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3">
+                            <div
+                              className={cn(
+                                "h-1.5 rounded-full transition-all",
+                                isOverspent
+                                  ? "bg-red-500"
+                                  : data.remaining > data.allocated * 0.2
+                                  ? "bg-green-500"
+                                  : "bg-yellow-500"
+                              )}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, data.allocated > 0 ? (data.remaining / data.allocated) * 100 : 0))}%`,
+                              }}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              ) : null}
+
+              {/* Quick Insights & Spending Distribution */}
+              {loadingSummary ? null : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Spending Distribution */}
+                  {categoryDistribution.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <PieChartIcon className="h-5 w-5" />
+                          Spending Distribution
+                        </CardTitle>
+                        <CardDescription>Breakdown of spending by category</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={categoryDistribution}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {categoryDistribution.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : ""} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Quick Status Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Category Status
+                      </CardTitle>
+                      <CardDescription>Current status for each category</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {CATEGORIES.map((cat) => {
+                          const data = tracking[cat.key]
+                          if (!data) return null
+                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                          const isOverspent = data.overspent > 0
+                          const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                          const currentDay = new Date().getDate()
+                          const expectedUsage = (currentDay / daysInMonth) * 100
+
+                          let status = "On Track"
+                          let statusColor = "text-green-600 bg-green-50"
+                          if (isOverspent) {
+                            status = "Overspent"
+                            statusColor = "text-red-600 bg-red-50"
+                          } else if (usagePercent > expectedUsage * 1.2) {
+                            status = "Spending Fast"
+                            statusColor = "text-yellow-600 bg-yellow-50"
+                          } else if (usagePercent < expectedUsage * 0.8) {
+                            status = "Under Budget"
+                            statusColor = "text-green-600 bg-green-50"
+                          }
+
+                          return (
+                            <div key={cat.key} className={cn("p-3 rounded-lg", statusColor)}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <cat.icon className="h-4 w-4" />
+                                  <span className="font-medium text-sm">{cat.label}</span>
+                                </div>
+                                <span className="text-sm font-semibold">{status}</span>
+                              </div>
+                              <div className="mt-2 text-xs opacity-80">
+                                {formatCurrency(data.spent)} / {formatCurrency(data.allocated)} ({usagePercent.toFixed(1)}%)
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                    )}
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3">
-                    <div
-                      className={cn(
-                        "h-1.5 rounded-full transition-all",
-                        isOverspent
-                          ? "bg-red-500"
-                          : data.remaining > data.allocated * 0.2
-                          ? "bg-green-500"
-                          : "bg-yellow-500"
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : null}
+
+              {/* Recent Expenses Summary */}
+              {loadingExpenses ? null : expenses.length > 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Expenses</CardTitle>
+                    <CardDescription>Latest expenses by category this month</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {expenses.slice(0, 5).map((expense) => {
+                        const category = CATEGORIES.find((c) => c.key === expense.category)
+                        return (
+                          <div
+                            key={expense.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <TrendingDown className="h-5 w-5 text-red-500" />
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">
+                                  {category?.label || expense.category}
+                                </div>
+                                {expense.description && (
+                                  <div className="text-sm text-gray-500">{expense.description}</div>
+                                )}
+                                <div className="text-xs text-gray-400">
+                                  {expense.account?.name} • {formatDate(expense.date)}
+                                </div>
+                              </div>
+                              <div className="font-semibold text-red-600">
+                                -{formatCurrency(expense.amount)}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {expenses.length > 5 && (
+                        <div className="text-center pt-2">
+                          <button
+                            onClick={() => router.push("/dashboard/expenses")}
+                            className="text-sm text-indigo-600 hover:underline font-medium"
+                          >
+                            View all {expenses.length} expenses →
+                          </button>
+                        </div>
                       )}
-                      style={{
-                        width: `${Math.min(100, Math.max(0, data.allocated > 0 ? (data.remaining / data.allocated) * 100 : 0))}%`,
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-        ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </>
+          )}
 
-        {/* Charts Section */}
-        {loadingCharts ? (
-          <ChartsSkeleton />
-        ) : history ? (
+          {/* Analytics Tab */}
+          {activeTab === "analytics" && (
+            <>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Analytics & Trends</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Visualize spending patterns and budget trends over time
+                </p>
+              </div>
+
+              {/* Overall Summary Cards */}
+              {loadingSummary ? (
+                <SummaryCardsSkeleton />
+              ) : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(totalAllocated)}</div>
+                      <p className="text-xs text-gray-500 mt-1">This month's budget</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+                      <TrendingDown className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">{formatCurrency(totalSpent)}</div>
+                      <p className="text-xs text-gray-500 mt-1">{overallUsage.toFixed(1)}% of budget used</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Remaining</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRemaining)}</div>
+                      <p className="text-xs text-gray-500 mt-1">Available balance</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Budget Usage</CardTitle>
+                      <PieChartIcon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{overallUsage.toFixed(1)}%</div>
+                      <p className="text-xs text-gray-500 mt-1">Overall utilization</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <BarChart3 className="h-12 w-12 text-indigo-600" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Budget Data Available</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          You need to set up fund allocation and add income to start tracking your budget categories.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => router.push("/dashboard")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          Go to Dashboard
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Charts Section */}
+              {loadingCharts ? (
+                <ChartsSkeleton />
+              ) : history && Object.keys(history).length > 0 && history.fixedCosts && history.fixedCosts.length > 0 ? (
           <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
             {/* Spending Trend Chart */}
             <Card>
@@ -323,13 +719,85 @@ export default function CategoryTrackingPage() {
               </CardContent>
             </Card>
           </div>
-        ) : null}
+        ) : (
+          <Card>
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="rounded-full bg-indigo-100 p-4">
+                    <BarChart3 className="h-12 w-12 text-indigo-600" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-gray-900">No Historical Data Available</h3>
+                  <p className="text-gray-600 max-w-md mx-auto">
+                    Historical spending data will appear here once you've tracked expenses across multiple months. Start logging expenses to see trends over time.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    onClick={() => router.push("/dashboard/expenses")}
+                    className="inline-flex items-center gap-2"
+                  >
+                    Log an Expense
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Category Details Cards */}
-        {loadingDetails ? (
-          <CategoryDetailsSkeleton />
-        ) : tracking ? (
-          <div className="grid gap-4 md:grid-cols-2">
+              {/* Spending Distribution Pie Chart */}
+              {categoryDistribution.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChartIcon className="h-5 w-5" />
+                      Spending Distribution
+                    </CardTitle>
+                    <CardDescription>Breakdown of spending by category</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={categoryDistribution}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {categoryDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : ""} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* Details Tab */}
+          {activeTab === "details" && (
+            <>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Category Details</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Detailed breakdown and metrics for each category
+                </p>
+              </div>
+
+              {/* Category Details Cards */}
+              {loadingDetails ? (
+                <CategoryDetailsSkeleton />
+              ) : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
           {CATEGORIES.map((cat) => {
             const data = tracking[cat.key]
             if (!data) return null
@@ -423,64 +891,264 @@ export default function CategoryTrackingPage() {
           })}
         </div>
         ) : null}
+            </>
+          )}
 
-        {/* Recent Expenses */}
-        {loadingExpenses ? (
-          <RecentExpensesSkeleton />
-        ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Expenses by Category</CardTitle>
-            <CardDescription>Expenses linked to fund categories for the current month</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {expenses.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No expenses with fund categories yet.</p>
-                <p className="text-sm mt-2">
-                  <button
-                    onClick={() => router.push("/dashboard/expenses")}
-                    className="text-indigo-600 hover:underline font-medium"
-                  >
-                    Log an expense
-                  </button>
-                  {" "}and select a fund category to see it here.
+          {/* Insights Tab */}
+          {activeTab === "insights" && (
+            <>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Insights & Analysis</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Key insights and recommendations based on your spending patterns
                 </p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {expenses.map((expense) => {
-                  const category = CATEGORIES.find((c) => c.key === expense.category)
-                  return (
-                    <div
-                      key={expense.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <TrendingDown className="h-5 w-5 text-red-500" />
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            {category?.label || expense.category}
+
+              {loadingSummary ? (
+                <CategoryDetailsSkeleton />
+              ) : tracking && Object.keys(tracking).length > 0 ? (
+                <div className="grid gap-6">
+                  {/* Category Performance Comparison */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Category Performance</CardTitle>
+                      <CardDescription>Compare budget utilization across categories</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {CATEGORIES.map((cat) => {
+                          const data = tracking[cat.key]
+                          if (!data) return null
+                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                          const isOverspent = data.overspent > 0
+                          const Icon = cat.icon
+
+                          return (
+                            <div key={cat.key} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Icon className={`h-4 w-4 text-${cat.color}-600`} />
+                                  <span className="font-medium">{cat.label}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className={cn(
+                                    "font-semibold",
+                                    isOverspent ? "text-red-600" : usagePercent > 80 ? "text-yellow-600" : "text-green-600"
+                                  )}>
+                                    {usagePercent.toFixed(1)}%
+                                  </span>
+                                  <span className="text-xs text-gray-500 ml-2">
+                                    {formatCurrency(data.spent)} / {formatCurrency(data.allocated)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={cn(
+                                    "h-2 rounded-full transition-all",
+                                    isOverspent
+                                      ? "bg-red-500"
+                                      : usagePercent > 80
+                                      ? "bg-yellow-500"
+                                      : "bg-green-500"
+                                  )}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(0, usagePercent))}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Key Metrics */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Budget Health</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {CATEGORIES.map((cat) => {
+                          const data = tracking[cat.key]
+                          if (!data) return null
+                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                          const isOverspent = data.overspent > 0
+                          const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                          const currentDay = new Date().getDate()
+                          const expectedUsage = (currentDay / daysInMonth) * 100
+
+                          let status = "On Track"
+                          let statusColor = "text-green-600"
+                          if (isOverspent) {
+                            status = "Overspent"
+                            statusColor = "text-red-600"
+                          } else if (usagePercent > expectedUsage * 1.2) {
+                            status = "Spending Fast"
+                            statusColor = "text-yellow-600"
+                          } else if (usagePercent < expectedUsage * 0.8) {
+                            status = "Under Budget"
+                            statusColor = "text-green-600"
+                          }
+
+                          return (
+                            <div key={cat.key} className="flex items-center justify-between p-2 rounded bg-gray-50">
+                              <span className="text-sm font-medium">{cat.label}</span>
+                              <span className={cn("text-sm font-semibold", statusColor)}>{status}</span>
+                            </div>
+                          )
+                        })}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Carryover & Adjustments</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {CATEGORIES.map((cat) => {
+                          const data = tracking[cat.key]
+                          if (!data) return null
+
+                          return (
+                            <div key={cat.key} className="space-y-1 p-2 rounded bg-gray-50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">{cat.label}</span>
+                              </div>
+                              {data.carryover > 0 && (
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-green-600">Carryover:</span>
+                                  <span className="text-green-600 font-medium">+{formatCurrency(data.carryover)}</span>
+                                </div>
+                              )}
+                              {data.overspending > 0 && (
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-red-600">Overspending:</span>
+                                  <span className="text-red-600 font-medium">-{formatCurrency(data.overspending)}</span>
+                                </div>
+                              )}
+                              {data.overspent > 0 && (
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-red-700 font-semibold">Overspent this month:</span>
+                                  <span className="text-red-700 font-bold">-{formatCurrency(data.overspent)}</span>
+                                </div>
+                              )}
+                              {data.carryover === 0 && data.overspending === 0 && data.overspent === 0 && (
+                                <div className="text-xs text-gray-500">No adjustments</div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Recommendations */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Lightbulb className="h-5 w-5" />
+                        Recommendations
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {CATEGORIES.map((cat) => {
+                          const data = tracking[cat.key]
+                          if (!data) return null
+                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                          const isOverspent = data.overspent > 0
+                          const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                          const currentDay = new Date().getDate()
+                          const daysRemaining = daysInMonth - currentDay
+                          const projectedSpending = daysInMonth > 0 ? (data.spent / currentDay) * daysInMonth : 0
+                          const projectedOverspend = projectedSpending - data.allocated
+
+                          if (isOverspent) {
+                            return (
+                              <div key={cat.key} className="p-3 rounded-lg bg-red-50 border border-red-200">
+                                <div className="font-medium text-red-800 mb-1">{cat.label}</div>
+                                <div className="text-sm text-red-700">
+                                  You've overspent by {formatCurrency(data.overspent)}. Consider reducing spending in this category next month.
+                                </div>
+                              </div>
+                            )
+                          } else if (projectedOverspend > 0 && daysRemaining > 0) {
+                            return (
+                              <div key={cat.key} className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                                <div className="font-medium text-yellow-800 mb-1">{cat.label}</div>
+                                <div className="text-sm text-yellow-700">
+                                  At current spending rate, you may overspend by {formatCurrency(projectedOverspend)}. 
+                                  Consider reducing spending to stay within budget.
+                                </div>
+                              </div>
+                            )
+                          } else if (usagePercent < 50 && daysRemaining < 7) {
+                            return (
+                              <div key={cat.key} className="p-3 rounded-lg bg-green-50 border border-green-200">
+                                <div className="font-medium text-green-800 mb-1">{cat.label}</div>
+                                <div className="text-sm text-green-700">
+                                  Great job! You're well under budget. You have {formatCurrency(data.remaining)} remaining.
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        })}
+                        {CATEGORIES.every(cat => {
+                          const data = tracking[cat.key]
+                          if (!data) return true
+                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                          const isOverspent = data.overspent > 0
+                          const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                          const currentDay = new Date().getDate()
+                          const daysRemaining = daysInMonth - currentDay
+                          const projectedSpending = daysInMonth > 0 ? (data.spent / currentDay) * daysInMonth : 0
+                          const projectedOverspend = projectedSpending - data.allocated
+                          return !isOverspent && projectedOverspend <= 0 && !(usagePercent < 50 && daysRemaining < 7)
+                        }) && (
+                          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                            <div className="text-sm text-blue-700">
+                              All categories are on track! Keep up the good work managing your budget.
+                            </div>
                           </div>
-                          {expense.description && (
-                            <div className="text-sm text-gray-500">{expense.description}</div>
-                          )}
-                          <div className="text-xs text-gray-400">
-                            {expense.account?.name} ({expense.account?.bankName}) • {formatDate(expense.date)}
-                          </div>
-                        </div>
-                        <div className="font-semibold text-red-600">
-                          -{formatCurrency(expense.amount)}
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="pt-12 pb-12">
+                    <div className="text-center space-y-4">
+                      <div className="flex justify-center">
+                        <div className="rounded-full bg-indigo-100 p-4">
+                          <Lightbulb className="h-12 w-12 text-indigo-600" />
                         </div>
                       </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No Insights Available</h3>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                          Insights and recommendations will appear here once you've started tracking expenses and spending across your budget categories. Start logging expenses to get personalized insights.
+                        </p>
+                      </div>
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => router.push("/dashboard/expenses")}
+                          className="inline-flex items-center gap-2"
+                        >
+                          Log an Expense
+                        </Button>
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        )}
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </>
   )
