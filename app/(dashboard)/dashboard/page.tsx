@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Pie, Cell, ResponsiveContainer, Legend, Tooltip, PieLabelRenderProps, LabelList, BarChart, Bar, XAxis, YAxis, CartesianGrid, Line } from "recharts"
-import { DollarSign, TrendingUp, Wallet, PiggyBank, CreditCard, Building2, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Activity, TrendingDown, Calendar, Clock, Target, BarChart3, ArrowRight } from "lucide-react"
+import { DollarSign, TrendingUp, Wallet, PiggyBank, CreditCard, Building2, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Activity, TrendingDown, Calendar, Clock, Target, BarChart3, ArrowRight, Home, PieChart as PieChartIcon, Receipt } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
 import { CardSkeleton, CardGridSkeleton } from "@/components/skeletons/card-skeleton"
 import { ChartSkeleton, PieChartSkeleton } from "@/components/skeletons/chart-skeleton"
+import { cn } from "@/lib/utils"
 
 // Lazy load modals and charts to improve initial load time
 const AddIncomeModal = dynamic(() => import("@/components/modals/add-income-modal").then(mod => ({ default: mod.AddIncomeModal })), { 
@@ -157,12 +158,16 @@ export default function DashboardPage() {
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([])
   const [categoryTracking, setCategoryTracking] = useState<Record<string, CategoryTracking>>({})
   const [monthlyHistory, setMonthlyHistory] = useState<Record<string, MonthlyHistory[]>>({})
+  const [investmentAccounts, setInvestmentAccounts] = useState<Array<{ investedAmount: number }>>([])
   const [loading, setLoading] = useState(true)
   const [criticalDataLoaded, setCriticalDataLoaded] = useState(false)
   const [secondaryDataLoaded, setSecondaryDataLoaded] = useState(false)
   const [showIncomeModal, setShowIncomeModal] = useState(false)
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  
+  // State for active tab/view
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "accounts" | "transactions">("overview")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -179,12 +184,14 @@ export default function DashboardPage() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
 
-      // Load only critical data in parallel
-      const [allocationRes, incomeRes, accountsRes, balancesRes] = await Promise.all([
-        fetch("/api/fund-allocation"),
-        fetch("/api/income-entries?currentMonth=true"),
-        fetch("/api/accounts"),
-        fetch("/api/category-balances"),
+      // Load only critical data in parallel with cache busting
+      const timestamp = Date.now()
+      const [allocationRes, incomeRes, accountsRes, balancesRes, investmentsRes] = await Promise.all([
+        fetch(`/api/fund-allocation?t=${timestamp}`),
+        fetch(`/api/income-entries?currentMonth=true&t=${timestamp}`),
+        fetch(`/api/accounts?t=${timestamp}`),
+        fetch(`/api/category-balances?t=${timestamp}`),
+        fetch(`/api/investments?t=${timestamp}`),
       ])
 
       if (allocationRes.ok) {
@@ -209,6 +216,11 @@ export default function DashboardPage() {
         setBalances(data.balances || [])
       }
 
+      if (investmentsRes.ok) {
+        const data = await investmentsRes.json()
+        setInvestmentAccounts(data.accounts || [])
+      }
+
       setCriticalDataLoaded(true)
     } catch (error) {
       console.error("Error fetching critical data:", error)
@@ -222,13 +234,14 @@ export default function DashboardPage() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
 
-      // Load secondary data in parallel
+      // Load secondary data in parallel with cache busting
+      const timestamp = Date.now()
       const [expensesRes, transfersRes, incomeEntriesRes, categoryTrackingRes, historyRes] = await Promise.all([
-        fetch(`/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`),
-        fetch(`/api/transfers?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`),
-        fetch("/api/income-entries"),
-        fetch("/api/category-tracking"),
-        fetch("/api/category-tracking/history"),
+        fetch(`/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
+        fetch(`/api/transfers?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
+        fetch(`/api/income-entries?t=${timestamp}`),
+        fetch(`/api/category-tracking?t=${timestamp}`),
+        fetch(`/api/category-tracking/history?t=${timestamp}`),
       ])
 
       if (expensesRes.ok) {
@@ -341,343 +354,430 @@ export default function DashboardPage() {
 
   return (
     <>
-          <Header title="Dashboard" />
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {!breakdown ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-12">
-                <DollarSign className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">No income data</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  Calculate your first breakdown to see your financial overview
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-                    {/* Summary Cards */}
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(breakdown.income)}</div>
-                  <p className="text-xs text-gray-500 mt-1">Current month total</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(breakdown.total)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Savings</CardTitle>
-                  <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(breakdown.savings)}
-                  </div>
-                </CardContent>
-              </Card>
+      <Header title="Dashboard" />
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        {/* Modern Tab Navigation */}
+        <div className="flex flex-wrap gap-2 pb-2">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "overview"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Overview
             </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "analytics"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("accounts")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "accounts"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Accounts
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("transactions")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "transactions"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Transactions
+            </div>
+          </button>
+        </div>
 
-            {/* Quick Stats Row */}
-            {(() => {
-              const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
-              const totalAllocated = breakdown?.total || 0
-              const remainingBudget = totalAllocated - totalExpenses
-              const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
-              const currentDay = new Date().getDate()
-              const daysRemaining = daysInMonth - currentDay
-              const avgDailySpending = currentDay > 0 ? totalExpenses / currentDay : 0
-              const netWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0)
-
-              return (
-                <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Total Expenses</CardTitle>
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
-                      <p className="text-xs text-gray-500 mt-1">This month</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Remaining Budget</CardTitle>
-                      <Target className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className={`text-xl font-bold ${remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(remainingBudget)}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Available</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Daily Average</CardTitle>
-                      <Calendar className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold">{formatCurrency(avgDailySpending)}</div>
-                      <p className="text-xs text-gray-500 mt-1">Per day</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Days Remaining</CardTitle>
-                      <Clock className="h-4 w-4 text-purple-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold">{daysRemaining}</div>
-                      <p className="text-xs text-gray-500 mt-1">In month</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Net Worth</CardTitle>
-                      <Wallet className="h-4 w-4 text-indigo-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold text-indigo-600">{formatCurrency(netWorth)}</div>
-                      <p className="text-xs text-gray-500 mt-1">All accounts</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xs font-medium">Spending %</CardTitle>
-                      <BarChart3 className="h-4 w-4 text-orange-500" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold">
-                        {totalAllocated > 0 ? ((totalExpenses / totalAllocated) * 100).toFixed(0) : 0}%
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Of allocated</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )
-            })()}
-
-            {/* Quick Action Buttons */}
+        {/* Tab Content */}
+        <div className="space-y-6">
+          {!breakdown ? (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  Quick Actions
-                </CardTitle>
-                <CardDescription>Common tasks and navigation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-                  <button
-                    onClick={() => setShowIncomeModal(true)}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <ArrowUpRight className="h-5 w-5 text-green-600" />
-                    <span className="text-sm font-medium">Add Income</span>
-                  </button>
-                  <button
-                    onClick={() => setShowExpenseModal(true)}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <ArrowDownRight className="h-5 w-5 text-red-600" />
-                    <span className="text-sm font-medium">Add Expense</span>
-                  </button>
-                  <button
-                    onClick={() => setShowTransferModal(true)}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <ArrowRight className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium">Transfer</span>
-                  </button>
-                  <Link href="/dashboard/statement" className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                    <Activity className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium">View Statement</span>
-                  </Link>
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <DollarSign className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-4 text-lg font-semibold text-gray-900">No income data</h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Calculate your first breakdown to see your financial overview
+                  </p>
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <>
+              {/* Overview Tab */}
+              {activeTab === "overview" && (
+                <>
+                  {/* Enhanced Summary Cards */}
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(breakdown.income)}</div>
+                        <p className="text-xs text-gray-500 mt-1">Current month total</p>
+                      </CardContent>
+                    </Card>
 
-            {/* Monthly Spending Summary & Comparison */}
-            {(() => {
-              const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
-              const totalAllocated = breakdown?.total || 0
-              const spendingPercentage = totalAllocated > 0 ? (totalExpenses / totalAllocated) * 100 : 0
-              
-              // Get last month data
-              const now = new Date()
-              const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-              const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-              const lastMonthIncome = incomeEntries
-                .filter(entry => {
-                  const entryDate = new Date(entry.date)
-                  return entryDate >= lastMonthStart && entryDate <= lastMonthEnd
-                })
-                .reduce((sum, e) => sum + e.amount, 0)
-              
-              const currentMonthIncome = breakdown?.income || 0
-              const incomeChange = lastMonthIncome > 0 
-                ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 
-                : 0
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(breakdown.total)}</div>
+                      </CardContent>
+                    </Card>
 
-              return (
-                <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Monthly Spending Summary</CardTitle>
-                      <CardDescription>Spent vs allocated this month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Total Allocated</span>
-                          <span className="text-lg font-semibold">{formatCurrency(totalAllocated)}</span>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Savings</CardTitle>
+                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrency(breakdown.savings)}
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Total Spent</span>
-                          <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div
-                            className={`h-3 rounded-full transition-all ${
-                              spendingPercentage >= 100
-                                ? "bg-red-500"
-                                : spendingPercentage >= 80
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                            }`}
-                            style={{ width: `${Math.min(100, spendingPercentage)}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">{spendingPercentage.toFixed(1)}% spent</span>
-                          <span className={`font-medium ${
-                            spendingPercentage >= 100 ? "text-red-600" : 
-                            spendingPercentage >= 80 ? "text-yellow-600" : 
-                            "text-green-600"
-                          }`}>
-                            {spendingPercentage >= 100 ? "Over budget" : 
-                             spendingPercentage >= 80 ? "Near limit" : 
-                             "On track"}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Monthly Comparison</CardTitle>
-                      <CardDescription>This month vs last month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm text-gray-600">Income</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-semibold">{formatCurrency(currentMonthIncome)}</span>
-                              {incomeChange !== 0 && (
-                                <span className={`text-xs flex items-center gap-1 ${
-                                  incomeChange > 0 ? "text-green-600" : "text-red-600"
-                                }`}>
-                                  {incomeChange > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                                  {Math.abs(incomeChange).toFixed(1)}%
-                                </span>
-                              )}
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Investment</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Total invested</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Quick Stats Row */}
+                  {(() => {
+                    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+                    const totalAllocated = breakdown?.total || 0
+                    const remainingBudget = totalAllocated - totalExpenses
+                    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                    const currentDay = new Date().getDate()
+                    const daysRemaining = daysInMonth - currentDay
+                    const avgDailySpending = currentDay > 0 ? totalExpenses / currentDay : 0
+                    const netWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0)
+
+                    return (
+                      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Total Expenses</CardTitle>
+                            <TrendingDown className="h-4 w-4 text-red-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
+                            <p className="text-xs text-gray-500 mt-1">This month</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Remaining Budget</CardTitle>
+                            <Target className="h-4 w-4 text-green-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className={`text-xl font-bold ${
+                              remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {formatCurrency(remainingBudget)}
                             </div>
-                          </div>
-                          <div className="text-xs text-gray-500">Last month: {formatCurrency(lastMonthIncome)}</div>
-                        </div>
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Expenses</span>
-                            <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
-                          </div>
-                        </div>
+                            <p className="text-xs text-gray-500 mt-1">Available</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Daily Average</CardTitle>
+                            <Calendar className="h-4 w-4 text-blue-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xl font-bold">{formatCurrency(avgDailySpending)}</div>
+                            <p className="text-xs text-gray-500 mt-1">Per day</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Days Remaining</CardTitle>
+                            <Clock className="h-4 w-4 text-purple-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xl font-bold">{daysRemaining}</div>
+                            <p className="text-xs text-gray-500 mt-1">In month</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Net Worth</CardTitle>
+                            <Wallet className="h-4 w-4 text-indigo-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xl font-bold text-indigo-600">{formatCurrency(netWorth)}</div>
+                            <p className="text-xs text-gray-500 mt-1">All accounts</p>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Spending %</CardTitle>
+                            <BarChart3 className="h-4 w-4 text-orange-500" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-xl font-bold">
+                              {totalAllocated > 0 ? ((totalExpenses / totalAllocated) * 100).toFixed(0) : 0}%
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Of allocated</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Quick Action Buttons */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Plus className="h-5 w-5" />
+                        Quick Actions
+                      </CardTitle>
+                      <CardDescription>Common tasks and navigation</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                        <button
+                          onClick={() => setShowIncomeModal(true)}
+                          className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                        >
+                          <ArrowUpRight className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-medium">Add Income</span>
+                        </button>
+                        <button
+                          onClick={() => setShowExpenseModal(true)}
+                          className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                        >
+                          <ArrowDownRight className="h-5 w-5 text-red-600" />
+                          <span className="text-sm font-medium">Add Expense</span>
+                        </button>
+                        <button
+                          onClick={() => setShowTransferModal(true)}
+                          className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left cursor-pointer"
+                        >
+                          <ArrowRight className="h-5 w-5 text-blue-600" />
+                          <span className="text-sm font-medium">Transfer</span>
+                        </button>
+                        <Link href="/dashboard/statement" className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                          <Activity className="h-5 w-5 text-purple-600" />
+                          <span className="text-sm font-medium">View Statement</span>
+                        </Link>
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              )
-            })()}
 
-            {/* Spending Alerts */}
-            {(() => {
-              const alerts: Array<{ category: string; message: string; severity: "warning" | "danger" }> = []
-              
-              Object.entries(categoryTracking).forEach(([cat, tracking]) => {
-                const categoryName = cat === "fixedCosts" ? "Fixed Costs" :
-                                    cat === "investment" ? "Investment" :
-                                    cat === "guiltFreeSpending" ? "Guilt-Free Spending" : "Savings"
-                
-                if (tracking.overspent > 0) {
-                  alerts.push({
-                    category: categoryName,
-                    message: `Overspent by ${formatCurrency(tracking.overspent)}`,
-                    severity: "danger"
-                  })
-                } else if (tracking.remaining < tracking.allocated * 0.2 && tracking.remaining > 0) {
-                  alerts.push({
-                    category: categoryName,
-                    message: `Only ${formatCurrency(tracking.remaining)} remaining (${((tracking.remaining / tracking.allocated) * 100).toFixed(0)}%)`,
-                    severity: "warning"
-                  })
-                }
-              })
+                  {/* Monthly Spending Summary & Comparison */}
+                  {(() => {
+                    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+                    const totalAllocated = breakdown?.total || 0
+                    const spendingPercentage = totalAllocated > 0 ? (totalExpenses / totalAllocated) * 100 : 0
+                    
+                    // Get last month data
+                    const now = new Date()
+                    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+                    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+                    const lastMonthIncome = incomeEntries
+                      .filter(entry => {
+                        const entryDate = new Date(entry.date)
+                        return entryDate >= lastMonthStart && entryDate <= lastMonthEnd
+                      })
+                      .reduce((sum, e) => sum + e.amount, 0)
+                    
+                    const currentMonthIncome = breakdown?.income || 0
+                    const incomeChange = lastMonthIncome > 0 
+                      ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 
+                      : 0
 
-              if (alerts.length === 0) return null
+                    return (
+                      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Monthly Spending Summary</CardTitle>
+                            <CardDescription>Spent vs allocated this month</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Total Allocated</span>
+                                <span className="text-lg font-semibold">{formatCurrency(totalAllocated)}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Total Spent</span>
+                                <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3">
+                                <div
+                                  className={`h-3 rounded-full transition-all ${
+                                    spendingPercentage >= 100
+                                      ? "bg-red-500"
+                                      : spendingPercentage >= 80
+                                      ? "bg-yellow-500"
+                                      : "bg-green-500"
+                                  }`}
+                                  style={{ width: `${Math.min(100, spendingPercentage)}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">{spendingPercentage.toFixed(1)}% spent</span>
+                                <span className={`font-medium ${
+                                  spendingPercentage >= 100 ? "text-red-600" : 
+                                  spendingPercentage >= 80 ? "text-yellow-600" : 
+                                  "text-green-600"
+                                }`}>
+                                  {spendingPercentage >= 100 ? "Over budget" : 
+                                   spendingPercentage >= 80 ? "Near limit" : 
+                                   "On track"}
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
 
-              return (
-                <Card className="border-yellow-200 bg-yellow-50">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-yellow-800">
-                      <AlertTriangle className="h-5 w-5" />
-                      Spending Alerts
-                    </CardTitle>
-                    <CardDescription className="text-yellow-700">Important budget warnings</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {alerts.map((alert, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-lg border ${
-                            alert.severity === "danger"
-                              ? "bg-red-50 border-red-200 text-red-800"
-                              : "bg-yellow-50 border-yellow-200 text-yellow-800"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span className="font-medium">{alert.category}:</span>
-                            <span className="text-sm">{alert.message}</span>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Monthly Comparison</CardTitle>
+                            <CardDescription>This month vs last month</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm text-gray-600">Income</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg font-semibold">{formatCurrency(currentMonthIncome)}</span>
+                                    {incomeChange !== 0 && (
+                                      <span className={`text-xs flex items-center gap-1 ${
+                                        incomeChange > 0 ? "text-green-600" : "text-red-600"
+                                      }`}>
+                                        {incomeChange > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                                        {Math.abs(incomeChange).toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-500">Last month: {formatCurrency(lastMonthIncome)}</div>
+                              </div>
+                              <div className="pt-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Expenses</span>
+                                  <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Spending Alerts */}
+                  {(() => {
+                    const alerts: Array<{ category: string; message: string; severity: "warning" | "danger" }> = []
+                    
+                    Object.entries(categoryTracking).forEach(([cat, tracking]) => {
+                      const categoryName = cat === "fixedCosts" ? "Fixed Costs" :
+                                          cat === "investment" ? "Investment" :
+                                          cat === "guiltFreeSpending" ? "Guilt-Free Spending" : "Savings"
+                      
+                      if (tracking.overspent > 0) {
+                        alerts.push({
+                          category: categoryName,
+                          message: `Overspent by ${formatCurrency(tracking.overspent)}`,
+                          severity: "danger"
+                        })
+                      } else if (tracking.remaining < tracking.allocated * 0.2 && tracking.remaining > 0) {
+                        alerts.push({
+                          category: categoryName,
+                          message: `Only ${formatCurrency(tracking.remaining)} remaining (${((tracking.remaining / tracking.allocated) * 100).toFixed(0)}%)`,
+                          severity: "warning"
+                        })
+                      }
+                    })
+
+                    if (alerts.length === 0) return null
+
+                    return (
+                      <Card className="bg-yellow-50">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-yellow-800">
+                            <AlertTriangle className="h-5 w-5" />
+                            Spending Alerts
+                          </CardTitle>
+                          <CardDescription className="text-yellow-700">Important budget warnings</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {alerts.map((alert, idx) => (
+                              <div
+                                key={idx}
+                                className={`p-3 rounded-lg ${
+                                  alert.severity === "danger"
+                                    ? "bg-red-50 text-red-800"
+                                    : "bg-yellow-50 text-yellow-800"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span className="font-medium">{alert.category}:</span>
+                                  <span className="text-sm">{alert.message}</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })()}
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
+                </>
+              )}
 
-                    {/* Chart and Breakdown */}
-                    <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              <Card>
+              {/* Analytics Tab */}
+              {activeTab === "analytics" && breakdown && (
+                <>
+                  {/* Chart and Breakdown */}
+                  <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+                    <Card>
                 <CardHeader>
                   <CardTitle>Allocation Breakdown</CardTitle>
                   <CardDescription>Visual distribution of your monthly funds</CardDescription>
@@ -776,7 +876,7 @@ export default function DashboardPage() {
                       const colors = getColorClasses(cat.color)
 
                       return (
-                        <div key={cat.name} className={`p-3 rounded-lg border ${colors.bg} ${colors.border}`}>
+                        <div key={cat.name} className={`p-3 rounded-lg ${colors.bg}`}>
                           <div className="flex items-center justify-between mb-2">
                             <span className={`font-medium ${colors.text}`}>{cat.name}</span>
                             <span className={`font-semibold ${colors.textBold}`}>
@@ -815,8 +915,8 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Category Spending Breakdown & Budget Progress */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+                  {/* Category Spending Breakdown & Budget Progress */}
+                  <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Category Spending Breakdown</CardTitle>
@@ -934,10 +1034,10 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Monthly Trend Chart */}
-            {!secondaryDataLoaded ? (
-              <ChartSkeleton />
-            ) : (() => {
+                  {/* Monthly Trend Chart */}
+                  {!secondaryDataLoaded ? (
+                    <ChartSkeleton />
+                  ) : (() => {
               const trendData = Object.entries(monthlyHistory).flatMap(([category, history]) => {
                 return history.slice(-6).map(h => ({
                   month: h.month,
@@ -959,114 +1059,185 @@ export default function DashboardPage() {
 
               if (chartData.length === 0) return null
 
-              return (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Monthly Trend</CardTitle>
-                    <CardDescription>Income allocation and spending over the last 6 months</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LazyLineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" style={{ fontSize: '12px' }} />
-                        <YAxis style={{ fontSize: '12px' }} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                        <Tooltip formatter={(value: number | undefined) =>
-                          value !== undefined ? formatCurrency(value) : ""
-                        } />
-                        <Legend wrapperStyle={{ fontSize: '12px' }} iconSize={12} />
-                        <Line type="monotone" dataKey="allocated" stroke="#3b82f6" strokeWidth={2} name="Allocated" dot={{ r: 4 }} />
-                        <Line type="monotone" dataKey="spent" stroke="#ef4444" strokeWidth={2} name="Spent" dot={{ r: 4 }} />
-                      </LazyLineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )
-            })()}
-
-            {/* Recent Activity Feed & Top Spending Categories */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {!secondaryDataLoaded ? (
-                <>
-                  <CardSkeleton />
-                  <CardSkeleton />
-                </>
-              ) : (
-                <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
-                    Recent Activity
-                  </CardTitle>
-                  <CardDescription>Last 10 transactions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const allTransactions: Array<{
-                      id: string
-                      type: "income" | "expense" | "transfer"
-                      amount: number
-                      description: string
-                      date: string
-                      account?: string
-                    }> = []
-
-                    // Add income entries
-                    incomeEntries.slice(0, 5).forEach(entry => {
-                      allTransactions.push({
-                        id: entry.id,
-                        type: "income",
-                        amount: entry.amount,
-                        description: `Income${entry.account ? ` - ${entry.account.name}` : ""}`,
-                        date: entry.date,
-                        account: entry.account?.name,
-                      })
-                    })
-
-                    // Add expenses
-                    expenses.slice(0, 5).forEach(exp => {
-                      allTransactions.push({
-                        id: exp.id,
-                        type: "expense",
-                        amount: exp.amount,
-                        description: exp.description || "Expense",
-                        date: exp.date,
-                        account: exp.account.name,
-                      })
-                    })
-
-                    // Add transfers
-                    transfers.slice(0, 5).forEach(transfer => {
-                      allTransactions.push({
-                        id: transfer.id,
-                        type: "transfer",
-                        amount: transfer.amount,
-                        description: transfer.description || `Transfer: ${transfer.fromAccount.name} → ${transfer.toAccount.name}`,
-                        date: transfer.date,
-                      })
-                    })
-
-                    // Sort by date and take top 10
-                    const sorted = allTransactions
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .slice(0, 10)
-
-                    if (sorted.length === 0) {
-                      return (
-                        <div className="text-center py-8 text-gray-500">
-                          No recent transactions
-                        </div>
-                      )
-                    }
-
                     return (
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                        {sorted.map(transaction => (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                          >
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Monthly Trend</CardTitle>
+                          <CardDescription>Income allocation and spending over the last 6 months</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LazyLineChart data={chartData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="month" style={{ fontSize: '12px' }} />
+                              <YAxis style={{ fontSize: '12px' }} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                              <Tooltip formatter={(value: number | undefined) =>
+                                value !== undefined ? formatCurrency(value) : ""
+                              } />
+                              <Legend wrapperStyle={{ fontSize: '12px' }} iconSize={12} />
+                              <Line type="monotone" dataKey="allocated" stroke="#3b82f6" strokeWidth={2} name="Allocated" dot={{ r: 4 }} />
+                              <Line type="monotone" dataKey="spent" stroke="#ef4444" strokeWidth={2} name="Spent" dot={{ r: 4 }} />
+                            </LazyLineChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
+                </>
+              )}
+
+              {/* Accounts Tab */}
+              {activeTab === "accounts" && (
+                <>
+                  <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+                    {accounts.map((account) => {
+                      const getAccountIcon = (type: string) => {
+                        switch (type) {
+                          case "checking":
+                            return <CreditCard className="h-5 w-5" />
+                          case "savings":
+                            return <PiggyBank className="h-5 w-5" />
+                          case "investment":
+                            return <TrendingUp className="h-5 w-5" />
+                          default:
+                            return <Building2 className="h-5 w-5" />
+                        }
+                      }
+
+                      const getAccountLabelColor = (type: string) => {
+                        switch (type) {
+                          case "checking":
+                            return "bg-blue-100 text-blue-700"
+                          case "savings":
+                            return "bg-green-100 text-green-700"
+                          case "investment":
+                            return "bg-purple-100 text-purple-700"
+                          default:
+                            return "bg-gray-100 text-gray-700"
+                        }
+                      }
+
+                      return (
+                        <Card key={account.id}>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              {getAccountIcon(account.accountType)}
+                              {account.name}
+                            </CardTitle>
+                            <CardDescription>{account.bankName}</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Balance</span>
+                                <span className="text-2xl font-bold text-gray-900">
+                                  {formatCurrency(account.balance)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium capitalize ${getAccountLabelColor(account.accountType)}`}>
+                                  {account.accountType}
+                                </span>
+                                <Link 
+                                  href={`/dashboard/accounts`}
+                                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                                >
+                                  View Details →
+                                </Link>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Transactions Tab */}
+              {activeTab === "transactions" && (
+                <>
+                  {!secondaryDataLoaded ? (
+                    <>
+                      <CardSkeleton />
+                      <CardSkeleton />
+                    </>
+                  ) : (
+                    <>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5" />
+                            Recent Activity
+                          </CardTitle>
+                          <CardDescription>Last 10 transactions</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const allTransactions: Array<{
+                              id: string
+                              type: "income" | "expense" | "transfer"
+                              amount: number
+                              description: string
+                              date: string
+                              account?: string
+                            }> = []
+
+                            // Add income entries
+                            incomeEntries.slice(0, 5).forEach(entry => {
+                              allTransactions.push({
+                                id: entry.id,
+                                type: "income",
+                                amount: entry.amount,
+                                description: `Income${entry.account ? ` - ${entry.account.name}` : ""}`,
+                                date: entry.date,
+                                account: entry.account?.name,
+                              })
+                            })
+
+                            // Add expenses
+                            expenses.slice(0, 5).forEach(exp => {
+                              allTransactions.push({
+                                id: exp.id,
+                                type: "expense",
+                                amount: exp.amount,
+                                description: exp.description || "Expense",
+                                date: exp.date,
+                                account: exp.account.name,
+                              })
+                            })
+
+                            // Add transfers
+                            transfers.slice(0, 5).forEach(transfer => {
+                              allTransactions.push({
+                                id: transfer.id,
+                                type: "transfer",
+                                amount: transfer.amount,
+                                description: transfer.description || `Transfer: ${transfer.fromAccount.name} → ${transfer.toAccount.name}`,
+                                date: transfer.date,
+                              })
+                            })
+
+                            // Sort by date and take top 10
+                            const sorted = allTransactions
+                              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                              .slice(0, 10)
+
+                            if (sorted.length === 0) {
+                              return (
+                                <div className="text-center py-8 text-gray-500">
+                                  No recent transactions
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                                {sorted.map(transaction => (
+                                  <div
+                                    key={transaction.id}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                                  >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className={`p-2 rounded-full ${
                                 transaction.type === "income" ? "bg-green-100 text-green-600" :
@@ -1098,203 +1269,123 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         ))}
-                      </div>
-                    )
-                  })()}
-                  <div className="mt-4 pt-4 border-t">
-                    <Link href="/dashboard/statement" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                      View all transactions <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
+                                <div className="mt-4 pt-4">
+                                  <Link href="/dashboard/statement" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                                    View all transactions <ArrowRight className="h-3 w-3" />
+                                  </Link>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Spending Categories</CardTitle>
-                  <CardDescription>Where your money goes this month</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const categoryTotals: Record<string, number> = {}
-                    
-                    expenses.forEach(exp => {
-                      const cat = exp.category || "uncategorized"
-                      categoryTotals[cat] = (categoryTotals[cat] || 0) + exp.amount
-                    })
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Top Spending Categories</CardTitle>
+                          <CardDescription>Where your money goes this month</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const categoryTotals: Record<string, number> = {}
+                            
+                            expenses.forEach(exp => {
+                              const cat = exp.category || "uncategorized"
+                              categoryTotals[cat] = (categoryTotals[cat] || 0) + exp.amount
+                            })
 
-                    const topCategories = Object.entries(categoryTotals)
-                      .map(([category, amount]) => ({
-                        category: category === "fixedCosts" ? "Fixed Costs" :
-                                 category === "investment" ? "Investment" :
-                                 category === "savings" ? "Savings" :
-                                 category === "guiltFreeSpending" ? "Guilt-Free Spending" :
-                                 category,
-                        amount,
-                      }))
-                      .sort((a, b) => b.amount - a.amount)
-                      .slice(0, 5)
+                            const topCategories = Object.entries(categoryTotals)
+                              .map(([category, amount]) => ({
+                                category: category === "fixedCosts" ? "Fixed Costs" :
+                                         category === "investment" ? "Investment" :
+                                         category === "savings" ? "Savings" :
+                                         category === "guiltFreeSpending" ? "Guilt-Free Spending" :
+                                         category,
+                                amount,
+                              }))
+                              .sort((a, b) => b.amount - a.amount)
+                              .slice(0, 5)
 
-                    if (topCategories.length === 0) {
-                      return (
-                        <div className="text-center py-8 text-gray-500">
-                          No spending data this month
-                        </div>
-                      )
-                    }
+                            if (topCategories.length === 0) {
+                              return (
+                                <div className="text-center py-8 text-gray-500">
+                                  No spending data this month
+                                </div>
+                              )
+                            }
 
-                    const maxAmount = Math.max(...topCategories.map(c => c.amount))
+                            const maxAmount = Math.max(...topCategories.map(c => c.amount))
 
-                    return (
-                      <div className="space-y-3">
-                        {topCategories.map((cat, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span className="font-medium">{cat.category}</span>
-                              <span className="font-semibold">{formatCurrency(cat.amount)}</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="h-2 rounded-full bg-blue-500 transition-all"
-                                style={{ width: `${(cat.amount / maxAmount) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </CardContent>
-              </Card>
+                            return (
+                              <div className="space-y-3">
+                                {topCategories.map((cat, idx) => (
+                                  <div key={idx} className="space-y-1">
+                                    <div className="flex justify-between text-sm">
+                                      <span className="font-medium">{cat.category}</span>
+                                      <span className="font-semibold">{formatCurrency(cat.amount)}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div
+                                        className="h-2 rounded-full bg-indigo-500 transition-all"
+                                        style={{ width: `${(cat.amount / maxAmount) * 100}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
                 </>
               )}
-            </div>
+            </>
+          )}
+        </div>
+      </div>
 
-            {/* Account Balance Summary */}
-            {accounts.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Account Balance Summary
-                  </CardTitle>
-                  <CardDescription>Total balances by account type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const accountTypes: Record<string, { total: number; count: number; accounts: Account[] }> = {}
-                    
-                    accounts.forEach(acc => {
-                      if (!accountTypes[acc.accountType]) {
-                        accountTypes[acc.accountType] = { total: 0, count: 0, accounts: [] }
-                      }
-                      accountTypes[acc.accountType].total += acc.balance
-                      accountTypes[acc.accountType].count += 1
-                      accountTypes[acc.accountType].accounts.push(acc)
-                    })
-
-                    const totalNetWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0)
-
-                    return (
-                      <div className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {Object.entries(accountTypes).map(([type, data]) => (
-                            <div key={type} className="p-4 rounded-lg border border-gray-200">
-                              <div className="text-xs text-gray-500 mb-1 capitalize">{type}</div>
-                              <div className="text-2xl font-bold">{formatCurrency(data.total)}</div>
-                              <div className="text-xs text-gray-500 mt-1">{data.count} account{data.count !== 1 ? 's' : ''}</div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-4 border-t">
-                          <div className="flex justify-between items-center">
-                            <span className="text-lg font-semibold">Total Net Worth</span>
-                            <span className="text-2xl font-bold text-indigo-600">{formatCurrency(totalNetWorth)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Accounts Section */}
-            {accounts.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Your Accounts
-                  </CardTitle>
-                  <CardDescription>Account balances and details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {accounts.map((account) => (
-                      <div
-                        key={account.id}
-                        className={`p-4 rounded-lg border-2 ${
-                          account.isDefault
-                            ? "border-indigo-500 bg-indigo-50"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="font-semibold text-gray-900">{account.name}</h4>
-                            <p className="text-sm text-gray-500">{account.bankName}</p>
-                          </div>
-                          {account.isDefault && (
-                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          <div className="text-xs text-gray-500 mb-1">Balance</div>
-                          <div className="text-2xl font-bold text-gray-900">
-                            {formatCurrency(account.balance)}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1 capitalize">
-                            {account.accountType}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </>
-        )}
-
-        {/* Modals */}
+      {/* Modals */}
         <AddIncomeModal
           open={showIncomeModal}
           onOpenChange={setShowIncomeModal}
-          onSuccess={() => {
-            fetchData()
+          onSuccess={async () => {
+            // Reset loading states to trigger refresh
+            setCriticalDataLoaded(false)
+            setSecondaryDataLoaded(false)
+            setLoading(true)
+            // Immediately refetch all data before closing modal
+            await fetchData()
             setShowIncomeModal(false)
           }}
         />
         <AddExpenseModal
           open={showExpenseModal}
           onOpenChange={setShowExpenseModal}
-          onSuccess={() => {
-            fetchData()
+          onSuccess={async () => {
+            // Reset loading states to trigger refresh
+            setCriticalDataLoaded(false)
+            setSecondaryDataLoaded(false)
+            setLoading(true)
+            // Immediately refetch all data before closing modal
+            await fetchData()
             setShowExpenseModal(false)
           }}
         />
         <TransferModal
           open={showTransferModal}
           onOpenChange={setShowTransferModal}
-          onSuccess={() => {
-            fetchData()
+          onSuccess={async () => {
+            // Reset loading states to trigger refresh
+            setCriticalDataLoaded(false)
+            setSecondaryDataLoaded(false)
+            setLoading(true)
+            // Immediately refetch all data before closing modal
+            await fetchData()
             setShowTransferModal(false)
           }}
         />
-      </div>
     </>
   )
 }

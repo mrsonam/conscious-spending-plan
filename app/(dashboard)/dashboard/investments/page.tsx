@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, ArrowUpDown, Plus, Activity, Briefcase, Target, Calendar } from "lucide-react"
+import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, ArrowUpDown, Plus, Activity, Briefcase, Target, Calendar, RefreshCw } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
 import { cn } from "@/lib/utils"
 
@@ -73,8 +73,13 @@ export default function InvestmentsPage() {
   // State for current prices (keyed by "accountId-holdingName")
   const [currentPrices, setCurrentPrices] = useState<Record<string, string>>({})
   
+  // State for market prices from API
+  const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
+  const [loadingMarketPrices, setLoadingMarketPrices] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  
   // State for active tab/view
-  const [activeTab, setActiveTab] = useState<"overview" | "holdings" | "analytics" | "add">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "holdings" | "analytics" | "add" | "profitloss">("overview")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -151,6 +156,105 @@ export default function InvestmentsPage() {
       costBasis,
       gainLoss,
       gainLossPercent,
+    }
+  }
+
+  // Fetch market prices from API
+  const fetchMarketPrices = async () => {
+    setLoadingMarketPrices(true)
+    try {
+      // Get all unique holding names (symbols)
+      const symbols = new Set<string>()
+      investmentAccounts.forEach(acc => {
+        acc.holdings.forEach(holding => {
+          symbols.add(holding.name.trim().toUpperCase())
+        })
+      })
+
+      if (symbols.size === 0) {
+        setLoadingMarketPrices(false)
+        setMessage({ type: "error", text: "No investments found to fetch prices for" })
+        return
+      }
+
+      console.log("Fetching prices for symbols:", Array.from(symbols))
+
+      const response = await fetch("/api/stock-prices", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ symbols: Array.from(symbols) }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Received prices data:", data)
+        
+        if (data.prices && Object.keys(data.prices).length > 0) {
+          const fetchedPrices = data.prices
+          const fetchedCount = Object.values(fetchedPrices).filter((p: any) => p > 0).length
+          const failedSymbols: string[] = []
+          
+          // Check which symbols failed
+          Array.from(symbols).forEach(symbol => {
+            const price = fetchedPrices[symbol] || 0
+            if (price === 0) {
+              failedSymbols.push(symbol)
+            }
+          })
+          
+          setMarketPrices(fetchedPrices)
+          setLastUpdated(new Date())
+          
+          // Also update currentPrices state for consistency
+          const updatedPrices: Record<string, string> = {}
+          investmentAccounts.forEach(acc => {
+            acc.holdings.forEach(holding => {
+              const key = getHoldingKey(acc.id, holding.name)
+              const symbol = holding.name.trim().toUpperCase()
+              if (fetchedPrices[symbol] && fetchedPrices[symbol] > 0) {
+                updatedPrices[key] = fetchedPrices[symbol].toString()
+              }
+            })
+          })
+          setCurrentPrices(prev => ({ ...prev, ...updatedPrices }))
+          
+          if (fetchedCount === symbols.size) {
+            setMessage({ 
+              type: "success", 
+              text: `Successfully fetched prices for all ${fetchedCount} symbols` 
+            })
+          } else if (fetchedCount > 0) {
+            setMessage({ 
+              type: "error", 
+              text: `Fetched prices for ${fetchedCount} of ${symbols.size} symbols. Failed: ${failedSymbols.join(", ")}. Make sure these are valid stock tickers (e.g., AAPL, TSLA, MSFT).` 
+            })
+          } else {
+            setMessage({ 
+              type: "error", 
+              text: `Could not fetch prices for any symbols: ${Array.from(symbols).join(", ")}. Please verify these are valid stock tickers. Common examples: AAPL, TSLA, MSFT, GOOGL, AMZN.` 
+            })
+          }
+        } else {
+          setMessage({ 
+            type: "error", 
+            text: `No prices received from API. Symbols tried: ${Array.from(symbols).join(", ")}. Please verify these are valid stock tickers.` 
+          })
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Failed to fetch market prices:", errorData)
+        setMessage({ 
+          type: "error", 
+          text: errorData.error || "Failed to fetch market prices. Please check your internet connection and try again." 
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching market prices:", error)
+      setMessage({ type: "error", text: `Error: ${error instanceof Error ? error.message : "Unknown error"}` })
+    } finally {
+      setLoadingMarketPrices(false)
     }
   }
 
@@ -399,6 +503,20 @@ export default function InvestmentsPage() {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab("profitloss")}
+            className={cn(
+              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
+              activeTab === "profitloss"
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Profit/Loss
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab("add")}
             className={cn(
               "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
@@ -424,76 +542,62 @@ export default function InvestmentsPage() {
                 <InvestmentSummarySkeleton />
               ) : investmentAccounts.length > 0 ? (
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                  <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
+                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-700">Total Invested</CardTitle>
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <TrendingUp className="h-5 w-5 text-blue-600" />
-                      </div>
+                      <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-blue-600">
+                      <div className="text-2xl font-bold">
                         {formatCurrency(totalInvested)}
                       </div>
-                      <p className="text-xs text-gray-600 mt-2">Across all accounts</p>
+                      <p className="text-xs text-gray-500 mt-1">Across all accounts</p>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
+                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-700">Available Cash</CardTitle>
-                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <Wallet className="h-5 w-5 text-green-600" />
-                      </div>
+                      <CardTitle className="text-sm font-medium">Available Cash</CardTitle>
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-green-600">
                         {formatCurrency(totalRemaining)}
                       </div>
-                      <p className="text-xs text-gray-600 mt-2">Ready to invest</p>
+                      <p className="text-xs text-gray-500 mt-1">Ready to invest</p>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-gradient-to-br from-purple-50 to-indigo-50">
+                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-700">Total Value</CardTitle>
-                      <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-purple-600" />
-                      </div>
+                      <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-purple-600">
+                      <div className="text-2xl font-bold">
                         {formatCurrency(totalValue)}
                       </div>
-                      <p className="text-xs text-gray-600 mt-2">Invested + Cash</p>
+                      <p className="text-xs text-gray-500 mt-1">Invested + Cash</p>
                     </CardContent>
                   </Card>
 
                   {portfolioGains.totalCurrentValue > 0 && (
-                    <Card className={`bg-gradient-to-br ${
-                      portfolioGains.totalGainLoss >= 0 
-                        ? "from-green-50 to-emerald-50" 
-                        : "from-red-50 to-rose-50"
-                    }`}>
+                    <Card>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-gray-700">Gain/Loss</CardTitle>
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          portfolioGains.totalGainLoss >= 0 ? "bg-green-100" : "bg-red-100"
-                        }`}>
-                          {portfolioGains.totalGainLoss >= 0 ? (
-                            <TrendingUp className="h-5 w-5 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-5 w-5 text-red-600" />
-                          )}
-                        </div>
+                        <CardTitle className="text-sm font-medium">Gain/Loss</CardTitle>
+                        {portfolioGains.totalGainLoss >= 0 ? (
+                          <TrendingUp className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-red-600" />
+                        )}
                       </CardHeader>
                       <CardContent>
-                        <div className={`text-3xl font-bold ${
+                        <div className={`text-2xl font-bold ${
                           portfolioGains.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
                         }`}>
                           {formatCurrency(portfolioGains.totalGainLoss)}
                         </div>
-                        <p className={`text-xs mt-2 ${
+                        <p className={`text-xs mt-1 ${
                           portfolioGains.totalGainLossPercent >= 0 ? "text-green-600" : "text-red-600"
                         }`}>
                           {portfolioGains.totalGainLossPercent >= 0 ? "+" : ""}
@@ -645,7 +749,7 @@ export default function InvestmentsPage() {
                         if (acc.holdings.length === 0) return null
                         
                         return (
-                          <div key={acc.id} className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                          <div key={acc.id} className="space-y-3 p-4 rounded-lg">
                             <h3 className="font-semibold text-base text-gray-800">{acc.name}</h3>
                             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                               {acc.holdings.map((holding) => {
@@ -709,7 +813,7 @@ export default function InvestmentsPage() {
                         if (acc.holdings.length === 0) return null
                         
                         return (
-                          <div key={acc.id} className="rounded-lg p-5 bg-gradient-to-r from-gray-50 to-white">
+                          <div key={acc.id} className="rounded-lg p-5">
                             <div className="flex items-center justify-between mb-5 pb-3">
                               <div>
                                 <h3 className="font-bold text-lg text-gray-900">{acc.name}</h3>
@@ -759,7 +863,7 @@ export default function InvestmentsPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-3">
                                       {currentPrice && currentPrice > 0 && h.totalShares > 0 && (
-                                        <div className="p-3 rounded-lg bg-gray-50 space-y-2">
+                                        <div className="p-3 rounded-lg space-y-2">
                                           <div className="flex justify-between text-sm">
                                             <span className="text-gray-600">Current Price:</span>
                                             <span className="font-medium">{formatCurrency(currentPrice)}</span>
@@ -1013,6 +1117,250 @@ export default function InvestmentsPage() {
             </>
           )}
 
+          {/* Profit/Loss Tab */}
+          {activeTab === "profitloss" && (
+            <>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Profit/Loss Calculator
+                      </CardTitle>
+                      <CardDescription>
+                        Automatically fetch current market prices and calculate your gains/losses
+                      </CardDescription>
+                    </div>
+                    <Button
+                      onClick={fetchMarketPrices}
+                      disabled={loadingMarketPrices || investmentAccounts.length === 0}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingMarketPrices ? "animate-spin" : ""}`} />
+                      {loadingMarketPrices ? "Fetching..." : "Fetch Prices"}
+                    </Button>
+                  </div>
+                  {lastUpdated && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Last updated: {lastUpdated.toLocaleString()}
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {message && (
+                    <div
+                      className={`p-3 rounded-lg text-sm mb-4 ${
+                        message.type === "success"
+                          ? "text-green-700"
+                          : "text-red-700"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  )}
+                  {investmentAccounts.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No investment accounts found</p>
+                      <p className="text-sm mt-2">Create an investment account and add investments to see profit/loss calculations</p>
+                    </div>
+                  ) : investmentAccounts.every(acc => acc.holdings.length === 0) ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No investments found</p>
+                      <p className="text-sm mt-2">Add investments to track profit/loss</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {investmentAccounts.map((acc) => {
+                        if (acc.holdings.length === 0) return null
+                        
+                        let accountTotalInvested = 0
+                        let accountTotalValue = 0
+                        let accountTotalGainLoss = 0
+                        
+                        return (
+                          <div key={acc.id} className="space-y-4">
+                            <div className="flex items-center justify-between pb-2">
+                              <div>
+                                <h3 className="font-bold text-lg text-gray-900">{acc.name}</h3>
+                                <p className="text-sm text-gray-500">{acc.bankName}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                              {acc.holdings.map((holding) => {
+                                const symbol = holding.name.trim().toUpperCase()
+                                const marketPrice = marketPrices[symbol] || 0
+                                
+                                // Debug log
+                                if (marketPrice > 0) {
+                                  console.log(`Calculating for ${holding.name}: marketPrice=${marketPrice}, totalShares=${holding.totalShares}, totalAmount=${holding.totalAmount}`)
+                                }
+                                
+                                const gainsLosses = calculateGainsLosses(holding, marketPrice > 0 ? marketPrice : null)
+                                
+                                accountTotalInvested += holding.totalAmount
+                                accountTotalValue += gainsLosses.currentValue || holding.totalAmount
+                                accountTotalGainLoss += gainsLosses.gainLoss
+                                
+                                return (
+                                  <Card key={`${holding.name}-${acc.id}`} className="hover:shadow-lg transition-shadow">
+                                    <CardHeader className="pb-3">
+                                      <CardTitle className="text-lg">{holding.name}</CardTitle>
+                                      <CardDescription>
+                                        {holding.totalShares > 0 ? `${holding.totalShares.toFixed(2)} shares` : "No shares data"}
+                                      </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-600">Cost Basis:</span>
+                                          <span className="font-medium">{formatCurrency(holding.totalAmount)}</span>
+                                        </div>
+                                        {holding.totalShares > 0 && (
+                                          <div className="flex justify-between">
+                                            <span className="text-gray-600">Avg Price:</span>
+                                            <span className="font-medium text-indigo-600">{formatCurrency(holding.averagePrice)}</span>
+                                          </div>
+                                        )}
+                                        {marketPrice > 0 ? (
+                                          <>
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-600">Current Price:</span>
+                                              <span className="font-medium text-green-600">{formatCurrency(marketPrice)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-600">Current Value:</span>
+                                              <span className="font-medium">{formatCurrency(gainsLosses.currentValue)}</span>
+                                            </div>
+                                            {holding.totalShares > 0 ? (
+                                              <div className="pt-2">
+                                                <div className="flex justify-between items-center">
+                                                  <span className="text-sm font-semibold text-gray-700">Gain/Loss:</span>
+                                                  <span className={`text-lg font-bold ${
+                                                    gainsLosses.gainLoss >= 0 ? "text-green-600" : "text-red-600"
+                                                  }`}>
+                                                    {gainsLosses.gainLoss >= 0 ? "+" : ""}
+                                                    {formatCurrency(gainsLosses.gainLoss)}
+                                                    {" "}
+                                                    <span className="text-sm">
+                                                      ({gainsLosses.gainLossPercent >= 0 ? "+" : ""}
+                                                      {gainsLosses.gainLossPercent.toFixed(2)}%)
+                                                    </span>
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="pt-2 text-sm text-yellow-600">
+                                                Cannot calculate gain/loss: No shares data available
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <div className="pt-2 text-sm text-gray-500 italic">
+                                            {Object.keys(marketPrices).length > 0 
+                                              ? `Price not found for "${holding.name}". Make sure it's a valid stock symbol.`
+                                              : 'Click "Fetch Prices" to get current market price'}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                )
+                              })}
+                            </div>
+                            
+                            <Card className="bg-gray-50">
+                              <CardContent className="pt-6">
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Total Invested</p>
+                                    <p className="text-lg font-bold">{formatCurrency(accountTotalInvested)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Current Value</p>
+                                    <p className="text-lg font-bold">{formatCurrency(accountTotalValue)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Total Gain/Loss</p>
+                                    <p className={`text-lg font-bold ${
+                                      accountTotalGainLoss >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}>
+                                      {accountTotalGainLoss >= 0 ? "+" : ""}
+                                      {formatCurrency(accountTotalGainLoss)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )
+                      })}
+                      
+                      {/* Portfolio Summary */}
+                      {investmentAccounts.some(acc => acc.holdings.length > 0) && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Portfolio Summary</CardTitle>
+                            <CardDescription>Overall profit/loss across all accounts</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {(() => {
+                              let totalInvested = 0
+                              let totalCurrentValue = 0
+                              
+                              investmentAccounts.forEach(acc => {
+                                acc.holdings.forEach(holding => {
+                                  const symbol = holding.name.trim().toUpperCase()
+                                  const marketPrice = marketPrices[symbol] || 0
+                                  const gainsLosses = calculateGainsLosses(holding, marketPrice > 0 ? marketPrice : null)
+                                  
+                                  totalInvested += holding.totalAmount
+                                  totalCurrentValue += gainsLosses.currentValue || holding.totalAmount
+                                })
+                              })
+                              
+                              const totalGainLoss = totalCurrentValue - totalInvested
+                              const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0
+                              
+                              return (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500 mb-2">Total Invested</p>
+                                    <p className="text-2xl font-bold">{formatCurrency(totalInvested)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500 mb-2">Current Value</p>
+                                    <p className="text-2xl font-bold">{formatCurrency(totalCurrentValue)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500 mb-2">Total Gain/Loss</p>
+                                    <p className={`text-3xl font-bold ${
+                                      totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}>
+                                      {totalGainLoss >= 0 ? "+" : ""}
+                                      {formatCurrency(totalGainLoss)}
+                                    </p>
+                                    <p className={`text-sm mt-1 ${
+                                      totalGainLossPercent >= 0 ? "text-green-600" : "text-red-600"
+                                    }`}>
+                                      {totalGainLossPercent >= 0 ? "+" : ""}
+                                      {totalGainLossPercent.toFixed(2)}%
+                                    </p>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
           {/* Add Investment Tab */}
           {activeTab === "add" && (
             <>
@@ -1035,8 +1383,8 @@ export default function InvestmentsPage() {
                         <div
                           className={`p-3 rounded-lg text-sm ${
                             message.type === "success"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-red-50 text-red-700"
+                              ? "text-green-700"
+                              : "text-red-700"
                           }`}
                         >
                           {message.text}
@@ -1044,9 +1392,9 @@ export default function InvestmentsPage() {
                       )}
 
                       {investmentAccounts.length === 0 ? (
-                        <div className="p-4 rounded-lg bg-yellow-50 text-yellow-800 text-sm">
-                          <p className="font-medium mb-1">No investment accounts found</p>
-                          <p>Create an investment account from the Accounts page first, then transfer money to it using the Transfer functionality.</p>
+                        <div className="p-4 rounded-lg text-sm">
+                          <p className="font-medium mb-1 text-gray-900">No investment accounts found</p>
+                          <p className="text-gray-600">Create an investment account from the Accounts page first, then transfer money to it using the Transfer functionality.</p>
                         </div>
                       ) : (
                         <>
@@ -1143,7 +1491,7 @@ export default function InvestmentsPage() {
                           type="number"
                           value={amount}
                           readOnly
-                          className="mt-1 bg-gray-50"
+                          className="mt-1"
                           placeholder="Auto-calculated"
                         />
                         <p className="mt-1 text-xs text-gray-500">
