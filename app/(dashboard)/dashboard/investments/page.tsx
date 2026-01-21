@@ -65,6 +65,7 @@ export default function InvestmentsPage() {
   const [investmentName, setInvestmentName] = useState("")
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [numberOfShares, setNumberOfShares] = useState("")
+  const [brokerageFee, setBrokerageFee] = useState("")
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -382,6 +383,7 @@ export default function InvestmentsPage() {
 
     const numPricePerUnit = parseFloat(pricePerUnit)
     const numNumberOfShares = parseFloat(numberOfShares)
+    const numBrokerageFee = brokerageFee ? parseFloat(brokerageFee) : 0
     
     if (!numPricePerUnit || numPricePerUnit <= 0) {
       setMessage({ type: "error", text: "Please enter a valid price per unit" })
@@ -393,8 +395,8 @@ export default function InvestmentsPage() {
       return
     }
 
-    // Calculate total amount
-    const numericAmount = numPricePerUnit * numNumberOfShares
+    // Calculate total amount (including optional brokerage fee)
+    const numericAmount = numPricePerUnit * numNumberOfShares + (numBrokerageFee > 0 ? numBrokerageFee : 0)
 
     if (!date) {
       setMessage({ type: "error", text: "Please select a date for this investment" })
@@ -413,6 +415,7 @@ export default function InvestmentsPage() {
           investmentName,
           pricePerUnit: numPricePerUnit,
           numberOfShares: numNumberOfShares,
+          brokerageFee: numBrokerageFee > 0 ? numBrokerageFee : 0,
           date,
         }),
       })
@@ -429,6 +432,7 @@ export default function InvestmentsPage() {
       setInvestmentName("")
       setPricePerUnit("")
       setNumberOfShares("")
+      setBrokerageFee("")
       setSelectedInvestmentAccountId("")
 
       // Refresh data to update balances and holdings
@@ -1656,19 +1660,47 @@ export default function InvestmentsPage() {
                         </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="amount">Total Amount ($) *</Label>
-                        <Input
-                          id="amount"
-                          type="number"
-                          value={amount}
-                          readOnly
-                          className="mt-1"
-                          placeholder="Auto-calculated"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Automatically calculated from Price Per Unit × Number of Shares
-                        </p>
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                        <div>
+                          <Label htmlFor="brokerageFee">Brokerage / Fees ($, optional)</Label>
+                          <Input
+                            id="brokerageFee"
+                            type="number"
+                            value={brokerageFee}
+                            onChange={(e) => {
+                              setBrokerageFee(e.target.value)
+                              const price = parseFloat(pricePerUnit)
+                              const shares = parseFloat(numberOfShares)
+                              const fee = parseFloat(e.target.value)
+                              if (!isNaN(price) && !isNaN(shares) && price > 0 && shares > 0) {
+                                const base = price * shares
+                                const total = base + (isNaN(fee) || fee < 0 ? 0 : fee)
+                                setAmount(total.toFixed(2))
+                              }
+                            }}
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="mt-1"
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Optional brokerage or transaction fees for this purchase.
+                          </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="amount">Total Amount ($) *</Label>
+                          <Input
+                            id="amount"
+                            type="number"
+                            value={amount}
+                            readOnly
+                            className="mt-1"
+                            placeholder="Auto-calculated"
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Calculated as Price Per Unit × Number of Shares + Brokerage / Fees.
+                          </p>
+                        </div>
                       </div>
 
                       <div>

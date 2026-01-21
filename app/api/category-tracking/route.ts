@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     const { month: currentMonth, year: currentYear, startOfMonth, endOfMonth } = getCurrentMonthYear()
     
     // Parallelize all data fetching
-    const [currentMonthEntries, currentMonthExpenses, currentMonthTransfers] = await Promise.all([
+    const [currentMonthEntries, currentMonthExpenses, currentMonthTransfers, currentMonthInvestments] = await Promise.all([
       // Get current month income entries (only amount and accountType needed)
       prisma.incomeEntry.findMany({
         where: {
@@ -45,14 +45,11 @@ export async function GET(request: Request) {
             gte: startOfMonth,
             lte: endOfMonth,
           },
-        },
+          // Exclude incomes explicitly marked as not part of allocation
+          excludeFromAllocation: false,
+        } as any,
         select: {
           amount: true,
-          account: {
-            select: {
-              accountType: true,
-            },
-          },
         },
       }),
       // Get current month expenses (only amount and category needed)
@@ -89,12 +86,23 @@ export async function GET(request: Request) {
           category: true,
         },
       }),
+      // Get current month investment holdings (investments count as "spent" in investment category)
+      prisma.investmentHolding.findMany({
+        where: {
+          userId: session.user.id,
+          date: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      }),
     ])
 
-    // Filter out cash account entries for allocation calculation
-    const monthEntriesForAllocation = currentMonthEntries.filter(
-      entry => entry.account?.accountType !== "cash"
-    )
+    // Calculate current month allocations (using only entries that are included in allocation)
+    const monthEntriesForAllocation = currentMonthEntries
 
     // Calculate current month allocations
     const calculateAllocations = (incomeAmount: number) => {
@@ -176,14 +184,25 @@ export async function GET(request: Request) {
 
     for (const expense of currentMonthExpenses) {
       if (expense.category && categoryStats[expense.category]) {
-        categoryStats[expense.category].spent += expense.amount
+        // For investment category, don't count expenses as "spent" - only investment holdings count
+        // Expenses with category "investment" might be old data from before we changed the logic
+        if (expense.category !== "investment") {
+          categoryStats[expense.category].spent += expense.amount
+        }
       }
     }
 
     for (const transfer of currentMonthTransfers) {
       if (transfer.category && categoryStats[transfer.category]) {
+        // Transfers are tracked separately and don't count as "spent" for investment category
         categoryStats[transfer.category].transferred += transfer.amount
       }
+    }
+
+    // Add investment holdings to investment category "spent" (investments are assets, but count as spending from allocation)
+    // Only investment holdings count as "spent" for investment category, not expenses or transfers
+    for (const investment of currentMonthInvestments) {
+      categoryStats.investment.spent += investment.amount
     }
 
     // Get previous month's carryover (surplus)
@@ -194,7 +213,7 @@ export async function GET(request: Request) {
     const prevMonthEnd = new Date(currentYear, currentMonth - 1, 1)
 
     // Parallelize previous month queries
-    const [prevMonthExpenses, prevMonthEntries] = await Promise.all([
+    const [prevMonthExpenses, prevMonthEntries, prevMonthInvestments] = await Promise.all([
       prisma.expense.findMany({
         where: {
           userId: session.user.id,
@@ -218,22 +237,30 @@ export async function GET(request: Request) {
             gte: new Date(prevYear, prevMonth - 1, 1),
             lt: new Date(currentYear, currentMonth - 1, 1),
           },
+          // Exclude incomes explicitly marked as not part of allocation
+          excludeFromAllocation: false,
+        } as any,
+        select: {
+          amount: true,
+        },
+      }),
+      // Get previous month investment holdings
+      prisma.investmentHolding.findMany({
+        where: {
+          userId: session.user.id,
+          date: {
+            gte: prevMonthStart,
+            lt: prevMonthEnd,
+          },
         },
         select: {
           amount: true,
-          account: {
-            select: {
-              accountType: true,
-            },
-          },
         },
       }),
     ])
 
-    // Filter out cash account entries for previous month allocation
-    const prevMonthEntriesForAllocation = prevMonthEntries.filter(
-      entry => entry.account?.accountType !== "cash"
-    )
+    // Previous month entries for allocation (already filtered by excludeFromAllocation)
+    const prevMonthEntriesForAllocation = prevMonthEntries
 
     let prevMonthFixedCosts = 0
     let prevMonthInvestment = 0
@@ -271,9 +298,18 @@ export async function GET(request: Request) {
 
       let prevSpent = 0
 
-      for (const expense of prevMonthExpenses) {
-        if (expense.category === cat) {
-          prevSpent += expense.amount
+      // For investment category, don't count expenses as "spent" - only investment holdings count
+      if (cat === "investment") {
+        // Only count investment holdings for investment category
+        for (const investment of prevMonthInvestments) {
+          prevSpent += investment.amount
+        }
+      } else {
+        // For other categories, count expenses
+        for (const expense of prevMonthExpenses) {
+          if (expense.category === cat) {
+            prevSpent += expense.amount
+          }
         }
       }
 
@@ -287,7 +323,10 @@ export async function GET(request: Request) {
       // Available = current allocation + carryover - overspending deduction
       const available = current.allocated + carryover - overspending
       // Remaining = available - spent - transferred (transfers count as used money)
-      const remaining = available - current.spent - current.transferred
+      // For investment category, transfers don't count against allocation (they're separate)
+      const remaining = cat === "investment" 
+        ? available - current.spent  // Don't subtract transferred for investments
+        : available - current.spent - current.transferred
 
       tracking[cat] = {
         allocated: Math.round(current.allocated * 100) / 100,

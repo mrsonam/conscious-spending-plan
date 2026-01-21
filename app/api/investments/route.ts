@@ -19,6 +19,7 @@ export async function POST(request: Request) {
       investmentName,
       pricePerUnit,
       numberOfShares,
+      brokerageFee,
       date,
     } = body
 
@@ -29,8 +30,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate amount from numberOfShares × pricePerUnit if provided, otherwise use amount directly
+    // Calculate amount from numberOfShares × pricePerUnit (+ optional brokerageFee) if provided,
+    // otherwise use amount directly
     let numericAmount: number
+    const numericBrokerageFee = brokerageFee ? Number(brokerageFee) : 0
+
     if (numberOfShares && pricePerUnit) {
       const numShares = Number(numberOfShares)
       const pricePerUnitNum = Number(pricePerUnit)
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
         )
       }
       
-      numericAmount = numShares * pricePerUnitNum
+      numericAmount = numShares * pricePerUnitNum + Math.max(0, numericBrokerageFee)
     } else if (amount) {
       numericAmount = Number(amount)
       if (!numericAmount || numericAmount <= 0) {
@@ -96,9 +100,15 @@ export async function POST(request: Request) {
           amount: numericAmount,
           pricePerUnit: numericPricePerUnit,
           numberOfShares: numericNumberOfShares,
+          // Cast to any to avoid Prisma type mismatch until client is regenerated
+          brokerageFee: Math.max(0, numericBrokerageFee),
           date: investmentDate,
-        },
+        } as any,
       })
+
+      // Investment holdings are treated as assets, not expenses
+      // They will appear in Statement as "investment" type transactions
+      // and contribute to net worth calculation
 
       return {
         investmentAccount,
@@ -188,6 +198,7 @@ export async function GET() {
             pricePerUnit: h.pricePerUnit,
             numberOfShares: h.numberOfShares,
             amount: h.amount,
+            brokerageFee: h.brokerageFee || 0,
             date: h.date,
           }))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

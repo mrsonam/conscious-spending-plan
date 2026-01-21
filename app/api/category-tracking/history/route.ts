@@ -82,8 +82,8 @@ export async function GET() {
     const overallStart = new Date(oldestMonth.year, oldestMonth.month - 1, 1)
     const overallEnd = new Date(newestMonth.year, newestMonth.month, 0, 23, 59, 59, 999)
 
-    // Fetch all income entries and expenses for the 6-month period in parallel
-    const [allIncomeEntries, allExpenses] = await Promise.all([
+    // Fetch all income entries, expenses, and investments for the 6-month period in parallel
+    const [allIncomeEntries, allExpenses, allInvestments] = await Promise.all([
       prisma.incomeEntry.findMany({
         where: {
           userId: session.user.id,
@@ -91,15 +91,11 @@ export async function GET() {
             gte: overallStart,
             lte: overallEnd,
           },
-        },
+          excludeFromAllocation: false,
+        } as any,
         select: {
           amount: true,
           createdAt: true,
-          account: {
-            select: {
-              accountType: true,
-            },
-          },
         },
       }),
       prisma.expense.findMany({
@@ -119,6 +115,20 @@ export async function GET() {
           date: true,
         },
       }),
+      // Fetch all investment holdings for the period
+      prisma.investmentHolding.findMany({
+        where: {
+          userId: session.user.id,
+          date: {
+            gte: overallStart,
+            lte: overallEnd,
+          },
+        },
+        select: {
+          amount: true,
+          date: true,
+        },
+      }),
     ])
 
     // Process each month using the pre-fetched data
@@ -126,12 +136,10 @@ export async function GET() {
       const startOfMonth = new Date(year, month - 1, 1)
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999)
 
-      // Filter income entries for this month (excluding cash accounts)
+      // Filter income entries for this month (already filtered by excludeFromAllocation)
       const monthEntries = allIncomeEntries.filter(entry => {
         const entryDate = new Date(entry.createdAt)
-        return entryDate >= startOfMonth && 
-               entryDate <= endOfMonth &&
-               entry.account?.accountType !== "cash"
+        return entryDate >= startOfMonth && entryDate <= endOfMonth
       })
 
       // Calculate allocations
@@ -168,6 +176,12 @@ export async function GET() {
         return expenseDate >= startOfMonth && expenseDate <= endOfMonth
       })
 
+      // Filter investments for this month
+      const monthInvestments = allInvestments.filter(investment => {
+        const investmentDate = new Date(investment.date)
+        return investmentDate >= startOfMonth && investmentDate <= endOfMonth
+      })
+
       const spent: Record<string, number> = {
         fixedCosts: 0,
         investment: 0,
@@ -177,8 +191,17 @@ export async function GET() {
 
       for (const expense of monthExpenses) {
         if (expense.category && spent[expense.category] !== undefined) {
-          spent[expense.category] += expense.amount
+          // For investment category, don't count expenses as "spent" - only investment holdings count
+          if (expense.category !== "investment") {
+            spent[expense.category] += expense.amount
+          }
         }
+      }
+
+      // Add investment holdings to investment category spent
+      // Only investment holdings count as "spent" for investment category, not expenses
+      for (const investment of monthInvestments) {
+        spent.investment += investment.amount
       }
 
       history.fixedCosts.push({

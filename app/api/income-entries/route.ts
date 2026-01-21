@@ -23,24 +23,22 @@ export async function GET(request: Request) {
       // This ensures monthly tracking - each month is independent
       const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
       
-      // Calculate total income including cash accounts (for display purposes)
-      const totalIncomeIncludingCash = allMonthEntries.reduce((sum, entry) => sum + entry.amount, 0)
+      // Split entries into those included in allocation and those explicitly excluded
+      const monthEntries = allMonthEntries.filter(entry => !(entry as any).excludeFromAllocation)
       
-      // Filter out cash account entries for budget calculations
-      const monthEntries = allMonthEntries.filter(entry => {
-        return !entry.account || entry.account.accountType !== "cash"
-      })
+      // Calculate total income including entries that are excluded from allocation (for display)
+      const totalIncomeIncludingAll = allMonthEntries.reduce((sum, entry) => sum + entry.amount, 0)
 
       if (monthEntries.length === 0) {
-        // If no non-cash entries, return breakdown with total income including cash but no allocation
+        // If no allocatable entries, return breakdown with total income but no allocation
         return NextResponse.json({ 
           breakdown: {
-            income: totalIncomeIncludingCash,
+            income: totalIncomeIncludingAll,
             fixedCosts: 0,
             savings: 0,
             investment: 0,
             guiltFreeSpending: 0,
-            total: 0, // No allocation (all income is cash)
+            total: 0, // No allocation (all income is excluded)
           }, 
           entries: allMonthEntries 
         })
@@ -175,7 +173,7 @@ export async function GET(request: Request) {
       savings += roundingDifference
 
       const breakdown = {
-        income: totalIncomeIncludingCash, // Include cash income in total for display
+        income: totalIncomeIncludingAll, // Include all income in total for display
         fixedCosts: Math.round(fixedCosts * 100) / 100,
         savings: Math.round(savings * 100) / 100,
         investment: Math.round(investment * 100) / 100,

@@ -43,6 +43,7 @@ export function AddIncomeModal({
   const [allocation, setAllocation] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState("");
+  const [allocateToBudget, setAllocateToBudget] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -54,6 +55,7 @@ export function AddIncomeModal({
       setDate(today.toISOString().split("T")[0]);
       setPeriodStart(start.toISOString().split("T")[0]);
       setPeriodEnd(today.toISOString().split("T")[0]);
+      setAllocateToBudget(true);
 
       // Fetch accounts and allocation
       Promise.all([fetch("/api/accounts"), fetch("/api/fund-allocation")]).then(
@@ -112,6 +114,7 @@ export function AddIncomeModal({
           periodStart,
           periodEnd,
           accountId: selectedAccountId || null,
+          allocateToBudget,
         }),
       });
 
@@ -235,8 +238,8 @@ export function AddIncomeModal({
               {accounts.find((acc) => acc.id === selectedAccountId)
                 ?.accountType === "cash" && (
                 <p className="mt-1 text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                  <strong>Cash Account:</strong> Income will be added directly
-                  to this account without budget allocation.
+                  <strong>Cash Account:</strong> This is a cash account. You can choose
+                  whether this income should be included in your budget allocation below.
                 </p>
               )}
             </div>
@@ -247,6 +250,23 @@ export function AddIncomeModal({
               No accounts found. Please create an account first.
             </div>
           )}
+
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                checked={allocateToBudget}
+                onChange={(e) => setAllocateToBudget(e.target.checked)}
+              />
+              Allocate this income to budget categories
+            </Label>
+            <p className="text-xs text-gray-500">
+              When checked, this income will be used to fund Fixed Costs, Savings, Investment,
+              and Guilt-Free Spending according to your allocation settings. Uncheck for income
+              that should not affect your budget (e.g., reimbursements, one-off transfers).
+            </p>
+          </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button

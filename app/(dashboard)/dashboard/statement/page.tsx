@@ -25,6 +25,7 @@ import {
   CreditCard,
   Download,
   FileText,
+  TrendingUp,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -91,6 +92,34 @@ interface Account {
   isDefault: boolean;
 }
 
+interface InvestmentHolding {
+  id: string;
+  name: string;
+  totalShares: number;
+  totalAmount: number;
+  averagePrice: number;
+  purchases: Array<{
+    id: string;
+    pricePerUnit: number | null;
+    numberOfShares: number | null;
+    amount: number;
+    brokerageFee?: number;
+    date: string;
+  }>;
+  firstPurchaseDate: string;
+  lastPurchaseDate: string;
+}
+
+interface InvestmentAccount {
+  id: string;
+  name: string;
+  bankName: string;
+  balance: number;
+  investedAmount: number;
+  totalValue: number;
+  holdings: InvestmentHolding[];
+}
+
 const FUND_CATEGORIES = [
   { value: "fixedCosts", label: "Fixed Costs" },
   { value: "investment", label: "Investment" },
@@ -100,7 +129,7 @@ const FUND_CATEGORIES = [
 
 type Transaction = {
   id: string;
-  type: "income" | "expense" | "transfer";
+  type: "income" | "expense" | "transfer" | "investment";
   amount: number;
   date: string;
   description: string | null;
@@ -122,6 +151,11 @@ type Transaction = {
   };
   periodStart?: string;
   periodEnd?: string;
+  // Investment-specific fields
+  investmentName?: string;
+  numberOfShares?: number | null;
+  pricePerUnit?: number | null;
+  brokerageFee?: number | null;
 };
 
 export default function StatementPage() {
@@ -130,6 +164,7 @@ export default function StatementPage() {
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -178,7 +213,7 @@ export default function StatementPage() {
     setLoadingTransactions(true);
     
     try {
-      const [incomeRes, expensesRes, transfersRes] = await Promise.all([
+      const [incomeRes, expensesRes, transfersRes, investmentsRes] = await Promise.all([
         fetch("/api/income-entries"),
         fetch(
           filterStartDate || filterEndDate
@@ -196,6 +231,7 @@ export default function StatementPage() {
               }).toString()}`
             : "/api/transfers"
         ),
+        fetch("/api/investments"),
       ]);
 
       // Set data independently as each response completes
@@ -214,8 +250,13 @@ export default function StatementPage() {
         setTransfers(data.transfers || []);
       }
 
+      if (investmentsRes.ok) {
+        const data = await investmentsRes.json();
+        setInvestmentAccounts(data.accounts || []);
+      }
+
       // Summary cards can show once we have any data
-      if (incomeRes.ok || expensesRes.ok || transfersRes.ok) {
+      if (incomeRes.ok || expensesRes.ok || transfersRes.ok || investmentsRes.ok) {
         setLoadingSummary(false);
       }
     } catch (error) {
@@ -297,6 +338,52 @@ export default function StatementPage() {
       });
     });
 
+    // Add investment holdings (flatten purchases from all accounts)
+    investmentAccounts.forEach((account) => {
+      account.holdings.forEach((holding) => {
+        holding.purchases.forEach((purchase) => {
+          // Filter by account if filter is set
+          if (filterAccountId && account.id !== filterAccountId) return;
+
+          // Filter by date if filters are set
+          const purchaseDate = new Date(purchase.date);
+          if (filterStartDate && purchaseDate < new Date(filterStartDate)) return;
+          if (filterEndDate && purchaseDate > new Date(filterEndDate)) return;
+
+          // Build description with investment details
+          const brokerageFee = purchase.brokerageFee || 0
+          const feePart = brokerageFee > 0
+            ? ` + fee ${brokerageFee.toFixed(2)}`
+            : ""
+          const sharesPart =
+            purchase.numberOfShares && purchase.pricePerUnit
+              ? `${purchase.numberOfShares} @ ${purchase.pricePerUnit.toFixed(2)}${feePart}`
+              : null
+          const description = sharesPart
+            ? `Investment buy: ${holding.name} (${sharesPart}) — Total ${purchase.amount.toFixed(2)}`
+            : `Investment buy: ${holding.name} — Total ${purchase.amount.toFixed(2)}`
+
+          combined.push({
+            id: purchase.id,
+            type: "investment",
+            amount: purchase.amount,
+            date: purchase.date,
+            description,
+            category: "investment",
+            account: {
+              id: account.id,
+              name: account.name,
+              bankName: account.bankName,
+            },
+            investmentName: holding.name,
+            numberOfShares: purchase.numberOfShares,
+            pricePerUnit: purchase.pricePerUnit,
+            brokerageFee: purchase.brokerageFee || 0,
+          });
+        });
+      });
+    });
+
     // Sort by date (newest first)
     combined.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -309,6 +396,7 @@ export default function StatementPage() {
     incomeEntries,
     expenses,
     transfers,
+    investmentAccounts,
     filterStartDate,
     filterEndDate,
     filterAccountId,
@@ -368,6 +456,8 @@ export default function StatementPage() {
           ? `+${formatCurrency(transaction.amount)}`
           : transaction.type === "expense"
           ? `-${formatCurrency(transaction.amount)}`
+          : transaction.type === "investment"
+          ? formatCurrency(transaction.amount) // Investment - no sign (asset purchase)
           : formatCurrency(transaction.amount); // Transfer - no sign
       const description = transaction.description || "";
       const category = transaction.category
@@ -405,6 +495,10 @@ export default function StatementPage() {
     });
 
     // Add summary rows
+    const totalInvestments = transactions
+      .filter((t) => t.type === "investment")
+      .reduce((sum, t) => sum + t.amount, 0)
+    
     const summaryRows = [
       [],
       ["Summary"],
@@ -418,6 +512,7 @@ export default function StatementPage() {
             .reduce((sum, t) => sum + t.amount, 0)
         ),
       ],
+      ["Total Investments", formatCurrency(totalInvestments)],
       ["Net Amount", formatCurrency(getNetAmount())],
     ];
 
@@ -536,6 +631,8 @@ export default function StatementPage() {
           ? `+${formatCurrency(transaction.amount)}`
           : transaction.type === "expense"
           ? `-${formatCurrency(transaction.amount)}`
+          : transaction.type === "investment"
+          ? formatCurrency(transaction.amount) // Investment - no sign (asset purchase)
           : formatCurrency(transaction.amount);
 
       // Truncate description if too long
@@ -612,6 +709,10 @@ export default function StatementPage() {
     doc.setFont("helvetica", "bold");
     doc.text("Summary", margin, finalY + 10);
 
+    const totalInvestments = transactions
+      .filter((t) => t.type === "investment")
+      .reduce((sum, t) => sum + t.amount, 0)
+    
     const summaryData = [
       ["Total Income", formatCurrency(getTotalIncome())],
       ["Total Expenses", formatCurrency(getTotalExpenses())],
@@ -623,6 +724,7 @@ export default function StatementPage() {
             .reduce((sum, t) => sum + t.amount, 0)
         ),
       ],
+      ["Total Investments", formatCurrency(totalInvestments)],
       ["Net Amount", formatCurrency(getNetAmount())],
     ];
 
@@ -888,6 +990,8 @@ export default function StatementPage() {
                         ? "border-green-200 bg-green-50"
                         : transaction.type === "expense"
                         ? "border-red-200 bg-red-50"
+                        : transaction.type === "investment"
+                        ? "border-purple-200 bg-purple-50"
                         : "border-blue-200 bg-blue-50"
                     }`}
                   >
@@ -898,6 +1002,8 @@ export default function StatementPage() {
                             ? "bg-green-100 text-green-700"
                             : transaction.type === "expense"
                             ? "bg-red-100 text-red-700"
+                            : transaction.type === "investment"
+                            ? "bg-purple-100 text-purple-700"
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
@@ -905,6 +1011,8 @@ export default function StatementPage() {
                           <ArrowUpCircle className="h-5 w-5" />
                         ) : transaction.type === "expense" ? (
                           <ArrowDownCircle className="h-5 w-5" />
+                        ) : transaction.type === "investment" ? (
+                          <TrendingUp className="h-5 w-5" />
                         ) : (
                           <ArrowLeftRight className="h-5 w-5" />
                         )}
@@ -917,6 +1025,8 @@ export default function StatementPage() {
                                 ? "text-green-900"
                                 : transaction.type === "expense"
                                 ? "text-red-900"
+                                : transaction.type === "investment"
+                                ? "text-purple-900"
                                 : "text-blue-900"
                             }`}
                           >
@@ -924,6 +1034,8 @@ export default function StatementPage() {
                               ? "+"
                               : transaction.type === "expense"
                               ? "-"
+                              : transaction.type === "investment"
+                              ? "💰"
                               : ""}
                             {formatCurrency(transaction.amount)}
                           </span>
@@ -969,6 +1081,8 @@ export default function StatementPage() {
                               ? "text-green-600"
                               : transaction.type === "expense"
                               ? "text-red-600"
+                              : transaction.type === "investment"
+                              ? "text-purple-600"
                               : "text-blue-600"
                           }`}
                         >
@@ -976,6 +1090,8 @@ export default function StatementPage() {
                             ? "Income"
                             : transaction.type === "expense"
                             ? "Expense"
+                            : transaction.type === "investment"
+                            ? "Investment"
                             : "Transfer"}
                         </div>
                       </div>

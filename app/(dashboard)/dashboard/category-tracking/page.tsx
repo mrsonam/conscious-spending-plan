@@ -353,7 +353,7 @@ export default function CategoryTrackingPage() {
                               <span className="font-medium">{formatCurrency(data.allocated)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Spent:</span>
+                              <span>{cat.key === "investment" ? "Invested:" : "Spent:"}</span>
                               <span className="font-medium text-red-600">{formatCurrency(data.spent)}</span>
                             </div>
                             <div className="flex justify-between">
@@ -366,7 +366,7 @@ export default function CategoryTrackingPage() {
                               </span>
                             </div>
                             {data.transferred > 0 && (
-                              <div className="flex justify-between">
+                              <div className="flex justify-between items-center text-xs text-gray-600">
                                 <span>Transferred:</span>
                                 <span className="font-medium text-blue-600">{formatCurrency(data.transferred)}</span>
                               </div>
@@ -410,146 +410,114 @@ export default function CategoryTrackingPage() {
                 </div>
               ) : null}
 
-              {/* Quick Insights & Spending Distribution */}
-              {loadingSummary ? null : tracking && Object.keys(tracking).length > 0 ? (
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {/* Spending Distribution */}
-                  {categoryDistribution.length > 0 && (
+              {/* Category Status and Recent Expenses - Side by Side (50/50) */}
+              {(loadingSummary ? null : tracking && Object.keys(tracking).length > 0) || (loadingExpenses ? null : expenses.length > 0) ? (
+                <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                  {/* Quick Status Summary */}
+                  {loadingSummary ? null : tracking && Object.keys(tracking).length > 0 ? (
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <PieChartIcon className="h-5 w-5" />
-                          Spending Distribution
+                          <Activity className="h-5 w-5" />
+                          Category Status
                         </CardTitle>
-                        <CardDescription>Breakdown of spending by category</CardDescription>
+                        <CardDescription>Current status for each category</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={categoryDistribution}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {categoryDistribution.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : ""} />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <div className="space-y-3">
+                          {CATEGORIES.map((cat) => {
+                            const data = tracking[cat.key]
+                            if (!data) return null
+                            const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+                            const isOverspent = data.overspent > 0
+                            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+                            const currentDay = new Date().getDate()
+                            const expectedUsage = (currentDay / daysInMonth) * 100
+
+                            let status = "On Track"
+                            let statusColor = "text-green-600 bg-green-50"
+                            if (isOverspent) {
+                              status = "Overspent"
+                              statusColor = "text-red-600 bg-red-50"
+                            } else if (usagePercent > expectedUsage * 1.2) {
+                              status = "Spending Fast"
+                              statusColor = "text-yellow-600 bg-yellow-50"
+                            } else if (usagePercent < expectedUsage * 0.8) {
+                              status = "Under Budget"
+                              statusColor = "text-green-600 bg-green-50"
+                            }
+
+                            return (
+                              <div key={cat.key} className={cn("p-3 rounded-lg", statusColor)}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <cat.icon className="h-4 w-4" />
+                                    <span className="font-medium text-sm">{cat.label}</span>
+                                  </div>
+                                  <span className="text-sm font-semibold">{status}</span>
+                                </div>
+                                <div className="mt-2 text-xs opacity-80">
+                                  {formatCurrency(data.spent)} / {formatCurrency(data.allocated)} ({usagePercent.toFixed(1)}%)
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </CardContent>
                     </Card>
-                  )}
+                  ) : null}
 
-                  {/* Quick Status Summary */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Activity className="h-5 w-5" />
-                        Category Status
-                      </CardTitle>
-                      <CardDescription>Current status for each category</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {CATEGORIES.map((cat) => {
-                          const data = tracking[cat.key]
-                          if (!data) return null
-                          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
-                          const isOverspent = data.overspent > 0
-                          const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
-                          const currentDay = new Date().getDate()
-                          const expectedUsage = (currentDay / daysInMonth) * 100
-
-                          let status = "On Track"
-                          let statusColor = "text-green-600 bg-green-50"
-                          if (isOverspent) {
-                            status = "Overspent"
-                            statusColor = "text-red-600 bg-red-50"
-                          } else if (usagePercent > expectedUsage * 1.2) {
-                            status = "Spending Fast"
-                            statusColor = "text-yellow-600 bg-yellow-50"
-                          } else if (usagePercent < expectedUsage * 0.8) {
-                            status = "Under Budget"
-                            statusColor = "text-green-600 bg-green-50"
-                          }
-
-                          return (
-                            <div key={cat.key} className={cn("p-3 rounded-lg", statusColor)}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <cat.icon className="h-4 w-4" />
-                                  <span className="font-medium text-sm">{cat.label}</span>
+                  {/* Recent Expenses Summary */}
+                  {loadingExpenses ? null : expenses.length > 0 ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Recent Expenses</CardTitle>
+                        <CardDescription>Latest expenses by category this month</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {expenses.slice(0, 3).map((expense) => {
+                            const category = CATEGORIES.find((c) => c.key === expense.category)
+                            return (
+                              <div
+                                key={expense.id}
+                                className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 flex-1">
+                                  <TrendingDown className="h-5 w-5 text-red-500" />
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">
+                                      {category?.label || expense.category}
+                                    </div>
+                                    {expense.description && (
+                                      <div className="text-sm text-gray-500">{expense.description}</div>
+                                    )}
+                                    <div className="text-xs text-gray-400">
+                                      {expense.account?.name} • {formatDate(expense.date)}
+                                    </div>
+                                  </div>
+                                  <div className="font-semibold text-red-600">
+                                    -{formatCurrency(expense.amount)}
+                                  </div>
                                 </div>
-                                <span className="text-sm font-semibold">{status}</span>
                               </div>
-                              <div className="mt-2 text-xs opacity-80">
-                                {formatCurrency(data.spent)} / {formatCurrency(data.allocated)} ({usagePercent.toFixed(1)}%)
-                              </div>
+                            )
+                          })}
+                          {expenses.length > 3 && (
+                            <div className="text-center pt-2">
+                              <button
+                                onClick={() => router.push("/dashboard/expenses")}
+                                className="text-sm text-indigo-600 hover:underline font-medium"
+                              >
+                                View all {expenses.length} expenses →
+                              </button>
                             </div>
-                          )
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : null}
-
-              {/* Recent Expenses Summary */}
-              {loadingExpenses ? null : expenses.length > 0 ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Expenses</CardTitle>
-                    <CardDescription>Latest expenses by category this month</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {expenses.slice(0, 5).map((expense) => {
-                        const category = CATEGORIES.find((c) => c.key === expense.category)
-                        return (
-                          <div
-                            key={expense.id}
-                            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center gap-3 flex-1">
-                              <TrendingDown className="h-5 w-5 text-red-500" />
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">
-                                  {category?.label || expense.category}
-                                </div>
-                                {expense.description && (
-                                  <div className="text-sm text-gray-500">{expense.description}</div>
-                                )}
-                                <div className="text-xs text-gray-400">
-                                  {expense.account?.name} • {formatDate(expense.date)}
-                                </div>
-                              </div>
-                              <div className="font-semibold text-red-600">
-                                -{formatCurrency(expense.amount)}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {expenses.length > 5 && (
-                        <div className="text-center pt-2">
-                          <button
-                            onClick={() => router.push("/dashboard/expenses")}
-                            className="text-sm text-indigo-600 hover:underline font-medium"
-                          >
-                            View all {expenses.length} expenses →
-                          </button>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                </div>
               ) : null}
             </>
           )}
@@ -821,7 +789,7 @@ export default function CategoryTrackingPage() {
                       <div className="text-lg font-semibold">{formatCurrency(data.allocated)}</div>
                     </div>
                     <div className="p-3 rounded-lg bg-red-50">
-                      <div className="text-xs text-red-600 mb-1">Spent</div>
+                      <div className="text-xs text-red-600 mb-1">{cat.key === "investment" ? "Invested" : "Spent"}</div>
                       <div className="text-lg font-semibold text-red-700">{formatCurrency(data.spent)}</div>
                     </div>
                     <div className="p-3 rounded-lg bg-green-50">
@@ -840,6 +808,15 @@ export default function CategoryTrackingPage() {
                       </div>
                     </div>
                   </div>
+
+                  {data.transferred > 0 && (
+                    <div className="pt-3 border-t">
+                      <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
+                        <span className="text-blue-700">Transferred</span>
+                        <span className="font-semibold text-blue-700">{formatCurrency(data.transferred)}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {(data.carryover > 0 || data.overspending > 0 || data.overspent > 0) && (
                     <div className="pt-3 border-t space-y-2 text-xs">

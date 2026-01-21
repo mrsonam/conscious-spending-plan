@@ -475,10 +475,39 @@ export default function DashboardPage() {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold">
-                          {formatCurrency(investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0))}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Total invested</p>
+                        {(() => {
+                          const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
+                          const investmentTracking = categoryTracking.investment
+                          const allocated = investmentTracking?.allocated || breakdown?.investment || 0
+                          
+                          return (
+                            <>
+                              <div className="text-2xl font-bold">
+                                {formatCurrency(totalInvested)}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {allocated > 0 
+                                  ? `of ${formatCurrency(allocated)} allocated`
+                                  : "Total invested"}
+                              </p>
+                              {allocated > 0 && (
+                                <div className="mt-2">
+                                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-indigo-600 transition-all"
+                                      style={{
+                                        width: `${Math.min((totalInvested / allocated) * 100, 100)}%`
+                                      }}
+                                    />
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {((totalInvested / allocated) * 100).toFixed(0)}% of allocation used
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                       </CardContent>
                     </Card>
                   </div>
@@ -492,7 +521,10 @@ export default function DashboardPage() {
                     const currentDay = new Date().getDate()
                     const daysRemaining = daysInMonth - currentDay
                     const avgDailySpending = currentDay > 0 ? totalExpenses / currentDay : 0
-                    const netWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0)
+                    // Net worth = all account balances + total invested amount (investment holdings are assets)
+                    const totalAccountBalances = accounts.reduce((sum, acc) => sum + acc.balance, 0)
+                    const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
+                    const netWorth = totalAccountBalances + totalInvested
 
                     return (
                       <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">

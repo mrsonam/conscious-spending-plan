@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { income, description, date, periodStart, periodEnd, accountId } = await request.json()
+    const { income, description, date, periodStart, periodEnd, accountId, allocateToBudget = true } = await request.json()
 
     if (!income || income <= 0) {
       return NextResponse.json(
@@ -48,10 +48,7 @@ export async function POST(request: Request) {
     // This ensures we only consider income from the current month
     // Exclude cash account entries from budget calculations
     const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
-    const existingMonthEntries = allMonthEntries.filter(entry => {
-      // Exclude entries deposited to cash accounts
-      return !entry.account || entry.account.accountType !== "cash"
-    })
+    const existingMonthEntries = allMonthEntries.filter(entry => !(entry as any).excludeFromAllocation)
 
     // Helper function to calculate allocations for a given income amount
     const calculateAllocations = (incomeAmount: number) => {
@@ -252,9 +249,6 @@ export async function POST(request: Request) {
       })
     }
 
-    // Check if this is a cash account - if so, skip budget allocation
-    const isCashAccount = depositAccount?.accountType === "cash"
-
     // Save income entry first (with accountId if available)
     const incomeEntry = await prisma.incomeEntry.create({
       data: {
@@ -265,11 +259,13 @@ export async function POST(request: Request) {
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         accountId: depositAccount?.id || null,
-      }
+        // Casting to any to avoid Prisma client type mismatch until generate is run
+        excludeFromAllocation: !allocateToBudget,
+      } as any,
     })
 
-    // If cash account, just deposit and return without budget allocation
-    if (isCashAccount) {
+    // If this income should not be allocated to budget categories, just deposit and return
+    if (!allocateToBudget) {
       if (depositAccount) {
         await prisma.account.update({
           where: { id: depositAccount.id },
@@ -289,7 +285,7 @@ export async function POST(request: Request) {
         incomeEntryId: incomeEntry.id,
         depositedToAccount: depositAccount?.id || null,
         depositedToAccountName: depositAccount ? `${depositAccount.name} (${depositAccount.bankName})` : null,
-        isCashAccount: true,
+        isCashAccount: depositAccount?.accountType === "cash",
       })
     }
 
@@ -298,10 +294,7 @@ export async function POST(request: Request) {
     // Exclude cash account entries from budget calculations
     // Fetch fresh data that includes the newly created income entry
     const allMonthEntriesForRecalc = await getCurrentMonthIncomeEntries(session.user.id)
-    const monthEntriesForRecalc = allMonthEntriesForRecalc.filter(entry => {
-      // Exclude entries deposited to cash accounts
-      return !entry.account || entry.account.accountType !== "cash"
-    })
+    const monthEntriesForRecalc = allMonthEntriesForRecalc.filter(entry => !(entry as any).excludeFromAllocation)
     
     // Recalculate totals from all entries (excluding cash accounts)
     let recalcFixedCosts = 0

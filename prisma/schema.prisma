@@ -67,6 +67,7 @@ model IncomeEntry {
   accountId     String?  // Account where income was deposited
   account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now())
+  excludeFromAllocation Boolean @default(false) // If true, this income is not used for fund allocation / budgets
   
   @@index([userId])
   @@index([accountId])
@@ -172,9 +173,10 @@ model InvestmentHolding {
   accountId     String
   account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   name          String   // Name of the share / fund / asset
-  amount        Float    // Total amount invested (numberOfShares × pricePerUnit)
+  amount        Float    // Total amount invested including brokerage fees
   pricePerUnit  Float?   // Price per share/unit (optional for backward compatibility)
   numberOfShares Float?  // Number of shares/units bought (optional for backward compatibility)
+  brokerageFee  Float?   // Optional brokerage / transaction fee for this purchase
   date          DateTime @default(now())
   createdAt     DateTime @default(now())
 
