@@ -158,7 +158,11 @@ export default function DashboardPage() {
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([])
   const [categoryTracking, setCategoryTracking] = useState<Record<string, CategoryTracking>>({})
   const [monthlyHistory, setMonthlyHistory] = useState<Record<string, MonthlyHistory[]>>({})
-  const [investmentAccounts, setInvestmentAccounts] = useState<Array<{ investedAmount: number }>>([])
+  const [investmentAccounts, setInvestmentAccounts] = useState<Array<{ 
+    investedAmount: number
+    holdings: Array<{ name: string; totalShares: number }>
+  }>>([])
+  const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [criticalDataLoaded, setCriticalDataLoaded] = useState(false)
   const [secondaryDataLoaded, setSecondaryDataLoaded] = useState(false)
@@ -219,6 +223,32 @@ export default function DashboardPage() {
       if (investmentsRes.ok) {
         const data = await investmentsRes.json()
         setInvestmentAccounts(data.accounts || [])
+        
+        // Fetch market prices for net worth calculation (in background)
+        const symbols = new Set<string>()
+        data.accounts?.forEach((acc: any) => {
+          acc.holdings?.forEach((holding: any) => {
+            if (holding.totalShares > 0) {
+              symbols.add(holding.name.trim().toUpperCase())
+            }
+          })
+        })
+        
+        if (symbols.size > 0) {
+          // Fetch prices asynchronously (don't block critical data loading)
+          fetch("/api/stock-prices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ symbols: Array.from(symbols) }),
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.prices) {
+                setMarketPrices(data.prices)
+              }
+            })
+            .catch(err => console.error("Error fetching market prices for net worth:", err))
+        }
       }
 
       setCriticalDataLoaded(true)
@@ -521,10 +551,36 @@ export default function DashboardPage() {
                     const currentDay = new Date().getDate()
                     const daysRemaining = daysInMonth - currentDay
                     const avgDailySpending = currentDay > 0 ? totalExpenses / currentDay : 0
-                    // Net worth = all account balances + total invested amount (investment holdings are assets)
+                    // Net worth = all account balances + current market value of investments
                     const totalAccountBalances = accounts.reduce((sum, acc) => sum + acc.balance, 0)
-                    const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
-                    const netWorth = totalAccountBalances + totalInvested
+                    
+                    // Calculate current market value of investments (shares × current price)
+                    let totalCurrentInvestmentValue = 0
+                    investmentAccounts.forEach((acc: any) => {
+                      acc.holdings?.forEach((holding: any) => {
+                        if (holding.totalShares > 0) {
+                          const symbol = holding.name.trim().toUpperCase()
+                          const currentPrice = marketPrices[symbol] || 0
+                          if (currentPrice > 0) {
+                            // Use current market value: shares × current price
+                            totalCurrentInvestmentValue += holding.totalShares * currentPrice
+                          } else {
+                            // Fallback to cost basis if no current price available
+                            totalCurrentInvestmentValue += holding.totalAmount || 0
+                          }
+                        } else {
+                          // No shares info, use cost basis
+                          totalCurrentInvestmentValue += holding.totalAmount || 0
+                        }
+                      })
+                    })
+                    
+                    // If no holdings or no prices fetched, fallback to cost basis
+                    if (totalCurrentInvestmentValue === 0) {
+                      totalCurrentInvestmentValue = investmentAccounts.reduce((sum, acc: any) => sum + (acc.investedAmount || 0), 0)
+                    }
+                    
+                    const netWorth = totalAccountBalances + totalCurrentInvestmentValue
 
                     return (
                       <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
