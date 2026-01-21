@@ -1027,7 +1027,7 @@ export default function DashboardPage() {
                                           cat === "investment" ? "Investment" :
                                           cat === "guiltFreeSpending" ? "Guilt-Free Spending" : "Savings"
                       const progress = tracking.allocated > 0 
-                        ? ((tracking.spent + tracking.transferred) / tracking.allocated) * 100 
+                        ? (tracking.spent / tracking.allocated) * 100 
                         : 0
                       const color = progress >= 100 ? "red" : progress >= 80 ? "yellow" : "green"
                       
@@ -1054,7 +1054,7 @@ export default function DashboardPage() {
                             />
                           </div>
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>Spent: {formatCurrency(tracking.spent + tracking.transferred)}</span>
+                            <span>{cat === "investment" ? "Invested" : "Spent"}: {formatCurrency(tracking.spent)}</span>
                             <span>Allocated: {formatCurrency(tracking.allocated)}</span>
                           </div>
                         </div>

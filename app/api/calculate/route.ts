@@ -286,6 +286,7 @@ export async function POST(request: Request) {
         depositedToAccount: depositAccount?.id || null,
         depositedToAccountName: depositAccount ? `${depositAccount.name} (${depositAccount.bankName})` : null,
         isCashAccount: depositAccount?.accountType === "cash",
+        isExcludedFromAllocation: true,
       })
     }
 

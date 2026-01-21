@@ -42,6 +42,7 @@ interface Breakdown {
   total: number;
   depositedToAccountName?: string | null;
   isCashAccount?: boolean;
+  isExcludedFromAllocation?: boolean;
 }
 
 interface IncomeEntry {
@@ -260,9 +261,9 @@ export default function IncomePage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Calculate Breakdown</CardTitle>
+              <CardTitle>Log Income</CardTitle>
               <CardDescription>
-                Enter your income to calculate how it will be allocated
+                Enter your income to log it and optionally allocate it to budget categories
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -406,7 +407,7 @@ export default function IncomePage() {
                   className="w-full"
                 >
                   <Calculator className="mr-2 h-4 w-4" />
-                  {calculating ? "Calculating..." : "Calculate Breakdown"}
+                  {calculating ? "Logging Income..." : "Log Income"}
                 </Button>
               </form>
             </CardContent>
@@ -416,9 +417,11 @@ export default function IncomePage() {
         {breakdown && (
           <Card>
             <CardHeader>
-              <CardTitle>Breakdown Results</CardTitle>
+              <CardTitle>Income Logged Successfully</CardTitle>
               <CardDescription>
-                {breakdown.isCashAccount
+                {breakdown.isExcludedFromAllocation
+                  ? "Income logged without budget allocation"
+                  : breakdown.isCashAccount
                   ? "Income added to cash account"
                   : "Your income allocation for this period"}
               </CardDescription>
@@ -439,65 +442,82 @@ export default function IncomePage() {
                   )}
                 </div>
 
-                {breakdown.isCashAccount ? (
-                  <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-                    <div className="text-sm font-medium text-yellow-700 mb-2">
-                      Cash Account Income
+                {/* Only show allocation breakdown if income was allocated to budget */}
+                {!breakdown.isExcludedFromAllocation && (
+                  <>
+                    {breakdown.isCashAccount ? (
+                      <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
+                        <div className="text-sm font-medium text-yellow-700 mb-2">
+                          Cash Account Income
+                        </div>
+                        <div className="text-sm text-yellow-600">
+                          This income has been added directly to your cash account
+                          without budget allocation. No funds have been allocated to
+                          budget categories.
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                          <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                            <div className="text-sm font-medium text-red-700">
+                              Fixed Costs
+                            </div>
+                            <div className="text-xl font-bold text-red-900">
+                              {formatCurrency(breakdown.fixedCosts)}
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                            <div className="text-sm font-medium text-green-700">
+                              Savings
+                            </div>
+                            <div className="text-xl font-bold text-green-900">
+                              {formatCurrency(breakdown.savings)}
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                            <div className="text-sm font-medium text-blue-700">
+                              Investment
+                            </div>
+                            <div className="text-xl font-bold text-blue-900">
+                              {formatCurrency(breakdown.investment)}
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
+                            <div className="text-sm font-medium text-purple-700">
+                              Guilt-Free Spending
+                            </div>
+                            <div className="text-xl font-bold text-purple-900">
+                              {formatCurrency(breakdown.guiltFreeSpending)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t">
+                          <div className="flex justify-between items-center">
+                            <span className="text-lg font-semibold text-gray-700">
+                              Total Allocated
+                            </span>
+                            <span className="text-xl font-bold text-gray-900">
+                              {formatCurrency(breakdown.total)}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {breakdown.isExcludedFromAllocation && (
+                  <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                    <div className="text-sm font-medium text-gray-700 mb-2">
+                      Income Logged
                     </div>
-                    <div className="text-sm text-yellow-600">
-                      This income has been added directly to your cash account
-                      without budget allocation. No funds have been allocated to
-                      budget categories.
+                    <div className="text-sm text-gray-600">
+                      This income has been logged but will not be used for budget allocation.
+                      It has been deposited to your account.
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                      <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                        <div className="text-sm font-medium text-red-700">
-                          Fixed Costs
-                        </div>
-                        <div className="text-xl font-bold text-red-900">
-                          {formatCurrency(breakdown.fixedCosts)}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                        <div className="text-sm font-medium text-green-700">
-                          Savings
-                        </div>
-                        <div className="text-xl font-bold text-green-900">
-                          {formatCurrency(breakdown.savings)}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                        <div className="text-sm font-medium text-blue-700">
-                          Investment
-                        </div>
-                        <div className="text-xl font-bold text-blue-900">
-                          {formatCurrency(breakdown.investment)}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-purple-50 border border-purple-200">
-                        <div className="text-sm font-medium text-purple-700">
-                          Guilt-Free Spending
-                        </div>
-                        <div className="text-xl font-bold text-purple-900">
-                          {formatCurrency(breakdown.guiltFreeSpending)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-700">
-                          Total Allocated
-                        </span>
-                        <span className="text-xl font-bold text-gray-900">
-                          {formatCurrency(breakdown.total)}
-                        </span>
-                      </div>
-                    </div>
-                  </>
                 )}
               </div>
             </CardContent>
