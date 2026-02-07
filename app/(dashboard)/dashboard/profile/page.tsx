@@ -78,17 +78,26 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700">
-                {session.user?.email
-                  ? session.user.email
-                      .split("@")[0]
-                      .split(".")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)
-                  : "U"}
-              </div>
+              {session.user?.image ? (
+                <img
+                  src={session.user.image}
+                  alt="Profile"
+                  className="h-16 w-16 rounded-full object-cover ring-2 ring-indigo-100"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700">
+                  {session.user?.email
+                    ? session.user.email
+                        .split("@")[0]
+                        .split(".")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)
+                    : "U"}
+                </div>
+              )}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   {session.user?.name || "User"}

@@ -14,7 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calculator, DollarSign } from "lucide-react";
+import { Calculator, DollarSign, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IncomeSkeleton } from "@/components/skeletons/income-skeleton";
 import {
   IncomeFormSkeleton,
@@ -82,6 +83,7 @@ export default function IncomePage() {
   const [loadingForm, setLoadingForm] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [allocateToBudget, setAllocateToBudget] = useState(true);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -111,7 +113,7 @@ export default function IncomePage() {
               const accountsList = data.accounts || [];
               setAccounts(accountsList);
               const defaultAccount = accountsList.find(
-                (acc: Account) => acc.isDefault
+                (acc: Account) => acc.isDefault,
               );
               if (defaultAccount) {
                 setSelectedAccountId(defaultAccount.id);
@@ -199,8 +201,8 @@ export default function IncomePage() {
           date,
           periodStart,
           periodEnd,
-            accountId: selectedAccountId || null,
-            allocateToBudget,
+          accountId: selectedAccountId || null,
+          allocateToBudget,
         }),
       });
 
@@ -239,6 +241,21 @@ export default function IncomePage() {
     });
   };
 
+  const handleDeleteEntry = async () => {
+    if (!deleteEntryId) return;
+    try {
+      const response = await fetch(`/api/income-entries/${deleteEntryId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setIncomeEntries((prev) => prev.filter((e) => e.id !== deleteEntryId));
+        setDeleteEntryId(null);
+      }
+    } catch (error) {
+      console.error("Error deleting income entry:", error);
+    }
+  };
+
   if (status === "loading") {
     return (
       <>
@@ -263,7 +280,8 @@ export default function IncomePage() {
             <CardHeader>
               <CardTitle>Log Income</CardTitle>
               <CardDescription>
-                Enter your income to log it and optionally allocate it to budget categories
+                Enter your income to log it and optionally allocate it to budget
+                categories
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -361,8 +379,9 @@ export default function IncomePage() {
                     {accounts.find((acc) => acc.id === selectedAccountId)
                       ?.accountType === "cash" && (
                       <p className="mt-1 text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                        <strong>Cash Account:</strong> This is a cash account. You can choose
-                        whether this income should be included in your budget allocation below.
+                        <strong>Cash Account:</strong> This is a cash account.
+                        You can choose whether this income should be included in
+                        your budget allocation below.
                       </p>
                     )}
                     {accounts.find((acc) => acc.id === selectedAccountId)
@@ -380,17 +399,16 @@ export default function IncomePage() {
                       type="checkbox"
                       className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       checked={allocateToBudget}
-                      onChange={(e) =>
-                        setAllocateToBudget(e.target.checked)
-                      }
+                      onChange={(e) => setAllocateToBudget(e.target.checked)}
                     />
                     Allocate this income to budget categories
                   </Label>
                   <p className="text-xs text-gray-500">
-                    When checked, this income will be used to fund Fixed Costs, Savings,
-                    Investment, and Guilt-Free Spending according to your allocation settings.
-                    Uncheck for income that should not affect your budget (e.g., reimbursements,
-                    one-off transfers).
+                    When checked, this income will be used to fund Fixed Costs,
+                    Savings, Investment, and Guilt-Free Spending according to
+                    your allocation settings. Uncheck for income that should not
+                    affect your budget (e.g., reimbursements, one-off
+                    transfers).
                   </p>
                 </div>
 
@@ -422,8 +440,8 @@ export default function IncomePage() {
                 {breakdown.isExcludedFromAllocation
                   ? "Income logged without budget allocation"
                   : breakdown.isCashAccount
-                  ? "Income added to cash account"
-                  : "Your income allocation for this period"}
+                    ? "Income added to cash account"
+                    : "Your income allocation for this period"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -451,9 +469,9 @@ export default function IncomePage() {
                           Cash Account Income
                         </div>
                         <div className="text-sm text-yellow-600">
-                          This income has been added directly to your cash account
-                          without budget allocation. No funds have been allocated to
-                          budget categories.
+                          This income has been added directly to your cash
+                          account without budget allocation. No funds have been
+                          allocated to budget categories.
                         </div>
                       </div>
                     ) : (
@@ -514,8 +532,8 @@ export default function IncomePage() {
                       Income Logged
                     </div>
                     <div className="text-sm text-gray-600">
-                      This income has been logged but will not be used for budget allocation.
-                      It has been deposited to your account.
+                      This income has been logged but will not be used for
+                      budget allocation. It has been deposited to your account.
                     </div>
                   </div>
                 )}
@@ -552,39 +570,56 @@ export default function IncomePage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {incomeEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 shadow-sm"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-900 text-lg">
-                              {formatCurrency(entry.amount)}
+                <>
+                  <div className="space-y-3">
+                    {incomeEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex flex-wrap items-start justify-between gap-4 p-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 shadow-sm"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 text-lg">
+                            {formatCurrency(entry.amount)}
+                          </div>
+                          {entry.description && (
+                            <div className="text-sm text-gray-700 mt-1 font-medium">
+                              {entry.description}
                             </div>
-                            {entry.description && (
-                              <div className="text-sm text-gray-700 mt-1 font-medium">
-                                {entry.description}
-                              </div>
-                            )}
-                            <div className="text-sm text-gray-600 mt-1">
-                              Date: {formatDate(entry.date)}
-                            </div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              Period: {formatDate(entry.periodStart)} -{" "}
-                              {formatDate(entry.periodEnd)}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              Logged: {formatDate(entry.createdAt)}
-                            </div>
+                          )}
+                          <div className="text-sm text-gray-600 mt-1">
+                            Date: {formatDate(entry.date)}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            Period: {formatDate(entry.periodStart)} – {formatDate(entry.periodEnd)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Logged: {formatDate(entry.createdAt)}
                           </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteEntryId(entry.id)}
+                          className="ml-4 shrink-0 cursor-pointer"
+                          aria-label="Delete this income entry"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  <ConfirmDialog
+                    open={deleteEntryId !== null}
+                    onOpenChange={(open) => !open && setDeleteEntryId(null)}
+                    title="Delete income entry"
+                    description="Are you sure you want to delete this income entry? This cannot be undone."
+                    confirmText="Delete"
+                    cancelText="Cancel"
+                    variant="destructive"
+                    onConfirm={handleDeleteEntry}
+                  />
+                </>
               )}
             </CardContent>
           </Card>

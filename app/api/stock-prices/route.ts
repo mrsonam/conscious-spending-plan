@@ -42,15 +42,22 @@ export async function POST(request: Request) {
           // Clean the symbol (remove spaces, convert to uppercase)
           const cleanSymbol = symbol.trim().toUpperCase()
           let price = 0
+
+          // Build list of symbols to try: Yahoo sometimes returns data for VAS but not VAS.AX, so for .AX symbols also try without suffix
+          const buildSymbolsToTry = (sym: string) => {
+            const list: string[] = []
+            if (!sym.includes('.')) {
+              if (sym.length <= 4) list.push(`${sym}.AX`)
+              list.push(sym)
+            } else {
+              list.push(sym)
+              if (sym.endsWith('.AX')) list.push(sym.replace(/\.AX$/i, ''))
+            }
+            return list
+          }
           
            // Method 1: Try Yahoo Finance v8 API
-           // For Australian stocks, try with .AX suffix first, then without
-           const symbolsToTry = []
-           // Check if it might be an Australian stock (common ASX tickers)
-           if (!cleanSymbol.includes('.') && cleanSymbol.length <= 4) {
-             symbolsToTry.push(`${cleanSymbol}.AX`) // Try with .AX suffix for ASX
-           }
-           symbolsToTry.push(cleanSymbol) // Also try original symbol
+           const symbolsToTry = buildSymbolsToTry(cleanSymbol)
            
            for (const symbolToTry of symbolsToTry) {
              try {
@@ -109,11 +116,7 @@ export async function POST(request: Request) {
           
            // Method 2: Try Yahoo Finance quote endpoint
            if (price === 0) {
-             const quoteSymbolsToTry = []
-             if (!cleanSymbol.includes('.') && cleanSymbol.length <= 4) {
-               quoteSymbolsToTry.push(`${cleanSymbol}.AX`)
-             }
-             quoteSymbolsToTry.push(cleanSymbol)
+             const quoteSymbolsToTry = buildSymbolsToTry(cleanSymbol)
              
              for (const symbolToTry of quoteSymbolsToTry) {
                try {
@@ -297,12 +300,19 @@ export async function POST(request: Request) {
         if (price === 0 || useYahooFallback || !apiKey) {
           console.log(`  → Attempting Yahoo Finance API for ${cleanSymbol}`)
           
-          // For Australian stocks, try with .AX suffix first, then without
-          const yahooSymbolsToTry = []
-          if (!cleanSymbol.includes('.') && cleanSymbol.length <= 4) {
-            yahooSymbolsToTry.push(`${cleanSymbol}.AX`) // Try with .AX suffix for ASX
+          // For .AX symbols also try without suffix (e.g. VAS.AX → try VAS if VAS.AX fails)
+          const buildYahooSymbolsToTry = (sym: string) => {
+            const list: string[] = []
+            if (!sym.includes('.')) {
+              if (sym.length <= 4) list.push(`${sym}.AX`)
+              list.push(sym)
+            } else {
+              list.push(sym)
+              if (sym.endsWith('.AX')) list.push(sym.replace(/\.AX$/i, ''))
+            }
+            return list
           }
-          yahooSymbolsToTry.push(cleanSymbol) // Also try original symbol
+          const yahooSymbolsToTry = buildYahooSymbolsToTry(cleanSymbol)
           
           for (const symbolToTry of yahooSymbolsToTry) {
             try {

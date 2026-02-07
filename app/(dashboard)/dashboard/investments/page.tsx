@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { InvestmentsSkeleton } from "@/components/skeletons/investments-skeleton"
 import { InvestmentFormSkeleton, InvestmentSummarySkeleton, InvestmentChartsSkeleton, InvestmentAccountsSkeleton } from "@/components/skeletons/investments-sections"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, ArrowUpDown, Plus, Activity, Briefcase, Target, Calendar, RefreshCw } from "lucide-react"
+import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, Plus, Activity, Briefcase, Calendar } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
 import { cn } from "@/lib/utils"
 
@@ -63,6 +63,12 @@ export default function InvestmentsPage() {
 
   const [selectedInvestmentAccountId, setSelectedInvestmentAccountId] = useState("")
   const [investmentName, setInvestmentName] = useState("")
+  const [investmentSearchQuery, setInvestmentSearchQuery] = useState("")
+  const [investmentSearchResults, setInvestmentSearchResults] = useState<Array<{ symbol: string; name: string }>>([])
+  const [investmentSearchLoading, setInvestmentSearchLoading] = useState(false)
+  const [showInvestmentDropdown, setShowInvestmentDropdown] = useState(false)
+  const [investmentMarket, setInvestmentMarket] = useState<"all" | "AU">("all")
+  const investmentSearchRef = useRef<HTMLDivElement>(null)
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [numberOfShares, setNumberOfShares] = useState("")
   const [brokerageFee, setBrokerageFee] = useState("")
@@ -71,16 +77,13 @@ export default function InvestmentsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   
-  // State for current prices (keyed by "accountId-holdingName")
-  const [currentPrices, setCurrentPrices] = useState<Record<string, string>>({})
-  
-  // State for market prices from API
+  // State for market prices from API (auto-fetched for profit/loss)
   const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
   const [loadingMarketPrices, setLoadingMarketPrices] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   
   // State for active tab/view
-  const [activeTab, setActiveTab] = useState<"overview" | "holdings" | "analytics" | "add" | "profitloss">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "holdings" | "analytics" | "add">("overview")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -91,6 +94,54 @@ export default function InvestmentsPage() {
       setDate(today.toISOString().split("T")[0])
     }
   }, [status, router])
+
+  // Auto-fetch market prices when we have holdings (for profit/loss calculation)
+  useEffect(() => {
+    if (status !== "authenticated" || !investmentAccounts.length) return
+    const hasHoldings = investmentAccounts.some((acc) => acc.holdings?.length > 0)
+    if (hasHoldings && Object.keys(marketPrices).length === 0 && !loadingMarketPrices) {
+      fetchMarketPrices()
+    }
+  }, [status, investmentAccounts.length])
+
+  // Debounced stock search for Investment Name dropdown
+  useEffect(() => {
+    if (!investmentSearchQuery.trim()) {
+      setInvestmentSearchResults([])
+      setShowInvestmentDropdown(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setInvestmentSearchLoading(true)
+      try {
+        const params = new URLSearchParams({
+          q: investmentSearchQuery,
+          limit: "10",
+        })
+        if (investmentMarket === "AU") params.set("region", "AU")
+        const res = await fetch(`/api/stock-search?${params.toString()}`)
+        const data = await res.json()
+        setInvestmentSearchResults(data.results || [])
+        setShowInvestmentDropdown(true)
+      } catch {
+        setInvestmentSearchResults([])
+      } finally {
+        setInvestmentSearchLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [investmentSearchQuery, investmentMarket])
+
+  // Close investment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (investmentSearchRef.current && !investmentSearchRef.current.contains(e.target as Node)) {
+        setShowInvestmentDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   const fetchData = async () => {
     setLoadingForm(true)
@@ -208,19 +259,6 @@ export default function InvestmentsPage() {
           setMarketPrices(fetchedPrices)
           setLastUpdated(new Date())
           
-          // Also update currentPrices state for consistency
-          const updatedPrices: Record<string, string> = {}
-          investmentAccounts.forEach(acc => {
-            acc.holdings.forEach(holding => {
-              const key = getHoldingKey(acc.id, holding.name)
-              const symbol = holding.name.trim().toUpperCase()
-              if (fetchedPrices[symbol] && fetchedPrices[symbol] > 0) {
-                updatedPrices[key] = fetchedPrices[symbol].toString()
-              }
-            })
-          })
-          setCurrentPrices(prev => ({ ...prev, ...updatedPrices }))
-          
           if (fetchedCount === symbols.size) {
             setMessage({ 
               type: "success", 
@@ -259,16 +297,16 @@ export default function InvestmentsPage() {
     }
   }
 
-  // Calculate total portfolio gains/losses
+  // Calculate total portfolio gains/losses (uses auto-fetched market prices)
   const calculatePortfolioGainsLosses = () => {
     let totalCostBasis = 0
     let totalCurrentValue = 0
 
     investmentAccounts.forEach((acc) => {
       acc.holdings.forEach((holding) => {
-        const key = getHoldingKey(acc.id, holding.name)
-        const currentPriceStr = currentPrices[key]
-        const currentPrice = currentPriceStr ? parseFloat(currentPriceStr) : null
+        const symbol = holding.name.trim().toUpperCase()
+        const marketPrice = marketPrices[symbol]
+        const currentPrice = marketPrice && marketPrice > 0 ? marketPrice : null
 
         if (currentPrice && holding.totalShares > 0) {
           totalCostBasis += holding.totalAmount
@@ -555,20 +593,6 @@ export default function InvestmentsPage() {
             </div>
           </button>
           <button
-            onClick={() => setActiveTab("profitloss")}
-            className={cn(
-              "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
-              activeTab === "profitloss"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Profit/Loss
-            </div>
-          </button>
-          <button
             onClick={() => setActiveTab("add")}
             className={cn(
               "px-4 py-2 rounded-t-lg font-medium text-sm transition-all",
@@ -688,55 +712,6 @@ export default function InvestmentsPage() {
                 </Card>
               )}
 
-              {/* Current Prices Input Section - Compact in Overview */}
-              {loadingAccounts ? null : investmentAccounts.length > 0 && investmentAccounts.some(acc => acc.holdings.length > 0) ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <ArrowUpDown className="h-5 w-5 text-indigo-600" />
-                      Track Current Prices
-                    </CardTitle>
-                    <CardDescription>
-                      Enter current market prices to calculate gains/losses
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {investmentAccounts.map((acc) => {
-                        if (acc.holdings.length === 0) return null
-                        return acc.holdings.map((holding) => {
-                          const key = getHoldingKey(acc.id, holding.name)
-                          const currentPrice = currentPrices[key] || ""
-                          
-                          return (
-                            <div key={key} className="space-y-2">
-                              <Label htmlFor={`price-${key}`} className="text-sm font-medium">
-                                {holding.name}
-                              </Label>
-                              <Input
-                                id={`price-${key}`}
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={currentPrice}
-                                onChange={(e) => {
-                                  setCurrentPrices((prev) => ({
-                                    ...prev,
-                                    [key]: e.target.value,
-                                  }))
-                                }}
-                                placeholder="Current price"
-                                className="text-sm"
-                              />
-                            </div>
-                          )
-                        })
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : null}
-
               {/* Quick Holdings Preview */}
               {loadingAccounts ? (
                 <InvestmentAccountsSkeleton />
@@ -810,72 +785,7 @@ export default function InvestmentsPage() {
           {/* Holdings Tab */}
           {activeTab === "holdings" && (
             <>
-              {/* Current Prices Input Section */}
-              {loadingAccounts ? null : investmentAccounts.length > 0 && investmentAccounts.some(acc => acc.holdings.length > 0) ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <ArrowUpDown className="h-5 w-5 text-indigo-600" />
-                      Track Current Prices
-                    </CardTitle>
-                    <CardDescription>
-                      Enter the current market price for each holding to calculate your gains or losses
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {investmentAccounts.map((acc) => {
-                        if (acc.holdings.length === 0) return null
-                        
-                        return (
-                          <div key={acc.id} className="space-y-3 p-4 rounded-lg">
-                            <h3 className="font-semibold text-base text-gray-800">{acc.name}</h3>
-                            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                              {acc.holdings.map((holding) => {
-                                const key = getHoldingKey(acc.id, holding.name)
-                                const currentPrice = currentPrices[key] || ""
-                                
-                                return (
-                                  <div key={key} className="space-y-1">
-                                    <Label htmlFor={`price-${key}`} className="text-sm font-medium">
-                                      {holding.name}
-                                      {holding.totalShares > 0 && (
-                                        <span className="text-gray-500 ml-1 font-normal">
-                                          ({holding.totalShares.toFixed(2)} shares)
-                                        </span>
-                                      )}
-                                    </Label>
-                                    <Input
-                                      id={`price-${key}`}
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={currentPrice}
-                                      onChange={(e) => {
-                                        setCurrentPrices((prev) => ({
-                                          ...prev,
-                                          [key]: e.target.value,
-                                        }))
-                                      }}
-                                      placeholder="Current price"
-                                      className="text-sm"
-                                    />
-                                    {currentPrice && parseFloat(currentPrice) > 0 && holding.totalShares > 0 && (
-                                      <div className="text-xs text-gray-600">
-                                        Current Value: {formatCurrency(parseFloat(currentPrice) * holding.totalShares)}
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : investmentAccounts.length > 0 && investmentAccounts.every(acc => acc.holdings.length === 0) ? (
+              {investmentAccounts.length > 0 && investmentAccounts.every(acc => acc.holdings.length === 0) ? (
                 <Card>
                   <CardContent className="pt-12 pb-12">
                     <div className="text-center space-y-4">
@@ -935,9 +845,9 @@ export default function InvestmentsPage() {
                             
                             <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                               {acc.holdings.map((h, idx) => {
-                                const key = getHoldingKey(acc.id, h.name)
-                                const currentPriceStr = currentPrices[key]
-                                const currentPrice = currentPriceStr ? parseFloat(currentPriceStr) : null
+                                const symbol = h.name.trim().toUpperCase()
+                                const marketPrice = marketPrices[symbol]
+                                const currentPrice = marketPrice && marketPrice > 0 ? marketPrice : null
                                 const gainsLosses = calculateGainsLosses(h, currentPrice)
                                 
                                 return (
@@ -968,7 +878,7 @@ export default function InvestmentsPage() {
                                       </div>
                                     </CardHeader>
                                     <CardContent className="space-y-3">
-                                      {currentPrice && currentPrice > 0 && h.totalShares > 0 && (
+                                      {currentPrice && currentPrice > 0 && h.totalShares > 0 ? (
                                         <div className="p-3 rounded-lg space-y-2">
                                           <div className="flex justify-between text-sm">
                                             <span className="text-gray-600">Current Price:</span>
@@ -994,6 +904,10 @@ export default function InvestmentsPage() {
                                               </span>
                                             </div>
                                           </div>
+                                        </div>
+                                      ) : (
+                                        <div className="p-3 rounded-lg text-sm text-gray-500">
+                                          {loadingMarketPrices ? "Fetching current prices…" : "Price not available for this symbol."}
                                         </div>
                                       )}
                                       
@@ -1250,293 +1164,6 @@ export default function InvestmentsPage() {
             </>
           )}
 
-          {/* Profit/Loss Tab */}
-          {activeTab === "profitloss" && (
-            <>
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Target className="h-5 w-5" />
-                        Profit/Loss Calculator
-                      </CardTitle>
-                      <CardDescription>
-                        Automatically fetch current market prices and calculate your gains/losses
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={fetchMarketPrices}
-                      disabled={loadingMarketPrices || investmentAccounts.length === 0}
-                      className="flex items-center gap-2"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${loadingMarketPrices ? "animate-spin" : ""}`} />
-                      {loadingMarketPrices ? "Fetching..." : "Fetch Prices"}
-                    </Button>
-                  </div>
-                  {lastUpdated && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Last updated: {lastUpdated.toLocaleString()}
-                    </p>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {message && (
-                    <div
-                      className={`p-3 rounded-lg text-sm mb-4 ${
-                        message.type === "success"
-                          ? "text-green-700"
-                          : "text-red-700"
-                      }`}
-                    >
-                      {message.text}
-                    </div>
-                  )}
-                  {investmentAccounts.length === 0 ? (
-                    <Card>
-                      <CardContent className="pt-12 pb-12">
-                        <div className="text-center space-y-4">
-                          <div className="flex justify-center">
-                            <div className="rounded-full bg-indigo-100 p-4">
-                              <Target className="h-12 w-12 text-indigo-600" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-gray-900">No Investment Accounts Found</h3>
-                            <p className="text-gray-600 max-w-md mx-auto">
-                              Create an investment account and add investments to track profit/loss calculations. You'll be able to fetch current market prices and see your gains or losses.
-                            </p>
-                          </div>
-                          <div className="pt-4">
-                            <Button
-                              onClick={() => router.push("/dashboard/accounts")}
-                              className="inline-flex items-center gap-2"
-                            >
-                              Go to Accounts Page
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : investmentAccounts.every(acc => acc.holdings.length === 0) ? (
-                    <Card>
-                      <CardContent className="pt-12 pb-12">
-                        <div className="text-center space-y-4">
-                          <div className="flex justify-center">
-                            <div className="rounded-full bg-indigo-100 p-4">
-                              <Target className="h-12 w-12 text-indigo-600" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-gray-900">No Investments Found</h3>
-                            <p className="text-gray-600 max-w-md mx-auto">
-                              Add investments to your accounts to start tracking profit/loss. Once you have investments, you can fetch current market prices and calculate your gains or losses.
-                            </p>
-                          </div>
-                          <div className="pt-4">
-                            <Button
-                              onClick={() => setActiveTab("add")}
-                              className="inline-flex items-center gap-2"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Add Investment
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-6">
-                      {investmentAccounts.map((acc) => {
-                        if (acc.holdings.length === 0) return null
-                        
-                        let accountTotalInvested = 0
-                        let accountTotalValue = 0
-                        let accountTotalGainLoss = 0
-                        
-                        return (
-                          <div key={acc.id} className="space-y-4">
-                            <div className="flex items-center justify-between pb-2">
-                              <div>
-                                <h3 className="font-bold text-lg text-gray-900">{acc.name}</h3>
-                                <p className="text-sm text-gray-500">{acc.bankName}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-                              {acc.holdings.map((holding) => {
-                                const symbol = holding.name.trim().toUpperCase()
-                                const marketPrice = marketPrices[symbol] || 0
-                                
-                                // Debug log
-                                if (marketPrice > 0) {
-                                  console.log(`Calculating for ${holding.name}: marketPrice=${marketPrice}, totalShares=${holding.totalShares}, totalAmount=${holding.totalAmount}`)
-                                }
-                                
-                                const gainsLosses = calculateGainsLosses(holding, marketPrice > 0 ? marketPrice : null)
-                                
-                                accountTotalInvested += holding.totalAmount
-                                accountTotalValue += gainsLosses.currentValue || holding.totalAmount
-                                accountTotalGainLoss += gainsLosses.gainLoss
-                                
-                                return (
-                                  <Card key={`${holding.name}-${acc.id}`} className="hover:shadow-lg transition-shadow">
-                                    <CardHeader className="pb-3">
-                                      <CardTitle className="text-lg">{holding.name}</CardTitle>
-                                      <CardDescription>
-                                        {holding.totalShares > 0 ? `${holding.totalShares.toFixed(2)} shares` : "No shares data"}
-                                      </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                      <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                          <span className="text-gray-600">Cost Basis:</span>
-                                          <span className="font-medium">{formatCurrency(holding.totalAmount)}</span>
-                                        </div>
-                                        {holding.totalShares > 0 && (
-                                          <div className="flex justify-between">
-                                            <span className="text-gray-600">Avg Price:</span>
-                                            <span className="font-medium text-indigo-600">{formatCurrency(holding.averagePrice)}</span>
-                                          </div>
-                                        )}
-                                        {marketPrice > 0 ? (
-                                          <>
-                                            <div className="flex justify-between">
-                                              <span className="text-gray-600">Current Price:</span>
-                                              <span className="font-medium text-green-600">{formatCurrency(marketPrice)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                              <span className="text-gray-600">Current Value:</span>
-                                              <span className="font-medium">{formatCurrency(gainsLosses.currentValue)}</span>
-                                            </div>
-                                            {holding.totalShares > 0 ? (
-                                              <div className="pt-2">
-                                                <div className="flex justify-between items-center">
-                                                  <span className="text-sm font-semibold text-gray-700">Gain/Loss:</span>
-                                                  <span className={`text-lg font-bold ${
-                                                    gainsLosses.gainLoss >= 0 ? "text-green-600" : "text-red-600"
-                                                  }`}>
-                                                    {gainsLosses.gainLoss >= 0 ? "+" : ""}
-                                                    {formatCurrency(gainsLosses.gainLoss)}
-                                                    {" "}
-                                                    <span className="text-sm">
-                                                      ({gainsLosses.gainLossPercent >= 0 ? "+" : ""}
-                                                      {gainsLosses.gainLossPercent.toFixed(2)}%)
-                                                    </span>
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            ) : (
-                                              <div className="pt-2 text-sm text-yellow-600">
-                                                Cannot calculate gain/loss: No shares data available
-                                              </div>
-                                            )}
-                                          </>
-                                        ) : (
-                                          <div className="pt-2 text-sm text-gray-500 italic">
-                                            {Object.keys(marketPrices).length > 0 
-                                              ? `Price not found for "${holding.name}". Make sure it's a valid stock symbol.`
-                                              : 'Click "Fetch Prices" to get current market price'}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                )
-                              })}
-                            </div>
-                            
-                            <Card className="bg-gray-50">
-                              <CardContent className="pt-6">
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                  <div>
-                                    <p className="text-xs text-gray-500 mb-1">Total Invested</p>
-                                    <p className="text-lg font-bold">{formatCurrency(accountTotalInvested)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500 mb-1">Current Value</p>
-                                    <p className="text-lg font-bold">{formatCurrency(accountTotalValue)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-gray-500 mb-1">Total Gain/Loss</p>
-                                    <p className={`text-lg font-bold ${
-                                      accountTotalGainLoss >= 0 ? "text-green-600" : "text-red-600"
-                                    }`}>
-                                      {accountTotalGainLoss >= 0 ? "+" : ""}
-                                      {formatCurrency(accountTotalGainLoss)}
-                                    </p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        )
-                      })}
-                      
-                      {/* Portfolio Summary */}
-                      {investmentAccounts.some(acc => acc.holdings.length > 0) && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Portfolio Summary</CardTitle>
-                            <CardDescription>Overall profit/loss across all accounts</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            {(() => {
-                              let totalInvested = 0
-                              let totalCurrentValue = 0
-                              
-                              investmentAccounts.forEach(acc => {
-                                acc.holdings.forEach(holding => {
-                                  const symbol = holding.name.trim().toUpperCase()
-                                  const marketPrice = marketPrices[symbol] || 0
-                                  const gainsLosses = calculateGainsLosses(holding, marketPrice > 0 ? marketPrice : null)
-                                  
-                                  totalInvested += holding.totalAmount
-                                  totalCurrentValue += gainsLosses.currentValue || holding.totalAmount
-                                })
-                              })
-                              
-                              const totalGainLoss = totalCurrentValue - totalInvested
-                              const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0
-                              
-                              return (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                  <div className="text-center">
-                                    <p className="text-sm text-gray-500 mb-2">Total Invested</p>
-                                    <p className="text-2xl font-bold">{formatCurrency(totalInvested)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-sm text-gray-500 mb-2">Current Value</p>
-                                    <p className="text-2xl font-bold">{formatCurrency(totalCurrentValue)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-sm text-gray-500 mb-2">Total Gain/Loss</p>
-                                    <p className={`text-3xl font-bold ${
-                                      totalGainLoss >= 0 ? "text-green-600" : "text-red-600"
-                                    }`}>
-                                      {totalGainLoss >= 0 ? "+" : ""}
-                                      {formatCurrency(totalGainLoss)}
-                                    </p>
-                                    <p className={`text-sm mt-1 ${
-                                      totalGainLossPercent >= 0 ? "text-green-600" : "text-red-600"
-                                    }`}>
-                                      {totalGainLossPercent >= 0 ? "+" : ""}
-                                      {totalGainLossPercent.toFixed(2)}%
-                                    </p>
-                                  </div>
-                                </div>
-                              )
-                            })()}
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-
           {/* Add Investment Tab */}
           {activeTab === "add" && (
             <>
@@ -1555,7 +1182,7 @@ export default function InvestmentsPage() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                      {message && (
+                      {message && !(message.type === "success" && message.text.includes("fetched prices")) && (
                         <div
                           className={`p-3 rounded-lg text-sm ${
                             message.type === "success"
@@ -1597,16 +1224,69 @@ export default function InvestmentsPage() {
                         </>
                       )}
 
-                      <div>
-                        <Label htmlFor="investmentName">Investment Name *</Label>
+                      <div ref={investmentSearchRef} className="relative">
+                        <div className="flex items-center justify-between gap-2 mt-1 mb-1">
+                          <Label htmlFor="investmentName">Investment Name *</Label>
+                          <select
+                            value={investmentMarket}
+                            onChange={(e) => {
+                              setInvestmentMarket(e.target.value as "all" | "AU")
+                              setShowInvestmentDropdown(false)
+                              setInvestmentSearchResults([])
+                            }}
+                            className="text-xs rounded border border-gray-300 px-2 py-1 bg-white text-gray-700"
+                          >
+                            <option value="all">All markets</option>
+                            <option value="AU">Australia (ASX)</option>
+                          </select>
+                        </div>
                         <Input
                           id="investmentName"
-                          value={investmentName}
-                          onChange={(e) => setInvestmentName(e.target.value)}
-                          placeholder="e.g., AAPL, S&P 500 ETF, TSLA"
+                          value={investmentSearchQuery || investmentName}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setInvestmentSearchQuery(v)
+                            setInvestmentName(v)
+                            setShowInvestmentDropdown(!!v.trim())
+                          }}
+                          onFocus={() => investmentSearchQuery.trim() && setShowInvestmentDropdown(true)}
+                          placeholder={investmentMarket === "AU" ? "e.g. BHP, CBA, Commonwealth Bank" : "Search or type e.g. AAPL, Apple, TSLA"}
                           className="mt-1"
                           required
+                          autoComplete="off"
                         />
+                        {investmentSearchLoading && (
+                          <div className="absolute right-3 top-9 text-xs text-gray-400">Searching…</div>
+                        )}
+                        {showInvestmentDropdown && investmentSearchResults.length > 0 && (
+                          <ul
+                            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                            role="listbox"
+                          >
+                            {investmentSearchResults.map((item) => (
+                              <li
+                                key={item.symbol}
+                                role="option"
+                                className="cursor-pointer px-3 py-2 text-sm hover:bg-indigo-50 focus:bg-indigo-50"
+                                onMouseDown={() => {
+                                  setInvestmentName(item.symbol)
+                                  setInvestmentSearchQuery(item.symbol)
+                                  setShowInvestmentDropdown(false)
+                                }}
+                              >
+                                <span className="font-medium text-gray-900">{item.symbol}</span>
+                                {item.name && item.name !== item.symbol && (
+                                  <span className="ml-2 text-gray-500">{item.name}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {showInvestmentDropdown && !investmentSearchLoading && investmentSearchQuery.trim() && investmentSearchResults.length === 0 && (
+                          <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
+                            No symbols found. You can still use what you typed as the name.
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">

@@ -506,6 +506,18 @@ export default function DashboardPage() {
                       </CardHeader>
                       <CardContent>
                         {(() => {
+                          const now = new Date()
+                          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+                          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+                          const investedThisMonth = investmentAccounts.reduce((sum, acc: any) => {
+                            acc.holdings?.forEach((holding: any) => {
+                              holding.purchases?.forEach((p: any) => {
+                                const d = new Date(p.date).getTime()
+                                if (d >= startOfMonth && d <= endOfMonth) sum += p.amount || 0
+                              })
+                            })
+                            return sum
+                          }, 0)
                           const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
                           const investmentTracking = categoryTracking.investment
                           const allocated = investmentTracking?.allocated || breakdown?.investment || 0
@@ -513,12 +525,12 @@ export default function DashboardPage() {
                           return (
                             <>
                               <div className="text-2xl font-bold">
-                                {formatCurrency(totalInvested)}
+                                {formatCurrency(investedThisMonth)}
                               </div>
                               <p className="text-xs text-gray-500 mt-1">
                                 {allocated > 0 
-                                  ? `of ${formatCurrency(allocated)} allocated`
-                                  : "Total invested"}
+                                  ? `of ${formatCurrency(allocated)} allocated this month`
+                                  : "Invested this month"}
                               </p>
                               {allocated > 0 && (
                                 <div className="mt-2">
@@ -526,15 +538,13 @@ export default function DashboardPage() {
                                     <div
                                       className="h-full bg-indigo-600 transition-all"
                                       style={{
-                                        width: `${Math.min((totalInvested / allocated) * 100, 100)}%`
+                                        width: `${Math.min((investedThisMonth / allocated) * 100, 100)}%`
                                       }}
                                     />
                                   </div>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {((totalInvested / allocated) * 100).toFixed(0)}% of allocation used
-                                  </p>
                                 </div>
                               )}
+                              <p className="text-xs text-gray-500 mt-2">Total invested: {formatCurrency(totalInvested)}</p>
                             </>
                           )
                         })()}

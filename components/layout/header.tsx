@@ -40,9 +40,18 @@ export function Header({ title }: { title: string }) {
           className="flex items-center gap-2 rounded-lg px-2 sm:px-3 py-2 hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation"
           aria-label="User menu"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700 flex-shrink-0">
-            {session?.user?.email ? getInitials(session.user.email) : "U"}
-          </div>
+          {session?.user?.image ? (
+            <img
+              src={session.user.image}
+              alt=""
+              className="h-8 w-8 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700 flex-shrink-0">
+              {session?.user?.email ? getInitials(session.user.email) : "U"}
+            </div>
+          )}
           <span className="hidden sm:block text-sm font-medium text-gray-700 truncate max-w-[120px]">
             {session?.user?.name || session?.user?.email?.split("@")[0]}
           </span>
@@ -51,9 +60,23 @@ export function Header({ title }: { title: string }) {
         {isOpen && (
           <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-white shadow-lg z-50">
             <div className="p-2">
-              <div className="px-3 py-2 text-sm text-gray-700">
-                <div className="font-medium truncate">{session?.user?.name || "User"}</div>
-                <div className="text-xs text-gray-500 truncate">{session?.user?.email}</div>
+              <div className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700">
+                {session?.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt=""
+                    className="h-9 w-9 rounded-full object-cover flex-shrink-0 ring-1 ring-gray-200"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-medium text-indigo-700 flex-shrink-0">
+                    {session?.user?.email ? getInitials(session.user.email) : "U"}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{session?.user?.name || "User"}</div>
+                  <div className="text-xs text-gray-500 truncate">{session?.user?.email}</div>
+                </div>
               </div>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}

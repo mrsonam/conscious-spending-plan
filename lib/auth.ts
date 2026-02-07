@@ -107,9 +107,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
+        if (user.image) token.picture = user.image
       }
       
-      // If signing in with Google, fetch user ID from database
+      // If signing in with Google, fetch user ID from database and keep profile image
       if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email }
@@ -117,6 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (dbUser) {
           token.id = dbUser.id
         }
+        if (user?.image) token.picture = user.image
       }
       
       return token
@@ -124,6 +126,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.image = token.picture ?? null
       }
       return session
     }
