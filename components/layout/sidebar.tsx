@@ -15,6 +15,7 @@ import {
   Menu,
   TrendingUp,
   BarChart3,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -28,6 +29,7 @@ const navigation = [
   },
   { name: "Income", href: "/dashboard/income", icon: DollarSign },
   { name: "Expenses", href: "/dashboard/expenses", icon: TrendingDown },
+  { name: "Loans", href: "/dashboard/loans", icon: HandCoins },
   { name: "Statement", href: "/dashboard/statement", icon: FileText },
   { name: "Investments", href: "/dashboard/investments", icon: TrendingUp },
   { name: "Accounts", href: "/dashboard/accounts", icon: CreditCard },
@@ -111,7 +113,7 @@ export function Sidebar() {
                     : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100"
                 )}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <item.icon className="h-5 w-5 shrink-0" />
                 <span>{item.name}</span>
               </Link>
             );

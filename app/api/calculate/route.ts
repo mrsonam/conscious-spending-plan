@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma"
 import { 
   getCurrentMonthYear, 
   ensureMonthlyCategoryBalances, 
-  getCurrentMonthIncomeEntries 
 } from "@/lib/monthly-tracking"
 
 export async function POST(request: Request) {
@@ -42,94 +41,28 @@ export async function POST(request: Request) {
     await ensureMonthlyCategoryBalances(session.user.id)
     
     // Get current month and year for monthly caps
-    const { month: currentMonth, year: currentYear, startOfMonth, endOfMonth } = getCurrentMonthYear()
-
-    // Get all income entries for the current month ONLY (to calculate existing allocations)
-    // This ensures we only consider income from the current month
-    // Exclude cash account entries from budget calculations
-    const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
-    const existingMonthEntries = allMonthEntries.filter(entry => !(entry as any).excludeFromAllocation)
-
-    // Helper function to calculate allocations for a given income amount
-    const calculateAllocations = (incomeAmount: number) => {
-      let fc = 0
-      let inv = 0
-      let gfs = 0
-      let sav = 0
-
-      if (fundAllocation.fixedCostsType === "fixed") {
-        fc = Math.min(fundAllocation.fixedCostsValue, incomeAmount)
-      } else {
-        fc = (incomeAmount * fundAllocation.fixedCostsValue) / 100
-      }
-
-      if (fundAllocation.investmentType === "fixed") {
-        inv = Math.min(fundAllocation.investmentValue, incomeAmount)
-      } else {
-        inv = (incomeAmount * fundAllocation.investmentValue) / 100
-      }
-
-      if (fundAllocation.guiltFreeSpendingType === "fixed") {
-        gfs = Math.min(fundAllocation.guiltFreeSpendingValue, incomeAmount)
-      } else {
-        gfs = (incomeAmount * fundAllocation.guiltFreeSpendingValue) / 100
-      }
-
-      if (fundAllocation.savingsType === "fixed") {
-        sav = Math.min(fundAllocation.savingsValue, incomeAmount)
-      } else {
-        sav = (incomeAmount * fundAllocation.savingsValue) / 100
-      }
-
-      return { fixedCosts: fc, investment: inv, guiltFreeSpending: gfs, savings: sav }
-    }
-
-    // Calculate existing allocations from all current month entries
-    // This represents what has already been allocated this month (before caps)
-    let existingFixedCosts = 0
-    let existingInvestment = 0
-    let existingGuiltFreeSpending = 0
-
-    for (const entry of existingMonthEntries) {
-      const allocations = calculateAllocations(entry.amount)
-      existingFixedCosts += allocations.fixedCosts
-      existingInvestment += allocations.investment
-      existingGuiltFreeSpending += allocations.guiltFreeSpending
-    }
-
-    const updateBalance = async (category: string, amount: number) => {
-      // Find existing balance for this month
-      const existing = await prisma.categoryBalance.findFirst({
-        where: {
-          userId: session.user.id,
-          category,
-          month: currentMonth,
-          year: currentYear,
-        },
-      })
-
-      if (existing) {
-        await prisma.categoryBalance.update({
-          where: { id: existing.id },
-          data: {
-            balance: { increment: amount },
-          },
-        })
-      } else {
-        await prisma.categoryBalance.create({
-          data: {
-            userId: session.user.id,
-            category,
-            balance: amount,
-            month: currentMonth,
-            year: currentYear,
-          },
-        })
-      }
+    const { month: currentMonth, year: currentYear } = getCurrentMonthYear()
+    
+    // Get existing category balances for this month.
+    // We will treat these as already-allocated funds that must NOT be changed
+    // when the user updates their fund settings. Only the new income will use
+    // the latest settings.
+    const existingBalances = await prisma.categoryBalance.findMany({
+      where: {
+        userId: session.user.id,
+        month: currentMonth,
+        year: currentYear,
+      },
+    })
+    
+    const getExistingBalance = (category: string) => {
+      const entry = existingBalances.find((b) => b.category === category)
+      return entry?.balance ?? 0
     }
 
     // Calculate allocations strictly according to fund settings
-    // All money will be allocated - no "remaining" logic
+    // for THIS income only. Previously allocated funds (existing balances)
+    // are left untouched; we only look at them to enforce caps.
     let fixedCosts = 0
     let savings = 0
     let investment = 0
@@ -160,23 +93,25 @@ export async function POST(request: Request) {
       savings = (income * fundAllocation.savingsValue) / 100
     }
 
-    // Check caps and adjust allocations based on existing month allocations + new allocations
-    // Excess from capped categories is redistributed proportionally to other categories
+    // Check caps and adjust allocations based on existing month balances + new allocations
+    // Excess from capped categories is added to savings (subject to its own cap)
     let excessToRedistribute = 0
 
-    // Check fixed costs cap
+    // Check fixed costs cap using existing balance + this new allocation
     if (fundAllocation.fixedCostsCap !== null && fundAllocation.fixedCostsCap !== undefined) {
-      const currentMonthTotal = existingFixedCosts + fixedCosts
+      const existingFixed = getExistingBalance("fixedCosts")
+      const currentMonthTotal = existingFixed + fixedCosts
       if (currentMonthTotal > fundAllocation.fixedCostsCap) {
-        const remainingCap = Math.max(0, fundAllocation.fixedCostsCap - existingFixedCosts)
+        const remainingCap = Math.max(0, fundAllocation.fixedCostsCap - existingFixed)
         const excess = fixedCosts - remainingCap
         fixedCosts = remainingCap
         excessToRedistribute += excess
       }
     }
-
+    
     // Check investment cap
     if (fundAllocation.investmentCap !== null && fundAllocation.investmentCap !== undefined) {
+      const existingInvestment = getExistingBalance("investment")
       const currentMonthTotal = existingInvestment + investment
       if (currentMonthTotal > fundAllocation.investmentCap) {
         const remainingCap = Math.max(0, fundAllocation.investmentCap - existingInvestment)
@@ -185,27 +120,21 @@ export async function POST(request: Request) {
         excessToRedistribute += excess
       }
     }
-
+    
     // Check guilt-free spending cap
     if (fundAllocation.guiltFreeSpendingCap !== null && fundAllocation.guiltFreeSpendingCap !== undefined) {
-      const currentMonthTotal = existingGuiltFreeSpending + guiltFreeSpending
+      const existingGfs = getExistingBalance("guiltFreeSpending")
+      const currentMonthTotal = existingGfs + guiltFreeSpending
       if (currentMonthTotal > fundAllocation.guiltFreeSpendingCap) {
-        const remainingCap = Math.max(0, fundAllocation.guiltFreeSpendingCap - existingGuiltFreeSpending)
+        const remainingCap = Math.max(0, fundAllocation.guiltFreeSpendingCap - existingGfs)
         const excess = guiltFreeSpending - remainingCap
         guiltFreeSpending = remainingCap
         excessToRedistribute += excess
       }
     }
-
-    // Check savings cap
-    const existingSavings = existingMonthEntries.reduce((sum, entry) => {
-      if (fundAllocation.savingsType === "fixed") {
-        return sum + fundAllocation.savingsValue
-      } else {
-        return sum + (entry.amount * fundAllocation.savingsValue) / 100
-      }
-    }, 0)
     
+    // Check savings cap using existing savings + new savings
+    const existingSavings = getExistingBalance("savings")
     if (fundAllocation.savingsCap !== null && fundAllocation.savingsCap !== undefined) {
       const currentMonthTotal = existingSavings + savings
       if (currentMonthTotal > fundAllocation.savingsCap) {
@@ -215,8 +144,10 @@ export async function POST(request: Request) {
         excessToRedistribute += excess
       }
     }
-
-    // Add excess from capped categories to savings
+    
+    // Add excess from capped categories to savings (this may go beyond the cap;
+    // we do NOT retroactively change existing savings, we only decide where the
+    // new income should land).
     savings += excessToRedistribute
 
     // Calculate total allocated so far
@@ -290,76 +221,13 @@ export async function POST(request: Request) {
       })
     }
 
-    // Recalculate ALL category balances from scratch (all income entries including the new one)
-    // This ensures the stored balances match the actual calculated allocations with caps applied
-    // Exclude cash account entries from budget calculations
-    // Fetch fresh data that includes the newly created income entry
-    const allMonthEntriesForRecalc = await getCurrentMonthIncomeEntries(session.user.id)
-    const monthEntriesForRecalc = allMonthEntriesForRecalc.filter(entry => !(entry as any).excludeFromAllocation)
-    
-    // Recalculate totals from all entries (excluding cash accounts)
-    let recalcFixedCosts = 0
-    let recalcInvestment = 0
-    let recalcGuiltFreeSpending = 0
-    let recalcSavings = 0
-    
-    for (const entry of monthEntriesForRecalc) {
-      const allocations = calculateAllocations(entry.amount)
-      recalcFixedCosts += allocations.fixedCosts || 0
-      recalcInvestment += allocations.investment || 0
-      recalcGuiltFreeSpending += allocations.guiltFreeSpending || 0
-      recalcSavings += allocations.savings || 0
-    }
-    
-    // Ensure all values are numbers (handle any NaN or undefined)
-    recalcFixedCosts = isNaN(recalcFixedCosts) ? 0 : recalcFixedCosts
-    recalcInvestment = isNaN(recalcInvestment) ? 0 : recalcInvestment
-    recalcGuiltFreeSpending = isNaN(recalcGuiltFreeSpending) ? 0 : recalcGuiltFreeSpending
-    recalcSavings = isNaN(recalcSavings) ? 0 : recalcSavings
-    
-    // Apply caps to recalculated totals
-    let recalcExcessToSavings = 0
-    
-    if (fundAllocation.fixedCostsCap !== null && fundAllocation.fixedCostsCap !== undefined) {
-      if (recalcFixedCosts > fundAllocation.fixedCostsCap) {
-        const excess = recalcFixedCosts - fundAllocation.fixedCostsCap
-        recalcFixedCosts = fundAllocation.fixedCostsCap
-        recalcExcessToSavings += excess
-      }
-    }
-    
-    if (fundAllocation.investmentCap !== null && fundAllocation.investmentCap !== undefined) {
-      if (recalcInvestment > fundAllocation.investmentCap) {
-        const excess = recalcInvestment - fundAllocation.investmentCap
-        recalcInvestment = fundAllocation.investmentCap
-        recalcExcessToSavings += excess
-      }
-    }
-    
-    if (fundAllocation.guiltFreeSpendingCap !== null && fundAllocation.guiltFreeSpendingCap !== undefined) {
-      if (recalcGuiltFreeSpending > fundAllocation.guiltFreeSpendingCap) {
-        const excess = recalcGuiltFreeSpending - fundAllocation.guiltFreeSpendingCap
-        recalcGuiltFreeSpending = fundAllocation.guiltFreeSpendingCap
-        recalcExcessToSavings += excess
-      }
-    }
-    
-    if (fundAllocation.savingsCap !== null && fundAllocation.savingsCap !== undefined) {
-      if (recalcSavings + recalcExcessToSavings > fundAllocation.savingsCap) {
-        recalcSavings = fundAllocation.savingsCap
-        // Excess beyond savings cap stays in savings (no other place)
-      } else {
-        recalcSavings += recalcExcessToSavings
-      }
-    } else {
-      recalcSavings += recalcExcessToSavings
-    }
-    
-    // Set category balances to recalculated values (not increment - this ensures accuracy)
-    const setBalance = async (category: string, amount: number) => {
+    // Increment category balances by this income's allocation ONLY.
+    // Previously allocated amounts (existing balances) are preserved.
+    const incrementBalance = async (category: string, amount: number) => {
       // Ensure amount is a valid number
-      const balanceValue = isNaN(amount) || amount === undefined || amount === null ? 0 : amount
-      
+      const incrementValue =
+        isNaN(amount) || amount === undefined || amount === null ? 0 : amount
+
       const existing = await prisma.categoryBalance.findFirst({
         where: {
           userId: session.user.id,
@@ -372,27 +240,26 @@ export async function POST(request: Request) {
       if (existing) {
         await prisma.categoryBalance.update({
           where: { id: existing.id },
-          data: { balance: balanceValue },
+          data: { balance: { increment: incrementValue } },
         })
       } else {
         await prisma.categoryBalance.create({
           data: {
             userId: session.user.id,
             category,
-            balance: balanceValue,
+            balance: incrementValue,
             month: currentMonth,
             year: currentYear,
           },
         })
       }
     }
-    
-    // Ensure all values are numbers before calling setBalance
+
     await Promise.all([
-      setBalance("fixedCosts", recalcFixedCosts ?? 0),
-      setBalance("investment", recalcInvestment ?? 0),
-      setBalance("guiltFreeSpending", recalcGuiltFreeSpending ?? 0),
-      setBalance("savings", recalcSavings ?? 0),
+      incrementBalance("fixedCosts", fixedCosts ?? 0),
+      incrementBalance("investment", investment ?? 0),
+      incrementBalance("guiltFreeSpending", guiltFreeSpending ?? 0),
+      incrementBalance("savings", savings ?? 0),
     ])
 
     // Deposit income to selected/default account if it exists

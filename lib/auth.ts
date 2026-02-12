@@ -14,6 +14,8 @@ if (!process.env.NEXTAUTH_SECRET) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
+  // Allow localhost and other dev hosts without explicit NEXTAUTH_URL
+  trustHost: true,
   providers: [
     // Only add Google provider if credentials are configured
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET

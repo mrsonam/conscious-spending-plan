@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Pie, Cell, ResponsiveContainer, Legend, Tooltip, PieLabelRenderProps, LabelList, BarChart, Bar, XAxis, YAxis, CartesianGrid, Line } from "recharts"
-import { DollarSign, TrendingUp, Wallet, PiggyBank, CreditCard, Building2, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Activity, TrendingDown, Calendar, Clock, Target, BarChart3, ArrowRight, Home, PieChart as PieChartIcon, Receipt } from "lucide-react"
+import { DollarSign, TrendingUp, Wallet, PiggyBank, CreditCard, Building2, ArrowUpRight, ArrowDownRight, AlertTriangle, Plus, Activity, TrendingDown, Calendar, Clock, Target, BarChart3, ArrowRight, Home, PieChart as PieChartIcon, Receipt, HandCoins } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
@@ -121,6 +121,22 @@ interface IncomeEntry {
   } | null
 }
 
+interface Loan {
+  id: string
+  amount: number
+  borrowerName: string | null
+  description: string | null
+  date: string
+  dueDate: string | null
+  status: "active" | "repaid" | "defaulted" | string
+  repaidAmount: number
+  account: {
+    id: string
+    name: string
+    bankName: string
+  }
+}
+
 interface CategoryTracking {
   allocated: number
   spent: number
@@ -169,6 +185,7 @@ export default function DashboardPage() {
   const [showIncomeModal, setShowIncomeModal] = useState(false)
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [loans, setLoans] = useState<Loan[]>([])
   
   // State for active tab/view
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "accounts" | "transactions">("overview")
@@ -266,12 +283,13 @@ export default function DashboardPage() {
 
       // Load secondary data in parallel with cache busting
       const timestamp = Date.now()
-      const [expensesRes, transfersRes, incomeEntriesRes, categoryTrackingRes, historyRes] = await Promise.all([
+      const [expensesRes, transfersRes, incomeEntriesRes, categoryTrackingRes, historyRes, loansRes] = await Promise.all([
         fetch(`/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
         fetch(`/api/transfers?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
         fetch(`/api/income-entries?t=${timestamp}`),
         fetch(`/api/category-tracking?t=${timestamp}`),
         fetch(`/api/category-tracking/history?t=${timestamp}`),
+        fetch(`/api/loans?status=active&t=${timestamp}`),
       ])
 
       if (expensesRes.ok) {
@@ -297,6 +315,11 @@ export default function DashboardPage() {
       if (historyRes.ok) {
         const data = await historyRes.json()
         setMonthlyHistory(data.history || {})
+      }
+
+      if (loansRes.ok) {
+        const data = await loansRes.json()
+        setLoans(data.loans || [])
       }
 
       setSecondaryDataLoaded(true)
@@ -660,6 +683,31 @@ export default function DashboardPage() {
                             <p className="text-xs text-gray-500 mt-1">Of allocated</p>
                           </CardContent>
                         </Card>
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium">Money Lent Out</CardTitle>
+                            <HandCoins className="h-4 w-4 text-amber-600" />
+                          </CardHeader>
+                          <CardContent>
+                            {(() => {
+                              const activeLoans = loans.filter(loan => loan.status === "active")
+                              const outstanding = activeLoans.reduce(
+                                (sum, loan) => sum + (loan.amount - loan.repaidAmount),
+                                0
+                              )
+                              return (
+                                <>
+                                  <div className="text-xl font-bold text-amber-700">
+                                    {formatCurrency(outstanding)}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Lent out, not counted as spending
+                                  </p>
+                                </>
+                              )
+                            })()}
+                          </CardContent>
+                        </Card>
                       </div>
                     )
                   })()}
@@ -807,6 +855,79 @@ export default function DashboardPage() {
                       </div>
                     )
                   })()}
+
+                  {/* Loans Overview */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <HandCoins className="h-5 w-5 text-amber-600" />
+                        Active Loans Snapshot
+                      </CardTitle>
+                      <CardDescription>
+                        Money you have lent out this month (deducted from accounts but not from spending)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const activeLoans = loans.filter(loan => loan.status === "active")
+                        if (activeLoans.length === 0) {
+                          return (
+                            <div className="text-sm text-gray-500">
+                              You have no active loans. Record loans from the Loans page when you lend money to someone.
+                            </div>
+                          )
+                        }
+                        const totalOutstanding = activeLoans.reduce(
+                          (sum, loan) => sum + (loan.amount - loan.repaidAmount),
+                          0
+                        )
+
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Total outstanding</span>
+                              <span className="font-semibold text-amber-700">
+                                {formatCurrency(totalOutstanding)}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {activeLoans.slice(0, 3).map((loan) => {
+                                const outstanding = loan.amount - loan.repaidAmount
+                                return (
+                                  <div
+                                    key={loan.id}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-100"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-medium text-amber-900 truncate">
+                                        {loan.borrowerName || "Loan"}
+                                      </div>
+                                      <div className="text-xs text-amber-800 truncate">
+                                        From {loan.account.name} ({loan.account.bankName})
+                                      </div>
+                                    </div>
+                                    <div className="ml-3 text-sm font-semibold text-amber-900 whitespace-nowrap">
+                                      {formatCurrency(outstanding)}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {activeLoans.length > 3 && (
+                              <div className="pt-1">
+                                <Link
+                                  href="/dashboard/loans"
+                                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                                >
+                                  View all loans <ArrowRight className="h-3 w-3" />
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
 
                   {/* Spending Alerts */}
                   {(() => {
