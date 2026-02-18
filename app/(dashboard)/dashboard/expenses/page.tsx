@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { ExpensesSkeleton } from "@/components/skeletons/expenses-skeleton"
 import { ExpensesListSkeleton } from "@/components/skeletons/expenses-sections"
-import { Plus, Trash2, TrendingDown, Calendar } from "lucide-react"
+import { Plus, Trash2, TrendingDown, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface Account {
   id: string
@@ -43,6 +43,9 @@ export default function ExpensesPage() {
   const router = useRouter()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [expensesTotal, setExpensesTotal] = useState(0)
+  const [expensesPage, setExpensesPage] = useState(1)
+  const expensesLimit = 10
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [loadingExpenses, setLoadingExpenses] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -98,7 +101,7 @@ export default function ExpensesPage() {
       router.push("/login")
     } else if (status === "authenticated") {
       fetchAccounts()
-      fetchExpenses()
+      fetchExpenses(1)
     }
   }, [status, router])
 
@@ -121,19 +124,21 @@ export default function ExpensesPage() {
     }
   }
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (page: number = 1) => {
     setLoadingExpenses(true)
     try {
-      let url = "/api/expenses"
       const params = new URLSearchParams()
       if (filterStartDate) params.append("startDate", filterStartDate)
       if (filterEndDate) params.append("endDate", filterEndDate)
-      if (params.toString()) url += "?" + params.toString()
+      params.set("page", String(page))
+      params.set("limit", String(expensesLimit))
 
-      const response = await fetch(url)
+      const response = await fetch(`/api/expenses?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
         setExpenses(data.expenses || [])
+        setExpensesTotal(data.total ?? 0)
+        setExpensesPage(data.page ?? 1)
       }
     } catch (error) {
       console.error("Error fetching expenses:", error)
@@ -144,7 +149,8 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchExpenses()
+      setExpensesPage(1)
+      fetchExpenses(1)
     }
   }, [filterStartDate, filterEndDate, status])
 
@@ -197,7 +203,7 @@ export default function ExpensesPage() {
         setFundCategory("")
         setExpenseCategory("")
         setShowAddForm(false)
-        fetchExpenses()
+        fetchExpenses(1)
         fetchAccounts() // Refresh accounts to update balances
       } else {
         setMessage({ type: "error", text: data.error || "Failed to log expense" })
@@ -227,7 +233,8 @@ export default function ExpensesPage() {
 
       if (response.ok) {
         setMessage({ type: "success", text: "Expense deleted successfully" })
-        fetchExpenses()
+        const nextPage = expenses.length <= 1 && expensesPage > 1 ? expensesPage - 1 : expensesPage
+        fetchExpenses(nextPage)
         fetchAccounts() // Refresh accounts to update balances
       } else {
         const data = await response.json()
@@ -480,9 +487,9 @@ export default function ExpensesPage() {
           <CardHeader>
             <CardTitle>Expense History</CardTitle>
             <CardDescription>
-              {expenses.length === 0
+              {expensesTotal === 0
                 ? "No expenses logged yet"
-                : `${expenses.length} expense${expenses.length !== 1 ? "s" : ""} found`}
+                : `Showing ${(expensesPage - 1) * expensesLimit + 1}–${Math.min(expensesPage * expensesLimit, expensesTotal)} of ${expensesTotal} expense${expensesTotal !== 1 ? "s" : ""}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -495,55 +502,86 @@ export default function ExpensesPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {expenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 shadow-sm"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900">
-                            {formatCurrency(expense.amount)}
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            {expense.account.name} ({expense.account.bankName})
-                          </div>
-                          {expense.description && (
-                            <div className="text-sm text-gray-500 mt-1">{expense.description}</div>
-                          )}
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            {expense.category && (
-                              <span className="inline-block px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded">
-                                Fund: {FUND_CATEGORIES.find(c => c.value === expense.category)?.label || expense.category}
-                              </span>
+              <>
+                <div className="space-y-3">
+                  {expenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 shadow-sm"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900">
+                              {formatCurrency(expense.amount)}
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {expense.account.name} ({expense.account.bankName})
+                            </div>
+                            {expense.description && (
+                              <div className="text-sm text-gray-500 mt-1">{expense.description}</div>
                             )}
-                            {expense.expenseCategory && (
-                              <span className="inline-block px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">
-                                {EXPENSE_CATEGORIES.find(c => c.value === expense.expenseCategory)?.label || expense.expenseCategory}
-                              </span>
-                            )}
+                            <div className="flex gap-2 mt-1 flex-wrap">
+                              {expense.category && (
+                                <span className="inline-block px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded">
+                                  Fund: {FUND_CATEGORIES.find(c => c.value === expense.category)?.label || expense.category}
+                                </span>
+                              )}
+                              {expense.expenseCategory && (
+                                <span className="inline-block px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">
+                                  {EXPENSE_CATEGORIES.find(c => c.value === expense.expenseCategory)?.label || expense.expenseCategory}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium text-gray-700">
-                            {formatDate(expense.date)}
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-gray-700">
+                              {formatDate(expense.date)}
+                            </div>
                           </div>
                         </div>
                       </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(expense.id)}
+                        className="ml-4"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(expense.id)}
-                      className="ml-4"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  ))}
+                </div>
+                {expensesTotal > expensesLimit && (
+                  <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-200">
+                    <p className="text-sm text-gray-500">
+                      Page {expensesPage} of {Math.ceil(expensesTotal / expensesLimit)}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={expensesPage <= 1}
+                        onClick={() => fetchExpenses(expensesPage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={expensesPage >= Math.ceil(expensesTotal / expensesLimit)}
+                        onClick={() => fetchExpenses(expensesPage + 1)}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

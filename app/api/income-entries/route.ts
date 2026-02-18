@@ -264,16 +264,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ breakdown, entry: latestEntry, entries: allMonthEntries })
     }
 
-    const entries = await prisma.incomeEntry.findMany({
-      where: { userId: session.user.id },
-      include: {
-        account: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    })
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+    const limit = Math.min(20, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
+    const skip = (page - 1) * limit
 
-    return NextResponse.json({ entries })
+    const [entries, total] = await Promise.all([
+      prisma.incomeEntry.findMany({
+        where: { userId: session.user.id },
+        include: { account: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.incomeEntry.count({ where: { userId: session.user.id } }),
+    ])
+
+    return NextResponse.json({ entries, total, page, limit })
   } catch (error) {
     console.error("Error fetching income entries:", error)
     return NextResponse.json(

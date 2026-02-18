@@ -37,28 +37,42 @@ export async function GET(request: Request) {
       }
     }
 
-    const expenses = await prisma.expense.findMany({
-      where,
-      select: {
-        id: true,
-        amount: true,
-        description: true,
-        date: true,
-        category: true,
-        expenseCategory: true,
-        accountId: true,
-        account: {
-          select: {
-            id: true,
-            name: true,
-            bankName: true,
+    const pageParam = searchParams.get("page")
+    const usePagination = pageParam !== null && pageParam !== ""
+    const page = usePagination ? Math.max(1, parseInt(pageParam || "1", 10)) : 1
+    const limit = Math.min(50, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
+    const skip = usePagination ? (page - 1) * limit : 0
+    const take = usePagination ? limit : 500
+
+    const [expenses, total] = await Promise.all([
+      prisma.expense.findMany({
+        where,
+        select: {
+          id: true,
+          amount: true,
+          description: true,
+          date: true,
+          category: true,
+          expenseCategory: true,
+          accountId: true,
+          account: {
+            select: {
+              id: true,
+              name: true,
+              bankName: true,
+            },
           },
         },
-      },
-      orderBy: { date: "desc" },
-      take: 100,
-    })
+        orderBy: { date: "desc" },
+        skip,
+        take,
+      }),
+      usePagination ? prisma.expense.count({ where }) : 0,
+    ])
 
+    if (usePagination) {
+      return NextResponse.json({ expenses, total, page, limit })
+    }
     return NextResponse.json({ expenses })
   } catch (error) {
     console.error("Error fetching expenses:", error)

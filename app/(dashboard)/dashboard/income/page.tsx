@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calculator, DollarSign, Trash2 } from "lucide-react";
+import { Calculator, DollarSign, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IncomeSkeleton } from "@/components/skeletons/income-skeleton";
 import {
@@ -73,6 +73,9 @@ export default function IncomePage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [incomePage, setIncomePage] = useState(1);
+  const incomeLimit = 10;
   const [income, setIncome] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
@@ -126,6 +129,8 @@ export default function IncomePage() {
           if (incomeRes.ok) {
             incomeRes.json().then((data) => {
               setIncomeEntries(data.entries || []);
+              setIncomeTotal(data.total ?? 0);
+              setIncomePage(data.page ?? 1);
               setLoadingHistory(false);
             });
           } else {
@@ -149,13 +154,15 @@ export default function IncomePage() {
     }
   }, [status, router]);
 
-  const fetchIncomeEntries = async () => {
+  const fetchIncomeEntries = async (page: number = 1) => {
     setLoadingHistory(true);
     try {
-      const response = await fetch("/api/income-entries");
+      const response = await fetch(`/api/income-entries?page=${page}&limit=${incomeLimit}`);
       if (response.ok) {
         const data = await response.json();
         setIncomeEntries(data.entries || []);
+        setIncomeTotal(data.total ?? 0);
+        setIncomePage(data.page ?? 1);
       }
     } catch (error) {
       console.error("Error fetching income entries:", error);
@@ -215,7 +222,7 @@ export default function IncomePage() {
         // Reset date to today
         const today = new Date();
         setDate(today.toISOString().split("T")[0]);
-        fetchIncomeEntries(); // Refresh income history
+        fetchIncomeEntries(incomePage); // Refresh income history
       } else {
         setError(data.error || "Failed to calculate breakdown");
       }
@@ -248,8 +255,12 @@ export default function IncomePage() {
         method: "DELETE",
       });
       if (response.ok) {
-        setIncomeEntries((prev) => prev.filter((e) => e.id !== deleteEntryId));
         setDeleteEntryId(null);
+        const newTotal = incomeTotal - 1;
+        setIncomeTotal(newTotal);
+        const totalPages = Math.max(1, Math.ceil(newTotal / incomeLimit));
+        const nextPage = incomePage > totalPages ? totalPages : incomePage;
+        fetchIncomeEntries(incomeEntries.length <= 1 && incomePage > 1 ? incomePage - 1 : nextPage);
       }
     } catch (error) {
       console.error("Error deleting income entry:", error);
@@ -550,11 +561,9 @@ export default function IncomePage() {
             <CardHeader>
               <CardTitle>Income History</CardTitle>
               <CardDescription>
-                {incomeEntries.length === 0
+                {incomeTotal === 0
                   ? "No income entries yet"
-                  : `${incomeEntries.length} income entr${
-                      incomeEntries.length !== 1 ? "ies" : "y"
-                    } logged`}
+                  : `Showing ${(incomePage - 1) * incomeLimit + 1}–${Math.min(incomePage * incomeLimit, incomeTotal)} of ${incomeTotal} income entr${incomeTotal !== 1 ? "ies" : "y"}`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -609,6 +618,35 @@ export default function IncomePage() {
                       </div>
                     ))}
                   </div>
+                  {incomeTotal > incomeLimit && (
+                    <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm text-gray-500">
+                        Page {incomePage} of {Math.ceil(incomeTotal / incomeLimit)}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={incomePage <= 1}
+                          onClick={() => fetchIncomeEntries(incomePage - 1)}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={incomePage >= Math.ceil(incomeTotal / incomeLimit)}
+                          onClick={() => fetchIncomeEntries(incomePage + 1)}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <ConfirmDialog
                     open={deleteEntryId !== null}
                     onOpenChange={(open) => !open && setDeleteEntryId(null)}
