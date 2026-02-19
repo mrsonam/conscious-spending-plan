@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { TrendingDown, Wallet, TrendingUp, PiggyBank, CreditCard, BarChart3, Activity, PieChart as PieChartIcon, Target, Lightbulb } from "lucide-react"
+import { TrendingDown, Wallet, TrendingUp, PiggyBank, CreditCard, BarChart3, Activity, PieChart as PieChartIcon, Target, Lightbulb, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from "recharts"
 
@@ -41,6 +41,11 @@ export default function CategoryTrackingPage() {
   const [loadingCharts, setLoadingCharts] = useState(true)
   const [loadingDetails, setLoadingDetails] = useState(true)
   const [loadingExpenses, setLoadingExpenses] = useState(true)
+
+  // Selected month/year for viewing (default: current month)
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
   
   // State for active tab/view
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "details" | "insights">("overview")
@@ -51,7 +56,7 @@ export default function CategoryTrackingPage() {
     } else if (status === "authenticated") {
       fetchData()
     }
-  }, [status, router])
+  }, [status, router, selectedMonth, selectedYear])
 
   const fetchData = async () => {
     setLoadingSummary(true)
@@ -60,11 +65,11 @@ export default function CategoryTrackingPage() {
     setLoadingExpenses(true)
     
     try {
-      const { startOfMonth, endOfMonth } = getCurrentMonthYear()
-      // Fetch all data in parallel
+      const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1)
+      const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
+      // Fetch all data in parallel for the selected month
       const [trackingRes, expensesRes, historyRes] = await Promise.all([
-        fetch("/api/category-tracking"),
-        // Only fetch expenses with fund categories for current month (server-side filtered)
+        fetch(`/api/category-tracking?month=${selectedMonth}&year=${selectedYear}`),
         fetch(`/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&category=fixedCosts,investment,savings,guiltFreeSpending`),
         fetch("/api/category-tracking/history"),
       ])
@@ -103,6 +108,24 @@ export default function CategoryTrackingPage() {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
     return { startOfMonth, endOfMonth }
   }
+
+  // Build month options for dropdown (current month + previous 23 months)
+  const monthOptions = (() => {
+    const options: { value: string; label: string; month: number; year: number }[] = []
+    const d = new Date()
+    for (let i = 0; i < 24; i++) {
+      const m = d.getMonth() + 1
+      const y = d.getFullYear()
+      const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      options.push({ value: `${y}-${m}`, label, month: m, year: y })
+      d.setMonth(d.getMonth() - 1)
+    }
+    return options
+  })()
+
+  const selectedMonthLabel = monthOptions.find(
+    (o) => o.month === selectedMonth && o.year === selectedYear
+  )?.label ?? new Date(selectedYear, selectedMonth - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" })
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -165,6 +188,45 @@ export default function CategoryTrackingPage() {
     <>
       <Header title="Category Tracking" />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        {/* Month selector */}
+        <div className="flex flex-wrap items-center gap-3 pb-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <label htmlFor="month-select" className="text-sm font-medium text-gray-700">
+              Viewing:
+            </label>
+          </div>
+          <select
+            id="month-select"
+            value={`${selectedYear}-${selectedMonth}`}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split("-").map(Number)
+              setSelectedYear(y)
+              setSelectedMonth(m)
+            }}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {(selectedMonth !== new Date().getMonth() + 1 || selectedYear !== new Date().getFullYear()) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const d = new Date()
+                setSelectedMonth(d.getMonth() + 1)
+                setSelectedYear(d.getFullYear())
+              }}
+            >
+              Current month
+            </Button>
+          ) : null}
+        </div>
+
         {/* Modern Tab Navigation */}
         <div className="flex flex-wrap gap-2 pb-2">
           <button

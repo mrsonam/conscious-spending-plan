@@ -268,7 +268,12 @@ export async function GET(request: Request) {
     const limit = Math.min(20, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
     const skip = (page - 1) * limit
 
-    const [entries, total] = await Promise.all([
+    // Last month date range (by income date, not createdAt) for dashboard comparison
+    const now = new Date()
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+
+    const [entries, total, lastMonthAgg] = await Promise.all([
       prisma.incomeEntry.findMany({
         where: { userId: session.user.id },
         include: { account: true },
@@ -277,9 +282,18 @@ export async function GET(request: Request) {
         take: limit,
       }),
       prisma.incomeEntry.count({ where: { userId: session.user.id } }),
+      prisma.incomeEntry.aggregate({
+        where: {
+          userId: session.user.id,
+          date: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
     ])
 
-    return NextResponse.json({ entries, total, page, limit })
+    const lastMonthIncome = lastMonthAgg._sum.amount ?? 0
+
+    return NextResponse.json({ entries, total, page, limit, lastMonthIncome })
   } catch (error) {
     console.error("Error fetching income entries:", error)
     return NextResponse.json(

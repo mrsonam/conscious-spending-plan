@@ -172,6 +172,8 @@ export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([])
+  const [lastMonthIncome, setLastMonthIncome] = useState<number>(0)
+  const [lastMonthExpenses, setLastMonthExpenses] = useState<number>(0)
   const [categoryTracking, setCategoryTracking] = useState<Record<string, CategoryTracking>>({})
   const [monthlyHistory, setMonthlyHistory] = useState<Record<string, MonthlyHistory[]>>({})
   const [investmentAccounts, setInvestmentAccounts] = useState<Array<{ 
@@ -280,11 +282,14 @@ export default function DashboardPage() {
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
 
       // Load secondary data in parallel with cache busting
       const timestamp = Date.now()
-      const [expensesRes, transfersRes, incomeEntriesRes, categoryTrackingRes, historyRes, loansRes] = await Promise.all([
+      const [expensesRes, lastMonthExpensesRes, transfersRes, incomeEntriesRes, categoryTrackingRes, historyRes, loansRes] = await Promise.all([
         fetch(`/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
+        fetch(`/api/expenses?startDate=${lastMonthStart.toISOString()}&endDate=${lastMonthEnd.toISOString()}&t=${timestamp}`),
         fetch(`/api/transfers?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${timestamp}`),
         fetch(`/api/income-entries?t=${timestamp}`),
         fetch(`/api/category-tracking?t=${timestamp}`),
@@ -297,6 +302,12 @@ export default function DashboardPage() {
         setExpenses(data.expenses || [])
       }
 
+      if (lastMonthExpensesRes.ok) {
+        const data = await lastMonthExpensesRes.json()
+        const total = (data.expenses || []).reduce((sum: number, e: Expense) => sum + e.amount, 0)
+        setLastMonthExpenses(total)
+      }
+
       if (transfersRes.ok) {
         const data = await transfersRes.json()
         setTransfers(data.transfers || [])
@@ -305,6 +316,9 @@ export default function DashboardPage() {
       if (incomeEntriesRes.ok) {
         const data = await incomeEntriesRes.json()
         setIncomeEntries(data.entries || [])
+        if (typeof data.lastMonthIncome === "number") {
+          setLastMonthIncome(data.lastMonthIncome)
+        }
       }
 
       if (categoryTrackingRes.ok) {
@@ -758,17 +772,7 @@ export default function DashboardPage() {
                     const totalAllocated = breakdown?.total || 0
                     const spendingPercentage = totalAllocated > 0 ? (totalExpenses / totalAllocated) * 100 : 0
                     
-                    // Get last month data
-                    const now = new Date()
-                    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-                    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-                    const lastMonthIncome = incomeEntries
-                      .filter(entry => {
-                        const entryDate = new Date(entry.date)
-                        return entryDate >= lastMonthStart && entryDate <= lastMonthEnd
-                      })
-                      .reduce((sum, e) => sum + e.amount, 0)
-                    
+                    // Last month income comes from API (accurate sum); current month from breakdown
                     const currentMonthIncome = breakdown?.income || 0
                     const incomeChange = lastMonthIncome > 0 
                       ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 
@@ -843,11 +847,26 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="text-xs text-gray-500">Last month: {formatCurrency(lastMonthIncome)}</div>
                               </div>
-                              <div className="pt-2">
-                                <div className="flex justify-between items-center">
+                              <div>
+                                <div className="flex justify-between items-center mb-2">
                                   <span className="text-sm text-gray-600">Expenses</span>
-                                  <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                                    {lastMonthExpenses > 0 && (() => {
+                                      const expenseChange = ((totalExpenses - lastMonthExpenses) / lastMonthExpenses) * 100
+                                      if (expenseChange === 0) return null
+                                      return (
+                                        <span className={`text-xs flex items-center gap-1 ${
+                                          expenseChange > 0 ? "text-red-600" : "text-green-600"
+                                        }`}>
+                                          {expenseChange > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                                          {Math.abs(expenseChange).toFixed(1)}%
+                                        </span>
+                                      )
+                                    })()}
+                                  </div>
                                 </div>
+                                <div className="text-xs text-gray-500">Last month: {formatCurrency(lastMonthExpenses)}</div>
                               </div>
                             </div>
                           </CardContent>

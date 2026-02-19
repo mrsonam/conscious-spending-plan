@@ -22,7 +22,37 @@ export async function GET(request: Request) {
       )
     }
 
-    const { month: currentMonth, year: currentYear, startOfMonth, endOfMonth } = getCurrentMonthYear()
+    const { searchParams } = new URL(request.url)
+    const monthParam = searchParams.get("month")
+    const yearParam = searchParams.get("year")
+
+    let currentMonth: number
+    let currentYear: number
+    let startOfMonth: Date
+    let endOfMonth: Date
+
+    if (monthParam != null && yearParam != null) {
+      const m = parseInt(monthParam, 10)
+      const y = parseInt(yearParam, 10)
+      if (m >= 1 && m <= 12 && y >= 2000 && y <= 2100) {
+        currentMonth = m
+        currentYear = y
+        startOfMonth = new Date(y, m - 1, 1)
+        endOfMonth = new Date(y, m, 0, 23, 59, 59, 999)
+      } else {
+        const def = getCurrentMonthYear()
+        currentMonth = def.month
+        currentYear = def.year
+        startOfMonth = def.startOfMonth
+        endOfMonth = def.endOfMonth
+      }
+    } else {
+      const def = getCurrentMonthYear()
+      currentMonth = def.month
+      currentYear = def.year
+      startOfMonth = def.startOfMonth
+      endOfMonth = def.endOfMonth
+    }
     
     // Parallelize all data fetching.
     // IMPORTANT: We treat CategoryBalance as the canonical source of how much
