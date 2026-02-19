@@ -8,20 +8,14 @@ const urlsToCache = [
   '/next.svg',
 ];
 
-// Install event - cache resources (each URL individually so one failure doesn't break install)
+// Install event - cache resources
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[Service Worker] Caching app shell');
-        return Promise.allSettled(
-          urlsToCache.map((url) =>
-            cache.add(url).catch((err) => {
-              console.warn('[Service Worker] Failed to cache:', url, err);
-            })
-          )
-        );
+        return cache.addAll(urlsToCache);
       })
       .then(() => {
         console.log('[Service Worker] Skip waiting');
