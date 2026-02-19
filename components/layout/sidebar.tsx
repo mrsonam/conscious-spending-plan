@@ -16,6 +16,7 @@ import {
   TrendingUp,
   BarChart3,
   HandCoins,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";

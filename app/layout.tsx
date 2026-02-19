@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { AssistantWidget } from "@/components/layout/assistant-widget";
 import { PwaRegistration } from "./components/PwaRegistration";
 import { SplashScreen } from "./components/SplashScreen";
 
@@ -58,7 +59,10 @@ export default function RootLayout({
       >
         <SplashScreen />
         <PwaRegistration />
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <AssistantWidget />
+        </Providers>
       </body>
     </html>
   );

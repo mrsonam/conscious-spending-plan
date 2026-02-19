@@ -24,6 +24,7 @@ model User {
   transfers     Transfer[]
   expenses      Expense[]
   loans         Loan[]
+  borrowedLoans BorrowedLoan[]
   categoryBalances CategoryBalance[]
   categoryTransactions CategoryTransaction[]
   investmentHoldings InvestmentHolding[]
@@ -92,6 +93,7 @@ model Account {
   incomeEntries IncomeEntry[]
   investmentHoldings InvestmentHolding[]
   loans         Loan[]
+  borrowedLoans BorrowedLoan[]
   
   @@index([userId])
 }
@@ -196,6 +198,27 @@ model Loan {
   amount        Float
   description   String?
   borrowerName  String?
+  date          DateTime @default(now())
+  dueDate       DateTime?
+  status        String   @default("active") // 'active', 'repaid', 'defaulted'
+  repaidAmount  Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([userId, status])
+}
+
+model BorrowedLoan {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount        Float
+  description   String?
+  lenderName    String?
   date          DateTime @default(now())
   dueDate       DateTime?
   status        String   @default("active") // 'active', 'repaid', 'defaulted'
