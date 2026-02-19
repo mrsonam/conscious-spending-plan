@@ -2,13 +2,18 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export default function middleware(req: NextRequest) {
-  // Simple, non-database check to avoid using Prisma on the Edge runtime.
-  // If a next-auth session token cookie is missing, redirect to login for dashboard routes.
-  if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    const hasSessionCookie =
-      req.cookies.has("next-auth.session-token") ||
-      req.cookies.has("__Secure-next-auth.session-token")
+  const pathname = req.nextUrl.pathname
+  const hasSessionCookie =
+    req.cookies.has("next-auth.session-token") ||
+    req.cookies.has("__Secure-next-auth.session-token")
 
+  // Root: redirect to dashboard if logged in, otherwise to login
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL(hasSessionCookie ? "/dashboard" : "/login", req.url))
+  }
+
+  // Dashboard: require login
+  if (pathname.startsWith("/dashboard")) {
     if (!hasSessionCookie) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
@@ -18,5 +23,5 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/dashboard"],
+  matcher: ["/", "/dashboard/:path*", "/dashboard"],
 }
