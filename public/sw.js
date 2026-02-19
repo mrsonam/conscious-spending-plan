@@ -14,8 +14,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[Service Worker] Caching app shell');
-        return cache.addAll(urlsToCache);
+        console.log('[Service Worker] Caching app shell (individually)');
+        return Promise.all(
+          urlsToCache.map((url) =>
+            cache.add(url).catch((err) => {
+              // Avoid failing install if a single resource (like manifest) is missing in production
+              console.warn('[Service Worker] Failed to cache', url, err);
+            })
+          )
+        );
       })
       .then(() => {
         console.log('[Service Worker] Skip waiting');
