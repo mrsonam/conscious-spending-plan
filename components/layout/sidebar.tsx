@@ -87,9 +87,11 @@ export function Sidebar() {
       >
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-              <Wallet className="h-5 w-5 text-white" />
-            </div>
+            <img
+              src="/icon.svg"
+              alt=""
+              className="h-8 w-8 rounded-lg object-contain"
+            />
             <span className="text-lg font-semibold text-gray-900">Finance</span>
           </div>
           <button

@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'any',
     icons: [
       {
-        src: '/next.svg',
+        src: '/icon.svg',
         sizes: '192x192',
         type: 'image/svg+xml',
         purpose: 'any',
       },
       {
-        src: '/next.svg',
+        src: '/icon.svg',
         sizes: '512x512',
         type: 'image/svg+xml',
         purpose: 'any',
@@ -30,21 +30,21 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: 'Dashboard',
         description: 'View your finance dashboard',
         url: '/dashboard',
-        icons: [{ src: '/next.svg', sizes: '192x192' }],
+        icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
       {
         name: 'Expenses',
         short_name: 'Expenses',
         description: 'Track expenses',
         url: '/dashboard/expenses',
-        icons: [{ src: '/next.svg', sizes: '192x192' }],
+        icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
       {
         name: 'Statement',
         short_name: 'Statement',
         description: 'View statement',
         url: '/dashboard/statement',
-        icons: [{ src: '/next.svg', sizes: '192x192' }],
+        icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
     ],
   }

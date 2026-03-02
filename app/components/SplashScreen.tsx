@@ -41,8 +41,8 @@ export function SplashScreen() {
       <div className="flex flex-col items-center justify-center space-y-4">
         <div className="w-32 h-32 sm:w-40 sm:h-40 flex items-center justify-center">
           <img
-            src="/next.svg"
-            alt="Finance"
+            src="/icon.svg"
+            alt="Conscious Spending Plan"
             className="w-full h-full object-contain"
           />
         </div>
