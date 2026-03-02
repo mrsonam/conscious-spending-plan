@@ -921,8 +921,8 @@ export default function CategoryTrackingPage() {
                             <span className="text-red-800 font-semibold">Overspent this month</span>
                             <span className="font-bold text-red-800">-{formatCurrency(data.overspent)}</span>
                           </div>
-                          {data.overspentFromTransfer > 0 && (
-                            <span className="text-xs text-red-700">Includes {formatCurrency(data.overspentFromTransfer)} transferred</span>
+                          {(data.overspentFromTransfer ?? 0) > 0 && (
+                            <span className="text-xs text-red-700">Includes {formatCurrency(data.overspentFromTransfer ?? 0)} transferred</span>
                           )}
                         </div>
                       )}
@@ -1100,8 +1100,8 @@ export default function CategoryTrackingPage() {
                                     <span className="text-red-700 font-semibold">Overspent this month:</span>
                                     <span className="text-red-700 font-bold">-{formatCurrency(data.overspent)}</span>
                                   </div>
-                                  {data.overspentFromTransfer > 0 && (
-                                    <span className="text-red-600">Includes {formatCurrency(data.overspentFromTransfer)} transferred</span>
+                                  {(data.overspentFromTransfer ?? 0) > 0 && (
+                                    <span className="text-red-600">Includes {formatCurrency(data.overspentFromTransfer ?? 0)} transferred</span>
                                   )}
                                 </div>
                               )}

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       const firstAccount = await prisma.account.findFirst({
         where: { userId: session.user.id },
       })
-      accountId = defaultAccount?.id ?? firstAccount?.id ?? null
+      accountId = defaultAccount?.id ?? firstAccount?.id ?? undefined
     }
 
     if (!accountId) {
