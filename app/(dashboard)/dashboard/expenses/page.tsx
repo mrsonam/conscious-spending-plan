@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { ExpensesSkeleton } from "@/components/skeletons/expenses-skeleton"
 import { ExpensesListSkeleton } from "@/components/skeletons/expenses-sections"
-import { Plus, Trash2, TrendingDown, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Trash2, TrendingDown, Calendar, ChevronLeft, ChevronRight, Repeat, Play, ClipboardList } from "lucide-react"
 
 interface Account {
   id: string
@@ -36,6 +36,20 @@ interface Expense {
     name: string
     bankName: string
   }
+}
+
+interface RecurringExpense {
+  id: string
+  accountId: string
+  amount: number
+  description: string | null
+  category: string | null
+  expenseCategory: string | null
+  frequency: string
+  startDate: string
+  endDate: string | null
+  isActive: boolean
+  account: { id: string; name: string; bankName: string }
 }
 
 export default function ExpensesPage() {
@@ -96,12 +110,44 @@ export default function ExpensesPage() {
   const [filterStartDate, setFilterStartDate] = useState("")
   const [filterEndDate, setFilterEndDate] = useState("")
 
+  // Recurring expenses
+  const [recurring, setRecurring] = useState<RecurringExpense[]>([])
+  const [loadingRecurring, setLoadingRecurring] = useState(false)
+  const [showRecurringForm, setShowRecurringForm] = useState(false)
+  const [loggingRecurringId, setLoggingRecurringId] = useState<string | null>(null)
+  const [recurringDeleteId, setRecurringDeleteId] = useState<string | null>(null)
+  const [showRecurringDeleteConfirm, setShowRecurringDeleteConfirm] = useState(false)
+  const [recurringAccountId, setRecurringAccountId] = useState("")
+  const [recurringAmount, setRecurringAmount] = useState("")
+  const [recurringDescription, setRecurringDescription] = useState("")
+  const [recurringFundCategory, setRecurringFundCategory] = useState("")
+  const [recurringExpenseCategory, setRecurringExpenseCategory] = useState("")
+  const [recurringFrequency, setRecurringFrequency] = useState("monthly")
+  const [recurringStartDate, setRecurringStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [recurringEndDate, setRecurringEndDate] = useState("")
+  const [submittingRecurring, setSubmittingRecurring] = useState(false)
+
+  // Bulk expenses
+  const [showBulkForm, setShowBulkForm] = useState(false)
+  const [bulkText, setBulkText] = useState("")
+  const [bulkFundCategory, setBulkFundCategory] = useState("")
+  const [bulkExpenseCategory, setBulkExpenseCategory] = useState("")
+  const [bulkAccountId, setBulkAccountId] = useState("")
+  const [submittingBulk, setSubmittingBulk] = useState(false)
+
+  const FREQUENCIES = [
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "yearly", label: "Yearly" },
+  ]
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
       fetchAccounts()
       fetchExpenses(1)
+      fetchRecurring()
     }
   }, [status, router])
 
@@ -153,6 +199,115 @@ export default function ExpensesPage() {
       fetchExpenses(1)
     }
   }, [filterStartDate, filterEndDate, status])
+
+  const fetchRecurring = async () => {
+    setLoadingRecurring(true)
+    try {
+      const res = await fetch("/api/recurring-expenses")
+      if (res.ok) {
+        const data = await res.json()
+        setRecurring(data.recurring || [])
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingRecurring(false)
+    }
+  }
+
+  const handleAddRecurring = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
+    const amountNum = parseFloat(recurringAmount)
+    if (!recurringAccountId || !recurringAmount || isNaN(amountNum) || amountNum <= 0) {
+      setMessage({ type: "error", text: "Account and a positive amount are required." })
+      return
+    }
+    setSubmittingRecurring(true)
+    try {
+      const res = await fetch("/api/recurring-expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: recurringAccountId,
+          amount: amountNum,
+          description: recurringDescription || null,
+          category: recurringFundCategory || null,
+          expenseCategory: recurringExpenseCategory || null,
+          frequency: recurringFrequency,
+          startDate: recurringStartDate || null,
+          endDate: recurringEndDate || null,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMessage({ type: "success", text: "Recurring expense added." })
+        setRecurringAmount("")
+        setRecurringDescription("")
+        setRecurringFundCategory("")
+        setRecurringExpenseCategory("")
+        setRecurringFrequency("monthly")
+        setRecurringStartDate(new Date().toISOString().split("T")[0])
+        setRecurringEndDate("")
+        setShowRecurringForm(false)
+        fetchRecurring()
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to add recurring expense." })
+      }
+    } catch {
+      setMessage({ type: "error", text: "An error occurred." })
+    } finally {
+      setSubmittingRecurring(false)
+    }
+  }
+
+  const handleLogRecurring = async (id: string) => {
+    setLoggingRecurringId(id)
+    setMessage(null)
+    try {
+      const res = await fetch(`/api/recurring-expenses/${id}/log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: new Date().toISOString().split("T")[0] }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMessage({ type: "success", text: "Expense logged for today." })
+        fetchAccounts()
+        fetchExpenses(1)
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to log expense." })
+      }
+    } catch {
+      setMessage({ type: "error", text: "An error occurred." })
+    } finally {
+      setLoggingRecurringId(null)
+    }
+  }
+
+  const handleDeleteRecurring = (id: string) => {
+    setRecurringDeleteId(id)
+    setShowRecurringDeleteConfirm(true)
+  }
+
+  const confirmDeleteRecurring = async () => {
+    if (!recurringDeleteId) return
+    try {
+      const res = await fetch(`/api/recurring-expenses/${recurringDeleteId}`, { method: "DELETE" })
+      if (res.ok) {
+        setMessage({ type: "success", text: "Recurring expense removed." })
+        setRecurring((prev) => prev.filter((r) => r.id !== recurringDeleteId))
+      } else {
+        const data = await res.json()
+        setMessage({ type: "error", text: data.error || "Failed to delete." })
+      }
+    } catch {
+      setMessage({ type: "error", text: "An error occurred." })
+    } finally {
+      setRecurringDeleteId(null)
+      setShowRecurringDeleteConfirm(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -212,6 +367,118 @@ export default function ExpensesPage() {
       setMessage({ type: "error", text: "An error occurred" })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
+    const today = new Date().toISOString().split("T")[0]
+
+    const resolveFundCategory = (raw: string | undefined): string | null => {
+      if (!raw || !raw.trim()) return null
+      const s = raw.trim()
+      const byValue = FUND_CATEGORIES.find((c) => c.value === s)
+      if (byValue) return byValue.value
+      const byLabel = FUND_CATEGORIES.find((c) => c.label.toLowerCase() === s.toLowerCase())
+      return byLabel ? byLabel.value : null
+    }
+    const resolveExpenseCategory = (raw: string | undefined): string | null => {
+      if (!raw || !raw.trim()) return null
+      const s = raw.trim()
+      const byValue = EXPENSE_CATEGORIES.find((c) => c.value === s)
+      if (byValue) return byValue.value
+      const byLabel = EXPENSE_CATEGORIES.find((c) => c.label.toLowerCase() === s.toLowerCase())
+      return byLabel ? byLabel.value : null
+    }
+
+    const parseBulkDate = (raw: string | undefined): string | null => {
+      if (!raw || !raw.trim()) return null
+      const s = raw.trim()
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+      const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      if (dmy) {
+        const [, d, m, y] = dmy
+        const day = d.padStart(2, "0")
+        const month = m.padStart(2, "0")
+        return `${y}-${month}-${day}`
+      }
+      return null
+    }
+
+    const lines = bulkText
+      .split(/\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (lines.length === 0) {
+      setMessage({ type: "error", text: "Paste at least one line. Columns: date, amount, description, fund category, expense category (last 3 optional)." })
+      return
+    }
+    const selectedAccount = accounts.find((a) => a.id === (bulkAccountId || undefined))
+    const isCashAccount = selectedAccount?.accountType === "cash"
+
+    const expenses = lines.map((line) => {
+      const parts = line.split(/[\t,]/).map((p) => p.trim())
+      const dateRaw = parts[0]
+      const amount = parseFloat(parts[1])
+      const description = parts[2] || null
+      const part3 = parts[3]
+      const part4 = parts[4]
+      const parsedDate = parseBulkDate(dateRaw)
+      const date = parsedDate ?? today
+      const fundFromRow = resolveFundCategory(part3)
+      const expenseFromRow = resolveExpenseCategory(part4)
+      const category = (fundFromRow ?? bulkFundCategory) || null
+      const expenseCategory = (expenseFromRow ?? bulkExpenseCategory) || null
+      return {
+        amount: Number.isFinite(amount) ? amount : 0,
+        description,
+        category,
+        expenseCategory,
+        date,
+      }
+    })
+
+    const invalidAmount = expenses.filter((r) => r.amount <= 0)
+    if (invalidAmount.length > 0) {
+      setMessage({ type: "error", text: "Every line must start with a valid positive number (amount)." })
+      return
+    }
+    if (!isCashAccount) {
+      const missingFund = expenses.filter((r) => !r.category)
+      if (missingFund.length > 0) {
+        setMessage({
+          type: "error",
+          text: "Fund category is required for non-cash account. Add it in the paste (column 4) or set a default above.",
+        })
+        return
+      }
+    }
+
+    setSubmittingBulk(true)
+    try {
+      const response = await fetch("/api/expenses/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: bulkAccountId || undefined,
+          expenses,
+        }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setMessage({ type: "success", text: `${data.created} expense(s) added. Total: $${(data.total ?? 0).toFixed(2)}` })
+        setBulkText("")
+        setShowBulkForm(false)
+        fetchExpenses(1)
+        fetchAccounts()
+      } else {
+        setMessage({ type: "error", text: data.error || "Bulk add failed" })
+      }
+    } catch {
+      setMessage({ type: "error", text: "An error occurred" })
+    } finally {
+      setSubmittingBulk(false)
     }
   }
 
@@ -292,21 +559,274 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Expense Log</h2>
             <p className="text-sm text-gray-500 mt-1">Track your expenses and view history</p>
           </div>
-          <Button
-            onClick={() => {
-              setShowAddForm(!showAddForm)
-              setMessage(null)
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {showAddForm ? "Cancel" : "Add Expense"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={showBulkForm ? "outline" : "default"}
+              onClick={() => {
+                setShowBulkForm(!showBulkForm)
+                setMessage(null)
+                if (accounts.length && !bulkAccountId) {
+                  setBulkAccountId(accounts.find((a) => a.isDefault)?.id || accounts[0].id)
+                }
+              }}
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
+              {showBulkForm ? "Cancel" : "Bulk add"}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAddForm(!showAddForm)
+                setMessage(null)
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {showAddForm ? "Cancel" : "Add Expense"}
+            </Button>
+          </div>
         </div>
+
+        {/* Bulk add form */}
+        {showBulkForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Bulk add expenses
+              </CardTitle>
+              <CardDescription>
+                One expense per line. Columns (comma or tab): <strong>amount</strong>, description, date (DD/MM/YYYY or YYYY-MM-DD), fund category, expense category. Last 4 are optional; use defaults below when omitted. Fund: fixedCosts, investment, savings, guiltFreeSpending (or labels like &quot;Guilt-Free Spending&quot;). Expense: groceries, food, bills, etc. (or labels like &quot;Food &amp; Dining&quot;).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleBulkSubmit} className="space-y-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div>
+                    <Label>Account (Smart Access / default)</Label>
+                    <select
+                      value={bulkAccountId}
+                      onChange={(e) => setBulkAccountId(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    >
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.bankName}) {acc.isDefault ? "— default" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Default fund category (used when not in paste)</Label>
+                    <select
+                      value={bulkFundCategory}
+                      onChange={(e) => setBulkFundCategory(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    >
+                      <option value="">—</option>
+                      {FUND_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Default expense category (used when not in paste)</Label>
+                    <select
+                      value={bulkExpenseCategory}
+                      onChange={(e) => setBulkExpenseCategory(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    >
+                      <option value="">—</option>
+                      {EXPENSE_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <Label>Paste expenses (one per line)</Label>
+                  <textarea
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    placeholder={"50, lunch, 26/02/2026, guiltFreeSpending, food\n12.5, coffee, 10/02/2026, guiltFreeSpending, food\n30, groceries, 01/02/2026, fixedCosts, groceries"}
+                    rows={8}
+                    className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white font-mono text-sm"
+                  />
+                </div>
+                <Button type="submit" disabled={submittingBulk}>
+                  {submittingBulk ? "Adding…" : "Add all"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recurring expenses section */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Repeat className="h-5 w-5" />
+                  Recurring Expenses
+                </CardTitle>
+                <CardDescription>
+                  Add templates for repeat expenses. Use &quot;Log now&quot; to create an expense for today.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowRecurringForm(!showRecurringForm)
+                  setMessage(null)
+                  if (accounts.length && !recurringAccountId) {
+                    setRecurringAccountId(accounts.find((a) => a.isDefault)?.id || accounts[0].id)
+                  }
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {showRecurringForm ? "Cancel" : "Add Recurring"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showRecurringForm && (
+              <form onSubmit={handleAddRecurring} className="mb-6 p-4 rounded-lg bg-gray-50 space-y-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div>
+                    <Label>Account *</Label>
+                    <select
+                      value={recurringAccountId}
+                      onChange={(e) => setRecurringAccountId(e.target.value)}
+                      required
+                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.bankName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Amount ($) *</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={recurringAmount}
+                      onChange={(e) => setRecurringAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Frequency *</Label>
+                    <select
+                      value={recurringFrequency}
+                      onChange={(e) => setRecurringFrequency(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {FREQUENCIES.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Start date</Label>
+                    <Input type="date" value={recurringStartDate} onChange={(e) => setRecurringStartDate(e.target.value)} className="mt-1" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Description (optional)</Label>
+                    <Input
+                      value={recurringDescription}
+                      onChange={(e) => setRecurringDescription(e.target.value)}
+                      placeholder="e.g. Rent, Netflix"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Fund category</Label>
+                    <select
+                      value={recurringFundCategory}
+                      onChange={(e) => setRecurringFundCategory(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">—</option>
+                      {FUND_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Expense category</Label>
+                    <select
+                      value={recurringExpenseCategory}
+                      onChange={(e) => setRecurringExpenseCategory(e.target.value)}
+                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">—</option>
+                      {EXPENSE_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>End date (optional)</Label>
+                    <Input type="date" value={recurringEndDate} onChange={(e) => setRecurringEndDate(e.target.value)} className="mt-1" />
+                  </div>
+                </div>
+                <Button type="submit" disabled={submittingRecurring} size="sm">
+                  {submittingRecurring ? "Adding…" : "Add Recurring Expense"}
+                </Button>
+              </form>
+            )}
+            {loadingRecurring ? (
+              <div className="py-4 text-center text-gray-500 text-sm">Loading…</div>
+            ) : recurring.length === 0 ? (
+              <p className="text-sm text-gray-500">No recurring expenses. Click &quot;Add Recurring&quot; to create one.</p>
+            ) : (
+              <ul className="space-y-2">
+                {recurring.map((r) => (
+                  <li
+                    key={r.id}
+                    className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border ${r.isActive ? "bg-white border-gray-200" : "bg-gray-50 border-gray-100"}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="font-semibold text-gray-900">{formatCurrency(r.amount)}</span>
+                      <span className="text-xs text-gray-500 capitalize">{r.frequency}</span>
+                      {r.description && <span className="text-sm text-gray-600 truncate">{r.description}</span>}
+                      <span className="text-xs text-gray-400">{r.account.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleLogRecurring(r.id)}
+                        disabled={loggingRecurringId !== null}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        {loggingRecurringId === r.id ? "Logging…" : "Log now"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteRecurring(r.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Add Expense Form */}
         {showAddForm && (
@@ -595,6 +1115,17 @@ export default function ExpensesPage() {
           confirmText="Delete"
           cancelText="Cancel"
           onConfirm={confirmDelete}
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          open={showRecurringDeleteConfirm}
+          onOpenChange={setShowRecurringDeleteConfirm}
+          title="Delete recurring expense?"
+          description="This only removes the template. Past logged expenses are not affected."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={confirmDeleteRecurring}
           variant="destructive"
         />
       </div>

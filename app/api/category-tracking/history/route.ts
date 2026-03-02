@@ -30,6 +30,12 @@ export async function GET() {
     }
     months.reverse() // Oldest to newest
 
+    // Date range for the 6 months
+    const oldestMonth = months[0]
+    const newestMonth = months[months.length - 1]
+    const overallStart = new Date(oldestMonth.year, oldestMonth.month - 1, 1)
+    const overallEnd = new Date(newestMonth.year, newestMonth.month, 0, 23, 59, 59, 999)
+
     const history: Record<string, Array<{ month: string; allocated: number; spent: number; remaining: number }>> = {
       fixedCosts: [],
       investment: [],
@@ -37,199 +43,110 @@ export async function GET() {
       guiltFreeSpending: [],
     }
 
-    const fundAllocation = await prisma.fundAllocation.findUnique({
-      where: { userId: session.user.id }
-    })
+    // Build list of (month, year) for the 6 months
+    const monthKeys = months.map(m => ({ month: m.month, year: m.year }))
 
-    if (!fundAllocation) {
-      return NextResponse.json({ history })
-    }
+    // Fetch stored CategoryBalances for all 6 months (and previous month of oldest for carryover)
+    const oldest = monthKeys[0]
+    const prevOfOldest = oldest.month === 1 ? { month: 12, year: oldest.year - 1 } : { month: oldest.month - 1, year: oldest.year }
+    const allMonthKeys = [prevOfOldest, ...monthKeys]
 
-    // Helper to calculate allocations
-    const calculateAllocations = (incomeAmount: number) => {
-      let fc = 0, inv = 0, gfs = 0, sav = 0
-
-      if (fundAllocation.fixedCostsType === "fixed") {
-        fc = fundAllocation.fixedCostsValue
-      } else {
-        fc = (incomeAmount * fundAllocation.fixedCostsValue) / 100
-      }
-
-      if (fundAllocation.investmentType === "fixed") {
-        inv = fundAllocation.investmentValue
-      } else {
-        inv = (incomeAmount * fundAllocation.investmentValue) / 100
-      }
-
-      if (fundAllocation.guiltFreeSpendingType === "fixed") {
-        gfs = fundAllocation.guiltFreeSpendingValue
-      } else {
-        gfs = (incomeAmount * fundAllocation.guiltFreeSpendingValue) / 100
-      }
-
-      if (fundAllocation.savingsType === "fixed") {
-        sav = fundAllocation.savingsValue
-      } else {
-        sav = (incomeAmount * fundAllocation.savingsValue) / 100
-      }
-
-      return { fixedCosts: fc, investment: inv, guiltFreeSpending: gfs, savings: sav }
-    }
-
-    // Batch fetch all data for all months at once
-    const oldestMonth = months[0]
-    const newestMonth = months[months.length - 1]
-    const overallStart = new Date(oldestMonth.year, oldestMonth.month - 1, 1)
-    const overallEnd = new Date(newestMonth.year, newestMonth.month, 0, 23, 59, 59, 999)
-
-    // Fetch all income entries, expenses, and investments for the 6-month period in parallel
-    const [allIncomeEntries, allExpenses, allInvestments] = await Promise.all([
-      prisma.incomeEntry.findMany({
+    const [allCategoryBalances, allExpenses, allInvestments] = await Promise.all([
+      prisma.categoryBalance.findMany({
         where: {
           userId: session.user.id,
-          createdAt: {
-            gte: overallStart,
-            lte: overallEnd,
-          },
-          excludeFromAllocation: false,
-        } as any,
-        select: {
-          amount: true,
-          createdAt: true,
+          OR: allMonthKeys.map(({ month, year }) => ({ month, year })),
         },
       }),
       prisma.expense.findMany({
         where: {
           userId: session.user.id,
-          date: {
-            gte: overallStart,
-            lte: overallEnd,
-          },
-          category: {
-            in: ["fixedCosts", "investment", "savings", "guiltFreeSpending"],
-          },
+          date: { gte: overallStart, lte: overallEnd },
+          category: { in: ["fixedCosts", "investment", "savings", "guiltFreeSpending"] },
         },
-        select: {
-          amount: true,
-          category: true,
-          date: true,
-        },
+        select: { amount: true, category: true, date: true },
       }),
-      // Fetch all investment holdings for the period
       prisma.investmentHolding.findMany({
         where: {
           userId: session.user.id,
-          date: {
-            gte: overallStart,
-            lte: overallEnd,
-          },
+          date: { gte: overallStart, lte: overallEnd },
         },
-        select: {
-          amount: true,
-          date: true,
-        },
+        select: { amount: true, date: true },
       }),
     ])
 
-    // Process each month using the pre-fetched data
+    const getBalancesForMonth = (month: number, year: number) => {
+      const map: Record<string, number> = { fixedCosts: 0, investment: 0, savings: 0, guiltFreeSpending: 0 }
+      for (const b of allCategoryBalances) {
+        if (b.month === month && b.year === year && map[b.category] !== undefined) {
+          map[b.category] = b.balance ?? 0
+        }
+      }
+      return map
+    }
+
+    const getSpentForMonth = (startOfMonth: Date, endOfMonth: Date) => {
+      const spent: Record<string, number> = { fixedCosts: 0, investment: 0, savings: 0, guiltFreeSpending: 0 }
+      for (const e of allExpenses) {
+        const d = new Date(e.date)
+        if (d >= startOfMonth && d <= endOfMonth && e.category && e.category !== "investment") {
+          spent[e.category] += e.amount
+        }
+      }
+      for (const inv of allInvestments) {
+        const d = new Date(inv.date)
+        if (d >= startOfMonth && d <= endOfMonth) spent.investment += inv.amount
+      }
+      return spent
+    }
+
+    let prevBalances = getBalancesForMonth(prevOfOldest.month, prevOfOldest.year)
+    let prevSpent = getSpentForMonth(
+      new Date(prevOfOldest.year, prevOfOldest.month - 1, 1),
+      new Date(prevOfOldest.year, prevOfOldest.month, 0, 23, 59, 59, 999)
+    )
+
     for (const { month, year, label } of months) {
       const startOfMonth = new Date(year, month - 1, 1)
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999)
 
-      // Filter income entries for this month (already filtered by excludeFromAllocation)
-      const monthEntries = allIncomeEntries.filter(entry => {
-        const entryDate = new Date(entry.createdAt)
-        return entryDate >= startOfMonth && entryDate <= endOfMonth
-      })
+      const balances = getBalancesForMonth(month, year)
+      const spent = getSpentForMonth(startOfMonth, endOfMonth)
 
-      // Calculate allocations
-      let totalFixedCosts = 0
-      let totalInvestment = 0
-      let totalGuiltFreeSpending = 0
-      let totalSavings = 0
-
-      for (const entry of monthEntries) {
-        const allocations = calculateAllocations(entry.amount)
-        totalFixedCosts += allocations.fixedCosts
-        totalInvestment += allocations.investment
-        totalGuiltFreeSpending += allocations.guiltFreeSpending
-        totalSavings += allocations.savings
+      const categories = ["fixedCosts", "investment", "guiltFreeSpending", "savings"] as const
+      const allocatedFromIncome: Record<string, number> = {}
+      for (const cat of categories) {
+        // Carryover = remaining from the single previous month only (prevBalances/prevSpent from prior iteration)
+        const carryover = Math.max(0, prevBalances[cat] - prevSpent[cat])
+        allocatedFromIncome[cat] = Math.max(0, balances[cat] - carryover)
       }
 
-      // Apply caps
-      if (fundAllocation.fixedCostsCap !== null && totalFixedCosts > fundAllocation.fixedCostsCap) {
-        totalFixedCosts = fundAllocation.fixedCostsCap
-      }
-      if (fundAllocation.investmentCap !== null && totalInvestment > fundAllocation.investmentCap) {
-        totalInvestment = fundAllocation.investmentCap
-      }
-      if (fundAllocation.guiltFreeSpendingCap !== null && totalGuiltFreeSpending > fundAllocation.guiltFreeSpendingCap) {
-        totalGuiltFreeSpending = fundAllocation.guiltFreeSpendingCap
-      }
-      if (fundAllocation.savingsCap !== null && totalSavings > fundAllocation.savingsCap) {
-        totalSavings = fundAllocation.savingsCap
-      }
-
-      // Filter expenses for this month
-      const monthExpenses = allExpenses.filter(expense => {
-        const expenseDate = new Date(expense.date)
-        return expenseDate >= startOfMonth && expenseDate <= endOfMonth
-      })
-
-      // Filter investments for this month
-      const monthInvestments = allInvestments.filter(investment => {
-        const investmentDate = new Date(investment.date)
-        return investmentDate >= startOfMonth && investmentDate <= endOfMonth
-      })
-
-      const spent: Record<string, number> = {
-        fixedCosts: 0,
-        investment: 0,
-        savings: 0,
-        guiltFreeSpending: 0,
-      }
-
-      for (const expense of monthExpenses) {
-        if (expense.category && spent[expense.category] !== undefined) {
-          // For investment category, don't count expenses as "spent" - only investment holdings count
-          if (expense.category !== "investment") {
-            spent[expense.category] += expense.amount
-          }
-        }
-      }
-
-      // Add investment holdings to investment category spent
-      // Only investment holdings count as "spent" for investment category, not expenses
-      for (const investment of monthInvestments) {
-        spent.investment += investment.amount
-      }
+      prevBalances = balances
+      prevSpent = spent
 
       history.fixedCosts.push({
         month: label,
-        allocated: Math.round(totalFixedCosts * 100) / 100,
+        allocated: Math.round(allocatedFromIncome.fixedCosts * 100) / 100,
         spent: Math.round(spent.fixedCosts * 100) / 100,
-        remaining: Math.round((totalFixedCosts - spent.fixedCosts) * 100) / 100,
+        remaining: Math.round((balances.fixedCosts - spent.fixedCosts) * 100) / 100,
       })
-
       history.investment.push({
         month: label,
-        allocated: Math.round(totalInvestment * 100) / 100,
+        allocated: Math.round(allocatedFromIncome.investment * 100) / 100,
         spent: Math.round(spent.investment * 100) / 100,
-        remaining: Math.round((totalInvestment - spent.investment) * 100) / 100,
+        remaining: Math.round((balances.investment - spent.investment) * 100) / 100,
       })
-
       history.savings.push({
         month: label,
-        allocated: Math.round(totalSavings * 100) / 100,
+        allocated: Math.round(allocatedFromIncome.savings * 100) / 100,
         spent: Math.round(spent.savings * 100) / 100,
-        remaining: Math.round((totalSavings - spent.savings) * 100) / 100,
+        remaining: Math.round((balances.savings - spent.savings) * 100) / 100,
       })
-
       history.guiltFreeSpending.push({
         month: label,
-        allocated: Math.round(totalGuiltFreeSpending * 100) / 100,
+        allocated: Math.round(allocatedFromIncome.guiltFreeSpending * 100) / 100,
         spent: Math.round(spent.guiltFreeSpending * 100) / 100,
-        remaining: Math.round((totalGuiltFreeSpending - spent.guiltFreeSpending) * 100) / 100,
+        remaining: Math.round((balances.guiltFreeSpending - spent.guiltFreeSpending) * 100) / 100,
       })
     }
 

@@ -21,6 +21,7 @@ interface CategoryTracking {
   available: number
   remaining: number
   overspent: number
+  overspentFromTransfer?: number // Part of overspent that is from transfers (yet to be spent)
 }
 
 
@@ -35,6 +36,7 @@ export default function CategoryTrackingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [tracking, setTracking] = useState<Record<string, CategoryTracking> | null>(null)
+  const [totalIncomeForMonth, setTotalIncomeForMonth] = useState<number | null>(null)
   const [expenses, setExpenses] = useState<any[]>([])
   const [history, setHistory] = useState<Record<string, Array<{ month: string; allocated: number; spent: number; remaining: number }>> | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
@@ -77,6 +79,7 @@ export default function CategoryTrackingPage() {
       if (trackingRes.ok) {
         const data = await trackingRes.json()
         setTracking(data.tracking)
+        setTotalIncomeForMonth(data.totalIncomeForMonth ?? null)
         setLoadingSummary(false)
         setLoadingDetails(false)
       }
@@ -310,7 +313,19 @@ export default function CategoryTrackingPage() {
               {loadingSummary ? (
                 <SummaryCardsSkeleton />
               ) : tracking && Object.keys(tracking).length > 0 ? (
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                  {totalIncomeForMonth != null && (
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Income (month)</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(totalIncomeForMonth)}</div>
+                        <p className="text-xs text-gray-500 mt-1">Income allocated to budget this month</p>
+                      </CardContent>
+                    </Card>
+                  )}
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
@@ -318,7 +333,11 @@ export default function CategoryTrackingPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{formatCurrency(totalAllocated)}</div>
-                      <p className="text-xs text-gray-500 mt-1">This month's total budget</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {totalIncomeForMonth != null && Math.abs(totalAllocated - totalIncomeForMonth) < 0.02
+                          ? "Matches income"
+                          : "This month's total budget"}
+                      </p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -407,7 +426,9 @@ export default function CategoryTrackingPage() {
                             "text-xs mt-1",
                             isOverspent ? "text-red-600" : "text-gray-500"
                           )}>
-                            {isOverspent ? `Overspent by ${formatCurrency(data.overspent)}` : "Remaining"}
+                            {isOverspent
+                              ? `Overspent by ${formatCurrency(data.overspent)}${data.overspentFromTransfer ? ` (includes ${formatCurrency(data.overspentFromTransfer)} transferred)` : ""}`
+                              : "Remaining"}
                           </p>
                           <div className="mt-2 text-xs text-gray-600">
                             <div className="flex justify-between">
@@ -895,9 +916,14 @@ export default function CategoryTrackingPage() {
                         </div>
                       )}
                       {data.overspent > 0 && (
-                        <div className="flex justify-between items-center p-2 bg-red-100 rounded border border-red-300">
-                          <span className="text-red-800 font-semibold">Overspent this month</span>
-                          <span className="font-bold text-red-800">-{formatCurrency(data.overspent)}</span>
+                        <div className="flex flex-col gap-1 p-2 bg-red-100 rounded border border-red-300">
+                          <div className="flex justify-between items-center">
+                            <span className="text-red-800 font-semibold">Overspent this month</span>
+                            <span className="font-bold text-red-800">-{formatCurrency(data.overspent)}</span>
+                          </div>
+                          {data.overspentFromTransfer > 0 && (
+                            <span className="text-xs text-red-700">Includes {formatCurrency(data.overspentFromTransfer)} transferred</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1069,9 +1095,14 @@ export default function CategoryTrackingPage() {
                                 </div>
                               )}
                               {data.overspent > 0 && (
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-red-700 font-semibold">Overspent this month:</span>
-                                  <span className="text-red-700 font-bold">-{formatCurrency(data.overspent)}</span>
+                                <div className="text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-red-700 font-semibold">Overspent this month:</span>
+                                    <span className="text-red-700 font-bold">-{formatCurrency(data.overspent)}</span>
+                                  </div>
+                                  {data.overspentFromTransfer > 0 && (
+                                    <span className="text-red-600">Includes {formatCurrency(data.overspentFromTransfer)} transferred</span>
+                                  )}
                                 </div>
                               )}
                               {data.carryover === 0 && data.overspending === 0 && data.overspent === 0 && (

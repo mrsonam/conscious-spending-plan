@@ -79,8 +79,6 @@ export default function IncomePage() {
   const [income, setIncome] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState("");
   const [loadingForm, setLoadingForm] = useState(true);
@@ -145,11 +143,7 @@ export default function IncomePage() {
 
       // Set default dates
       const today = new Date();
-      const start = new Date(today);
-      start.setDate(today.getDate() - 14);
       setDate(today.toISOString().split("T")[0]);
-      setPeriodStart(start.toISOString().split("T")[0]);
-      setPeriodEnd(today.toISOString().split("T")[0]);
       setAllocateToBudget(true);
     }
   }, [status, router]);
@@ -191,10 +185,9 @@ export default function IncomePage() {
       return;
     }
 
-    if (!periodStart || !periodEnd) {
-      setError("Please select both start and end dates");
-      return;
-    }
+    const d = new Date(date + "T12:00:00");
+    const periodStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+    const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
 
     setCalculating(true);
 
@@ -343,31 +336,6 @@ export default function IncomePage() {
                   <p className="mt-1 text-xs text-gray-500">
                     The date when you received this income
                   </p>
-                </div>
-
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="periodStart">Period Start</Label>
-                    <Input
-                      id="periodStart"
-                      type="date"
-                      value={periodStart}
-                      onChange={(e) => setPeriodStart(e.target.value)}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="periodEnd">Period End</Label>
-                    <Input
-                      id="periodEnd"
-                      type="date"
-                      value={periodEnd}
-                      onChange={(e) => setPeriodEnd(e.target.value)}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
                 </div>
 
                 {accounts.length > 0 && (
@@ -597,9 +565,6 @@ export default function IncomePage() {
                           )}
                           <div className="text-sm text-gray-600 mt-1">
                             Date: {formatDate(entry.date)}
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            Period: {formatDate(entry.periodStart)} – {formatDate(entry.periodEnd)}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             Logged: {formatDate(entry.createdAt)}

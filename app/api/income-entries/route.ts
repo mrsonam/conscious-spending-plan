@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear, getCurrentMonthIncomeEntries } from "@/lib/monthly-tracking"
+import { getCurrentMonthYear, getCurrentMonthIncomeEntries, getIncomeEntriesForMonthByDate } from "@/lib/monthly-tracking"
 
 export async function GET(request: Request) {
   try {
@@ -19,9 +19,9 @@ export async function GET(request: Request) {
     const currentMonth = searchParams.get("currentMonth") === "true"
 
     if (currentMonth) {
-      // Get all income entries for the current month ONLY
-      // This ensures monthly tracking - each month is independent
-      const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
+      // Get income entries whose *date* falls in the current month (not createdAt)
+      // so "Monthly Income" matches category-tracking and allocation.
+      const allMonthEntries = await getIncomeEntriesForMonthByDate(session.user.id)
       
       // Split entries into those included in allocation and those explicitly excluded
       const monthEntries = allMonthEntries.filter(entry => !(entry as any).excludeFromAllocation)

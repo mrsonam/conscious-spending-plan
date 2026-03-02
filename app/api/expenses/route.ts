@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getDbErrorResponse } from "@/lib/db-error"
 
 export async function GET(request: Request) {
   try {
@@ -44,7 +45,9 @@ export async function GET(request: Request) {
     const skip = usePagination ? (page - 1) * limit : 0
     const take = usePagination ? limit : 500
 
-    const [expenses, total] = await Promise.all([
+    const hasDateRange = !!(startDate && endDate)
+
+    const [expenses, total, sumResult] = await Promise.all([
       prisma.expense.findMany({
         where,
         select: {
@@ -68,13 +71,26 @@ export async function GET(request: Request) {
         take,
       }),
       usePagination ? prisma.expense.count({ where }) : 0,
+      hasDateRange
+        ? prisma.expense.aggregate({
+            where,
+            _sum: { amount: true },
+          })
+        : null,
     ])
+
+    const totalAmount = sumResult?._sum?.amount ?? null
 
     if (usePagination) {
       return NextResponse.json({ expenses, total, page, limit })
     }
+    if (hasDateRange && totalAmount !== null) {
+      return NextResponse.json({ expenses, total: totalAmount })
+    }
     return NextResponse.json({ expenses })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error fetching expenses:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -161,6 +177,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ expense: result }, { status: 201 })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error creating expense:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -221,6 +239,8 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ message: "Expense deleted successfully" })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error deleting expense:", error)
     return NextResponse.json(
       { error: "Internal server error" },

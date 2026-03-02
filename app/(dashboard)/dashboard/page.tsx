@@ -170,6 +170,7 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<CategoryBalance[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [expensesTotalForMonth, setExpensesTotalForMonth] = useState<number | null>(null)
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([])
   const [lastMonthIncome, setLastMonthIncome] = useState<number>(0)
@@ -188,7 +189,8 @@ export default function DashboardPage() {
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
   const [loans, setLoans] = useState<Loan[]>([])
-  
+  const [ytdSummary, setYtdSummary] = useState<{ year: number; totalIncome: number; totalExpenses: number; totalInvested: number } | null>(null)
+
   // State for active tab/view
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "accounts" | "transactions">("overview")
 
@@ -209,12 +211,13 @@ export default function DashboardPage() {
 
       // Load only critical data in parallel with cache busting
       const timestamp = Date.now()
-      const [allocationRes, incomeRes, accountsRes, balancesRes, investmentsRes] = await Promise.all([
+      const [allocationRes, incomeRes, accountsRes, balancesRes, investmentsRes, ytdRes] = await Promise.all([
         fetch(`/api/fund-allocation?t=${timestamp}`),
         fetch(`/api/income-entries?currentMonth=true&t=${timestamp}`),
         fetch(`/api/accounts?t=${timestamp}`),
         fetch(`/api/category-balances?t=${timestamp}`),
         fetch(`/api/investments?t=${timestamp}`),
+        fetch(`/api/dashboard/ytd?t=${timestamp}`),
       ])
 
       if (allocationRes.ok) {
@@ -270,6 +273,11 @@ export default function DashboardPage() {
         }
       }
 
+      if (ytdRes.ok) {
+        const data = await ytdRes.json()
+        setYtdSummary({ year: data.year, totalIncome: data.totalIncome ?? 0, totalExpenses: data.totalExpenses ?? 0, totalInvested: data.totalInvested ?? 0 })
+      }
+
       setCriticalDataLoaded(true)
     } catch (error) {
       console.error("Error fetching critical data:", error)
@@ -300,6 +308,9 @@ export default function DashboardPage() {
       if (expensesRes.ok) {
         const data = await expensesRes.json()
         setExpenses(data.expenses || [])
+        setExpensesTotalForMonth(
+          typeof data.total === "number" ? data.total : null
+        )
       }
 
       if (lastMonthExpensesRes.ok) {
@@ -501,107 +512,32 @@ export default function DashboardPage() {
               {/* Overview Tab */}
               {activeTab === "overview" && (
                 <>
-                  {/* Enhanced Summary Cards */}
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(breakdown.income)}</div>
-                        <p className="text-xs text-gray-500 mt-1">Current month total</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Allocated</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(breakdown.total)}</div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Savings</CardTitle>
-                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                          {formatCurrency(breakdown.savings)}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Investment</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        {(() => {
-                          const now = new Date()
-                          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-                          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
-                          const investedThisMonth = investmentAccounts.reduce((sum, acc: any) => {
-                            acc.holdings?.forEach((holding: any) => {
-                              holding.purchases?.forEach((p: any) => {
-                                const d = new Date(p.date).getTime()
-                                if (d >= startOfMonth && d <= endOfMonth) sum += p.amount || 0
-                              })
-                            })
-                            return sum
-                          }, 0)
-                          const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
-                          const investmentTracking = categoryTracking.investment
-                          const allocated = investmentTracking?.allocated || breakdown?.investment || 0
-                          
-                          return (
-                            <>
-                              <div className="text-2xl font-bold">
-                                {formatCurrency(investedThisMonth)}
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {allocated > 0 
-                                  ? `of ${formatCurrency(allocated)} allocated this month`
-                                  : "Invested this month"}
-                              </p>
-                              {allocated > 0 && (
-                                <div className="mt-2">
-                                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-indigo-600 transition-all"
-                                      style={{
-                                        width: `${Math.min((investedThisMonth / allocated) * 100, 100)}%`
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                              <p className="text-xs text-gray-500 mt-2">Total invested: {formatCurrency(totalInvested)}</p>
-                            </>
-                          )
-                        })()}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Quick Stats Row */}
+                  {/* Summary Cards – order: Monthly income, Total exp, Remaining budget, This year, Net worth, Cash balance, Investment, Budget use, Daily average, Days remaining */}
                   {(() => {
-                    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+                    const totalExpenses =
+                      expensesTotalForMonth !== null
+                        ? expensesTotalForMonth
+                        : expenses.reduce((sum, e) => sum + e.amount, 0)
                     const totalAllocated = breakdown?.total || 0
-                    const remainingBudget = totalAllocated - totalExpenses
-                    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
-                    const currentDay = new Date().getDate()
+                    const now = new Date()
+                    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+                    const investedThisMonth = investmentAccounts.reduce((sum: number, acc: any) => {
+                      acc.holdings?.forEach((holding: any) => {
+                        holding.purchases?.forEach((p: any) => {
+                          const d = new Date(p.date).getTime()
+                          if (d >= startOfMonth && d <= endOfMonth) sum += p.amount || 0
+                        })
+                      })
+                      return sum
+                    }, 0)
+                    const totalUsedFromBudget = totalExpenses + investedThisMonth
+                    const remainingBudget = totalAllocated - totalUsedFromBudget
+                    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+                    const currentDay = now.getDate()
                     const daysRemaining = daysInMonth - currentDay
                     const avgDailySpending = currentDay > 0 ? totalExpenses / currentDay : 0
-                    // Net worth = all account balances + current market value of investments
                     const totalAccountBalances = accounts.reduce((sum, acc) => sum + acc.balance, 0)
-                    
-                    // Calculate current market value of investments (shares × current price)
                     let totalCurrentInvestmentValue = 0
                     investmentAccounts.forEach((acc: any) => {
                       acc.holdings?.forEach((holding: any) => {
@@ -609,95 +545,176 @@ export default function DashboardPage() {
                           const symbol = holding.name.trim().toUpperCase()
                           const currentPrice = marketPrices[symbol] || 0
                           if (currentPrice > 0) {
-                            // Use current market value: shares × current price
                             totalCurrentInvestmentValue += holding.totalShares * currentPrice
                           } else {
-                            // Fallback to cost basis if no current price available
                             totalCurrentInvestmentValue += holding.totalAmount || 0
                           }
                         } else {
-                          // No shares info, use cost basis
                           totalCurrentInvestmentValue += holding.totalAmount || 0
                         }
                       })
                     })
-                    
-                    // If no holdings or no prices fetched, fallback to cost basis
                     if (totalCurrentInvestmentValue === 0) {
                       totalCurrentInvestmentValue = investmentAccounts.reduce((sum, acc: any) => sum + (acc.investedAmount || 0), 0)
                     }
-                    
                     const netWorth = totalAccountBalances + totalCurrentInvestmentValue
+                    const investmentTracking = categoryTracking.investment
+                    const investmentAllocated = investmentTracking?.allocated || breakdown?.investment || 0
+                    const totalInvested = investmentAccounts.reduce((sum, acc) => sum + (acc.investedAmount || 0), 0)
 
                     return (
-                      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Total Expenses</CardTitle>
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
-                            <p className="text-xs text-gray-500 mt-1">This month</p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Remaining Budget</CardTitle>
-                            <Target className="h-4 w-4 text-green-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className={`text-xl font-bold ${
-                              remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {formatCurrency(remainingBudget)}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">Available</p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Daily Average</CardTitle>
-                            <Calendar className="h-4 w-4 text-blue-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-xl font-bold">{formatCurrency(avgDailySpending)}</div>
-                            <p className="text-xs text-gray-500 mt-1">Per day</p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Days Remaining</CardTitle>
-                            <Clock className="h-4 w-4 text-purple-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-xl font-bold">{daysRemaining}</div>
-                            <p className="text-xs text-gray-500 mt-1">In month</p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Net Worth</CardTitle>
-                            <Wallet className="h-4 w-4 text-indigo-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-xl font-bold text-indigo-600">{formatCurrency(netWorth)}</div>
-                            <p className="text-xs text-gray-500 mt-1">All accounts</p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium">Spending %</CardTitle>
-                            <BarChart3 className="h-4 w-4 text-orange-500" />
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-xl font-bold">
-                              {totalAllocated > 0 ? ((totalExpenses / totalAllocated) * 100).toFixed(0) : 0}%
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">Of allocated</p>
-                          </CardContent>
-                        </Card>
-                      </div>
+                      <>
+                        {/* Top row: 4 big cards */}
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold">{formatCurrency(breakdown.income)}</div>
+                              <p className="text-xs text-gray-500 mt-1">Current month total</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                              <TrendingDown className="h-4 w-4 text-red-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
+                              <p className="text-xs text-gray-500 mt-1">This month</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
+                              <Target className="h-4 w-4 text-green-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className={`text-2xl font-bold ${remainingBudget >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {formatCurrency(remainingBudget)}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">Available</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-sm font-medium">This year</CardTitle>
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-xs text-gray-500">Income</span>
+                                  <span className="text-lg font-bold text-green-600">
+                                    {ytdSummary ? formatCurrency(ytdSummary.totalIncome) : "—"}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-xs text-gray-500">Expenses</span>
+                                  <span className="text-lg font-bold text-red-600">
+                                    {ytdSummary ? formatCurrency(ytdSummary.totalExpenses) : "—"}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                  <span className="text-xs text-gray-500">Invested</span>
+                                  <span className="text-lg font-bold text-blue-600">
+                                    {ytdSummary ? formatCurrency(ytdSummary.totalInvested) : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        {/* Second row: 6 small cards */}
+                        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Net Worth</CardTitle>
+                              <Wallet className="h-4 w-4 text-indigo-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold text-indigo-600">{formatCurrency(netWorth)}</div>
+                              <p className="text-xs text-gray-500 mt-1">All accounts</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Cash Balance</CardTitle>
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold">{formatCurrency(totalAccountBalances)}</div>
+                              <p className="text-xs text-gray-500 mt-1">Across all accounts</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Investment</CardTitle>
+                              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold">{formatCurrency(investedThisMonth)}</div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {investmentAllocated > 0 ? `of ${formatCurrency(investmentAllocated)} allocated` : "This month"}
+                              </p>
+                              {investmentAllocated > 0 && (
+                                <div className="mt-2">
+                                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-indigo-600 transition-all"
+                                      style={{ width: `${Math.min((investedThisMonth / investmentAllocated) * 100, 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-500 mt-2">Total: {formatCurrency(totalInvested)}</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Budget used</CardTitle>
+                              <BarChart3 className="h-4 w-4 text-orange-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold">
+                                {totalAllocated > 0 ? ((totalUsedFromBudget / totalAllocated) * 100).toFixed(0) : 0}%
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">Expenses + invested</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Daily Average</CardTitle>
+                              <Calendar className="h-4 w-4 text-blue-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold">{formatCurrency(avgDailySpending)}</div>
+                              <p className="text-xs text-gray-500 mt-1">Per day</p>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <CardTitle className="text-xs font-medium">Days Remaining</CardTitle>
+                              <Clock className="h-4 w-4 text-purple-500" />
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-xl font-bold">{daysRemaining}</div>
+                              <p className="text-xs text-gray-500 mt-1">In month</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </>
                     )
                   })()}
 
@@ -743,9 +760,25 @@ export default function DashboardPage() {
 
                   {/* Monthly Spending Summary & Comparison */}
                   {(() => {
-                    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
+                    const totalExpenses =
+                      expensesTotalForMonth !== null
+                        ? expensesTotalForMonth
+                        : expenses.reduce((sum, e) => sum + e.amount, 0)
                     const totalAllocated = breakdown?.total || 0
-                    const spendingPercentage = totalAllocated > 0 ? (totalExpenses / totalAllocated) * 100 : 0
+                    const now = new Date()
+                    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+                    const investedThisMonth = investmentAccounts.reduce((sum: number, acc: any) => {
+                      acc.holdings?.forEach((holding: any) => {
+                        holding.purchases?.forEach((p: any) => {
+                          const d = new Date(p.date).getTime()
+                          if (d >= startOfMonth && d <= endOfMonth) sum += p.amount || 0
+                        })
+                      })
+                      return sum
+                    }, 0)
+                    const totalUsed = totalExpenses + investedThisMonth
+                    const spendingPercentage = totalAllocated > 0 ? (totalUsed / totalAllocated) * 100 : 0
                     
                     // Last month income comes from API (accurate sum); current month from breakdown
                     const currentMonthIncome = breakdown?.income || 0
@@ -758,7 +791,7 @@ export default function DashboardPage() {
                         <Card>
                           <CardHeader>
                             <CardTitle>Monthly Spending Summary</CardTitle>
-                            <CardDescription>Spent vs allocated this month</CardDescription>
+                            <CardDescription>Used vs allocated this month (expenses + invested)</CardDescription>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
@@ -767,8 +800,18 @@ export default function DashboardPage() {
                                 <span className="text-lg font-semibold">{formatCurrency(totalAllocated)}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600">Total Spent</span>
+                                <span className="text-sm text-gray-600">Expenses</span>
                                 <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+                              </div>
+                              {investedThisMonth > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Invested</span>
+                                  <span className="text-lg font-semibold text-blue-600">{formatCurrency(investedThisMonth)}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-600">Total used</span>
+                                <span className="text-lg font-semibold">{formatCurrency(totalUsed)}</span>
                               </div>
                               <div className="w-full bg-gray-200 rounded-full h-3">
                                 <div
@@ -783,7 +826,7 @@ export default function DashboardPage() {
                                 />
                               </div>
                               <div className="flex justify-between text-xs">
-                                <span className="text-gray-500">{spendingPercentage.toFixed(1)}% spent</span>
+                                <span className="text-gray-500">{spendingPercentage.toFixed(1)}% used</span>
                                 <span className={`font-medium ${
                                   spendingPercentage >= 100 ? "text-red-600" : 
                                   spendingPercentage >= 80 ? "text-yellow-600" : 

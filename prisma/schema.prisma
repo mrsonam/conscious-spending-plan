@@ -23,11 +23,13 @@ model User {
   accounts      Account[]
   transfers     Transfer[]
   expenses      Expense[]
+  recurringExpenses RecurringExpense[]
   loans         Loan[]
   borrowedLoans BorrowedLoan[]
   categoryBalances CategoryBalance[]
   categoryTransactions CategoryTransaction[]
   investmentHoldings InvestmentHolding[]
+  categoryMonthClosings CategoryMonthClosing[]
   defaultAccountId String?
 }
 
@@ -70,7 +72,13 @@ model IncomeEntry {
   account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now())
   excludeFromAllocation Boolean @default(false) // If true, this income is not used for fund allocation / budgets
-  
+
+  // Amount allocated to each category when this entry was added (used to reverse on delete)
+  allocationFixedCosts       Float?
+  allocationSavings          Float?
+  allocationInvestment       Float?
+  allocationGuiltFreeSpending Float?
+
   @@index([userId])
   @@index([accountId])
 }
@@ -90,6 +98,7 @@ model Account {
   outgoingTransfers Transfer[] @relation("FromAccount")
   incomingTransfers Transfer[] @relation("ToAccount")
   expenses      Expense[]
+  recurringExpenses RecurringExpense[]
   incomeEntries IncomeEntry[]
   investmentHoldings InvestmentHolding[]
   loans         Loan[]
@@ -133,6 +142,22 @@ model CategoryBalance {
   @@index([userId, month, year])
 }
 
+model CategoryMonthClosing {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  month      Int      // Month (1-12)
+  year       Int
+  remaining  Float    @default(0) // Carryover to next month (>= 0)
+  overspent  Float    @default(0) // Amount to deduct from next month (>= 0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, category, month, year])
+  @@index([userId])
+  @@index([userId, month, year])
+}
+
 model Expense {
   id              String   @id @default(cuid())
   userId          String
@@ -150,6 +175,27 @@ model Expense {
   @@index([accountId])
   @@index([userId, date])
   @@index([userId, expenseCategory])
+}
+
+model RecurringExpense {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount          Float
+  description     String?
+  category        String?
+  expenseCategory String?
+  frequency       String   // 'weekly', 'monthly', 'yearly'
+  startDate       DateTime @default(now())
+  endDate         DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
 }
 
 model CategoryTransaction {

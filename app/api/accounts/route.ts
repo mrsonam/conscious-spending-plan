@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getDbErrorResponse } from "@/lib/db-error"
 
 export async function GET() {
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -20,6 +21,8 @@ export async function GET() {
 
     return NextResponse.json({ accounts })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error fetching accounts:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -70,6 +73,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ account }, { status: 201 })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error creating account:", error)
     return NextResponse.json(
       { error: "Internal server error" },

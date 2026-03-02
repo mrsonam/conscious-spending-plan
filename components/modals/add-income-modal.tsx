@@ -36,8 +36,6 @@ export function AddIncomeModal({
   const [income, setIncome] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allocation, setAllocation] = useState<any>(null);
@@ -48,13 +46,9 @@ export function AddIncomeModal({
   useEffect(() => {
     if (open) {
       const today = new Date();
-      const start = new Date(today);
-      start.setDate(today.getDate() - 14);
       setIncome("");
       setDescription("");
       setDate(today.toISOString().split("T")[0]);
-      setPeriodStart(start.toISOString().split("T")[0]);
-      setPeriodEnd(today.toISOString().split("T")[0]);
       setAllocateToBudget(true);
 
       // Fetch accounts and allocation
@@ -96,10 +90,14 @@ export function AddIncomeModal({
       return;
     }
 
-    if (!date || !periodStart || !periodEnd) {
-      setError("Please select all required dates");
+    if (!date) {
+      setError("Please select the income date");
       return;
     }
+
+    const d = new Date(date + "T12:00:00");
+    const periodStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+    const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
 
     setCalculating(true);
 
@@ -191,31 +189,6 @@ export function AddIncomeModal({
               required
               className="mt-1"
             />
-          </div>
-
-          <div className="grid gap-4 grid-cols-2">
-            <div>
-              <Label htmlFor="periodStart">Period Start *</Label>
-              <Input
-                id="periodStart"
-                type="date"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-                required
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="periodEnd">Period End *</Label>
-              <Input
-                id="periodEnd"
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-                required
-                className="mt-1"
-              />
-            </div>
           </div>
 
           {accounts.length > 0 && (
