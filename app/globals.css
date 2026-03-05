@@ -102,6 +102,23 @@ button, a, input, select, textarea {
   touch-action: manipulation;
 }
 
+/* Ensure clickable elements show pointer cursor */
+button,
+a,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+[role="option"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+label[for],
+select {
+  cursor: pointer;
+}
+
 /* Prevent text size adjustment on iOS */
 html {
   -webkit-text-size-adjust: 100%;

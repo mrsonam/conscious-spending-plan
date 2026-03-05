@@ -145,9 +145,21 @@ export default function ExpensesPage() {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
-      fetchAccounts()
-      fetchExpenses(1)
-      fetchRecurring()
+      const init = async () => {
+        try {
+          // Auto-log any recurring expenses that are due today
+          await fetch("/api/recurring-expenses/process-due", {
+            method: "POST",
+          })
+        } catch (error) {
+          console.error("Error auto-logging recurring expenses:", error)
+        } finally {
+          fetchAccounts()
+          fetchExpenses(1)
+          fetchRecurring()
+        }
+      }
+      void init()
     }
   }, [status, router])
 

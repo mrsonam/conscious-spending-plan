@@ -214,7 +214,14 @@ export default function StatementPage() {
     
     try {
       const [incomeRes, expensesRes, transfersRes, investmentsRes] = await Promise.all([
-        fetch("/api/income-entries"),
+        fetch(
+          filterStartDate && filterEndDate
+            ? `/api/income-entries?${new URLSearchParams({
+                startDate: filterStartDate,
+                endDate: filterEndDate,
+              }).toString()}`
+            : `/api/income-entries?forStatement=true`
+        ),
         fetch(
           filterStartDate || filterEndDate
             ? `/api/expenses?${new URLSearchParams({

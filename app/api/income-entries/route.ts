@@ -17,6 +17,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const latest = searchParams.get("latest") === "true"
     const currentMonth = searchParams.get("currentMonth") === "true"
+    const startDateParam = searchParams.get("startDate")
+    const endDateParam = searchParams.get("endDate")
+    const forStatement = searchParams.get("forStatement") === "true"
 
     if (currentMonth) {
       // Get income entries whose *date* falls in the current month (not createdAt)
@@ -262,6 +265,25 @@ export async function GET(request: Request) {
       // Get all month entries for the response
       const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
       return NextResponse.json({ breakdown, entry: latestEntry, entries: allMonthEntries })
+    }
+
+    // Statement (or any caller) can request all entries in a date range or all entries
+    const hasDateRange = startDateParam && endDateParam
+    if (hasDateRange || forStatement) {
+      const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId: session.user.id }
+      if (hasDateRange) {
+        const start = new Date(startDateParam)
+        const end = new Date(endDateParam)
+        end.setHours(23, 59, 59, 999)
+        where.date = { gte: start, lte: end }
+      }
+      const entries = await prisma.incomeEntry.findMany({
+        where,
+        include: { account: { select: { id: true, name: true, bankName: true } } },
+        orderBy: { date: "desc" },
+        take: 10000,
+      })
+      return NextResponse.json({ entries })
     }
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
