@@ -138,7 +138,7 @@ export async function GET(request: Request) {
         fromAccount: true,
         toAccount: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { date: "desc" },
       take: 200,
     })
 

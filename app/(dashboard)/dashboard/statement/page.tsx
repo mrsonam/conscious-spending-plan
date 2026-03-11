@@ -292,12 +292,8 @@ export default function StatementPage() {
         type: "income",
         amount: entry.amount,
         date: entry.date,
-        description: entry.description || `Income for period ${formatDate(
-          entry.periodStart
-        )} - ${formatDate(entry.periodEnd)}`,
+        description: entry.description || "Income",
         category: null,
-        periodStart: entry.periodStart,
-        periodEnd: entry.periodEnd,
         account: entry.account || undefined,
       });
     });
@@ -1071,12 +1067,7 @@ export default function StatementPage() {
                             {transaction.toAccount.bankName})
                           </div>
                         )}
-                        {transaction.periodStart && transaction.periodEnd && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Period: {formatDate(transaction.periodStart)} -{" "}
-                            {formatDate(transaction.periodEnd)}
-                          </div>
-                        )}
+                        
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium text-gray-700">

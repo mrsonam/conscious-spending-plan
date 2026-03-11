@@ -1366,7 +1366,7 @@ export default function DashboardPage() {
                             }> = []
 
                             // Add income entries
-                            incomeEntries.slice(0, 5).forEach(entry => {
+                            incomeEntries.slice(0, 50).forEach(entry => {
                               allTransactions.push({
                                 id: entry.id,
                                 type: "income",
@@ -1378,7 +1378,7 @@ export default function DashboardPage() {
                             })
 
                             // Add expenses
-                            expenses.slice(0, 5).forEach(exp => {
+                            expenses.slice(0, 50).forEach(exp => {
                               allTransactions.push({
                                 id: exp.id,
                                 type: "expense",
@@ -1390,7 +1390,7 @@ export default function DashboardPage() {
                             })
 
                             // Add transfers
-                            transfers.slice(0, 5).forEach(transfer => {
+                            transfers.slice(0, 50).forEach(transfer => {
                               allTransactions.push({
                                 id: transfer.id,
                                 type: "transfer",

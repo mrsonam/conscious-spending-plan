@@ -145,7 +145,7 @@ export async function GET() {
       },
       include: {
         investmentHoldings: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { date: "desc" },
         },
       },
       orderBy: { createdAt: "asc" },

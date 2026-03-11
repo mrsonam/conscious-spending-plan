@@ -190,7 +190,7 @@ export async function GET(request: Request) {
     if (latest) {
       const latestEntry = await prisma.incomeEntry.findFirst({
         where: { userId: session.user.id },
-        orderBy: { createdAt: "desc" },
+        orderBy: { date: "desc" },
       })
 
       if (!latestEntry) {
@@ -299,7 +299,7 @@ export async function GET(request: Request) {
       prisma.incomeEntry.findMany({
         where: { userId: session.user.id },
         include: { account: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: { date: "desc" },
         skip,
         take: limit,
       }),
