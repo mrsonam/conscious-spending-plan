@@ -290,12 +290,24 @@ export async function GET(request: Request) {
     const limit = Math.min(20, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
     const skip = (page - 1) * limit
 
-    // Last month date range (by income date, not createdAt) for dashboard comparison
+    // Date ranges by income `date` (not createdAt)
     const now = new Date()
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    )
+    const yearStart = new Date(now.getFullYear(), 0, 1)
+    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
 
-    const [entries, total, lastMonthAgg] = await Promise.all([
+    const [entries, total, lastMonthAgg, currentMonthAgg, ytdAgg] = await Promise.all([
       prisma.incomeEntry.findMany({
         where: { userId: session.user.id },
         include: { account: true },
@@ -311,11 +323,44 @@ export async function GET(request: Request) {
         },
         _sum: { amount: true },
       }),
+      prisma.incomeEntry.aggregate({
+        where: {
+          userId: session.user.id,
+          date: { gte: currentMonthStart, lte: currentMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.incomeEntry.aggregate({
+        where: {
+          userId: session.user.id,
+          date: { gte: yearStart, lte: yearEnd },
+        },
+        _sum: { amount: true },
+      }),
     ])
 
     const lastMonthIncome = lastMonthAgg._sum.amount ?? 0
+    const currentMonthTotal = currentMonthAgg._sum.amount ?? 0
+    const ytdTotal = ytdAgg._sum.amount ?? 0
 
-    return NextResponse.json({ entries, total, page, limit, lastMonthIncome })
+    let monthOverMonthPct: number | null = null
+    if (lastMonthIncome > 0) {
+      monthOverMonthPct =
+        ((currentMonthTotal - lastMonthIncome) / lastMonthIncome) * 100
+    } else if (currentMonthTotal > 0) {
+      monthOverMonthPct = null
+    }
+
+    return NextResponse.json({
+      entries,
+      total,
+      page,
+      limit,
+      lastMonthIncome,
+      currentMonthTotal,
+      ytdTotal,
+      monthOverMonthPct,
+    })
   } catch (error) {
     console.error("Error fetching income entries:", error)
     return NextResponse.json(

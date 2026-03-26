@@ -50,7 +50,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         aria-hidden="true"
       />
       <div
-        className="relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="scrollbar-none relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -67,7 +67,7 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "bg-white rounded-lg shadow-lg p-6 w-full",
+        "scrollbar-none bg-white rounded-lg shadow-lg p-6 w-full",
         className
       )}
       {...props}

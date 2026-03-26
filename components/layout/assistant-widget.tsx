@@ -14,7 +14,7 @@ interface ChatMessage {
   content: string
 }
 
-export function AssistantWidget() {
+export function   AssistantWidget() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [open, setOpen] = useState(false)

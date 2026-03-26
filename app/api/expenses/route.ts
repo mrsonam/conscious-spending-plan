@@ -18,6 +18,8 @@ export async function GET(request: Request) {
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
     const categoryParam = searchParams.get("category")
+    const expenseCategoryParam = searchParams.get("expenseCategory")
+    const accountIdParam = searchParams.get("accountId")
 
     const where: any = {
       userId: session.user.id,
@@ -38,6 +40,17 @@ export async function GET(request: Request) {
       }
     }
 
+    // Support expenseCategory filtering (comma-separated list)
+    if (expenseCategoryParam) {
+      const categories = expenseCategoryParam.split(",").map((c) => c.trim())
+      where.expenseCategory = { in: categories }
+    }
+
+    // Support filtering by account id
+    if (accountIdParam) {
+      where.accountId = accountIdParam
+    }
+
     const pageParam = searchParams.get("page")
     const usePagination = pageParam !== null && pageParam !== ""
     const page = usePagination ? Math.max(1, parseInt(pageParam || "1", 10)) : 1
@@ -47,42 +60,137 @@ export async function GET(request: Request) {
 
     const hasDateRange = !!(startDate && endDate)
 
-    const [expenses, total, sumResult] = await Promise.all([
-      prisma.expense.findMany({
-        where,
-        select: {
-          id: true,
-          amount: true,
-          description: true,
-          date: true,
-          category: true,
-          expenseCategory: true,
-          accountId: true,
-          account: {
-            select: {
-              id: true,
-              name: true,
-              bankName: true,
+    const userId = session.user.id
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
+    const startOfYear = new Date(now.getFullYear(), 0, 1)
+    const startPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const endPrevMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
+    const statsWhereMonth = {
+      userId,
+      date: { gte: startOfMonth, lte: endOfMonth },
+    }
+    const statsWhereYtd = {
+      userId,
+      date: { gte: startOfYear, lte: endOfMonth },
+    }
+    const statsWherePrev = {
+      userId,
+      date: { gte: startPrevMonth, lte: endPrevMonth },
+    }
+
+    const [expenses, total, sumResult, monthAgg, ytdAgg, prevAgg, monthByFund] =
+      await Promise.all([
+        prisma.expense.findMany({
+          where,
+          select: {
+            id: true,
+            amount: true,
+            description: true,
+            date: true,
+            createdAt: true,
+            category: true,
+            expenseCategory: true,
+            accountId: true,
+            account: {
+              select: {
+                id: true,
+                name: true,
+                bankName: true,
+              },
             },
           },
-        },
-        orderBy: { date: "desc" },
-        skip,
-        take,
-      }),
-      usePagination ? prisma.expense.count({ where }) : 0,
-      hasDateRange
-        ? prisma.expense.aggregate({
-            where,
-            _sum: { amount: true },
-          })
-        : null,
-    ])
+          orderBy: { date: "desc" },
+          skip,
+          take,
+        }),
+        usePagination ? prisma.expense.count({ where }) : 0,
+        hasDateRange
+          ? prisma.expense.aggregate({
+              where,
+              _sum: { amount: true },
+            })
+          : Promise.resolve(null),
+        usePagination
+          ? prisma.expense.aggregate({
+              where: statsWhereMonth,
+              _sum: { amount: true },
+            })
+          : Promise.resolve(null),
+        usePagination
+          ? prisma.expense.aggregate({
+              where: statsWhereYtd,
+              _sum: { amount: true },
+            })
+          : Promise.resolve(null),
+        usePagination
+          ? prisma.expense.aggregate({
+              where: statsWherePrev,
+              _sum: { amount: true },
+            })
+          : Promise.resolve(null),
+        usePagination
+          ? prisma.expense.groupBy({
+              by: ["category"],
+              where: statsWhereMonth,
+              _sum: { amount: true },
+            })
+          : Promise.resolve([]),
+      ])
 
     const totalAmount = sumResult?._sum?.amount ?? null
 
     if (usePagination) {
-      return NextResponse.json({ expenses, total, page, limit })
+      const currentMonthTotal = monthAgg?._sum.amount ?? 0
+      const ytdTotal = ytdAgg?._sum.amount ?? 0
+      const lastMonthExpenses = prevAgg?._sum.amount ?? 0
+      const monthOverMonthPct =
+        lastMonthExpenses > 0
+          ? ((currentMonthTotal - lastMonthExpenses) / lastMonthExpenses) * 100
+          : null
+
+      const fundBreakdownCurrentMonth = {
+        fixedCosts: 0,
+        investment: 0,
+        savings: 0,
+        guiltFreeSpending: 0,
+      }
+      for (const row of monthByFund) {
+        const key = row.category
+        if (!key) continue
+        if (key in fundBreakdownCurrentMonth) {
+          fundBreakdownCurrentMonth[key as keyof typeof fundBreakdownCurrentMonth] =
+            (row._sum.amount ?? 0) as number
+        }
+      }
+      return NextResponse.json({
+        expenses,
+        total,
+        page,
+        limit,
+        currentMonthTotal,
+        ytdTotal,
+        monthOverMonthPct,
+        lastMonthExpenses,
+        fundBreakdownCurrentMonth,
+      })
     }
     if (hasDateRange && totalAmount !== null) {
       return NextResponse.json({ expenses, total: totalAmount })

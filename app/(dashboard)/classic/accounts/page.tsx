@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AccountsSkeleton } from "@/components/skeletons/accounts-skeleton"
@@ -433,13 +434,12 @@ export default function AccountsPage() {
 
                 <div>
                   <Label htmlFor="transferDate">Transfer Date *</Label>
-                  <Input
+                  <DateInput
                     id="transferDate"
-                    type="date"
                     value={transferDate}
                     onChange={(e) => setTransferDate(e.target.value)}
                     required
-                    className="mt-1"
+                    className="mt-1 scheme-light dark:scheme-dark"
                   />
                 </div>
 

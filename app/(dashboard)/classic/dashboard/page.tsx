@@ -13,6 +13,7 @@ import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
 import { CardSkeleton, CardGridSkeleton } from "@/components/skeletons/card-skeleton"
 import { ChartSkeleton, PieChartSkeleton } from "@/components/skeletons/chart-skeleton"
 import { cn } from "@/lib/utils"
+import { BENTO, CLASSIC } from "@/lib/app-routes"
 
 // Lazy load modals and charts to improve initial load time
 const AddIncomeModal = dynamic(() => import("@/components/modals/add-income-modal").then(mod => ({ default: mod.AddIncomeModal })), { 
@@ -198,9 +199,13 @@ export default function DashboardPage() {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
+      if (session?.user?.dashboardTheme === "console") {
+        router.replace(BENTO.dashboard)
+        return
+      }
       fetchData()
     }
-  }, [status, router])
+  }, [status, session?.user?.dashboardTheme, router])
 
   // Load critical data first (what users see immediately)
   const fetchCriticalData = async () => {
@@ -371,6 +376,13 @@ export default function DashboardPage() {
 
   // Show header and tabs even during loading
   const isLoading = status === "loading" || (loading && !criticalDataLoaded)
+
+  if (
+    status === "authenticated" &&
+    session?.user?.dashboardTheme === "console"
+  ) {
+    return null
+  }
 
   if (!session && status !== "loading") return null
 
@@ -750,7 +762,7 @@ export default function DashboardPage() {
                           <ArrowRight className="h-5 w-5 text-blue-600" />
                           <span className="text-sm font-medium">Transfer</span>
                         </button>
-                        <Link href="/dashboard/statement" className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <Link href={CLASSIC.statement} className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
                           <Activity className="h-5 w-5 text-purple-600" />
                           <span className="text-sm font-medium">View Statement</span>
                         </Link>
@@ -1321,7 +1333,7 @@ export default function DashboardPage() {
                                   {account.accountType}
                                 </span>
                                 <Link 
-                                  href={`/dashboard/accounts`}
+                                  href={CLASSIC.accounts}
                                   className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                                 >
                                   View Details →
@@ -1452,7 +1464,7 @@ export default function DashboardPage() {
                           </div>
                         ))}
                                 <div className="mt-4 pt-4">
-                                  <Link href="/dashboard/statement" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                                  <Link href={CLASSIC.statement} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
                                     View all transactions <ArrowRight className="h-3 w-3" />
                                   </Link>
                                 </div>

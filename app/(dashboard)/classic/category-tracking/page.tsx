@@ -300,7 +300,7 @@ export default function CategoryTrackingPage() {
                 <p className="text-sm text-gray-500 mt-1">
                   View spending and remaining budget for each fund category. Log expenses from the{" "}
                   <button
-                    onClick={() => router.push("/dashboard/expenses")}
+                    onClick={() => router.push("/classic/expenses")}
                     className="text-indigo-600 hover:underline font-medium"
                   >
                     Expenses page
@@ -388,7 +388,7 @@ export default function CategoryTrackingPage() {
                       </div>
                       <div className="pt-4">
                         <Button
-                          onClick={() => router.push("/dashboard")}
+                          onClick={() => router.push("/classic/dashboard")}
                           className="inline-flex items-center gap-2"
                         >
                           Go to Dashboard
@@ -589,7 +589,7 @@ export default function CategoryTrackingPage() {
                           {expenses.length > 3 && (
                             <div className="text-center pt-2">
                               <button
-                                onClick={() => router.push("/dashboard/expenses")}
+                                onClick={() => router.push("/classic/expenses")}
                                 className="text-sm text-indigo-600 hover:underline font-medium"
                               >
                                 View all {expenses.length} expenses →
@@ -678,7 +678,7 @@ export default function CategoryTrackingPage() {
                       </div>
                       <div className="pt-4">
                         <Button
-                          onClick={() => router.push("/dashboard")}
+                          onClick={() => router.push("/classic/dashboard")}
                           className="inline-flex items-center gap-2"
                         >
                           Go to Dashboard
@@ -787,7 +787,7 @@ export default function CategoryTrackingPage() {
                 </div>
                 <div className="pt-4">
                   <Button
-                    onClick={() => router.push("/dashboard/expenses")}
+                    onClick={() => router.push("/classic/expenses")}
                     className="inline-flex items-center gap-2"
                   >
                     Log an Expense
@@ -1206,7 +1206,7 @@ export default function CategoryTrackingPage() {
                       </div>
                       <div className="pt-4">
                         <Button
-                          onClick={() => router.push("/dashboard/expenses")}
+                          onClick={() => router.push("/classic/expenses")}
                           className="inline-flex items-center gap-2"
                         >
                           Log an Expense

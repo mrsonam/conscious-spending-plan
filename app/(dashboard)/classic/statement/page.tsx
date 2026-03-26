@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -881,22 +882,20 @@ export default function StatementPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <Label htmlFor="filterStartDate">Start Date</Label>
-                <Input
+                <DateInput
                   id="filterStartDate"
-                  type="date"
                   value={filterStartDate}
                   onChange={(e) => setFilterStartDate(e.target.value)}
-                  className="mt-1"
+                  className="mt-1 scheme-light dark:scheme-dark"
                 />
               </div>
               <div>
                 <Label htmlFor="filterEndDate">End Date</Label>
-                <Input
+                <DateInput
                   id="filterEndDate"
-                  type="date"
                   value={filterEndDate}
                   onChange={(e) => setFilterEndDate(e.target.value)}
-                  className="mt-1"
+                  className="mt-1 scheme-light dark:scheme-dark"
                 />
               </div>
               <div>

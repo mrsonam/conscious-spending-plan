@@ -7,6 +7,8 @@ declare module "next-auth" {
       email: string
       name?: string | null
       image?: string | null
+      /** Persisted dashboard experience: classic or Wealth Console */
+      dashboardTheme?: string
     }
   }
 
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     picture?: string | null
+    dashboardTheme?: string
   }
 }

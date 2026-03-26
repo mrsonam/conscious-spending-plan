@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 
 interface Account {
@@ -202,13 +203,12 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
             </div>
             <div>
               <Label htmlFor="date">Date *</Label>
-              <Input
+              <DateInput
                 id="date"
-                type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1 scheme-light dark:scheme-dark"
               />
             </div>
             {(() => {

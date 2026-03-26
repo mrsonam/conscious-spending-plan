@@ -10,6 +10,7 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, Plus, Activity, Briefcase, Calendar } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
@@ -529,7 +530,7 @@ export default function InvestmentsPage() {
                 </div>
                 <div className="pt-6">
                   <Button
-                    onClick={() => router.push("/dashboard/accounts")}
+                    onClick={() => router.push("/classic/accounts")}
                     className="inline-flex items-center gap-2"
                   >
                     <Plus className="h-4 w-4" />
@@ -1385,13 +1386,12 @@ export default function InvestmentsPage() {
 
                       <div>
                         <Label htmlFor="date">Investment Date *</Label>
-                        <Input
+                        <DateInput
                           id="date"
-                          type="date"
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
                           required
-                          className="mt-1"
+                          className="mt-1 scheme-light dark:scheme-dark"
                         />
                       </div>
 

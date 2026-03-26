@@ -31,6 +31,8 @@ model User {
   investmentHoldings InvestmentHolding[]
   categoryMonthClosings CategoryMonthClosing[]
   defaultAccountId String?
+  /// "classic" | "console" — which dashboard experience to load by default
+  dashboardTheme   String   @default("classic")
 }
 
 model FundAllocation {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { Sidebar } from "@/components/layout/sidebar"
+import { TOKENS } from "@/lib/wealth-console-tokens"
 
 export default async function DashboardLayout({
   children,
@@ -11,13 +12,17 @@ export default async function DashboardLayout({
   if (!session) {
     redirect("/login")
   }
+  const isConsole = session.user?.dashboardTheme === "console"
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div
+      className="flex h-screen overflow-hidden"
+      style={{
+        background: isConsole ? TOKENS.surface : "#f9fafb",
+      }}
+    >
       <Sidebar />
       <main className="flex-1 overflow-y-auto lg:ml-0 w-full">
-        <div className="min-h-full">
-          {children}
-        </div>
+        <div className="min-h-full">{children}</div>
       </main>
     </div>
   )

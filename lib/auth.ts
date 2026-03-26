@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
+import { isDashboardTheme } from "./dashboard-theme"
 
 // Validate required environment variables
 if (!process.env.NEXTAUTH_SECRET) {
@@ -106,29 +107,52 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      if (trigger === "update" && session && typeof session === "object") {
+        const next = (session as { dashboardTheme?: unknown }).dashboardTheme
+        if (isDashboardTheme(next)) {
+          token.dashboardTheme = next
+        }
+        return token
+      }
+
       if (user) {
         token.id = user.id
         if (user.image) token.picture = user.image
       }
-      
-      // If signing in with Google, fetch user ID from database and keep profile image
+
       if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findUnique({
-          where: { email: user.email }
+          where: { email: user.email },
+          select: { id: true, dashboardTheme: true },
         })
         if (dbUser) {
           token.id = dbUser.id
+          token.dashboardTheme = dbUser.dashboardTheme
         }
         if (user?.image) token.picture = user.image
+      } else if (user?.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { dashboardTheme: true },
+        })
+        token.dashboardTheme = dbUser?.dashboardTheme ?? "classic"
       }
-      
+
+      if (!token.dashboardTheme) {
+        token.dashboardTheme = "classic"
+      }
+
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
         session.user.image = token.picture ?? null
+        session.user.dashboardTheme =
+          typeof token.dashboardTheme === "string"
+            ? token.dashboardTheme
+            : "classic"
       }
       return session
     }

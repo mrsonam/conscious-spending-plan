@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 
 interface Account {
@@ -171,13 +172,12 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
               <Label htmlFor="transferDate">Transfer Date *</Label>
-              <Input
+              <DateInput
                 id="transferDate"
-                type="date"
                 value={transferDate}
                 onChange={(e) => setTransferDate(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1 scheme-light dark:scheme-dark"
               />
             </div>
             <div>

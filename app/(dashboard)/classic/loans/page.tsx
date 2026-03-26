@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { TrendingDown, TrendingUp, Calendar, HandCoins } from "lucide-react"
 import { ExpensesSkeleton } from "@/components/skeletons/expenses-skeleton"
@@ -434,23 +435,21 @@ export default function LoansPage() {
                   </div>
                   <div>
                     <Label htmlFor="date">Date *</Label>
-                    <Input
+                    <DateInput
                       id="date"
-                      type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       required
-                      className="mt-1"
+                      className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
                   <div>
                     <Label htmlFor="dueDate">Expected Return Date (Optional)</Label>
-                    <Input
+                    <DateInput
                       id="dueDate"
-                      type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
-                      className="mt-1"
+                      className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
                 </div>
@@ -662,23 +661,21 @@ export default function LoansPage() {
                       </div>
                       <div>
                         <Label htmlFor="borrowedDate">Date *</Label>
-                        <Input
+                        <DateInput
                           id="borrowedDate"
-                          type="date"
                           value={borrowedDate}
                           onChange={(e) => setBorrowedDate(e.target.value)}
                           required
-                          className="mt-1"
+                          className="mt-1 scheme-light dark:scheme-dark"
                         />
                       </div>
                       <div>
                         <Label htmlFor="borrowedDueDate">Expected Repayment Date (Optional)</Label>
-                        <Input
+                        <DateInput
                           id="borrowedDueDate"
-                          type="date"
                           value={borrowedDueDate}
                           onChange={(e) => setBorrowedDueDate(e.target.value)}
-                          className="mt-1"
+                          className="mt-1 scheme-light dark:scheme-dark"
                         />
                       </div>
                     </div>

@@ -283,6 +283,8 @@ export async function POST(request: Request) {
       incomeEntryId: incomeEntry.id,
       depositedToAccount: depositAccount?.id || null,
       depositedToAccountName: depositAccount ? `${depositAccount.name} (${depositAccount.bankName})` : null,
+      isCashAccount: depositAccount?.accountType === "cash",
+      isExcludedFromAllocation: false,
     }
 
     return NextResponse.json(breakdown)

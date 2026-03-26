@@ -92,6 +92,26 @@ body {
   background: #94a3b8;
 }
 
+/* Hide scrollbar while keeping overflow scroll (e.g. sidebar nav) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide number input spinners (bento + classic, all pages) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Mobile optimizations */
 * {
   -webkit-tap-highlight-color: transparent;

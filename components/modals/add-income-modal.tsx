@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Calculator } from "lucide-react";
 
@@ -181,13 +182,12 @@ export function AddIncomeModal({
 
           <div>
             <Label htmlFor="date">Income Date *</Label>
-            <Input
+            <DateInput
               id="date"
-              type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="mt-1"
+              className="mt-1 scheme-light dark:scheme-dark"
             />
           </div>
 
