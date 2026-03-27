@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { ClassicPaginationBar } from "@/components/ui/classic-pagination-bar"
 import { ExpensesListSkeleton } from "@/components/skeletons/expenses-sections"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 import {
@@ -24,8 +25,6 @@ import {
   Trash2,
   TrendingDown,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   Repeat,
   Play,
   ClipboardList,
@@ -493,7 +492,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
             <CardDescription>
               {p.expensesTotal === 0
                 ? "No expenses logged yet"
-                : `Showing ${(p.expensesPage - 1) * p.expensesLimit + 1}–${Math.min(p.expensesPage * p.expensesLimit, p.expensesTotal)} of ${p.expensesTotal} expense${p.expensesTotal !== 1 ? "s" : ""}`}
+                : "Chronological ledger of recorded expenses"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -556,40 +555,12 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     </div>
                   ))}
                 </div>
-                {p.expensesTotal > p.expensesLimit && (
-                  <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-500">
-                      Page {p.expensesPage} of {Math.ceil(p.expensesTotal / p.expensesLimit)}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        disabled={p.expensesPage <= 1}
-                        onClick={() => p.fetchExpenses(p.expensesPage - 1)}
-                        aria-label="Previous page"
-                        className="h-9 w-9 shrink-0 border border-gray-200 bg-white shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:shadow-md active:scale-[0.97] disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:shadow-sm"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        disabled={
-                          p.expensesPage >=
-                          Math.ceil(p.expensesTotal / p.expensesLimit)
-                        }
-                        onClick={() => p.fetchExpenses(p.expensesPage + 1)}
-                        aria-label="Next page"
-                        className="h-9 w-9 shrink-0 border border-gray-200 bg-white shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:shadow-md active:scale-[0.97] disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:shadow-sm"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                <ClassicPaginationBar
+                  page={p.expensesPage}
+                  pageSize={p.expensesLimit}
+                  total={p.expensesTotal}
+                  onPageChange={p.fetchExpenses}
+                />
               </>
             )}
           </CardContent>

@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import { DateInput } from "@/components/ui/date-input"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
-import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
+import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
+import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import type { StatementTransaction, StatementAccount } from "@/hooks/use-statement-page"
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
   Filter,
   ArrowUpCircle,
@@ -19,8 +18,6 @@ import {
 
 const consoleField =
   "mt-1 w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
-
-const TX_PAGE_SIZE = 12
 
 function formatDateShort(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -105,7 +102,10 @@ export function StatementPageBento({
   }, [filterStartDate, filterEndDate, filterAccountId])
 
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(transactions.length / TX_PAGE_SIZE))
+    const maxPage = Math.max(
+      1,
+      Math.ceil(transactions.length / CONSOLE_TABLE_PAGE_SIZE),
+    )
     setPage((p) => Math.min(p, maxPage))
   }, [transactions.length])
 
@@ -170,12 +170,9 @@ export function StatementPageBento({
   )
 
   const totalRows = transactions.length
-  const maxPage = Math.max(1, Math.ceil(totalRows / TX_PAGE_SIZE))
-  const pageStart = totalRows === 0 ? 0 : (page - 1) * TX_PAGE_SIZE + 1
-  const pageEnd = Math.min(totalRows, page * TX_PAGE_SIZE)
   const pagedTransactions = useMemo(() => {
-    const startIdx = (page - 1) * TX_PAGE_SIZE
-    return transactions.slice(startIdx, startIdx + TX_PAGE_SIZE)
+    const startIdx = (page - 1) * CONSOLE_TABLE_PAGE_SIZE
+    return transactions.slice(startIdx, startIdx + CONSOLE_TABLE_PAGE_SIZE)
   }, [transactions, page])
 
   return (
@@ -345,7 +342,9 @@ export function StatementPageBento({
               Transaction History
             </h3>
             <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-              {totalRows === 0 ? "No rows" : `Showing ${pageStart}–${pageEnd} of ${totalRows}`}
+              {totalRows === 0
+                ? "No rows in this range"
+                : "Combined ledger across income, expenses, transfers, and investments"}
             </p>
           </div>
           <button
@@ -581,55 +580,12 @@ export function StatementPageBento({
         )}
 
         {!loadingTransactions && totalRows > 0 && (
-          <div
-            className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-4"
-            style={{ borderColor: TOKENS.outlineGhost }}
-          >
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              Page {page} of {maxPage}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Previous page"
-                className={cn(
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                  page <= 1
-                    ? "cursor-not-allowed opacity-35"
-                    : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                )}
-                style={{
-                  borderColor: TOKENS.outlineGhost,
-                  color: page <= 1 ? TOKENS.onSurfaceMuted : TOKENS.onSurface,
-                }}
-              >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                disabled={page >= maxPage}
-                onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
-                aria-label="Next page"
-                className={cn(
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                  page >= maxPage
-                    ? "cursor-not-allowed opacity-35"
-                    : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                )}
-                style={{
-                  borderColor: TOKENS.outlineGhost,
-                  color: page >= maxPage ? TOKENS.onSurfaceMuted : TOKENS.onSurface,
-                }}
-              >
-                <ChevronRight className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </div>
-          </div>
+          <ConsolePaginationBar
+            page={page}
+            pageSize={CONSOLE_TABLE_PAGE_SIZE}
+            total={totalRows}
+            onPageChange={setPage}
+          />
         )}
       </section>
     </>

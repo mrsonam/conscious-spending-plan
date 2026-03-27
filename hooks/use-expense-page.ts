@@ -12,8 +12,7 @@ import type {
   ExpensePageStats,
   RecurringExpense,
 } from "@/lib/expense-page-types"
-
-const EXPENSES_LIMIT = 10
+import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 
 export function useExpensePage(
   status: string,
@@ -145,7 +144,7 @@ export function useExpensePage(
           params.append("expenseCategory", filterExpenseCategory)
         if (filterAccountId) params.append("accountId", filterAccountId)
         params.set("page", String(page))
-        params.set("limit", String(EXPENSES_LIMIT))
+        params.set("limit", String(CONSOLE_TABLE_PAGE_SIZE))
 
         const response = await fetch(`/api/expenses?${params.toString()}`)
         if (response.ok) {
@@ -571,7 +570,7 @@ export function useExpensePage(
     expenses,
     expensesTotal,
     expensesPage,
-    expensesLimit: EXPENSES_LIMIT,
+    expensesLimit: CONSOLE_TABLE_PAGE_SIZE,
     expenseStats,
     loadingAccounts,
     loadingExpenses,

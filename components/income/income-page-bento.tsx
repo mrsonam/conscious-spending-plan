@@ -23,14 +23,13 @@ import {
   INCOME_PAGE_WARN_SURFACE as WARN_SURFACE,
 } from "@/lib/income-page-types"
 import type { IncomeBreakdown, IncomeEntry } from "@/lib/income-page-types"
+import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import {
   BarChart3,
   Building2,
   Calculator,
-  ChevronLeft,
-  ChevronRight,
   DollarSign,
   Download,
   Plus,
@@ -943,69 +942,12 @@ export function IncomePageBento(p: UseIncomePageResult) {
             </div>
           )}
 
-          {p.incomeTotal > 0 && (
-            <div
-              className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-4"
-              style={{ borderColor: TOKENS.outlineGhost }}
-            >
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Showing {(p.incomePage - 1) * p.incomeLimit + 1}–
-                {Math.min(p.incomePage * p.incomeLimit, p.incomeTotal)} of{" "}
-                {p.incomeTotal} entries
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={p.incomePage <= 1}
-                  onClick={() => p.fetchIncomeEntries(p.incomePage - 1)}
-                  aria-label="Previous page"
-                  className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                    p.incomePage <= 1
-                      ? "cursor-not-allowed opacity-35"
-                      : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                  )}
-                  style={{
-                    borderColor: TOKENS.outlineGhost,
-                    color:
-                      p.incomePage <= 1
-                        ? TOKENS.onSurfaceMuted
-                        : TOKENS.onSurface,
-                  }}
-                >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    p.incomePage >= Math.ceil(p.incomeTotal / p.incomeLimit)
-                  }
-                  onClick={() => p.fetchIncomeEntries(p.incomePage + 1)}
-                  aria-label="Next page"
-                  className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                    p.incomePage >=
-                      Math.ceil(p.incomeTotal / p.incomeLimit)
-                      ? "cursor-not-allowed opacity-35"
-                      : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                  )}
-                  style={{
-                    borderColor: TOKENS.outlineGhost,
-                    color:
-                      p.incomePage >=
-                      Math.ceil(p.incomeTotal / p.incomeLimit)
-                        ? TOKENS.onSurfaceMuted
-                        : TOKENS.onSurface,
-                  }}
-                >
-                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-            </div>
-          )}
+          <ConsolePaginationBar
+            page={p.incomePage}
+            pageSize={p.incomeLimit}
+            total={p.incomeTotal}
+            onPageChange={p.fetchIncomeEntries}
+          />
 
           <ConfirmDialog
             open={p.deleteEntryId !== null}

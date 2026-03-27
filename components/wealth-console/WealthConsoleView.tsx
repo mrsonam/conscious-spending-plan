@@ -1352,7 +1352,7 @@ export function WealthConsoleView({
                         </span>
                       </Link>
                       <Link
-                        href={CLASSIC.categoryTracking}
+                        href={BENTO.categoryTracking}
                         className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
                         style={{
                           background: TOKENS.surfaceLow,

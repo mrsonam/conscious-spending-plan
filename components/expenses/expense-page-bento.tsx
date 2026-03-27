@@ -24,12 +24,11 @@ import {
   FUND_CATEGORIES,
   FREQUENCIES,
 } from "@/lib/expense-page-constants"
+import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 import {
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Filter,
   Play,
@@ -1434,73 +1433,12 @@ export function ExpensePageBento(p: UseExpensePageResult) {
             )}
           </div>
 
-          {p.expensesTotal > 0 && (
-            <div
-              className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-4"
-              style={{ borderColor: TOKENS.outlineGhost }}
-            >
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Showing {(p.expensesPage - 1) * p.expensesLimit + 1}–
-                {Math.min(
-                  p.expensesPage * p.expensesLimit,
-                  p.expensesTotal,
-                )}{" "}
-                of {p.expensesTotal}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={p.expensesPage <= 1}
-                  onClick={() => p.fetchExpenses(p.expensesPage - 1)}
-                  aria-label="Previous page"
-                  className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                    p.expensesPage <= 1
-                      ? "cursor-not-allowed opacity-35"
-                      : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                  )}
-                  style={{
-                    borderColor: TOKENS.outlineGhost,
-                    color:
-                      p.expensesPage <= 1
-                        ? TOKENS.onSurfaceMuted
-                        : TOKENS.onSurface,
-                  }}
-                >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    p.expensesPage >=
-                    Math.ceil(p.expensesTotal / p.expensesLimit)
-                  }
-                  onClick={() => p.fetchExpenses(p.expensesPage + 1)}
-                  aria-label="Next page"
-                  className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/40",
-                    p.expensesPage >=
-                      Math.ceil(p.expensesTotal / p.expensesLimit)
-                      ? "cursor-not-allowed opacity-35"
-                      : "hover:bg-white/6 hover:shadow-[inset_0_1px_0_0_rgba(218,226,253,0.08)] active:scale-[0.97]",
-                  )}
-                  style={{
-                    borderColor: TOKENS.outlineGhost,
-                    color:
-                      p.expensesPage >=
-                      Math.ceil(p.expensesTotal / p.expensesLimit)
-                        ? TOKENS.onSurfaceMuted
-                        : TOKENS.onSurface,
-                  }}
-                >
-                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-            </div>
-          )}
+          <ConsolePaginationBar
+            page={p.expensesPage}
+            pageSize={p.expensesLimit}
+            total={p.expensesTotal}
+            onPageChange={p.fetchExpenses}
+          />
 
         </section>
       )}

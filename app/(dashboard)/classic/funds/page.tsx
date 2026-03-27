@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
@@ -18,28 +18,8 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { Save } from "lucide-react";
 import { FundsSkeleton } from "@/components/skeletons/funds-skeleton";
 import React from "react";
-
-interface FundAllocation {
-  id: string;
-  fixedCostsType: string;
-  fixedCostsValue: number;
-  fixedCostsCap: number | null;
-  savingsType: string;
-  savingsValue: number;
-  savingsCap: number | null;
-  investmentType: string;
-  investmentValue: number;
-  investmentCap: number | null;
-  guiltFreeSpendingType: string;
-  guiltFreeSpendingValue: number;
-  guiltFreeSpendingCap: number | null;
-}
-
-interface CategoryBalance {
-  id: string;
-  category: string;
-  balance: number;
-}
+import { useFundSettingsPage, type FundAllocation } from "@/hooks/use-fund-settings-page";
+import { BENTO } from "@/lib/app-routes";
 
 const FundField = React.memo(({
   label,
@@ -47,9 +27,7 @@ const FundField = React.memo(({
   valueField,
   capField,
   categoryName,
-  color,
   allocation,
-  balances,
   getBalance,
   formatCurrency,
   updateField,
@@ -59,9 +37,7 @@ const FundField = React.memo(({
   valueField: keyof FundAllocation;
   capField: keyof FundAllocation;
   categoryName: string;
-  color: string;
   allocation: FundAllocation;
-  balances: CategoryBalance[];
   getBalance: (category: string) => number;
   formatCurrency: (amount: number) => string;
   updateField: (field: keyof FundAllocation, value: string | number | null) => void;
@@ -230,85 +206,25 @@ FundField.displayName = "FundField";
 export default function FundsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [allocation, setAllocation] = useState<FundAllocation | null>(null);
-  const [balances, setBalances] = useState<CategoryBalance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const {
+    allocation,
+    loading,
+    saving,
+    message,
+    handleSubmit,
+    updateField,
+    getBalance,
+    formatCurrency,
+  } = useFundSettingsPage();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    } else if (status === "authenticated") {
-      fetchAllocation();
+    if (
+      status === "authenticated" &&
+      session?.user?.dashboardTheme === "console"
+    ) {
+      router.replace(BENTO.funds);
     }
-  }, [status, router]);
-
-  const fetchAllocation = async () => {
-    try {
-      // Parallelize API calls for faster loading
-      const [allocationRes, balancesRes] = await Promise.all([
-        fetch("/api/fund-allocation"),
-        fetch("/api/category-balances"),
-      ]);
-
-      if (allocationRes.ok) {
-        const data = await allocationRes.json();
-        setAllocation(data);
-      }
-
-      if (balancesRes.ok) {
-        const data = await balancesRes.json();
-        setBalances(data.balances || []);
-      }
-    } catch (error) {
-      console.error("Error fetching allocation:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!allocation) return;
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/fund-allocation", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(allocation),
-      });
-
-      if (response.ok) {
-        setMessage({ type: "success", text: "Settings saved successfully!" });
-        // Refresh balances after saving
-        const balancesRes = await fetch("/api/category-balances");
-        if (balancesRes.ok) {
-          const data = await balancesRes.json();
-          setBalances(data.balances || []);
-        }
-      } else {
-        setMessage({ type: "error", text: "Failed to save settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: "An error occurred" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateField = (
-    field: keyof FundAllocation,
-    value: string | number | null
-  ) => {
-    setAllocation((prev) => (prev ? { ...prev, [field]: value } : null));
-  };
+  }, [status, session?.user?.dashboardTheme, router]);
 
   if (status === "loading" || loading) {
     return (
@@ -323,17 +239,9 @@ export default function FundsPage() {
 
   if (!session || !allocation) return null;
 
-  const getBalance = (category: string) => {
-    const balance = balances.find((b) => b.category === category);
-    return balance?.balance || 0;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
+  if (session.user?.dashboardTheme === "console") {
+    return null;
+  }
 
   return (
     <>
@@ -368,9 +276,7 @@ export default function FundsPage() {
                   valueField="fixedCostsValue"
                   capField="fixedCostsCap"
                   categoryName="fixedCosts"
-                  color="red"
                   allocation={allocation}
-                  balances={balances}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
                   updateField={updateField}
@@ -381,9 +287,7 @@ export default function FundsPage() {
                   valueField="savingsValue"
                   capField="savingsCap"
                   categoryName="savings"
-                  color="green"
                   allocation={allocation}
-                  balances={balances}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
                   updateField={updateField}
@@ -394,9 +298,7 @@ export default function FundsPage() {
                   valueField="investmentValue"
                   capField="investmentCap"
                   categoryName="investment"
-                  color="blue"
                   allocation={allocation}
-                  balances={balances}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
                   updateField={updateField}
@@ -407,9 +309,7 @@ export default function FundsPage() {
                   valueField="guiltFreeSpendingValue"
                   capField="guiltFreeSpendingCap"
                   categoryName="guiltFreeSpending"
-                  color="purple"
                   allocation={allocation}
-                  balances={balances}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
                   updateField={updateField}

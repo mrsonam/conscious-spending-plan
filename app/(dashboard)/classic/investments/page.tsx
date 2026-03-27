@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, Plus, Activity, Briefcase, Calendar } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
 import { cn } from "@/lib/utils"
+import { BENTO } from "@/lib/app-routes"
 
 interface Account {
   id: string
@@ -90,11 +91,15 @@ export default function InvestmentsPage() {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
+      if (session?.user?.dashboardTheme === "console") {
+        router.replace(BENTO.investments)
+        return
+      }
       fetchData()
       const today = new Date()
       setDate(today.toISOString().split("T")[0])
     }
-  }, [status, router])
+  }, [status, router, session?.user?.dashboardTheme])
 
   // Auto-fetch market prices when we have holdings (for profit/loss calculation)
   useEffect(() => {
@@ -496,6 +501,7 @@ export default function InvestmentsPage() {
   }
 
   if (!session) return null
+  if (session.user?.dashboardTheme === "console") return null
 
   // Show empty state if no investment accounts exist
   if (!loadingForm && !loadingSummary && !loadingAccounts && investmentAccounts.length === 0) {

@@ -8,8 +8,7 @@ import type {
   IncomePageAccount,
   IncomePageStats,
 } from "@/lib/income-page-types"
-
-const INCOME_LIMIT = 10
+import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 
 export function useIncomePage(
   status: string,
@@ -116,7 +115,7 @@ export function useIncomePage(
     setLoadingHistory(true)
     try {
       const response = await fetch(
-        `/api/income-entries?page=${page}&limit=${INCOME_LIMIT}`,
+        `/api/income-entries?page=${page}&limit=${CONSOLE_TABLE_PAGE_SIZE}`,
       )
       if (response.ok) {
         const data = (await response.json()) as Record<string, unknown>
@@ -213,7 +212,7 @@ export function useIncomePage(
         setDeleteEntryId(null)
         const newTotal = incomeTotal - 1
         setIncomeTotal(newTotal)
-        const totalPages = Math.max(1, Math.ceil(newTotal / INCOME_LIMIT))
+        const totalPages = Math.max(1, Math.ceil(newTotal / CONSOLE_TABLE_PAGE_SIZE))
         const nextPage = incomePage > totalPages ? totalPages : incomePage
         fetchIncomeEntries(
           incomeEntries.length <= 1 && incomePage > 1
@@ -241,7 +240,7 @@ export function useIncomePage(
     incomeEntries,
     incomeTotal,
     incomePage,
-    incomeLimit: INCOME_LIMIT,
+    incomeLimit: CONSOLE_TABLE_PAGE_SIZE,
     income,
     setIncome,
     description,

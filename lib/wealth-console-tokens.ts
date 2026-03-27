@@ -13,3 +13,6 @@ export const TOKENS = {
 } as const
 
 export const CARD_INSET = "inset 0 1px 0 0 rgba(218,226,253,0.06)" as const
+
+/** Rows per page for console transaction tables (income, expenses, statements). */
+export const CONSOLE_TABLE_PAGE_SIZE = 12

@@ -32,6 +32,11 @@ function navGroups(
     theme === "console" ? BENTO.expenses : CLASSIC.expenses
   const statementHref =
     theme === "console" ? BENTO.statement : CLASSIC.statement
+  const categoryTrackingHref =
+    theme === "console" ? BENTO.categoryTracking : CLASSIC.categoryTracking
+  const fundsHref = theme === "console" ? BENTO.funds : CLASSIC.funds
+  const investmentsHref =
+    theme === "console" ? BENTO.investments : CLASSIC.investments
   return [
     {
       id: "overview",
@@ -55,17 +60,17 @@ function navGroups(
       items: [
         {
           name: "Category Tracking",
-          href: CLASSIC.categoryTracking,
+          href: categoryTrackingHref,
           icon: BarChart3,
         },
-        { name: "Fund Settings", href: CLASSIC.funds, icon: Wallet },
+        { name: "Fund Settings", href: fundsHref, icon: Wallet },
       ],
     },
     {
       id: "balance",
       label: "Balance sheet",
       items: [
-        { name: "Investments", href: CLASSIC.investments, icon: TrendingUp },
+        { name: "Investments", href: investmentsHref, icon: TrendingUp },
         { name: "Accounts", href: CLASSIC.accounts, icon: CreditCard },
         { name: "Loans", href: CLASSIC.loans, icon: HandCoins },
       ],
