@@ -27,4 +27,7 @@ export const BENTO = {
   categoryTracking: "/bento/category-tracking",
   funds: "/bento/funds",
   investments: "/bento/investments",
+  accounts: "/bento/accounts",
+  loans: "/bento/loans",
+  profile: "/bento/profile",
 } as const

@@ -35,21 +35,6 @@ export function ProfileSkeleton() {
             </div>
           </div>
         </div>
-
-        {/* Data Management section */}
-        <div className="pt-4 border-t">
-          <Skeleton className="h-5 w-32 mb-4" />
-          <div className="p-4 border border-gray-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <Skeleton className="h-5 w-5 mt-0.5" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-32 mb-2" />
-                <Skeleton className="h-4 w-full mb-3" />
-                <Skeleton className="h-9 w-36" />
-              </div>
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   )

@@ -2,21 +2,17 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { User, Mail, Trash2, AlertTriangle } from "lucide-react"
+import { User, Mail } from "lucide-react"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
 import { DashboardThemePicker } from "@/components/dashboard-theme-picker"
+import { BENTO } from "@/lib/app-routes"
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [resetting, setResetting] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -24,36 +20,12 @@ export default function ProfilePage() {
     }
   }, [status, router])
 
-  const handleResetIncome = async () => {
-    setResetting(true)
-    setMessage(null)
-
-    try {
-      const response = await fetch("/api/income-entries", {
-        method: "DELETE",
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setMessage({ 
-          type: "success", 
-          text: `Successfully reset ${data.deletedCount} income ${data.deletedCount === 1 ? 'entry' : 'entries'}` 
-        })
-        setShowConfirm(false)
-        // Refresh the page to update dashboard
-        setTimeout(() => {
-          window.location.reload()
-        }, 1500)
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset income data" })
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: "An error occurred while resetting income data" })
-    } finally {
-      setResetting(false)
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user) return
+    if ((session.user.dashboardTheme ?? "classic") === "console") {
+      router.replace(BENTO.profile)
     }
-  }
+  }, [status, session?.user, router])
 
   if (status === "loading") {
     return (
@@ -67,6 +39,10 @@ export default function ProfilePage() {
   }
 
   if (!session) return null
+
+  if ((session.user.dashboardTheme ?? "classic") === "console") {
+    return null
+  }
 
   return (
     <>
@@ -128,48 +104,12 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-
-            <div className="pt-4 border-t">
-              <h4 className="text-sm font-semibold text-gray-900 mb-4">Data Management</h4>
-              <div className="space-y-4">
-                <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h5 className="text-sm font-semibold text-red-900 mb-1">Reset Income Data</h5>
-                      <p className="text-sm text-red-700 mb-3">
-                        This will permanently delete all your income entries. This action cannot be undone.
-                      </p>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setShowConfirm(true)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Reset Income Data
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                {message && (
-                  <div
-                    className={`p-3 rounded-lg ${
-                      message.type === "success"
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-red-50 text-red-700 border border-red-200"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                )}
-              </div>
-            </div>
           </CardContent>
         </Card>
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Dashboard theme</CardTitle>
+            <CardTitle>Dashboard</CardTitle>
             <CardDescription>
               Choose which home dashboard loads when you open Dashboard or sign
               in. Your choice is saved to your account.
@@ -179,17 +119,6 @@ export default function ProfilePage() {
             <DashboardThemePicker />
           </CardContent>
         </Card>
-
-        <ConfirmDialog
-          open={showConfirm}
-          onOpenChange={setShowConfirm}
-          title="Reset All Income Data"
-          description="Are you sure you want to delete all income entries? This action cannot be undone."
-          confirmText="Yes, Delete All"
-          cancelText="Cancel"
-          onConfirm={handleResetIncome}
-          variant="destructive"
-        />
       </div>
     </>
   )

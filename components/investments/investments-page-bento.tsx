@@ -18,13 +18,22 @@ import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import {
   Activity,
   BarChart3,
-  FileText,
   Briefcase,
+  FileText,
   Plus,
   RefreshCw,
   Search,
   TrendingUp,
 } from "lucide-react"
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 interface InvestmentPurchase {
   id: string
@@ -89,6 +98,7 @@ export function InvestmentsPageBento() {
   const [numberOfShares, setNumberOfShares] = useState("")
   const [brokerageFee, setBrokerageFee] = useState("")
   const [date, setDate] = useState("")
+  const [chartRange, setChartRange] = useState<"1W" | "3M" | "1Y" | "ALL">("3M")
 
   useEffect(() => {
     void fetchData()
@@ -176,7 +186,6 @@ export function InvestmentsPageBento() {
     [accounts],
   )
   const totalCash = useMemo(() => accounts.reduce((sum, acc) => sum + acc.balance, 0), [accounts])
-  const totalValue = useMemo(() => accounts.reduce((sum, acc) => sum + acc.totalValue, 0), [accounts])
   const totalHoldings = useMemo(
     () => accounts.reduce((sum, acc) => sum + acc.holdings.length, 0),
     [accounts],
@@ -268,6 +277,133 @@ export function InvestmentsPageBento() {
       totalGainLossPercent,
     }
   }, [holdingsWithSymbols, marketPrices])
+
+  /** Cash plus holdings marked to market when prices exist; otherwise book (cost) value. */
+  const portfolioMarkValue = useMemo(() => {
+    let holdingsValue = 0
+    for (const h of allHoldings) {
+      const symbol = h.name.trim().toUpperCase()
+      const p = marketPrices[symbol]
+      if (h.totalShares > 0 && p != null && p > 0) {
+        holdingsValue += p * h.totalShares
+      } else {
+        holdingsValue += h.totalAmount
+      }
+    }
+    return totalCash + holdingsValue
+  }, [allHoldings, marketPrices, totalCash])
+
+  /** Cumulative deployed capital by calendar day, ending at mark-to-market portfolio value (cash + priced positions). */
+  const portfolioChartFullSeries = useMemo(() => {
+    const byDay = new Map<string, number>()
+    for (const acc of accounts) {
+      for (const h of acc.holdings) {
+        for (const p of h.purchases) {
+          const d = new Date(p.date)
+          const key = d.toISOString().slice(0, 10)
+          byDay.set(key, (byDay.get(key) ?? 0) + p.amount)
+        }
+      }
+    }
+    const days = [...byDay.keys()].sort()
+    const out: { t: number; value: number; monthLabel: string }[] = []
+    let cum = 0
+    for (const key of days) {
+      cum += byDay.get(key) ?? 0
+      const t = new Date(key + "T12:00:00").getTime()
+      out.push({
+        t,
+        value: cum,
+        monthLabel: new Date(t).toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase(),
+      })
+    }
+    const now = Date.now()
+    const endValue = portfolioMarkValue
+    if (out.length === 0) {
+      return [{ t: now, value: endValue, monthLabel: "NOW" }]
+    }
+    const last = out[out.length - 1]
+    if (Math.abs(last.value - endValue) > 0.01 || last.t < now - 86400000) {
+      out.push({
+        t: now,
+        value: endValue,
+        monthLabel: new Date(now).toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase(),
+      })
+    } else {
+      out[out.length - 1] = { ...last, value: endValue, t: now }
+    }
+    return out
+  }, [accounts, portfolioMarkValue])
+
+  const portfolioChartData = useMemo(() => {
+    const ms: Record<typeof chartRange, number | null> = {
+      "1W": 7 * 86400000,
+      "3M": 90 * 86400000,
+      "1Y": 365 * 86400000,
+      ALL: null,
+    }
+    const cutoff = ms[chartRange] != null ? Date.now() - (ms[chartRange] as number) : null
+    const filtered =
+      cutoff == null
+        ? portfolioChartFullSeries
+        : portfolioChartFullSeries.filter((p) => p.t >= cutoff)
+    if (filtered.length === 0 && portfolioChartFullSeries.length > 0) {
+      return [portfolioChartFullSeries[portfolioChartFullSeries.length - 1]]
+    }
+    return filtered.length > 0 ? filtered : portfolioChartFullSeries
+  }, [portfolioChartFullSeries, chartRange])
+
+  const liquidityPct = useMemo(
+    () => (portfolioMarkValue > 0 ? (totalCash / portfolioMarkValue) * 100 : 0),
+    [totalCash, portfolioMarkValue],
+  )
+
+  const concentrationStdev = useMemo(() => {
+    const amounts = allHoldings.map((h) => h.totalAmount).filter((a) => a > 0)
+    if (amounts.length < 2) return 0
+    const total = amounts.reduce((s, a) => s + a, 0)
+    if (total <= 0) return 0
+    const weights = amounts.map((a) => a / total)
+    const mean = weights.reduce((s, w) => s + w, 0) / weights.length
+    const variance =
+      weights.reduce((s, w) => s + (w - mean) ** 2, 0) / weights.length
+    return Math.sqrt(variance) * 100
+  }, [allHoldings])
+
+  const sovereignInsight = useMemo(() => {
+    const top = allocationBySymbol.rows[0]
+    const topPct =
+      totalInvested > 0 && top ? (top.amount / totalInvested) * 100 : 0
+    if (topPct >= 45) {
+      return `${top?.symbol ?? "Top position"} is ${topPct.toFixed(0)}% of deployed capital — review concentration when adding size.`
+    }
+    if (liquidityPct < 5 && totalCash >= 0) {
+      return "Liquidity buffer is thin versus portfolio value. Consider keeping more cash in investment accounts for fees and opportunities."
+    }
+    if (pricedHoldingsCount < holdingsWithSymbols.length && holdingsWithSymbols.length > 0) {
+      return "Some tickers lack live prices — refresh to tighten profit/loss and chart context."
+    }
+    return "Allocation is within typical guardrails. Rebalance when any sleeve drifts more than a few points from intent."
+  }, [
+    allocationBySymbol.rows,
+    totalInvested,
+    liquidityPct,
+    totalCash,
+    pricedHoldingsCount,
+    holdingsWithSymbols.length,
+  ])
+
+  /** All symbols by invested amount (not capped at 8) for allocation cards. */
+  const topHoldingsList = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const h of allHoldings) {
+      const k = h.name.trim().toUpperCase()
+      map.set(k, (map.get(k) ?? 0) + h.totalAmount)
+    }
+    return [...map.entries()]
+      .map(([symbol, amount]) => ({ symbol, amount }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [allHoldings])
 
   const amount = useMemo(() => {
     const price = parseFloat(pricePerUnit)
@@ -385,13 +521,21 @@ export function InvestmentsPageBento() {
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <div className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/5" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/5" />
           ))}
         </div>
-        <div className="h-96 animate-pulse rounded-xl border border-white/10 bg-white/5" />
+        <div className="grid gap-4 lg:grid-cols-12">
+          <div className="h-72 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-8 lg:h-80" />
+          <div className="h-64 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-4" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/5" />
+          ))}
+        </div>
       </div>
     )
   }
@@ -418,6 +562,15 @@ export function InvestmentsPageBento() {
     )
   }
 
+  const chartSubtitle =
+    chartRange === "1W"
+      ? "Last week (deployed capital → portfolio value)"
+      : chartRange === "3M"
+        ? "Last 90 days performance"
+        : chartRange === "1Y"
+          ? "Last 12 months performance"
+          : "Full history (deployed capital → portfolio value)"
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="px-1 py-2 sm:px-2">
@@ -425,104 +578,422 @@ export function InvestmentsPageBento() {
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary, boxShadow: CARD_INSET }} />
             <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Investment ledger
+              Institutional console
             </p>
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceHigh }}>
             <Activity className="h-3.5 w-3.5" />
-            {totalHoldings} holdings
+            {totalHoldings} positions
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: TOKENS.onSurface }}>
-              Track positions and deploy cash
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-              Record each purchase from an investment account. Balances are deducted automatically and holdings are merged by ticker.
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Total portfolio value
+            </p>
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <MajorFigureCurrency
+                amount={portfolioMarkValue}
+                variant="prosperity"
+                colorDecimal={TOKENS.secondary}
+                className="text-3xl font-black tracking-tight sm:text-4xl!"
+                decimalEm={0.45}
+              />
+              {portfolioGains.totalCostBasis > 0 ? (
+                <span
+                  className="mb-1 inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold tabular-nums"
+                  style={
+                    portfolioGains.totalGainLossPercent >= 0
+                      ? {
+                          borderColor: TOKENS.primary,
+                          color: TOKENS.primary,
+                          background: "color-mix(in srgb, #4edea3 12%, transparent)",
+                        }
+                      : {
+                          borderColor: ERROR_SOFT,
+                          color: ERROR_SOFT,
+                          background: "color-mix(in srgb, #ffb4ab 14%, transparent)",
+                        }
+                  }
+                >
+                  {portfolioGains.totalGainLossPercent >= 0 ? "+" : ""}
+                  {portfolioGains.totalGainLossPercent.toFixed(1)}% (P/L)
+                </span>
+              ) : (
+                <span
+                  className="mb-1 inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold"
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+                >
+                  P/L n/a
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+              Last market refresh{" "}
+              {lastUpdated
+                ? lastUpdated.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+                : "—"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setMessage(null)
-              setLogOpen(true)
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]"
-            style={{
-              background: TOKENS.primary,
-              color: TOKENS.surface,
-              boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add investment
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMessage(null)
+                setLogOpen(true)
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]"
+              style={{
+                background: TOKENS.primary,
+                color: TOKENS.surface,
+                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add investment
+            </button>
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Invested</p>
-          <div className="mt-2"><MajorFigureCurrency amount={totalInvested} variant="income" className="text-lg font-bold!" decimalEm={0.45} /></div>
-        </div>
-        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Available cash</p>
-          <div className="mt-2"><MajorFigureCurrency amount={totalCash} variant="neutral" className="text-lg font-bold!" decimalEm={0.45} /></div>
-        </div>
-        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Total value</p>
-          <div className="mt-2"><MajorFigureCurrency amount={totalValue} variant="prosperity" className="text-lg font-bold!" decimalEm={0.45} /></div>
-        </div>
-        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Profit / loss</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className="rounded-xl border p-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Invested
+          </p>
           <div className="mt-2">
             <MajorFigureCurrency
-              amount={portfolioGains.totalGainLoss}
-              variant={portfolioGains.totalGainLoss >= 0 ? "prosperity" : "loss"}
-              className="text-lg font-bold!"
+              amount={totalInvested}
+              variant="income"
+              className="text-xl font-bold! sm:text-2xl!"
               decimalEm={0.45}
             />
           </div>
-          <p className="mt-1 text-[11px]" style={{ color: portfolioGains.totalGainLoss >= 0 ? TOKENS.primary : ERROR_SOFT }}>
-            {portfolioGains.totalGainLossPercent >= 0 ? "+" : ""}
-            {portfolioGains.totalGainLossPercent.toFixed(2)}% on priced holdings
+        </div>
+        <div
+          className="rounded-xl border p-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Available cash
           </p>
+          <div className="mt-2">
+            <MajorFigureCurrency
+              amount={totalCash}
+              variant="neutral"
+              className="text-xl font-bold! sm:text-2xl!"
+              decimalEm={0.45}
+            />
+          </div>
+        </div>
+        <div
+          className="rounded-xl border p-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Profit / loss
+          </p>
+          <div className="mt-2">
+            {portfolioGains.totalCostBasis > 0 ? (
+              <MajorFigureCurrency
+                amount={portfolioGains.totalGainLoss}
+                variant={portfolioGains.totalGainLoss >= 0 ? "prosperity" : "loss"}
+                colorDecimal={
+                  portfolioGains.totalGainLoss >= 0 ? TOKENS.secondary : TOKENS.onSurfaceMuted
+                }
+                className="text-xl font-bold! sm:text-2xl!"
+                decimalEm={0.45}
+              />
+            ) : (
+              <span className="text-xl font-bold tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+                —
+              </span>
+            )}
+          </div>
+          {portfolioGains.totalCostBasis > 0 ? (
+            <p
+              className="mt-1.5 text-[11px] tabular-nums"
+              style={{
+                color:
+                  portfolioGains.totalGainLossPercent >= 0 ? TOKENS.primary : ERROR_SOFT,
+              }}
+            >
+              {portfolioGains.totalGainLossPercent >= 0 ? "+" : ""}
+              {portfolioGains.totalGainLossPercent.toFixed(2)}% on priced holdings
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Add priced positions to see P/L
+            </p>
+          )}
         </div>
       </div>
 
-      <section className="rounded-xl border px-4 py-3 sm:px-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex flex-wrap items-center gap-3">
-            <span style={{ color: TOKENS.onSurfaceMuted }}>
-              Accounts: <span style={{ color: TOKENS.onSurface }}>{accounts.length}</span>
-            </span>
-            <span style={{ color: TOKENS.onSurfaceMuted }}>
-              Price coverage:{" "}
-              <span style={{ color: TOKENS.onSurface }}>
-                {pricedHoldingsCount}/{holdingsWithSymbols.length}
+      <div className="grid items-start gap-4 lg:grid-cols-12">
+        <section
+          className="rounded-xl border p-4 sm:p-5 lg:col-span-8"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Portfolio value
+              </p>
+              <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+                {chartSubtitle}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(["1W", "3M", "1Y", "ALL"] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setChartRange(r)}
+                  className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{
+                    color: chartRange === r ? TOKENS.primary : TOKENS.onSurfaceMuted,
+                    borderBottom: chartRange === r ? `2px solid ${TOKENS.primary}` : "2px solid transparent",
+                  }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 h-[240px] w-full min-h-[220px] sm:h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={portfolioChartData.map((d, i) => ({ ...d, i }))} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="portfolioValueFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={TOKENS.primary} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={TOKENS.primary} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke={TOKENS.outlineGhost} strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={(v) =>
+                    new Date(v).toLocaleDateString("en-US", { month: "short", year: "2-digit" }).toUpperCase()
+                  }
+                  stroke={TOKENS.onSurfaceMuted}
+                  tick={{ fill: TOKENS.onSurfaceMuted, fontSize: 10 }}
+                  axisLine={{ stroke: TOKENS.outlineGhost }}
+                />
+                <YAxis
+                  tickFormatter={(v) =>
+                    v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`
+                  }
+                  stroke={TOKENS.onSurfaceMuted}
+                  tick={{ fill: TOKENS.onSurfaceMuted, fontSize: 10 }}
+                  axisLine={{ stroke: TOKENS.outlineGhost }}
+                  width={52}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: TOKENS.surfaceHigh,
+                    border: `1px solid ${TOKENS.outlineGhost}`,
+                    borderRadius: 12,
+                    fontSize: 12,
+                    color: TOKENS.onSurface,
+                  }}
+                  labelFormatter={(v) => new Date(v as number).toLocaleDateString("en-US", { dateStyle: "medium" })}
+                  formatter={(value) => [
+                    formatCurrency(Number(value ?? 0)),
+                    "Value",
+                  ]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  baseValue={0}
+                  stroke={TOKENS.primary}
+                  strokeWidth={2}
+                  fill="url(#portfolioValueFill)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: TOKENS.primary }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Curve uses cumulative purchases through each day, then snaps to current portfolio value (cash plus holdings at live prices where available, else cost).
+          </p>
+        </section>
+
+        <aside
+          className="flex flex-col gap-4 rounded-xl border p-4 sm:p-5 lg:col-span-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Risk profile
+          </p>
+          <div>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span style={{ color: TOKENS.onSurfaceMuted }}>Liquidity coverage</span>
+              <span className="font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                {liquidityPct.toFixed(1)}%
               </span>
-            </span>
-            <span style={{ color: TOKENS.onSurfaceMuted }}>
-              Last update:{" "}
-              <span style={{ color: TOKENS.onSurface }}>
-                {lastUpdated ? lastUpdated.toLocaleTimeString("en-US") : "—"}
+            </div>
+            <div className="mt-2 flex h-2 overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, liquidityPct)}%`,
+                  background: TOKENS.primary,
+                }}
+              />
+            </div>
+            <p className="mt-1 text-[10px] font-semibold uppercase" style={{ color: TOKENS.secondary }}>
+              {liquidityPct >= 15 ? "Optimal" : liquidityPct >= 5 ? "Moderate" : "Lean"}
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span style={{ color: TOKENS.onSurfaceMuted }}>Concentration (σ of weights)</span>
+              <span className="font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                {concentrationStdev.toFixed(1)}
               </span>
+            </div>
+            <div className="mt-2 flex h-2 overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, concentrationStdev * 2)}%`,
+                  background: TOKENS.secondary,
+                }}
+              />
+            </div>
+            <p className="mt-1 text-[10px] font-semibold uppercase" style={{ color: TOKENS.secondary }}>
+              {concentrationStdev < 18 ? "Diversified" : concentrationStdev < 28 ? "Moderate" : "Concentrated"}
+            </p>
+          </div>
+          <div
+            className="rounded-lg border p-3 text-xs leading-relaxed"
+            style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceLow, color: TOKENS.onSurfaceMuted }}
+          >
+            <span className="font-semibold uppercase tracking-wider" style={{ color: TOKENS.primary }}>
+              Console insight
             </span>
+            <p className="mt-2">{sovereignInsight}</p>
           </div>
           <button
             type="button"
             onClick={() => void fetchMarketPrices()}
             disabled={loadingMarketPrices}
-            className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-60"
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceLow }}
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loadingMarketPrices && "animate-spin")} />
             Refresh prices
           </button>
+        </aside>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Core positions
+            </p>
+            <span className="text-xs font-bold tabular-nums" style={{ color: TOKENS.primary }}>
+              {totalInvested > 0 && topHoldingsList[0]
+                ? `${((topHoldingsList[0].amount / totalInvested) * 100).toFixed(0)}%`
+                : "—"}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {topHoldingsList.slice(0, 3).map((row) => (
+              <li key={row.symbol} className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {row.symbol}
+                </span>
+                <span className="tabular-nums" style={{ color: TOKENS.secondary }}>
+                  {formatCurrency(row.amount)}
+                </span>
+              </li>
+            ))}
+            {topHoldingsList.length === 0 ? (
+              <li className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+                No positions yet.
+              </li>
+            ) : null}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setPanelMode("analytics")}
+            className="mt-4 w-full text-center text-[10px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: TOKENS.secondary }}
+          >
+            View all assets
+          </button>
         </div>
-      </section>
+        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Secondary sleeve
+            </p>
+            <span className="text-xs font-bold" style={{ color: TOKENS.onSurfaceMuted }}>
+              Next tier
+            </span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {topHoldingsList.slice(3, 6).map((row) => (
+              <li key={row.symbol} className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {row.symbol}
+                </span>
+                <span className="tabular-nums" style={{ color: TOKENS.secondary }}>
+                  {formatCurrency(row.amount)}
+                </span>
+              </li>
+            ))}
+            {topHoldingsList.length <= 3 ? (
+              <li className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+                Add more tickers to populate this sleeve.
+              </li>
+            ) : null}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setLogOpen(true)}
+            className="mt-4 w-full text-center text-[10px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: TOKENS.secondary }}
+          >
+            Add position
+          </button>
+        </div>
+        <div className="rounded-xl border p-4" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Cash &amp; sweep
+            </p>
+            <span className="text-xs font-bold tabular-nums" style={{ color: TOKENS.primary }}>
+              {portfolioMarkValue > 0 ? `${((totalCash / portfolioMarkValue) * 100).toFixed(0)}%` : "—"}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {accounts.map((acc) => (
+              <li key={acc.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {acc.name}
+                </span>
+                <span className="tabular-nums" style={{ color: TOKENS.secondary }}>
+                  {formatCurrency(acc.balance)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-center text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Uninvested cash in brokerage accounts
+          </p>
+        </div>
+      </div>
 
       <section
         className="rounded-xl border p-4 sm:p-5"
@@ -635,22 +1106,25 @@ export function InvestmentsPageBento() {
             boxShadow: CARD_INSET,
           }}
         >
-          <p className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
-            Recent executions
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Transaction ledger
+          </p>
+          <p className="mt-1 text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
+            Recent activity
           </p>
           <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Latest investment purchases across accounts
+            Buys and adds across your investment accounts
           </p>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-left text-xs">
+            <table className="w-full min-w-[640px] border-collapse text-left text-xs">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${TOKENS.outlineGhost}` }}>
-                  <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Date</th>
-                  <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Symbol</th>
+                  <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Asset</th>
+                  <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Action</th>
+                  <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Reference</th>
                   <th className="px-2 py-2 font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Account</th>
-                  <th className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Shares</th>
-                  <th className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Price</th>
                   <th className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: TOKENS.primary }}>Amount</th>
+                  <th className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -666,23 +1140,30 @@ export function InvestmentsPageBento() {
                   .slice(0, 12)
                   .map((row) => (
                     <tr key={row.id} style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}>
-                      <td className="px-2 py-2" style={{ color: TOKENS.onSurfaceMuted }}>{formatDateShort(row.date)}</td>
-                      <td className="px-2 py-2 font-semibold" style={{ color: TOKENS.onSurface }}>{row.symbol}</td>
-                      <td className="px-2 py-2" style={{ color: TOKENS.onSurface }}>{row.account}</td>
-                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: TOKENS.onSurface }}>
-                        {row.shares ? row.shares.toFixed(2) : "—"}
+                      <td className="px-2 py-2.5">
+                        <span className="font-semibold" style={{ color: TOKENS.onSurface }}>{row.symbol}</span>
+                        <span className="ml-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>{formatDateShort(row.date)}</span>
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: TOKENS.onSurface }}>
-                        {row.price ? formatCurrency(row.price) : "—"}
-                      </td>
-                      <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: TOKENS.secondary }}>
+                      <td className="px-2 py-2.5 font-semibold uppercase tracking-wide" style={{ color: TOKENS.secondary }}>Buy</td>
+                      <td className="px-2 py-2.5 font-mono text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>{row.id.slice(0, 8)}…</td>
+                      <td className="px-2 py-2.5" style={{ color: TOKENS.onSurface }}>{row.account}</td>
+                      <td className="px-2 py-2.5 text-right font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
                         {formatCurrency(row.amount)}
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        <span className="inline-flex items-center justify-end gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: TOKENS.primary }} />
+                          <span className="font-semibold uppercase tracking-wide" style={{ color: TOKENS.primary }}>Executed</span>
+                        </span>
                       </td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
+          <p className="mt-4 text-center text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Showing the 12 most recent purchases. Use search to narrow the list.
+          </p>
         </section>
       )}
 

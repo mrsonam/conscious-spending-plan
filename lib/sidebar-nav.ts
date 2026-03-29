@@ -37,6 +37,9 @@ function navGroups(
   const fundsHref = theme === "console" ? BENTO.funds : CLASSIC.funds
   const investmentsHref =
     theme === "console" ? BENTO.investments : CLASSIC.investments
+  const accountsHref = theme === "console" ? BENTO.accounts : CLASSIC.accounts
+  const loansHref = theme === "console" ? BENTO.loans : CLASSIC.loans
+  const profileHref = theme === "console" ? BENTO.profile : CLASSIC.profile
   return [
     {
       id: "overview",
@@ -71,14 +74,14 @@ function navGroups(
       label: "Balance sheet",
       items: [
         { name: "Investments", href: investmentsHref, icon: TrendingUp },
-        { name: "Accounts", href: CLASSIC.accounts, icon: CreditCard },
-        { name: "Loans", href: CLASSIC.loans, icon: HandCoins },
+        { name: "Accounts", href: accountsHref, icon: CreditCard },
+        { name: "Loans", href: loansHref, icon: HandCoins },
       ],
     },
     {
       id: "account",
       label: "You",
-      items: [{ name: "Profile", href: CLASSIC.profile, icon: User }],
+      items: [{ name: "Profile", href: profileHref, icon: User }],
     },
   ]
 }

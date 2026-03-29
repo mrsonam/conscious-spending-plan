@@ -104,13 +104,20 @@ export function useCategoryTrackingPage() {
 
   const monthOptions = useMemo(() => {
     const options: { value: string; label: string; month: number; year: number }[] = []
-    const d = new Date()
+    const start = new Date()
+    let year = start.getFullYear()
+    let month = start.getMonth() + 1
     for (let i = 0; i < 24; i++) {
-      const m = d.getMonth() + 1
-      const y = d.getFullYear()
-      const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
-      options.push({ value: `${y}-${m}`, label, month: m, year: y })
-      d.setMonth(d.getMonth() - 1)
+      const label = new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      })
+      options.push({ value: `${year}-${month}`, label, month, year })
+      month -= 1
+      if (month < 1) {
+        month = 12
+        year -= 1
+      }
     }
     return options
   }, [])
