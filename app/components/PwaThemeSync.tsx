@@ -3,17 +3,24 @@
 import { useSession } from "next-auth/react"
 import { useLayoutEffect } from "react"
 import {
-  PWA_THEME_COLOR_CLASSIC,
+  PWA_STATUS_CHROME_CLASSIC,
   PWA_THEME_COLOR_CONSOLE,
 } from "@/lib/pwa-branding"
+import { getDashboardThemeClient } from "@/lib/dashboard-theme-cookie"
 
 const META_ID = "csp-theme-color"
 const STATUS_ID = "csp-apple-status-bar"
 
+function removeAlienThemeColorMetas(): void {
+  document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
+    if (el.id !== META_ID) el.remove()
+  })
+}
+
 /**
- * iOS standalone PWA uses the last `theme-color` meta for the top safe area /
- * Dynamic Island surround. Static layout defaults to classic indigo; Wealth
- * Console (bento) must override to the dark surface so the bar matches the UI.
+ * iOS standalone PWA: `theme-color` must be the **last** such meta, and Safari
+ * only blends it reliably with `black-translucent`. We strip framework-injected
+ * duplicates and re-append ours after every auth / theme change.
  */
 export function PwaThemeSync() {
   const { data: session, status } = useSession()
@@ -22,9 +29,12 @@ export function PwaThemeSync() {
     if (typeof document === "undefined") return
 
     const isConsole =
-      status === "authenticated" &&
-      session?.user?.dashboardTheme === "console"
-    const color = isConsole ? PWA_THEME_COLOR_CONSOLE : PWA_THEME_COLOR_CLASSIC
+      status === "authenticated"
+        ? session?.user?.dashboardTheme === "console"
+        : getDashboardThemeClient() === "console"
+    const color = isConsole ? PWA_THEME_COLOR_CONSOLE : PWA_STATUS_CHROME_CLASSIC
+
+    removeAlienThemeColorMetas()
 
     let meta = document.getElementById(META_ID) as HTMLMetaElement | null
     if (!meta) {
@@ -32,7 +42,7 @@ export function PwaThemeSync() {
       meta.id = META_ID
       meta.name = "theme-color"
     }
-    meta.content = color
+    meta.setAttribute("content", color)
     document.head.appendChild(meta)
 
     let statusMeta = document.getElementById(STATUS_ID) as HTMLMetaElement | null
@@ -43,22 +53,15 @@ export function PwaThemeSync() {
     }
     if (!statusMeta) {
       statusMeta = document.createElement("meta")
-      statusMeta.id = STATUS_ID
       statusMeta.setAttribute("name", "apple-mobile-web-app-status-bar-style")
-    } else if (!statusMeta.id) {
-      statusMeta.id = STATUS_ID
+      document.head.appendChild(statusMeta)
     }
-    statusMeta.setAttribute(
-      "content",
-      isConsole ? "black-translucent" : "default",
-    )
+    statusMeta.id = STATUS_ID
+    /** Required for `theme-color` to paint the status / Island area on iOS. */
+    statusMeta.setAttribute("content", "black-translucent")
     document.head.appendChild(statusMeta)
 
-    if (isConsole) {
-      document.documentElement.style.backgroundColor = PWA_THEME_COLOR_CONSOLE
-    } else {
-      document.documentElement.style.removeProperty("background-color")
-    }
+    document.documentElement.style.backgroundColor = color
   }, [session?.user?.dashboardTheme, status])
 
   return null

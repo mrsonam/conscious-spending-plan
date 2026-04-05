@@ -11,6 +11,7 @@ import {
 } from "@/lib/dashboard-theme"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { setDashboardThemeCookie } from "@/lib/dashboard-theme-cookie"
 
 const THEME_OPTIONS: {
   id: DashboardTheme
@@ -69,6 +70,7 @@ export function DashboardThemePicker({
         return
       }
       await update({ dashboardTheme: next })
+      setDashboardThemeCookie(next)
       router.replace(DASHBOARD_HOME[next])
       router.refresh()
     } catch {

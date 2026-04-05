@@ -157,13 +157,68 @@ html {
   }
 }
 
-/* Splash screen - covers full screen including safe areas */
+/* Splash screen - covers full screen including safe areas (bg from component) */
 .safe-area-splash {
   padding-top: env(safe-area-inset-top);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
-  background-color: #ffffff;
+}
+
+/* Login hero (classic) */
+@keyframes login-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-animate-enter {
+  animation: login-enter 0.65s ease-out both;
+}
+
+/* Splash progress bar */
+@keyframes splash-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.splash-bar-inner {
+  animation: splash-shimmer 1.15s ease-in-out infinite;
+}
+
+/* Shared skeleton: Wealth Console uses muted cool surfaces */
+.skeleton-base {
+  background-color: rgb(229 231 235);
+}
+
+html[data-csp-dashboard-theme="console"] .skeleton-base {
+  background-color: rgba(218, 226, 253, 0.08);
+  background-image: linear-gradient(
+    105deg,
+    rgba(218, 226, 253, 0.04) 0%,
+    rgba(218, 226, 253, 0.14) 50%,
+    rgba(218, 226, 253, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer-wave 1.4s ease-in-out infinite !important;
+}
+
+@keyframes skeleton-shimmer-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Recharts pie chart label styling */

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { User, Mail } from "lucide-react"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
 import { DashboardThemePicker } from "@/components/dashboard-theme-picker"
+import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 import { BENTO } from "@/lib/app-routes"
 
 export default function ProfilePage() {
@@ -117,6 +118,18 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <DashboardThemePicker />
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>This device</CardTitle>
+            <CardDescription>
+              Clear offline cache and reload the latest app shell.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AppCacheResetSection variant="classic" />
           </CardContent>
         </Card>
       </div>

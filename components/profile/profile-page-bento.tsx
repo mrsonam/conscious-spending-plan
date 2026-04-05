@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { DashboardThemePicker } from "@/components/dashboard-theme-picker"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { Mail, Shield, User } from "lucide-react"
+import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 
 function getInitials(email: string) {
   return email
@@ -138,12 +139,7 @@ export function ProfilePageBento() {
           className="rounded-xl border p-5 sm:p-6 lg:col-span-5"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Session
-          </p>
-          <p className="mt-2 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Sign out · header menu
-          </p>
+          <AppCacheResetSection variant="console" />
         </section>
       </div>
     </div>
