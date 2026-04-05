@@ -11,6 +11,22 @@ html {
   background-color: var(--background);
 }
 
+/**
+ * Wealth Console (bento): same solid as splash + `theme-color` / PWA chrome.
+ * Body must match `html` or white `--background` shows through under the status bar
+ * with `black-translucent` on iOS.
+ */
+html[data-csp-dashboard-theme="console"] {
+  background-color: #0b1326 !important;
+  color-scheme: dark;
+}
+
+html[data-csp-dashboard-theme="console"] body {
+  background-color: #0b1326 !important;
+  background: #0b1326 !important;
+  color-scheme: dark;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;

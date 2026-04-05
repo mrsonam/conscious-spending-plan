@@ -69,8 +69,9 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
       className={cn(
         display.variable,
         body.variable,
-        "relative min-h-screen overflow-hidden font-[family-name:var(--font-login-body)]",
+        "relative min-h-screen min-h-[100dvh] overflow-hidden font-[family-name:var(--font-login-body)]",
       )}
+      style={isConsole ? { backgroundColor: TOKENS.surface } : undefined}
     >
       {/* Background */}
       {isConsole ? (

@@ -57,7 +57,11 @@ export default async function RootLayout({
   );
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-csp-dashboard-theme={splashTheme}
+    >
       <head>
         <link rel="apple-touch-icon" href="/icon.svg" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

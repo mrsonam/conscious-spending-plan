@@ -61,7 +61,11 @@ export function PwaThemeSync() {
     statusMeta.setAttribute("content", "black-translucent")
     document.head.appendChild(statusMeta)
 
-    document.documentElement.style.backgroundColor = color
+    /** Shell background: `globals.css` targets `[data-csp-dashboard-theme="console"]`. */
+    document.documentElement.setAttribute(
+      "data-csp-dashboard-theme",
+      isConsole ? "console" : "classic",
+    )
   }, [session?.user?.dashboardTheme, status])
 
   return null
