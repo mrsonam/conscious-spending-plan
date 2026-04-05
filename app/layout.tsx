@@ -4,7 +4,9 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { AssistantWidget } from "@/components/layout/assistant-widget";
 import { PwaRegistration } from "./components/PwaRegistration";
+import { PwaThemeSync } from "./components/PwaThemeSync";
 import { SplashScreen } from "./components/SplashScreen";
+import { PWA_THEME_COLOR_CLASSIC } from "@/lib/pwa-branding";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6366f1",
+  themeColor: PWA_THEME_COLOR_CLASSIC,
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -64,6 +66,7 @@ export default function RootLayout({
         <SplashScreen />
         <PwaRegistration />
         <Providers>
+          <PwaThemeSync />
           {children}
           <AssistantWidget />
         </Providers>
