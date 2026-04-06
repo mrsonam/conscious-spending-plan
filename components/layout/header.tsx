@@ -51,7 +51,7 @@ export function Header({
           borderColor: TOKENS.outlineGhost,
         }}
       >
-        <div className="min-w-0 pl-10 lg:pl-0">
+        <div className="min-w-0 pl-12 sm:pl-14 lg:pl-0">
           <h1
             className="text-lg font-semibold leading-tight tracking-tight sm:text-xl"
             style={{ color: TOKENS.onSurface }}
@@ -78,7 +78,7 @@ export function Header({
         "bg-white shadow-sm"
       )}
     >
-      <div className="ml-12 min-w-0 flex-1 pr-2 lg:ml-0">
+      <div className="ml-14 min-w-0 flex-1 pr-2 sm:ml-16 lg:ml-0">
         <h1 className="text-lg sm:text-xl font-semibold truncate text-gray-900">
           {title}
         </h1>

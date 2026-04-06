@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { ClassicPaginationBar } from "@/components/ui/classic-pagination-bar"
 import {
@@ -99,20 +100,23 @@ export function IncomePageClassic(p: UseIncomePageResult) {
               {p.accounts.length > 0 && (
                 <div>
                   <Label htmlFor="account-classic">Deposit to Account</Label>
-                  <select
+                  <AppSelect
                     id="account-classic"
                     value={p.selectedAccountId}
-                    onChange={(e) => p.setSelectedAccountId(e.target.value)}
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    {p.accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name} ({account.bankName})
-                        {account.isDefault ? " - Default" : ""}{" "}
-                        {account.accountType === "cash" ? " - Cash" : ""}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={p.setSelectedAccountId}
+                    variant="classic"
+                    className="mt-1 rounded-lg border border-gray-300"
+                    options={p.accounts.map((account) => ({
+                      value: account.id,
+                      label: (
+                        <>
+                          {account.name} ({account.bankName})
+                          {account.isDefault ? " - Default" : ""}{" "}
+                          {account.accountType === "cash" ? " - Cash" : ""}
+                        </>
+                      ),
+                    }))}
+                  />
                   {p.accounts.find((acc) => acc.id === p.selectedAccountId)
                     ?.accountType === "cash" && (
                     <p className="mt-1 text-xs text-yellow-600 bg-yellow-50 p-2 rounded">

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import { Label } from "@/components/ui/label"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import {
@@ -237,13 +238,7 @@ export function AccountsPageBento() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="px-1 py-2 sm:px-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary, boxShadow: CARD_INSET }} />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Institutional console
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -350,7 +345,7 @@ export function AccountsPageBento() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Institutional ledger
+              Ledger
             </p>
             <p className="mt-1 text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
               Linked institutions
@@ -361,20 +356,22 @@ export function AccountsPageBento() {
               <label className="sr-only" htmlFor="sort-ledger">
                 Sort
               </label>
-              <select
+              <AppSelect
                 id="sort-ledger"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "balance" | "name")}
-                className={cn(consoleField, "mt-0 w-auto min-w-[140px] cursor-pointer py-2 pr-8 text-xs")}
+                onValueChange={(v) => setSortBy(v as "balance" | "name")}
+                variant="console"
+                className={cn(consoleField, "mt-0 w-auto min-w-[140px] border-transparent py-2 text-xs")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
-              >
-                <option value="balance">Sort: Balance</option>
-                <option value="name">Sort: Institution</option>
-              </select>
+                options={[
+                  { value: "balance", label: "Sort: Balance" },
+                  { value: "name", label: "Sort: Institution" },
+                ]}
+              />
             </div>
             <button
               type="button"
@@ -582,27 +579,25 @@ export function AccountsPageBento() {
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                     Type *
                   </Label>
-                  <select
+                  <AppSelect
                     value={accountType}
-                    onChange={(e) => setAccountType(e.target.value)}
+                    onValueChange={setAccountType}
                     required
-                    className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage:
-                        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="checking">Checking</option>
-                    <option value="savings">Savings</option>
-                    <option value="investment">Investment</option>
-                    <option value="credit">Credit card</option>
-                    <option value="cash">Other</option>
-                  </select>
+                    options={[
+                      { value: "checking", label: "Checking" },
+                      { value: "savings", label: "Savings" },
+                      { value: "investment", label: "Investment" },
+                      { value: "credit", label: "Credit card" },
+                      { value: "cash", label: "Other" },
+                    ]}
+                  />
                 </div>
                 {!editingAccount ? (
                   <div>
@@ -668,57 +663,53 @@ export function AccountsPageBento() {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   From *
                 </Label>
-                <select
+                <AppSelect
                   value={fromAccountId}
-                  onChange={(e) => setFromAccountId(e.target.value)}
+                  onValueChange={setFromAccountId}
                   required
-                  className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">Select account</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatCurrency(acc.balance)})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select account"
+                  options={[
+                    { value: "", label: "Select account" },
+                    ...accounts.map((acc) => ({
+                      value: acc.id,
+                      label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   To *
                 </Label>
-                <select
+                <AppSelect
                   value={toAccountId}
-                  onChange={(e) => setToAccountId(e.target.value)}
+                  onValueChange={setToAccountId}
                   required
-                  className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">Select account</option>
-                  {accounts
-                    .filter((acc) => acc.id !== fromAccountId)
-                    .map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name} ({formatCurrency(acc.balance)})
-                      </option>
-                    ))}
-                </select>
+                  placeholder="Select account"
+                  options={[
+                    { value: "", label: "Select account" },
+                    ...accounts
+                      .filter((acc) => acc.id !== fromAccountId)
+                      .map((acc) => ({
+                        value: acc.id,
+                        label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                      })),
+                  ]}
+                />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -728,7 +719,7 @@ export function AccountsPageBento() {
                   value={transferDate}
                   onChange={(e) => setTransferDate(e.target.value)}
                   required
-                  className={cn(consoleField, "mt-1 border-transparent scheme-light dark:scheme-dark")}
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
               </div>
@@ -751,27 +742,25 @@ export function AccountsPageBento() {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Fund category (optional)
                 </Label>
-                <select
+                <AppSelect
                   value={transferCategory}
-                  onChange={(e) => setTransferCategory(e.target.value)}
-                  className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                  onValueChange={setTransferCategory}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">None</option>
-                  {ACCOUNT_FUND_CATEGORIES.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="None"
+                  options={[
+                    { value: "", label: "None" },
+                    ...ACCOUNT_FUND_CATEGORIES.map((cat) => ({
+                      value: cat.value,
+                      label: cat.label,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>

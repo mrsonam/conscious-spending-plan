@@ -1,3 +1,7 @@
+/**
+ * Styled native `<select>` kept for rare cases. Prefer `AppSelect` for themed
+ * Radix dropdowns that match classic / console UI.
+ */
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -9,7 +13,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <select
         className={cn(
-          "flex h-10 w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm",
           className
         )}
         ref={ref}
@@ -23,3 +27,6 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 Select.displayName = "Select"
 
 export { Select }
+
+export { AppSelect, APP_SELECT_EMPTY } from "./app-select"
+export type { AppSelectOption, AppSelectProps } from "./app-select"

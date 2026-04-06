@@ -67,7 +67,7 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "scrollbar-none bg-white rounded-lg shadow-lg p-6 w-full",
+        "scrollbar-none bg-white rounded-lg shadow-lg p-6 w-full max-sm:max-h-[min(90dvh,100%-1rem)] max-sm:pt-[max(1.5rem,env(safe-area-inset-top))] max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] max-sm:pl-[max(1.5rem,env(safe-area-inset-left))] max-sm:pr-[max(1.5rem,env(safe-area-inset-right))]",
         className
       )}
       {...props}

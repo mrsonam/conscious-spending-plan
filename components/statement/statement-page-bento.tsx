@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
@@ -443,27 +444,25 @@ export function StatementPageBento({
                 >
                   Account
                 </label>
-                <select
+                <AppSelect
                   value={filterAccountId}
-                  onChange={(e) => setFilterAccountId(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={setFilterAccountId}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceContainer,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">All accounts</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.bankName})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All accounts"
+                  options={[
+                    { value: "", label: "All accounts" },
+                    ...accounts.map((a) => ({
+                      value: a.id,
+                      label: `${a.name} (${a.bankName})`,
+                    })),
+                  ]}
+                />
               </div>
             </div>
           </div>

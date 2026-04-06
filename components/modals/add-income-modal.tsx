@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
+import { AppSelect } from "@/components/ui/app-select";
 import { Calculator } from "lucide-react";
 
 interface Account {
@@ -187,27 +188,30 @@ export function AddIncomeModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="mt-1 scheme-light dark:scheme-dark"
+              className="mt-1"
             />
           </div>
 
           {accounts.length > 0 && (
             <div>
               <Label htmlFor="account">Deposit to Account</Label>
-              <select
+              <AppSelect
                 id="account"
                 value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} ({account.bankName})
-                    {account.isDefault ? " - Default" : ""}{" "}
-                    {account.accountType === "cash" ? " - Cash" : ""}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setSelectedAccountId}
+                variant="classic"
+                className="mt-1 rounded-lg border border-gray-300"
+                options={accounts.map((account) => ({
+                  value: account.id,
+                  label: (
+                    <>
+                      {account.name} ({account.bankName})
+                      {account.isDefault ? " - Default" : ""}{" "}
+                      {account.accountType === "cash" ? " - Cash" : ""}
+                    </>
+                  ),
+                }))}
+              />
               {accounts.find((acc) => acc.id === selectedAccountId)
                 ?.accountType === "cash" && (
                 <p className="mt-1 text-xs text-yellow-600 bg-yellow-50 p-2 rounded">

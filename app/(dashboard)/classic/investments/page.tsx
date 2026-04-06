@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, TrendingDown, Plus, Activity, Briefcase, Calendar } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
 import { cn } from "@/lib/utils"
@@ -1210,20 +1211,22 @@ export default function InvestmentsPage() {
                         <>
                           <div>
                             <Label htmlFor="investmentAccount">Investment Account *</Label>
-                            <select
+                            <AppSelect
                               id="investmentAccount"
                               value={selectedInvestmentAccountId}
-                              onChange={(e) => setSelectedInvestmentAccountId(e.target.value)}
+                              onValueChange={setSelectedInvestmentAccountId}
                               required
-                              className="mt-1 w-full px-4 py-2 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                              <option value="">Select investment account</option>
-                              {investmentAccounts.map((acc) => (
-                                <option key={acc.id} value={acc.id}>
-                                  {acc.name} ({acc.bankName}) - Available: {formatCurrency(acc.balance)} | Invested: {formatCurrency(acc.investedAmount)}
-                                </option>
-                              ))}
-                            </select>
+                              variant="classic"
+                              className="mt-1 rounded-lg border border-gray-300"
+                              placeholder="Select investment account"
+                              options={[
+                                { value: "", label: "Select investment account" },
+                                ...investmentAccounts.map((acc) => ({
+                                  value: acc.id,
+                                  label: `${acc.name} (${acc.bankName}) - Available: ${formatCurrency(acc.balance)} | Invested: ${formatCurrency(acc.investedAmount)}`,
+                                })),
+                              ]}
+                            />
                             <p className="mt-1 text-xs text-gray-500">
                               Only investment accounts are shown. Transfer money to investment accounts separately using the Transfer page.
                             </p>
@@ -1234,18 +1237,20 @@ export default function InvestmentsPage() {
                       <div ref={investmentSearchRef} className="relative">
                         <div className="flex items-center justify-between gap-2 mt-1 mb-1">
                           <Label htmlFor="investmentName">Investment Name *</Label>
-                          <select
+                          <AppSelect
                             value={investmentMarket}
-                            onChange={(e) => {
-                              setInvestmentMarket(e.target.value as "all" | "AU")
+                            onValueChange={(v) => {
+                              setInvestmentMarket(v as "all" | "AU")
                               setShowInvestmentDropdown(false)
                               setInvestmentSearchResults([])
                             }}
-                            className="text-xs rounded border border-gray-300 px-2 py-1 bg-white text-gray-700"
-                          >
-                            <option value="all">All markets</option>
-                            <option value="AU">Australia (ASX)</option>
-                          </select>
+                            variant="classic"
+                            className="!h-auto min-h-8 w-auto shrink-0 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+                            options={[
+                              { value: "all", label: "All markets" },
+                              { value: "AU", label: "Australia (ASX)" },
+                            ]}
+                          />
                         </div>
                         <Input
                           id="investmentName"

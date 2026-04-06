@@ -39,6 +39,20 @@ export async function ensureMonthClosing(
   month: number,
   year: number
 ): Promise<PreviousMonthResult> {
+  const emptyResult = (): PreviousMonthResult => ({
+    remaining: Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
+    overspent: Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
+  })
+
+  // Stale JWT, deleted user, or bad id — avoid FK violation on CategoryMonthClosing (P2003).
+  const userExists = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  })
+  if (!userExists) {
+    return emptyResult()
+  }
+
   const startOfMonth = new Date(year, month - 1, 1)
   const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999)
 

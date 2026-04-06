@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { ClassicPaginationBar } from "@/components/ui/classic-pagination-bar"
 import { ExpensesListSkeleton } from "@/components/skeletons/expenses-sections"
@@ -93,43 +94,50 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label>Account (Smart Access / default)</Label>
-                    <select
+                    <AppSelect
                       value={p.bulkAccountId}
-                      onChange={(e) => p.setBulkAccountId(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      {p.accounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({acc.bankName}) {acc.isDefault ? "— default" : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={p.setBulkAccountId}
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      options={p.accounts.map((acc) => ({
+                        value: acc.id,
+                        label: `${acc.name} (${acc.bankName}) ${acc.isDefault ? "— default" : ""}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label>Default fund category (used when not in paste)</Label>
-                    <select
+                    <AppSelect
                       value={p.bulkFundCategory}
-                      onChange={(e) => p.setBulkFundCategory(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      <option value="">—</option>
-                      {FUND_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
+                      onValueChange={p.setBulkFundCategory}
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      placeholder="—"
+                      options={[
+                        { value: "", label: "—" },
+                        ...FUND_CATEGORIES.map((c) => ({
+                          value: c.value,
+                          label: c.label,
+                        })),
+                      ]}
+                    />
                   </div>
                   <div className="sm:col-span-2">
                     <Label>Default expense category (used when not in paste)</Label>
-                    <select
+                    <AppSelect
                       value={p.bulkExpenseCategory}
-                      onChange={(e) => p.setBulkExpenseCategory(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      <option value="">—</option>
-                      {EXPENSE_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
+                      onValueChange={p.setBulkExpenseCategory}
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      placeholder="—"
+                      options={[
+                        { value: "", label: "—" },
+                        ...EXPENSE_CATEGORIES.map((c) => ({
+                          value: c.value,
+                          label: c.label,
+                        })),
+                      ]}
+                    />
                   </div>
                 </div>
                 <div>
@@ -185,18 +193,17 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label>Account *</Label>
-                    <select
+                    <AppSelect
                       value={p.recurringAccountId}
-                      onChange={(e) => p.setRecurringAccountId(e.target.value)}
+                      onValueChange={p.setRecurringAccountId}
                       required
-                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {p.accounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({acc.bankName})
-                        </option>
-                      ))}
-                    </select>
+                      variant="classic"
+                      className="mt-1 rounded-lg bg-white"
+                      options={p.accounts.map((acc) => ({
+                        value: acc.id,
+                        label: `${acc.name} (${acc.bankName})`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label>Amount ($) *</Label>
@@ -212,15 +219,16 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                   </div>
                   <div>
                     <Label>Frequency *</Label>
-                    <select
+                    <AppSelect
                       value={p.recurringFrequency}
-                      onChange={(e) => p.setRecurringFrequency(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {FREQUENCIES.map((f) => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
-                      ))}
-                    </select>
+                      onValueChange={p.setRecurringFrequency}
+                      variant="classic"
+                      className="mt-1 rounded-lg bg-white"
+                      options={FREQUENCIES.map((f) => ({
+                        value: f.value,
+                        label: f.label,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label>Start date</Label>
@@ -237,29 +245,37 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                   </div>
                   <div>
                     <Label>Fund category</Label>
-                    <select
+                    <AppSelect
                       value={p.recurringFundCategory}
-                      onChange={(e) => p.setRecurringFundCategory(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">—</option>
-                      {FUND_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
+                      onValueChange={p.setRecurringFundCategory}
+                      variant="classic"
+                      className="mt-1 rounded-lg bg-white"
+                      placeholder="—"
+                      options={[
+                        { value: "", label: "—" },
+                        ...FUND_CATEGORIES.map((c) => ({
+                          value: c.value,
+                          label: c.label,
+                        })),
+                      ]}
+                    />
                   </div>
                   <div>
                     <Label>Expense category</Label>
-                    <select
+                    <AppSelect
                       value={p.recurringExpenseCategory}
-                      onChange={(e) => p.setRecurringExpenseCategory(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-0 bg-white rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">—</option>
-                      {EXPENSE_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
+                      onValueChange={p.setRecurringExpenseCategory}
+                      variant="classic"
+                      className="mt-1 rounded-lg bg-white"
+                      placeholder="—"
+                      options={[
+                        { value: "", label: "—" },
+                        ...EXPENSE_CATEGORIES.map((c) => ({
+                          value: c.value,
+                          label: c.label,
+                        })),
+                      ]}
+                    />
                   </div>
                   <div>
                     <Label>End date (optional)</Label>
@@ -326,26 +342,24 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="account">Account *</Label>
-                    <select
+                    <AppSelect
                       id="account"
                       value={p.accountId}
-                      onChange={(e) => {
-                        p.setAccountId(e.target.value)
-                        // Clear fund category if switching to cash account
-                        const selectedAccount = p.accounts.find(acc => acc.id === e.target.value)
+                      onValueChange={(v) => {
+                        p.setAccountId(v)
+                        const selectedAccount = p.accounts.find((acc) => acc.id === v)
                         if (selectedAccount?.accountType === "cash") {
                           p.setFundCategory("")
                         }
                       }}
                       required
-                      className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      {p.accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name} ({account.bankName}) - {p.formatCurrency(account.balance)}
-                        </option>
-                      ))}
-                    </select>
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      options={p.accounts.map((account) => ({
+                        value: account.id,
+                        label: `${account.name} (${account.bankName}) - ${p.formatCurrency(account.balance)}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="amount">Amount ($) *</Label>
@@ -382,20 +396,22 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     return (
                       <div>
                         <Label htmlFor="fundCategory">Fund Category *</Label>
-                        <select
+                        <AppSelect
                           id="fundCategory"
                           value={p.fundCategory}
-                          onChange={(e) => p.setFundCategory(e.target.value)}
+                          onValueChange={p.setFundCategory}
                           required
-                          className="mt-1 w-full px-4 py-2 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                        >
-                          <option value="">Select a fund category</option>
-                          {FUND_CATEGORIES.map((cat) => (
-                            <option key={cat.value} value={cat.value}>
-                              {cat.label}
-                            </option>
-                          ))}
-                        </select>
+                          variant="classic"
+                          className="mt-1 rounded-lg"
+                          placeholder="Select a fund category"
+                          options={[
+                            { value: "", label: "Select a fund category" },
+                            ...FUND_CATEGORIES.map((cat) => ({
+                              value: cat.value,
+                              label: cat.label,
+                            })),
+                          ]}
+                        />
                         <p className="mt-1 text-xs text-gray-500">
                           Select which fund this expense belongs to
                         </p>
@@ -404,19 +420,21 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                   })()}
                   <div>
                     <Label htmlFor="expenseCategory">Expense Category</Label>
-                    <select
+                    <AppSelect
                       id="expenseCategory"
                       value={p.expenseCategory}
-                      onChange={(e) => p.setExpenseCategory(e.target.value)}
-                      className="mt-1 w-full px-4 py-2 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      <option value="">Select an expense category (optional)</option>
-                      {EXPENSE_CATEGORIES.map((cat) => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={p.setExpenseCategory}
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      placeholder="Select an expense category (optional)"
+                      options={[
+                        { value: "", label: "Select an expense category (optional)" },
+                        ...EXPENSE_CATEGORIES.map((cat) => ({
+                          value: cat.value,
+                          label: cat.label,
+                        })),
+                      ]}
+                    />
                   </div>
                 </div>
                 <div>

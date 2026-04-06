@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
@@ -574,13 +575,7 @@ export function InvestmentsPageBento() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="px-1 py-2 sm:px-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary, boxShadow: CARD_INSET }} />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Institutional console
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceHigh }}>
             <Activity className="h-3.5 w-3.5" />
             {totalHoldings} positions
@@ -1296,29 +1291,26 @@ export function InvestmentsPageBento() {
                 <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
                 </label>
-                <select
+                <AppSelect
                   value={selectedInvestmentAccountId}
-                  onChange={(e) => setSelectedInvestmentAccountId(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={setSelectedInvestmentAccountId}
+                  required
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                  required
-                >
-                  <option value="">Select investment account</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.bankName}) · Cash {formatCurrency(acc.balance)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select investment account"
+                  options={[
+                    { value: "", label: "Select investment account" },
+                    ...accounts.map((acc) => ({
+                      value: acc.id,
+                      label: `${acc.name} (${acc.bankName}) · Cash ${formatCurrency(acc.balance)}`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div ref={investmentSearchRef} className="relative">
@@ -1326,23 +1318,25 @@ export function InvestmentsPageBento() {
                   <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                     Ticker / name *
                   </label>
-                  <select
+                  <AppSelect
                     value={investmentMarket}
-                    onChange={(e) => {
-                      setInvestmentMarket(e.target.value as "all" | "AU")
+                    onValueChange={(v) => {
+                      setInvestmentMarket(v as "all" | "AU")
                       setShowInvestmentDropdown(false)
                       setInvestmentSearchResults([])
                     }}
-                    className="rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                    variant="console"
+                    className="!h-auto min-h-8 w-auto shrink-0 rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
                     style={{
                       borderColor: TOKENS.outlineGhost,
                       background: TOKENS.surfaceLow,
                       color: TOKENS.onSurfaceMuted,
                     }}
-                  >
-                    <option value="all">All markets</option>
-                    <option value="AU">Australia (ASX)</option>
-                  </select>
+                    options={[
+                      { value: "all", label: "All markets" },
+                      { value: "AU", label: "Australia (ASX)" },
+                    ]}
+                  />
                 </div>
                 <Input
                   value={investmentSearchQuery || investmentName}
@@ -1475,7 +1469,7 @@ export function InvestmentsPageBento() {
                   <DateInput
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className={cn(consoleField, "border-transparent scheme-light dark:scheme-dark")}
+                    className={cn(consoleField, "border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                     required
                   />

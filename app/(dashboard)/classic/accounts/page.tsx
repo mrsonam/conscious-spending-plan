@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AccountsSkeleton } from "@/components/skeletons/accounts-skeleton"
 import { AccountsListSkeleton } from "@/components/skeletons/accounts-sections"
@@ -178,19 +179,21 @@ export default function AccountsPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="accountType">Account Type *</Label>
-                    <select
+                    <AppSelect
                       id="accountType"
                       value={accountType}
-                      onChange={(e) => setAccountType(e.target.value)}
+                      onValueChange={setAccountType}
                       required
-                      className="mt-1 flex h-10 w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="checking">Checking</option>
-                      <option value="savings">Savings</option>
-                      <option value="investment">Investment</option>
-                      <option value="credit">Credit Card</option>
-                      <option value="cash">Cash</option>
-                    </select>
+                      variant="classic"
+                      className="mt-1"
+                      options={[
+                        { value: "checking", label: "Checking" },
+                        { value: "savings", label: "Savings" },
+                        { value: "investment", label: "Investment" },
+                        { value: "credit", label: "Credit Card" },
+                        { value: "cash", label: "Cash" },
+                      ]}
+                    />
                   </div>
                   {!editingAccount && (
                     <div>
@@ -243,40 +246,44 @@ export default function AccountsPage() {
               <form onSubmit={handleTransfer} className="space-y-4">
                 <div>
                   <Label htmlFor="fromAccount">From Account *</Label>
-                  <select
+                  <AppSelect
                     id="fromAccount"
                     value={fromAccountId}
-                    onChange={(e) => setFromAccountId(e.target.value)}
+                    onValueChange={setFromAccountId}
                     required
-                    className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Select account</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name} ({formatCurrency(acc.balance)})
-                      </option>
-                    ))}
-                  </select>
+                    variant="classic"
+                    className="mt-1 rounded-md border border-gray-300"
+                    placeholder="Select account"
+                    options={[
+                      { value: "", label: "Select account" },
+                      ...accounts.map((acc) => ({
+                        value: acc.id,
+                        label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                      })),
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <Label htmlFor="toAccount">To Account *</Label>
-                  <select
+                  <AppSelect
                     id="toAccount"
                     value={toAccountId}
-                    onChange={(e) => setToAccountId(e.target.value)}
+                    onValueChange={setToAccountId}
                     required
-                    className="mt-1 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Select account</option>
-                    {accounts
-                      .filter((acc) => acc.id !== fromAccountId)
-                      .map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({formatCurrency(acc.balance)})
-                        </option>
-                      ))}
-                  </select>
+                    variant="classic"
+                    className="mt-1 rounded-md border border-gray-300"
+                    placeholder="Select account"
+                    options={[
+                      { value: "", label: "Select account" },
+                      ...accounts
+                        .filter((acc) => acc.id !== fromAccountId)
+                        .map((acc) => ({
+                          value: acc.id,
+                          label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                        })),
+                    ]}
+                  />
                 </div>
 
                 <div>
@@ -307,19 +314,21 @@ export default function AccountsPage() {
 
                 <div>
                   <Label htmlFor="transferCategory">Fund Category (Optional)</Label>
-                  <select
+                  <AppSelect
                     id="transferCategory"
                     value={transferCategory}
-                    onChange={(e) => setTransferCategory(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">No category</option>
-                    {ACCOUNT_FUND_CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={setTransferCategory}
+                    variant="classic"
+                    className="mt-1 rounded-lg border border-gray-300"
+                    placeholder="No category"
+                    options={[
+                      { value: "", label: "No category" },
+                      ...ACCOUNT_FUND_CATEGORIES.map((cat) => ({
+                        value: cat.value,
+                        label: cat.label,
+                      })),
+                    ]}
+                  />
                   <p className="mt-1 text-xs text-gray-500">
                     Link this transfer to a fund category to track it in category tracking
                   </p>

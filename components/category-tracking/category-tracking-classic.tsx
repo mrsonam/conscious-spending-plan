@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { AppSelect } from "@/components/ui/app-select"
 import {
   TrendingDown,
   Wallet,
@@ -106,22 +107,21 @@ export function CategoryTrackingClassic() {
                 Month
               </label>
             </div>
-            <select
+            <AppSelect
               id="month-select"
               value={`${selectedYear}-${selectedMonth}`}
-              onChange={(e) => {
-                const [y, m] = e.target.value.split("-").map(Number)
+              onValueChange={(v) => {
+                const [y, m] = v.split("-").map(Number)
                 setSelectedYear(y)
                 setSelectedMonth(m)
               }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              variant="classic"
+              className="rounded-lg border border-gray-300 shadow-sm"
+              options={monthOptions.map((opt) => ({
+                value: opt.value,
+                label: opt.label,
+              }))}
+            />
             {!isCurrentPeriod ? (
               <Button
                 variant="outline"

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 import { TrendingDown, TrendingUp, HandCoins } from "lucide-react"
 import { ExpensesSkeleton } from "@/components/skeletons/expenses-skeleton"
 import { useLoansPage } from "@/hooks/use-loans-page"
@@ -138,19 +139,18 @@ export default function LoansPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="account">Account *</Label>
-                    <select
+                    <AppSelect
                       id="account"
                       value={accountId}
-                      onChange={(e) => setAccountId(e.target.value)}
+                      onValueChange={setAccountId}
                       required
-                      className="mt-1 w-full rounded-lg border-0 bg-gray-50 px-4 py-2 focus:bg-white focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name} ({account.bankName}) - {formatCurrency(account.balance)}
-                        </option>
-                      ))}
-                    </select>
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      options={accounts.map((account) => ({
+                        value: account.id,
+                        label: `${account.name} (${account.bankName}) - ${formatCurrency(account.balance)}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="amount">Amount ($) *</Label>
@@ -339,19 +339,18 @@ export default function LoansPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="borrowedAccount">Account *</Label>
-                    <select
+                    <AppSelect
                       id="borrowedAccount"
                       value={borrowedAccountId || accountId}
-                      onChange={(e) => setBorrowedAccountId(e.target.value)}
+                      onValueChange={setBorrowedAccountId}
                       required
-                      className="mt-1 w-full rounded-lg border-0 bg-gray-50 px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                    >
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name} ({account.bankName}) - {formatCurrency(account.balance)}
-                        </option>
-                      ))}
-                    </select>
+                      variant="classic"
+                      className="mt-1 rounded-lg"
+                      options={accounts.map((account) => ({
+                        value: account.id,
+                        label: `${account.name} (${account.bankName}) - ${formatCurrency(account.balance)}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="borrowedAmount">Amount ($) *</Label>

@@ -140,7 +140,7 @@ export function SidebarBento() {
             "8px 0 40px rgba(0,0,0,0.35), inset -1px 0 0 rgba(218,226,253,0.04)",
         }}
       >
-        {/* Accent rail — matches console “institutional” vertical */}
+        {/* Accent rail */}
         <div
           className="pointer-events-none absolute bottom-0 left-0 top-0 w-px opacity-90"
           style={{

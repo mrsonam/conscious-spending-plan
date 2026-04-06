@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
@@ -376,30 +377,25 @@ export function CategoryTrackingBento() {
                   <span>Period</span>
                 </div>
                 <div className="mt-2">
-                  <select
+                  <AppSelect
                     value={`${selectedYear}-${selectedMonth}`}
-                    onChange={(e) => {
-                      const [y, m] = e.target.value.split("-").map(Number)
+                    onValueChange={(v) => {
+                      const [y, m] = v.split("-").map(Number)
                       setSelectedYear(y)
                       setSelectedMonth(m)
                     }}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    {monthOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={monthOptions.map((opt) => ({
+                      value: opt.value,
+                      label: opt.label,
+                    }))}
+                  />
                 </div>
               </div>
             </section>

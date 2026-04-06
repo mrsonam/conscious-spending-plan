@@ -1,7 +1,7 @@
 /**
  * File-based routes for theme shells.
  * Classic: light UI under `/classic/*`
- * Bento (Wealth Console): dark institutional UI under `/bento/*`
+ * Bento (Wealth Console): dark shell under `/bento/*`
  *
  * Keep feature pages in **both** trees when the feature exists for both themes
  * (separate files), even if behavior is shared via hooks/components.

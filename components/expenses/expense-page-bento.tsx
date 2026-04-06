@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import {
   IncomeFormSkeleton,
   IncomeHistorySkeleton,
@@ -401,33 +402,27 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Account *
                 </label>
-                <select
+                <AppSelect
                   id="exp-account"
                   value={p.accountId}
-                  onChange={(e) => {
-                    p.setAccountId(e.target.value)
-                    const a = p.accounts.find((acc) => acc.id === e.target.value)
+                  onValueChange={(v) => {
+                    p.setAccountId(v)
+                    const a = p.accounts.find((acc) => acc.id === v)
                     if (a?.accountType === "cash") p.setFundCategory("")
                   }}
                   required
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {p.accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} ({account.bankName}) —{" "}
-                      {p.formatCurrency(account.balance)}
-                    </option>
-                  ))}
-                </select>
+                  options={p.accounts.map((account) => ({
+                    value: account.id,
+                    label: `${account.name} (${account.bankName}) — ${p.formatCurrency(account.balance)}`,
+                  }))}
+                />
               </div>
               <div>
                 <label
@@ -487,29 +482,27 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                     >
                       Fund category *
                     </label>
-                    <select
+                    <AppSelect
                       id="exp-fund"
                       value={p.fundCategory}
-                      onChange={(e) => p.setFundCategory(e.target.value)}
+                      onValueChange={p.setFundCategory}
                       required
-                      className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                      variant="console"
+                      className={cn(consoleField, "mt-1 border-transparent")}
                       style={{
                         backgroundColor: TOKENS.surfaceLow,
                         borderColor: TOKENS.outlineGhost,
                         color: TOKENS.onSurface,
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "right 0.75rem center",
-                        backgroundSize: "1rem",
                       }}
-                    >
-                      <option value="">Select fund</option>
-                      {FUND_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select fund"
+                      options={[
+                        { value: "", label: "Select fund" },
+                        ...FUND_CATEGORIES.map((c) => ({
+                          value: c.value,
+                          label: c.label,
+                        })),
+                      ]}
+                    />
                   </div>
                 )
               })()}
@@ -521,28 +514,26 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Expense category
                 </label>
-                <select
+                <AppSelect
                   id="exp-ec"
                   value={p.expenseCategory}
-                  onChange={(e) => p.setExpenseCategory(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={p.setExpenseCategory}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">Optional</option>
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Optional"
+                  options={[
+                    { value: "", label: "Optional" },
+                    ...EXPENSE_CATEGORIES.map((c) => ({
+                      value: c.value,
+                      label: c.label,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <label
@@ -624,26 +615,21 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Account
                 </label>
-                <select
+                <AppSelect
                   value={p.bulkAccountId}
-                  onChange={(e) => p.setBulkAccountId(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={p.setBulkAccountId}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {p.accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.bankName})
-                    </option>
-                  ))}
-                </select>
+                  options={p.accounts.map((acc) => ({
+                    value: acc.id,
+                    label: `${acc.name} (${acc.bankName})`,
+                  }))}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -653,27 +639,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   >
                     Default fund
                   </label>
-                  <select
+                  <AppSelect
                     value={p.bulkFundCategory}
-                    onChange={(e) => p.setBulkFundCategory(e.target.value)}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    onValueChange={p.setBulkFundCategory}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="">—</option>
-                    {FUND_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="—"
+                    options={[
+                      { value: "", label: "—" },
+                      ...FUND_CATEGORIES.map((c) => ({
+                        value: c.value,
+                        label: c.label,
+                      })),
+                    ]}
+                  />
                 </div>
                 <div>
                   <label
@@ -682,27 +666,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   >
                     Default expense type
                   </label>
-                  <select
+                  <AppSelect
                     value={p.bulkExpenseCategory}
-                    onChange={(e) => p.setBulkExpenseCategory(e.target.value)}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    onValueChange={p.setBulkExpenseCategory}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="">—</option>
-                    {EXPENSE_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="—"
+                    options={[
+                      { value: "", label: "—" },
+                      ...EXPENSE_CATEGORIES.map((c) => ({
+                        value: c.value,
+                        label: c.label,
+                      })),
+                    ]}
+                  />
                 </div>
               </div>
               <div>
@@ -804,27 +786,22 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Account *
                 </label>
-                <select
+                <AppSelect
                   value={p.recurringAccountId}
-                  onChange={(e) => p.setRecurringAccountId(e.target.value)}
+                  onValueChange={p.setRecurringAccountId}
                   required
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {p.accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
+                  options={p.accounts.map((acc) => ({
+                    value: acc.id,
+                    label: acc.name,
+                  }))}
+                />
               </div>
               <div>
                 <label
@@ -854,26 +831,21 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Frequency
                 </label>
-                <select
+                <AppSelect
                   value={p.recurringFrequency}
-                  onChange={(e) => p.setRecurringFrequency(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={p.setRecurringFrequency}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {FREQUENCIES.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
+                  options={FREQUENCIES.map((f) => ({
+                    value: f.value,
+                    label: f.label,
+                  }))}
+                />
               </div>
               <div>
                 <label
@@ -918,27 +890,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Fund
                 </label>
-                <select
+                <AppSelect
                   value={p.recurringFundCategory}
-                  onChange={(e) => p.setRecurringFundCategory(e.target.value)}
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={p.setRecurringFundCategory}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">—</option>
-                  {FUND_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="—"
+                  options={[
+                    { value: "", label: "—" },
+                    ...FUND_CATEGORIES.map((c) => ({
+                      value: c.value,
+                      label: c.label,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <label
@@ -947,29 +917,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 >
                   Expense category
                 </label>
-                <select
+                <AppSelect
                   value={p.recurringExpenseCategory}
-                  onChange={(e) =>
-                    p.setRecurringExpenseCategory(e.target.value)
-                  }
-                  className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                  onValueChange={p.setRecurringExpenseCategory}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  <option value="">—</option>
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="—"
+                  options={[
+                    { value: "", label: "—" },
+                    ...EXPENSE_CATEGORIES.map((c) => ({
+                      value: c.value,
+                      label: c.label,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <label
@@ -1226,27 +1192,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   >
                     Fund pillar
                   </label>
-                  <select
+                  <AppSelect
                     value={p.filterFundCategory}
-                    onChange={(e) => p.setFilterFundCategory(e.target.value)}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    onValueChange={p.setFilterFundCategory}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceContainer,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="">All</option>
-                    {FUND_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="All"
+                    options={[
+                      { value: "", label: "All" },
+                      ...FUND_CATEGORIES.map((c) => ({
+                        value: c.value,
+                        label: c.label,
+                      })),
+                    ]}
+                  />
                 </div>
                 <div>
                   <label
@@ -1255,27 +1219,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   >
                     Expense type
                   </label>
-                  <select
+                  <AppSelect
                     value={p.filterExpenseCategory}
-                    onChange={(e) => p.setFilterExpenseCategory(e.target.value)}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    onValueChange={p.setFilterExpenseCategory}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceContainer,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="">All</option>
-                    {EXPENSE_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="All"
+                    options={[
+                      { value: "", label: "All" },
+                      ...EXPENSE_CATEGORIES.map((c) => ({
+                        value: c.value,
+                        label: c.label,
+                      })),
+                    ]}
+                  />
                 </div>
                 <div className="sm:col-span-2">
                   <label
@@ -1284,27 +1246,25 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   >
                     Account
                   </label>
-                  <select
+                  <AppSelect
                     value={p.filterAccountId}
-                    onChange={(e) => p.setFilterAccountId(e.target.value)}
-                    className={cn(consoleField, "cursor-pointer appearance-none pr-10")}
+                    onValueChange={p.setFilterAccountId}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceContainer,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
                     }}
-                  >
-                    <option value="">All accounts</option>
-                    {p.accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.bankName})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="All accounts"
+                    options={[
+                      { value: "", label: "All accounts" },
+                      ...p.accounts.map((a) => ({
+                        value: a.id,
+                        label: `${a.name} (${a.bankName})`,
+                      })),
+                    ]}
+                  />
                 </div>
               </div>
             </div>

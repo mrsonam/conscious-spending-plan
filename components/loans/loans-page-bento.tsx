@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import { Label } from "@/components/ui/label"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
@@ -176,13 +177,7 @@ export function LoansPageBento() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="px-1 py-2 sm:px-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary, boxShadow: CARD_INSET }} />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Institutional console
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div
             className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceHigh }}
@@ -550,27 +545,22 @@ export function LoansPageBento() {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
                 </Label>
-                <select
+                <AppSelect
                   value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
+                  onValueChange={setAccountId}
                   required
-                  className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.bankName}) · {formatCurrency(a.balance)}
-                    </option>
-                  ))}
-                </select>
+                  options={accounts.map((a) => ({
+                    value: a.id,
+                    label: `${a.name} (${a.bankName}) · ${formatCurrency(a.balance)}`,
+                  }))}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -610,7 +600,7 @@ export function LoansPageBento() {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className={cn(consoleField, "mt-1 border-transparent scheme-light dark:scheme-dark")}
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
                 </div>
@@ -621,7 +611,7 @@ export function LoansPageBento() {
                   <DateInput
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className={cn(consoleField, "mt-1 border-transparent scheme-light dark:scheme-dark")}
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
                 </div>
@@ -675,27 +665,22 @@ export function LoansPageBento() {
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
                 </Label>
-                <select
+                <AppSelect
                   value={borrowedAccountId}
-                  onChange={(e) => setBorrowedAccountId(e.target.value)}
+                  onValueChange={setBorrowedAccountId}
                   required
-                  className={cn(consoleField, "mt-1 cursor-pointer appearance-none bg-no-repeat pr-10")}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
-                    backgroundImage:
-                      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundPosition: "right 0.75rem center",
-                    backgroundSize: "1rem",
                   }}
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.bankName}) · {formatCurrency(a.balance)}
-                    </option>
-                  ))}
-                </select>
+                  options={accounts.map((a) => ({
+                    value: a.id,
+                    label: `${a.name} (${a.bankName}) · ${formatCurrency(a.balance)}`,
+                  }))}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -735,7 +720,7 @@ export function LoansPageBento() {
                     value={borrowedDate}
                     onChange={(e) => setBorrowedDate(e.target.value)}
                     required
-                    className={cn(consoleField, "mt-1 border-transparent scheme-light dark:scheme-dark")}
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
                 </div>
@@ -746,7 +731,7 @@ export function LoansPageBento() {
                   <DateInput
                     value={borrowedDueDate}
                     onChange={(e) => setBorrowedDueDate(e.target.value)}
-                    className={cn(consoleField, "mt-1 border-transparent scheme-light dark:scheme-dark")}
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
                 </div>

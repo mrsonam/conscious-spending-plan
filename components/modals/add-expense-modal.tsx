@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 
 interface Account {
   id: string
@@ -166,26 +167,24 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
               <Label htmlFor="account">Account *</Label>
-              <select
+              <AppSelect
                 id="account"
                 value={accountId}
-                onChange={(e) => {
-                  setAccountId(e.target.value)
-                  // Clear fund category if switching to cash account
-                  const selectedAccount = accounts.find(acc => acc.id === e.target.value)
+                onValueChange={(v) => {
+                  setAccountId(v)
+                  const selectedAccount = accounts.find((acc) => acc.id === v)
                   if (selectedAccount?.accountType === "cash") {
                     setFundCategory("")
                   }
                 }}
                 required
-                className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-              >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} ({account.bankName}) - {formatCurrency(account.balance)}
-                  </option>
-                ))}
-              </select>
+                variant="classic"
+                className="mt-1 rounded-lg"
+                options={accounts.map((account) => ({
+                  value: account.id,
+                  label: `${account.name} (${account.bankName}) - ${formatCurrency(account.balance)}`,
+                }))}
+              />
             </div>
             <div>
               <Label htmlFor="amount">Amount ($) *</Label>
@@ -208,7 +207,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="mt-1 scheme-light dark:scheme-dark"
+                className="mt-1"
               />
             </div>
             {(() => {
@@ -222,38 +221,42 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
               return (
                 <div>
                   <Label htmlFor="fundCategory">Fund Category *</Label>
-                  <select
+                  <AppSelect
                     id="fundCategory"
                     value={fundCategory}
-                    onChange={(e) => setFundCategory(e.target.value)}
+                    onValueChange={setFundCategory}
                     required
-                    className="mt-1 w-full px-4 py-2 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  >
-                    <option value="">Select a fund category</option>
-                    {FUND_CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                    variant="classic"
+                    className="mt-1 rounded-lg"
+                    placeholder="Select a fund category"
+                    options={[
+                      { value: "", label: "Select a fund category" },
+                      ...FUND_CATEGORIES.map((cat) => ({
+                        value: cat.value,
+                        label: cat.label,
+                      })),
+                    ]}
+                  />
                 </div>
               )
             })()}
             <div>
               <Label htmlFor="expenseCategory">Expense Category</Label>
-              <select
+              <AppSelect
                 id="expenseCategory"
                 value={expenseCategory}
-                onChange={(e) => setExpenseCategory(e.target.value)}
-                className="mt-1 w-full px-4 py-2 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-              >
-                <option value="">Select an expense category (optional)</option>
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setExpenseCategory}
+                variant="classic"
+                className="mt-1 rounded-lg"
+                placeholder="Select an expense category (optional)"
+                options={[
+                  { value: "", label: "Select an expense category (optional)" },
+                  ...EXPENSE_CATEGORIES.map((cat) => ({
+                    value: cat.value,
+                    label: cat.label,
+                  })),
+                ]}
+              />
             </div>
           </div>
           <div>

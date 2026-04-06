@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
+import { AppSelect } from "@/components/ui/app-select"
 
 interface Account {
   id: string
@@ -133,40 +134,44 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
 
           <div>
             <Label htmlFor="fromAccount">From Account *</Label>
-            <select
+            <AppSelect
               id="fromAccount"
               value={fromAccountId}
-              onChange={(e) => setFromAccountId(e.target.value)}
+              onValueChange={setFromAccountId}
               required
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Select account</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({formatCurrency(acc.balance)})
-                </option>
-              ))}
-            </select>
+              variant="classic"
+              className="mt-1 rounded-lg border border-gray-300"
+              placeholder="Select account"
+              options={[
+                { value: "", label: "Select account" },
+                ...accounts.map((acc) => ({
+                  value: acc.id,
+                  label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                })),
+              ]}
+            />
           </div>
 
           <div>
             <Label htmlFor="toAccount">To Account *</Label>
-            <select
+            <AppSelect
               id="toAccount"
               value={toAccountId}
-              onChange={(e) => setToAccountId(e.target.value)}
+              onValueChange={setToAccountId}
               required
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Select account</option>
-              {accounts
-                .filter((acc) => acc.id !== fromAccountId)
-                .map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({formatCurrency(acc.balance)})
-                  </option>
-                ))}
-            </select>
+              variant="classic"
+              className="mt-1 rounded-lg border border-gray-300"
+              placeholder="Select account"
+              options={[
+                { value: "", label: "Select account" },
+                ...accounts
+                  .filter((acc) => acc.id !== fromAccountId)
+                  .map((acc) => ({
+                    value: acc.id,
+                    label: `${acc.name} (${formatCurrency(acc.balance)})`,
+                  })),
+              ]}
+            />
           </div>
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -177,7 +182,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 value={transferDate}
                 onChange={(e) => setTransferDate(e.target.value)}
                 required
-                className="mt-1 scheme-light dark:scheme-dark"
+                className="mt-1"
               />
             </div>
             <div>
@@ -198,19 +203,21 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
 
           <div>
             <Label htmlFor="transferCategory">Fund Category (Optional)</Label>
-            <select
+            <AppSelect
               id="transferCategory"
               value={transferCategory}
-              onChange={(e) => setTransferCategory(e.target.value)}
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">None</option>
-              {FUND_CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setTransferCategory}
+              variant="classic"
+              className="mt-1 rounded-lg border border-gray-300"
+              placeholder="None"
+              options={[
+                { value: "", label: "None" },
+                ...FUND_CATEGORIES.map((cat) => ({
+                  value: cat.value,
+                  label: cat.label,
+                })),
+              ]}
+            />
             <p className="mt-1 text-xs text-gray-500">
               Track this transfer for a specific fund category
             </p>

@@ -1,6 +1,6 @@
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
-/** Splits formatted currency into body (incl. $ and commas) and ".xx" cents for institutional typography. */
+/** Splits formatted currency into body (incl. $ and commas) and ".xx" cents for split-decimal display. */
 export function currencyDisplayParts(amount: number): {
   main: string
   decimals: string
@@ -27,7 +27,7 @@ export function currencyDisplayParts(amount: number): {
   return { main, decimals }
 }
 
-/** Split-decimal “institutional” look — main amount at full size, cents ~half. */
+/** Split-decimal display — main amount at full size, cents ~half. */
 export type MajorFigureVariant = "income" | "prosperity" | "loss" | "neutral"
 
 export function MajorFigureCurrency({

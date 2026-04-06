@@ -117,10 +117,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (user) {
-        token.id = user.id
+        if (user.email) token.email = user.email
         if (user.image) token.picture = user.image
       }
 
+      // Google: never assign `user.id` (OAuth subject) to `token.id` — only Prisma `User.id`.
       if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email },
@@ -130,8 +131,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.id = dbUser.id
           token.dashboardTheme = dbUser.dashboardTheme
         }
-        if (user?.image) token.picture = user.image
-      } else if (user?.id) {
+      } else if (user?.id && account?.provider === "credentials") {
+        token.id = user.id
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { dashboardTheme: true },
@@ -147,12 +148,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string
-        session.user.image = token.picture ?? null
-        session.user.dashboardTheme =
-          typeof token.dashboardTheme === "string"
-            ? token.dashboardTheme
+        // Always resolve to a real Prisma User.id (fixes stale JWTs with Google OAuth subject).
+        const email = typeof token.email === "string" ? token.email : undefined
+        let resolved: { id: string; dashboardTheme: string | null } | null = null
+        if (email) {
+          resolved = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, dashboardTheme: true },
+          })
+        }
+        if (!resolved && token.id) {
+          resolved = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { id: true, dashboardTheme: true },
+          })
+        }
+        if (resolved) {
+          session.user.id = resolved.id
+          session.user.dashboardTheme = isDashboardTheme(resolved.dashboardTheme)
+            ? resolved.dashboardTheme
             : "classic"
+        } else {
+          session.user.id = ""
+        }
+        session.user.image = token.picture ?? null
+        if (email && !session.user.email) {
+          session.user.email = email
+        }
       }
       return session
     }

@@ -27,6 +27,85 @@ html[data-csp-dashboard-theme="console"] body {
   color-scheme: dark;
 }
 
+/* Wealth Console (bento): date picker icon matches field text (TOKENS.onSurface). */
+html[data-csp-dashboard-theme="console"] .date-input-calendar-icon {
+  color: #dae2fd;
+  opacity: 1;
+}
+
+/* Wealth Console: date field trigger — align with AppSelect `variant="console"` / TOKENS */
+html[data-csp-dashboard-theme="console"] button.date-input-trigger {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(218, 226, 253, 0.12);
+  background-color: #131b2e !important;
+  color: #dae2fd !important;
+  font-weight: 500;
+  color-scheme: dark;
+  box-shadow: inset 0 1px 0 0 rgba(218, 226, 253, 0.06);
+}
+
+html[data-csp-dashboard-theme="console"] button.date-input-trigger:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 0 rgba(218, 226, 253, 0.06),
+    0 0 0 2px rgba(78, 222, 163, 0.45);
+  background-color: #131b2e !important;
+}
+
+html[data-csp-dashboard-theme="console"] button.date-input-trigger .date-input-placeholder {
+  color: rgba(218, 226, 253, 0.55) !important;
+}
+
+/* Wealth Console: custom date popover + Radix select chevron */
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] {
+  border-color: rgba(218, 226, 253, 0.12) !important;
+  background: #131b2e !important;
+  color: #dae2fd !important;
+  box-shadow:
+    inset 0 1px 0 0 rgba(218, 226, 253, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-root {
+  --rdp-accent-color: #4edea3;
+  --rdp-accent-background-color: rgba(78, 222, 163, 0.18);
+  --rdp-today-color: #89ceff;
+  --rdp-weekday-opacity: 0.9;
+  --rdp-outside-opacity: 0.45;
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-month_caption {
+  color: #dae2fd;
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-weekday {
+  color: rgba(218, 226, 253, 0.55);
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-day_button {
+  color: #dae2fd;
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-selected .rdp-day_button {
+  color: #0b1326;
+  background-color: rgba(78, 222, 163, 0.92);
+  border-color: #4edea3;
+  font-weight: 600;
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-today:not(.rdp-outside) {
+  color: #89ceff;
+}
+
+html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-outside .rdp-day_button {
+  color: rgba(218, 226, 253, 0.35);
+}
+
+html[data-csp-dashboard-theme="console"] .app-select-chevron {
+  color: #dae2fd;
+  opacity: 1;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
@@ -126,6 +205,29 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Native date inputs: align text baseline with other fields (WebKit + Firefox). */
+input[type="date"] {
+  line-height: 1.25;
+}
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding-block: 0;
+}
+
+/*
+ * iOS Safari / PWA: focused inputs with computed font-size < 16px trigger page zoom.
+ * Enforce 16px on small viewports; `sm:` and up keep compact typography.
+ */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ),
+  select,
+  textarea {
+    font-size: 1rem !important;
+    line-height: 1.5;
+  }
 }
 
 /* Mobile optimizations */

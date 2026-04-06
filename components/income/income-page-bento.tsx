@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import {
   IncomeFormSkeleton,
   IncomeHistorySkeleton,
@@ -705,29 +706,28 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   >
                     Deposit to account
                   </label>
-                  <select
+                  <AppSelect
                     id="account-modal"
                     value={p.selectedAccountId}
-                    onChange={(e) => p.setSelectedAccountId(e.target.value)}
-                    className={cn(
-                      consoleField,
-                      "cursor-pointer appearance-none bg-size-[1rem] bg-position-[right_0.75rem_center] bg-no-repeat pr-10",
-                    )}
+                    onValueChange={p.setSelectedAccountId}
+                    variant="console"
+                    className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b9c8de' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
                     }}
-                  >
-                    {p.accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name} ({account.bankName})
-                        {account.isDefault ? " — Default" : ""}{" "}
-                        {account.accountType === "cash" ? " — Cash" : ""}
-                      </option>
-                    ))}
-                  </select>
+                    options={p.accounts.map((account) => ({
+                      value: account.id,
+                      label: (
+                        <>
+                          {account.name} ({account.bankName})
+                          {account.isDefault ? " — Default" : ""}{" "}
+                          {account.accountType === "cash" ? " — Cash" : ""}
+                        </>
+                      ),
+                    }))}
+                  />
                   {p.accounts.find((acc) => acc.id === p.selectedAccountId)
                     ?.accountType === "cash" && (
                     <div

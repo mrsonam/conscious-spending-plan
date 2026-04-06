@@ -26,13 +26,7 @@ export function ProfilePageBento() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <section className="px-1 py-2 sm:px-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary, boxShadow: CARD_INSET }} />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-              Institutional console
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div
             className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceHigh }}
