@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { PWA_THEME_COLOR_CLASSIC } from '@/lib/pwa-branding'
+import { PWA_THEME_COLOR_CONSOLE } from '@/lib/pwa-branding'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: PWA_THEME_COLOR_CLASSIC,
+    theme_color: PWA_THEME_COLOR_CONSOLE,
     orientation: 'any',
     icons: [
       {
@@ -30,21 +30,21 @@ export default function manifest(): MetadataRoute.Manifest {
         name: 'Dashboard',
         short_name: 'Dashboard',
         description: 'View your finance dashboard',
-        url: '/classic/dashboard',
+        url: '/dashboard',
         icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
       {
         name: 'Expenses',
         short_name: 'Expenses',
         description: 'Track expenses',
-        url: '/classic/expenses',
+        url: '/expenses',
         icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
       {
         name: 'Statement',
         short_name: 'Statement',
         description: 'View statement',
-        url: '/classic/statement',
+        url: '/statement',
         icons: [{ src: '/icon.svg', sizes: '192x192' }],
       },
     ],

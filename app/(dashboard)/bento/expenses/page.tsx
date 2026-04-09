@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
@@ -10,19 +9,11 @@ import {
 } from "@/components/skeletons/income-sections"
 import { ExpensePageBento } from "@/components/expenses/expense-page-bento"
 import { useExpensePage } from "@/hooks/use-expense-page"
-import { CLASSIC } from "@/lib/app-routes"
 
 export default function BentoExpensesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const expense = useExpensePage(status, router)
-
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return
-    if ((session.user.dashboardTheme ?? "classic") !== "console") {
-      router.replace(CLASSIC.expenses)
-    }
-  }, [status, session?.user, router])
 
   if (status === "loading") {
     return (
@@ -44,13 +35,6 @@ export default function BentoExpensesPage() {
         </div>
       </>
     )
-  }
-
-  if (
-    status === "authenticated" &&
-    (session?.user?.dashboardTheme ?? "classic") !== "console"
-  ) {
-    return null
   }
 
   if (!session) return null

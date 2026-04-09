@@ -1,22 +1,13 @@
 "use client"
 
-import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { CategoryTrackingBento } from "@/components/category-tracking/category-tracking-bento"
-import { CLASSIC } from "@/lib/app-routes"
 
 export default function BentoCategoryTrackingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return
-    if ((session.user.dashboardTheme ?? "classic") !== "console") {
-      router.replace(CLASSIC.categoryTracking)
-    }
-  }, [status, session?.user, router])
 
   if (status === "loading") {
     return (
@@ -42,13 +33,6 @@ export default function BentoCategoryTrackingPage() {
         </div>
       </>
     )
-  }
-
-  if (
-    status === "authenticated" &&
-    (session?.user?.dashboardTheme ?? "classic") !== "console"
-  ) {
-    return null
   }
 
   if (!session) return null

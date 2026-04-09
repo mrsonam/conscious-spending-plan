@@ -1,7 +1,7 @@
 /**
  * File-based routes for theme shells.
  * Classic: light UI under `/classic/*`
- * Bento (Wealth Console): dark shell under `/bento/*`
+ * Bento (Wealth Console): now the default shell (no `/bento` prefix).
  *
  * Keep feature pages in **both** trees when the feature exists for both themes
  * (separate files), even if behavior is shared via hooks/components.
@@ -20,14 +20,14 @@ export const CLASSIC = {
 } as const
 
 export const BENTO = {
-  dashboard: "/bento/dashboard",
-  income: "/bento/income",
-  expenses: "/bento/expenses",
-  statement: "/bento/statement",
-  categoryTracking: "/bento/category-tracking",
-  funds: "/bento/funds",
-  investments: "/bento/investments",
-  accounts: "/bento/accounts",
-  loans: "/bento/loans",
-  profile: "/bento/profile",
+  dashboard: "/dashboard",
+  income: "/income",
+  expenses: "/expenses",
+  statement: "/statement",
+  categoryTracking: "/category-tracking",
+  funds: "/funds",
+  investments: "/investments",
+  accounts: "/accounts",
+  loans: "/loans",
+  profile: "/profile",
 } as const

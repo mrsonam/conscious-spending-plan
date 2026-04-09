@@ -14,7 +14,6 @@ import {
   type TrajectoryPoint,
   type YtdSummary,
 } from "@/components/wealth-console/WealthConsoleView"
-import { CLASSIC } from "@/lib/app-routes"
 
 function buildTrajectorySeries(
   history: Record<string, { month: string; remaining: number }[]> | undefined
@@ -62,16 +61,7 @@ export default function ConsoleV2Page() {
   }, [status, router])
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return
-    const theme = session.user.dashboardTheme ?? "classic"
-    if (theme !== "console") {
-      router.replace(CLASSIC.dashboard)
-    }
-  }, [status, session?.user?.dashboardTheme, router])
-
-  useEffect(() => {
     if (status !== "authenticated") return
-    if ((session?.user?.dashboardTheme ?? "classic") !== "console") return
 
     let cancelled = false
     const ac = new AbortController()
@@ -283,7 +273,7 @@ export default function ConsoleV2Page() {
       cancelled = true
       ac.abort()
     }
-  }, [status, session?.user?.dashboardTheme])
+  }, [status])
 
   const incomeChangePct = useMemo(() => {
     if (!breakdown || lastMonthIncome <= 0) return null
@@ -291,13 +281,6 @@ export default function ConsoleV2Page() {
   }, [breakdown, lastMonthIncome])
 
   if (status === "loading") {
-    return null
-  }
-
-  if (
-    status === "authenticated" &&
-    (session?.user?.dashboardTheme ?? "classic") !== "console"
-  ) {
     return null
   }
 

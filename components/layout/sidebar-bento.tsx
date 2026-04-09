@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import { useState, useEffect, useMemo } from "react"
 import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
-import { CLASSIC } from "@/lib/app-routes"
+import { BENTO } from "@/lib/app-routes"
 
 function NavRow({
   href,
@@ -233,7 +233,7 @@ export function SidebarBento() {
             }}
           >
             <Link
-              href={CLASSIC.profile}
+              href={BENTO.profile}
               className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/[0.04]"
             >
               {session?.user?.image ? (

@@ -12,12 +12,11 @@ export default async function DashboardLayout({
   if (!session) {
     redirect("/login")
   }
-  const isConsole = session.user?.dashboardTheme === "console"
   return (
     <div
       className="flex h-screen overflow-hidden"
       style={{
-        background: isConsole ? TOKENS.surface : "#f9fafb",
+        background: TOKENS.surface,
       }}
     >
       <Sidebar />

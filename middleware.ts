@@ -1,47 +1,44 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
 /**
- * Maps legacy `/dashboard/*` URLs to `/classic/*` or `/bento/dashboard`.
- * Keeps bookmarks and OAuth callbackUrl=/dashboard working.
+ * Bento is the only supported dashboard shell.
+ *
+ * Keep old bookmarks working:
+ * - `/bento/*` → `/*`
+ * - `/classic/*` → `/*`
+ * - legacy `/dashboard/*` routes → new top-level routes
  */
-function legacyDashboardRedirect(
-  pathname: string,
-  dashboardTheme: string | undefined
-): string | null {
+function redirectTarget(pathname: string): string | null {
+  if (pathname === "/bento" || pathname === "/bento/") return "/dashboard"
+  if (pathname.startsWith("/bento/")) {
+    const rest = pathname.replace(/^\/bento\//, "")
+    return rest === "dashboard" ? "/dashboard" : `/${rest}`
+  }
+
+  if (pathname === "/classic" || pathname === "/classic/") return "/dashboard"
+  if (pathname.startsWith("/classic/")) {
+    const rest = pathname.replace(/^\/classic\//, "")
+    return rest === "dashboard" ? "/dashboard" : `/${rest}`
+  }
+
   if (!pathname.startsWith("/dashboard")) return null
 
-  if (
-    pathname === "/dashboard/console-v2" ||
-    pathname.startsWith("/dashboard/console-v2/")
-  ) {
-    return "/bento/dashboard"
-  }
-
   const trimmed = pathname.replace(/^\/dashboard\/?/, "")
-  if (trimmed === "" || trimmed === "dashboard") {
-    return dashboardTheme === "console"
-      ? "/bento/dashboard"
-      : "/classic/dashboard"
+  // `/dashboard` and `/dashboard/dashboard` are already the real App Router URLs — do not redirect (avoids ERR_TOO_MANY_REDIRECTS).
+  if (trimmed === "" || trimmed === "dashboard") return null
+  if (trimmed === "console-v2" || trimmed.startsWith("console-v2/")) {
+    return "/dashboard"
   }
-
-  return `/classic/${trimmed}`
+  if (trimmed === "profile") return "/profile"
+  return `/${trimmed}`
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const target = legacyDashboardRedirect(
-    pathname,
-    (
-      await getToken({
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET,
-      })
-    )?.dashboardTheme as string | undefined
-  )
+  const target = redirectTarget(pathname)
 
-  if (!target) return NextResponse.next()
+  if (!target || target === pathname) return NextResponse.next()
 
   const url = request.nextUrl.clone()
   url.pathname = target
@@ -50,5 +47,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*"],
+  matcher: [
+    "/bento",
+    "/bento/:path*",
+    "/classic",
+    "/classic/:path*",
+    "/dashboard",
+    "/dashboard/:path*",
+  ],
 }

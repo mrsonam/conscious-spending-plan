@@ -10,19 +10,11 @@ import {
 } from "@/components/skeletons/income-sections"
 import { IncomePageBento } from "@/components/income/income-page-bento"
 import { useIncomePage } from "@/hooks/use-income-page"
-import { CLASSIC } from "@/lib/app-routes"
 
 export default function BentoIncomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const income = useIncomePage(status, router)
-
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return
-    if ((session.user.dashboardTheme ?? "classic") !== "console") {
-      router.replace(CLASSIC.income)
-    }
-  }, [status, session?.user, router])
 
   if (status === "loading") {
     return (
@@ -38,13 +30,6 @@ export default function BentoIncomePage() {
         </div>
       </>
     )
-  }
-
-  if (
-    status === "authenticated" &&
-    (session?.user?.dashboardTheme ?? "classic") !== "console"
-  ) {
-    return null
   }
 
   if (!session) return null

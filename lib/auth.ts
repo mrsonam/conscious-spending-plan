@@ -71,7 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       // Handle Google OAuth sign-in
       if (account?.provider === "google" && user.email) {
         // Check if user exists, if not create them
@@ -137,11 +137,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           select: { dashboardTheme: true },
         })
-        token.dashboardTheme = dbUser?.dashboardTheme ?? "classic"
+        token.dashboardTheme = dbUser?.dashboardTheme ?? "console"
       }
 
       if (!token.dashboardTheme) {
-        token.dashboardTheme = "classic"
+        token.dashboardTheme = "console"
       }
 
       return token
@@ -167,7 +167,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.id = resolved.id
           session.user.dashboardTheme = isDashboardTheme(resolved.dashboardTheme)
             ? resolved.dashboardTheme
-            : "classic"
+            : "console"
         } else {
           session.user.id = ""
         }

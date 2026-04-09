@@ -87,9 +87,9 @@ function navGroups(
 }
 
 export function buildSidebarNavigationGroups(
-  dashboardTheme: string | undefined
+  _dashboardTheme: string | undefined
 ): SidebarNavGroup[] {
-  const theme = dashboardTheme === "console" ? "console" : "classic"
+  const theme = "console"
   const dashboardHref = DASHBOARD_HOME[theme]
   return navGroups(dashboardHref, theme)
 }

@@ -13,7 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import dynamic from "next/dynamic"
-import { BENTO, CLASSIC } from "@/lib/app-routes"
+import { BENTO } from "@/lib/app-routes"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 
@@ -904,7 +904,7 @@ export function WealthConsoleView({
                             </div>
                           </div>
                           <Link
-                            href={CLASSIC.loans}
+                            href={BENTO.loans}
                             className="shrink-0 text-[10px] font-bold uppercase tracking-wide"
                             style={{ color: TOKENS.primary }}
                           >
@@ -1376,7 +1376,7 @@ export function WealthConsoleView({
                         </span>
                       </Link>
                       <Link
-                        href={CLASSIC.statement}
+                        href={BENTO.statement}
                         className="group relative col-span-2 flex flex-col justify-center overflow-hidden rounded-xl p-4 transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.06] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89ceff]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:col-span-1 lg:col-span-2"
                         style={{
                           background: TOKENS.surfaceContainer,
@@ -1403,7 +1403,7 @@ export function WealthConsoleView({
                         </span>
                       </Link>
                       <Link
-                        href={CLASSIC.investments}
+                        href={BENTO.investments}
                         className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
                         style={{ background: TOKENS.surfaceLow }}
                       >
@@ -1426,7 +1426,7 @@ export function WealthConsoleView({
                         </span>
                       </Link>
                       <Link
-                        href={CLASSIC.loans}
+                        href={BENTO.loans}
                         className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b9c8de]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
                         style={{
                           background: TOKENS.surfaceHigh,
@@ -1896,7 +1896,7 @@ export function WealthConsoleView({
                       </p>
                     </div>
                     <Link
-                      href={CLASSIC.statement}
+                      href={BENTO.statement}
                       className="relative z-[1] mt-8 block w-full rounded-xl py-3.5 text-center text-[10px] font-bold uppercase tracking-[0.22em] transition-opacity hover:opacity-95 sm:py-4 sm:text-[11px]"
                       style={{
                         background: TOKENS.surface,

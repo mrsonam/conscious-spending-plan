@@ -7,7 +7,6 @@ import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, Mail } from "lucide-react"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
-import { DashboardThemePicker } from "@/components/dashboard-theme-picker"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 import { BENTO } from "@/lib/app-routes"
 
@@ -105,19 +104,6 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Dashboard</CardTitle>
-            <CardDescription>
-              Choose which home dashboard loads when you open Dashboard or sign
-              in. Your choice is saved to your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DashboardThemePicker />
           </CardContent>
         </Card>
 

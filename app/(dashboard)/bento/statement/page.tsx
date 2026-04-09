@@ -1,24 +1,15 @@
 "use client"
 
-import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { StatementPageBento } from "@/components/statement/statement-page-bento"
 import { useStatementPage } from "@/hooks/use-statement-page"
-import { CLASSIC } from "@/lib/app-routes"
 
 export default function BentoStatementPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const statement = useStatementPage(status, router)
-
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return
-    if ((session.user.dashboardTheme ?? "classic") !== "console") {
-      router.replace(CLASSIC.statement)
-    }
-  }, [status, session?.user, router])
 
   if (status === "loading") {
     return (
@@ -34,13 +25,6 @@ export default function BentoStatementPage() {
         </div>
       </>
     )
-  }
-
-  if (
-    status === "authenticated" &&
-    (session?.user?.dashboardTheme ?? "classic") !== "console"
-  ) {
-    return null
   }
 
   if (!session) return null

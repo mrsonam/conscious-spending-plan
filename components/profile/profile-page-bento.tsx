@@ -1,7 +1,6 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { DashboardThemePicker } from "@/components/dashboard-theme-picker"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { Mail, Shield, User } from "lucide-react"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
@@ -114,23 +113,7 @@ export function ProfilePageBento() {
 
       <div className="grid items-start gap-4 lg:grid-cols-12 lg:gap-5">
         <section
-          className="rounded-xl border p-5 sm:p-6 lg:col-span-7"
-          style={{
-            background: TOKENS.surfaceLow,
-            borderColor: TOKENS.outlineGhost,
-            boxShadow: CARD_INSET,
-          }}
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Dashboard
-          </p>
-          <div className="mt-4">
-            <DashboardThemePicker variant="console" />
-          </div>
-        </section>
-
-        <section
-          className="rounded-xl border p-5 sm:p-6 lg:col-span-5"
+          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
           <AppCacheResetSection variant="console" />
