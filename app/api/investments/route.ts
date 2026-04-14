@@ -138,18 +138,30 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const accounts = await prisma.account.findMany({
-      where: {
-        userId: session.user.id,
-        accountType: "investment",
-      },
-      include: {
-        investmentHoldings: {
-          orderBy: { date: "desc" },
+    const [accounts, dividends] = await Promise.all([
+      prisma.account.findMany({
+        where: {
+          userId: session.user.id,
+          accountType: "investment",
         },
-      },
-      orderBy: { createdAt: "asc" },
-    })
+        include: {
+          investmentHoldings: {
+            orderBy: { date: "desc" },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.investmentDividend.findMany({
+        where: { userId: session.user.id },
+      }),
+    ])
+
+    const now = new Date()
+    const yearStart = new Date(now.getFullYear(), 0, 1)
+    const dividendAllTime = dividends.reduce((s, d) => s + d.amount, 0)
+    const dividendYtd = dividends
+      .filter((d) => d.date >= yearStart)
+      .reduce((s, d) => s + d.amount, 0)
 
     const result = accounts.map((account) => {
       const investedAmount = account.investmentHoldings.reduce(
@@ -203,12 +215,22 @@ export async function GET() {
           }))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+        const nameKey = holdings[0].name.trim().toLowerCase()
+        const dividendIncome = dividends
+          .filter(
+            (d) =>
+              d.accountId === account.id &&
+              d.name.trim().toLowerCase() === nameKey,
+          )
+          .reduce((s, d) => s + d.amount, 0)
+
         return {
           name: holdings[0].name, // Use the original name (preserving case)
           totalShares,
           totalAmount,
           averagePrice,
           purchases, // Individual purchase details
+          dividendIncome,
           firstPurchaseDate: holdings.reduce(
             (earliest, h) => (h.date < earliest ? h.date : earliest),
             holdings[0].date
@@ -220,6 +242,10 @@ export async function GET() {
         }
       })
 
+      const accountDividendTotal = dividends
+        .filter((d) => d.accountId === account.id)
+        .reduce((s, d) => s + d.amount, 0)
+
       return {
         id: account.id,
         name: account.name,
@@ -227,11 +253,28 @@ export async function GET() {
         balance: account.balance,
         investedAmount,
         totalValue: investedAmount + account.balance,
+        dividendIncomeTotal: accountDividendTotal,
         holdings: mergedHoldings,
       }
     })
 
-    return NextResponse.json({ accounts: result })
+    const recentDividends = [...dividends]
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 24)
+      .map((d) => ({
+        id: d.id,
+        date: d.date.toISOString(),
+        amount: d.amount,
+        name: d.name,
+        accountId: d.accountId,
+      }))
+
+    return NextResponse.json({
+      accounts: result,
+      dividendYtd,
+      dividendAllTime,
+      recentDividends,
+    })
   } catch (error) {
     console.error("Error fetching investments:", error)
     return NextResponse.json(

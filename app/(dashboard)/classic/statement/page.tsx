@@ -41,6 +41,7 @@ interface IncomeEntry {
   periodEnd: string;
   accountId: string | null;
   createdAt: string;
+  excludeFromAllocation?: boolean;
   account: {
     id: string;
     name: string;
@@ -153,6 +154,7 @@ type Transaction = {
   };
   periodStart?: string;
   periodEnd?: string;
+  excludeFromAllocation?: boolean;
   // Investment-specific fields
   investmentName?: string;
   numberOfShares?: number | null;
@@ -297,6 +299,7 @@ export default function StatementPage() {
         description: entry.description || "Income",
         category: null,
         account: entry.account || undefined,
+        excludeFromAllocation: entry.excludeFromAllocation === true,
       });
     });
 
@@ -1051,6 +1054,12 @@ export default function StatementPage() {
                               )?.label || transaction.category}
                             </span>
                           )}
+                          {transaction.type === "income" &&
+                            transaction.excludeFromAllocation && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 rounded">
+                                Not allocated
+                              </span>
+                            )}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
                           {transaction.description || "No description"}

@@ -26,6 +26,7 @@ import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import {
   Activity,
+  Banknote,
   BarChart3,
   Briefcase,
   FileText,
@@ -58,6 +59,8 @@ interface InvestmentHolding {
   totalAmount: number
   averagePrice: number
   purchases: InvestmentPurchase[]
+  /** Sum of dividend cash received for this symbol in this account (all time). */
+  dividendIncome?: number
   firstPurchaseDate: string
   lastPurchaseDate: string
 }
@@ -69,7 +72,24 @@ interface InvestmentAccountSummary {
   balance: number
   investedAmount: number
   totalValue: number
+  /** Total dividends credited to this brokerage account (all time). */
+  dividendIncomeTotal?: number
   holdings: InvestmentHolding[]
+}
+
+interface RecentDividendRow {
+  id: string
+  date: string
+  amount: number
+  name: string
+  accountId: string
+}
+
+type InvestmentsApiPayload = {
+  accounts?: InvestmentAccountSummary[]
+  dividendYtd?: number
+  dividendAllTime?: number
+  recentDividends?: RecentDividendRow[]
 }
 
 const consoleField =
@@ -90,7 +110,11 @@ export function InvestmentsPageBento() {
   const { status } = useSession()
   const investmentSearchRef = useRef<HTMLDivElement | null>(null)
   const [logOpen, setLogOpen] = useState(false)
+  const [dividendOpen, setDividendOpen] = useState(false)
   const [accounts, setAccounts] = useState<InvestmentAccountSummary[]>([])
+  const [dividendYtd, setDividendYtd] = useState(0)
+  const [dividendAllTime, setDividendAllTime] = useState(0)
+  const [recentDividends, setRecentDividends] = useState<RecentDividendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [panelMode, setPanelMode] = useState<"analytics" | "reports">("analytics")
@@ -111,10 +135,17 @@ export function InvestmentsPageBento() {
   const [numberOfShares, setNumberOfShares] = useState("")
   const [brokerageFee, setBrokerageFee] = useState("")
   const [date, setDate] = useState("")
+  const [dividendAccountId, setDividendAccountId] = useState("")
+  const [dividendSymbol, setDividendSymbol] = useState("")
+  const [dividendAmount, setDividendAmount] = useState("")
+  const [dividendDate, setDividendDate] = useState("")
+  const [submittingDividend, setSubmittingDividend] = useState(false)
   const [chartRange, setChartRange] = useState<"1W" | "3M" | "1Y" | "ALL">("3M")
 
   useEffect(() => {
-    setDate(new Date().toISOString().split("T")[0])
+    const d = new Date().toISOString().split("T")[0]
+    setDate(d)
+    setDividendDate(d)
   }, [])
 
   useEffect(() => {
@@ -126,16 +157,19 @@ export function InvestmentsPageBento() {
       setLoading(true)
       const t = Date.now()
       try {
-        const cached = peekCachedJson<{ accounts?: InvestmentAccountSummary[] }>(
+        const cached = peekCachedJson<InvestmentsApiPayload>(
           INVESTMENTS_CACHE_KEY,
           45_000,
         )
         if (cached?.accounts) {
           setAccounts(cached.accounts)
+          setDividendYtd(cached.dividendYtd ?? 0)
+          setDividendAllTime(cached.dividendAllTime ?? 0)
+          setRecentDividends(cached.recentDividends ?? [])
           setLoading(false)
         }
 
-        const data = await fetchJsonAndCache<{ accounts?: InvestmentAccountSummary[] }>(
+        const data = await fetchJsonAndCache<InvestmentsApiPayload>(
           INVESTMENTS_CACHE_KEY,
           `/api/investments?t=${t}`,
         )
@@ -143,10 +177,16 @@ export function InvestmentsPageBento() {
         if (cancelled) return
 
         setAccounts(data.accounts || [])
+        setDividendYtd(data.dividendYtd ?? 0)
+        setDividendAllTime(data.dividendAllTime ?? 0)
+        setRecentDividends(data.recentDividends ?? [])
       } catch (e) {
         console.error("Investments load error:", e)
         if (!cancelled) {
           setAccounts([])
+          setDividendYtd(0)
+          setDividendAllTime(0)
+          setRecentDividends([])
         }
       } finally {
         if (!cancelled) {
@@ -216,13 +256,88 @@ export function InvestmentsPageBento() {
   const refetchAccounts = async () => {
     const t = Date.now()
     try {
-      const data = await fetchJsonAndCache<{ accounts?: InvestmentAccountSummary[] }>(
+      const data = await fetchJsonAndCache<InvestmentsApiPayload>(
         INVESTMENTS_CACHE_KEY,
         `/api/investments?t=${t}`,
       )
       setAccounts(data.accounts || [])
+      setDividendYtd(data.dividendYtd ?? 0)
+      setDividendAllTime(data.dividendAllTime ?? 0)
+      setRecentDividends(data.recentDividends ?? [])
     } catch {
       setAccounts([])
+      setDividendYtd(0)
+      setDividendAllTime(0)
+      setRecentDividends([])
+    }
+  }
+
+  const dividendSymbolOptions = useMemo(() => {
+    const s = new Set<string>()
+    for (const a of accounts) {
+      for (const h of a.holdings) {
+        const t = h.name.trim()
+        if (t) s.add(t)
+      }
+    }
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [accounts])
+
+  const handleDividendSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
+    if (!dividendAccountId) {
+      setMessage({ type: "error", text: "Select an investment account." })
+      return
+    }
+    const sym = dividendSymbol.trim()
+    if (!sym) {
+      setMessage({ type: "error", text: "Enter the stock or fund name (same as your holding)." })
+      return
+    }
+    const amt = parseFloat(dividendAmount)
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setMessage({ type: "error", text: "Enter a valid dividend amount." })
+      return
+    }
+    if (!dividendDate) {
+      setMessage({ type: "error", text: "Select the payment date." })
+      return
+    }
+    setSubmittingDividend(true)
+    try {
+      const res = await fetch("/api/investments/dividends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          investmentAccountId: dividendAccountId,
+          name: sym,
+          amount: amt,
+          date: dividendDate,
+        }),
+      })
+      const data = (await res.json()) as { error?: string }
+      if (!res.ok) {
+        setMessage({ type: "error", text: data.error || "Could not record dividend." })
+        return
+      }
+      setMessage({
+        type: "success",
+        text: "Dividend recorded. Cash updated; income logged (not allocated to budget) and visible on Statements.",
+      })
+      setDividendSymbol("")
+      setDividendAmount("")
+      setDividendDate(new Date().toISOString().split("T")[0])
+      invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+      invalidateCachedJson("statement:")
+      invalidateCachedJson(/^income:/)
+      invalidateCategoryTrackingAndDashboardCaches()
+      await refetchAccounts()
+      setDividendOpen(false)
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong while saving." })
+    } finally {
+      setSubmittingDividend(false)
     }
   }
 
@@ -258,36 +373,53 @@ export function InvestmentsPageBento() {
 
   const allocationBySymbol = useMemo(() => {
     const map = new Map<string, number>()
+    const divMap = new Map<string, number>()
     for (const h of allHoldings) {
       const k = h.name.trim().toUpperCase()
       map.set(k, (map.get(k) ?? 0) + h.totalAmount)
+      divMap.set(k, (divMap.get(k) ?? 0) + (h.dividendIncome ?? 0))
     }
     const rows = [...map.entries()]
-      .map(([symbol, amount]) => ({ symbol, amount }))
+      .map(([symbol, amount]) => ({
+        symbol,
+        amount,
+        dividends: divMap.get(symbol) ?? 0,
+      }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 8)
     const total = rows.reduce((s, r) => s + r.amount, 0)
     return { rows, total }
   }, [allHoldings])
 
-  const recentExecutions = useMemo(() => {
-    return accounts
-      .flatMap((acc) =>
-        acc.holdings.flatMap((h) =>
-          h.purchases.map((p) => ({
-            id: p.id,
-            date: p.date,
-            symbol: h.name,
-            account: acc.name,
-            amount: p.amount,
-            shares: p.numberOfShares,
-            price: p.pricePerUnit,
-          })),
-        ),
-      )
+  const recentActivity = useMemo(() => {
+    const buys = accounts.flatMap((acc) =>
+      acc.holdings.flatMap((h) =>
+        h.purchases.map((p) => ({
+          id: p.id,
+          date: p.date,
+          symbol: h.name,
+          account: acc.name,
+          amount: p.amount,
+          shares: p.numberOfShares,
+          price: p.pricePerUnit,
+          kind: "buy" as const,
+        })),
+      ),
+    )
+    const divs = recentDividends.map((d) => ({
+      id: d.id,
+      date: d.date,
+      symbol: d.name,
+      account: accounts.find((a) => a.id === d.accountId)?.name ?? "—",
+      amount: d.amount,
+      shares: null as number | null,
+      price: null as number | null,
+      kind: "dividend" as const,
+    }))
+    return [...buys, ...divs]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 14)
-  }, [accounts])
+      .slice(0, 20)
+  }, [accounts, recentDividends])
 
   const holdingsWithSymbols = useMemo(() => {
     const out: Array<InvestmentHolding & { symbol: string }> = []
@@ -660,6 +792,17 @@ export function InvestmentsPageBento() {
               )}
             </div>
             <p className="mt-2 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+              Dividend income (YTD){" "}
+              <span className="font-semibold" style={{ color: TOKENS.primary }}>
+                {formatCurrency(dividendYtd)}
+              </span>
+              {dividendAllTime > dividendYtd ? (
+                <span className="ml-2 opacity-80">
+                  · all-time {formatCurrency(dividendAllTime)}
+                </span>
+              ) : null}
+            </p>
+            <p className="mt-1 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
               Last market refresh{" "}
               {lastUpdated
                 ? lastUpdated.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
@@ -667,6 +810,23 @@ export function InvestmentsPageBento() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMessage(null)
+                setDividendAccountId(accounts[0]?.id ?? "")
+                setDividendOpen(true)
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em]"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: TOKENS.secondary,
+                background: TOKENS.surfaceHigh,
+              }}
+            >
+              <Banknote className="h-4 w-4" />
+              Log dividend
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -687,7 +847,7 @@ export function InvestmentsPageBento() {
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div
           className="rounded-xl border p-4"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
@@ -719,6 +879,26 @@ export function InvestmentsPageBento() {
               decimalEm={0.45}
             />
           </div>
+        </div>
+        <div
+          className="rounded-xl border p-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Dividend income (YTD)
+          </p>
+          <div className="mt-2">
+            <MajorFigureCurrency
+              amount={dividendYtd}
+              variant="prosperity"
+              colorDecimal={TOKENS.primary}
+              className="text-xl font-bold! sm:text-2xl!"
+              decimalEm={0.45}
+            />
+          </div>
+          <p className="mt-1.5 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Cash credited to brokerage accounts
+          </p>
         </div>
         <div
           className="rounded-xl border p-4"
@@ -1115,6 +1295,11 @@ export function InvestmentsPageBento() {
                         <span style={{ color: TOKENS.onSurfaceMuted }}>({pct.toFixed(0)}%)</span>
                       </span>
                     </div>
+                    {row.dividends > 0 ? (
+                      <p className="mt-0.5 text-[10px] tabular-nums" style={{ color: TOKENS.primary }}>
+                        Dividends received {formatCurrency(row.dividends)}
+                      </p>
+                    ) : null}
                     <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
                       <div
                         className="h-full rounded-full"
@@ -1143,7 +1328,7 @@ export function InvestmentsPageBento() {
             Recent activity
           </p>
           <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Buys and adds across your investment accounts
+            Buys and dividend payments across your investment accounts
           </p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left text-xs">
@@ -1158,7 +1343,7 @@ export function InvestmentsPageBento() {
                 </tr>
               </thead>
               <tbody>
-                {recentExecutions
+                {recentActivity
                   .filter((r) => {
                     const q = searchQuery.trim().toLowerCase()
                     if (!q) return true
@@ -1169,21 +1354,38 @@ export function InvestmentsPageBento() {
                   })
                   .slice(0, 12)
                   .map((row) => (
-                    <tr key={row.id} style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}>
+                    <tr key={`${row.kind}-${row.id}`} style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}>
                       <td className="px-2 py-2.5">
                         <span className="font-semibold" style={{ color: TOKENS.onSurface }}>{row.symbol}</span>
                         <span className="ml-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>{formatDateShort(row.date)}</span>
                       </td>
-                      <td className="px-2 py-2.5 font-semibold uppercase tracking-wide" style={{ color: TOKENS.secondary }}>Buy</td>
+                      <td
+                        className="px-2 py-2.5 font-semibold uppercase tracking-wide"
+                        style={{ color: row.kind === "dividend" ? TOKENS.primary : TOKENS.secondary }}
+                      >
+                        {row.kind === "dividend" ? "Dividend" : "Buy"}
+                      </td>
                       <td className="px-2 py-2.5 font-mono text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>{row.id.slice(0, 8)}…</td>
                       <td className="px-2 py-2.5" style={{ color: TOKENS.onSurface }}>{row.account}</td>
-                      <td className="px-2 py-2.5 text-right font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                      <td
+                        className="px-2 py-2.5 text-right font-semibold tabular-nums"
+                        style={{ color: row.kind === "dividend" ? TOKENS.primary : TOKENS.onSurface }}
+                      >
+                        {row.kind === "dividend" ? "+" : ""}
                         {formatCurrency(row.amount)}
                       </td>
                       <td className="px-2 py-2.5 text-right">
                         <span className="inline-flex items-center justify-end gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: TOKENS.primary }} />
-                          <span className="font-semibold uppercase tracking-wide" style={{ color: TOKENS.primary }}>Executed</span>
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ background: row.kind === "dividend" ? TOKENS.secondary : TOKENS.primary }}
+                          />
+                          <span
+                            className="font-semibold uppercase tracking-wide"
+                            style={{ color: row.kind === "dividend" ? TOKENS.secondary : TOKENS.primary }}
+                          >
+                            {row.kind === "dividend" ? "Credited" : "Executed"}
+                          </span>
                         </span>
                       </td>
                     </tr>
@@ -1192,7 +1394,7 @@ export function InvestmentsPageBento() {
             </table>
           </div>
           <p className="mt-4 text-center text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Showing the 12 most recent purchases. Use search to narrow the list.
+            Showing the 12 most recent buys and dividends. Use search to narrow the list.
           </p>
         </section>
       )}
@@ -1218,6 +1420,11 @@ export function InvestmentsPageBento() {
                   <div className="text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>Cash</p>
                     <p className="text-sm font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>{formatCurrency(acc.balance)}</p>
+                    {(acc.dividendIncomeTotal ?? 0) > 0 ? (
+                      <p className="mt-1 text-[10px] tabular-nums" style={{ color: TOKENS.primary }}>
+                        Dividends (all-time) {formatCurrency(acc.dividendIncomeTotal ?? 0)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1272,6 +1479,11 @@ export function InvestmentsPageBento() {
                             <p className="text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
                               Last {formatDateShort(h.lastPurchaseDate)}
                             </p>
+                            {(h.dividendIncome ?? 0) > 0 ? (
+                              <p className="text-[10px] tabular-nums" style={{ color: TOKENS.primary }}>
+                                Dividends received {formatCurrency(h.dividendIncome ?? 0)}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </li>
@@ -1526,6 +1738,146 @@ export function InvestmentsPageBento() {
               >
                 <Plus className="h-4 w-4" />
                 {submitting ? "Saving…" : "Create investment"}
+              </button>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dividendOpen} onOpenChange={setDividendOpen}>
+        <DialogContent
+          className="relative max-h-[90vh] overflow-y-auto border p-0 shadow-2xl"
+          style={{
+            background: TOKENS.surfaceContainer,
+            borderColor: TOKENS.outlineGhost,
+            boxShadow:
+              "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)",
+          }}
+        >
+          <DialogClose onClose={() => setDividendOpen(false)} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>
+                Record dividend income
+              </DialogTitle>
+              <DialogDescription
+                className="text-sm leading-relaxed"
+                style={{ color: TOKENS.onSurfaceMuted }}
+              >
+                Cash dividends are credited to the selected brokerage account. Enter the same ticker or name you use for the position (e.g. AAPL).
+              </DialogDescription>
+            </DialogHeader>
+
+            <form className="mt-6 space-y-5" onSubmit={handleDividendSubmit}>
+              {message ? (
+                <div
+                  className="rounded-xl border px-3 py-2 text-xs"
+                  style={{
+                    borderColor: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
+                    color: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
+                    background: TOKENS.surfaceLow,
+                  }}
+                >
+                  {message.text}
+                </div>
+              ) : null}
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Investment account *
+                </label>
+                <AppSelect
+                  value={dividendAccountId}
+                  onValueChange={setDividendAccountId}
+                  required
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  placeholder="Select account"
+                  options={[
+                    { value: "", label: "Select investment account" },
+                    ...accounts.map((acc) => ({
+                      value: acc.id,
+                      label: `${acc.name} (${acc.bankName}) · Cash ${formatCurrency(acc.balance)}`,
+                    })),
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Stock / fund (ticker) *
+                </label>
+                <Input
+                  value={dividendSymbol}
+                  onChange={(e) => setDividendSymbol(e.target.value)}
+                  placeholder="e.g. AAPL"
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  list="dividend-symbol-suggestions"
+                  autoComplete="off"
+                  required
+                />
+                <datalist id="dividend-symbol-suggestions">
+                  {dividendSymbolOptions.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Dividend amount *
+                </label>
+                <Input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={dividendAmount}
+                  onChange={(e) => setDividendAmount(e.target.value)}
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Payment date *
+                </label>
+                <DateInput
+                  value={dividendDate}
+                  onChange={(e) => setDividendDate(e.target.value)}
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingDividend}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-50"
+                style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
+              >
+                <Banknote className="h-4 w-4" />
+                {submittingDividend ? "Saving…" : "Record dividend"}
               </button>
             </form>
           </div>

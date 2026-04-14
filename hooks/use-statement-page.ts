@@ -13,6 +13,7 @@ type IncomeEntry = {
   date: string
   accountId: string | null
   account: { id: string; name: string; bankName: string } | null
+  excludeFromAllocation?: boolean
 }
 
 type Expense = {
@@ -73,6 +74,8 @@ export type StatementTransaction = {
   account?: { id: string; name: string; bankName: string }
   fromAccount?: { id: string; name: string; bankName: string }
   toAccount?: { id: string; name: string; bankName: string }
+  /** Income only: false when excluded from budget allocation (e.g. dividends). */
+  excludeFromAllocation?: boolean
 }
 
 type StatementSummary = {
@@ -289,6 +292,7 @@ export function useStatementPage(
         description: entry.description || "Income",
         category: null,
         account: entry.account ?? undefined,
+        excludeFromAllocation: entry.excludeFromAllocation === true,
       })
     }
 

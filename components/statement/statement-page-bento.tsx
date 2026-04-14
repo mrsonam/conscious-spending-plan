@@ -125,6 +125,7 @@ export function StatementPageBento({
         "Amount",
         "Description",
         "Category",
+        "Budget allocation",
         "Account",
         "From Account",
         "To Account",
@@ -146,12 +147,19 @@ export function StatementPageBento({
             ? `${t.fromAccount.name} (${t.fromAccount.bankName})`
             : ""
           const to = t.toAccount ? `${t.toAccount.name} (${t.toAccount.bankName})` : ""
+          const budgetAllocation =
+            t.type === "income"
+              ? t.excludeFromAllocation
+                ? "No (excluded)"
+                : "Yes"
+              : ""
           return [
             csvEscape(formatDateShort(t.date)),
             csvEscape(txTypeLabel(t.type)),
             csvEscape(amount),
             csvEscape(t.description ?? ""),
             csvEscape(t.category ?? ""),
+            csvEscape(budgetAllocation),
             csvEscape(account),
             csvEscape(from),
             csvEscape(to),
@@ -576,6 +584,18 @@ export function StatementPageBento({
                         >
                           {txTypeLabel(t.type)}
                         </span>
+                        {t.type === "income" && t.excludeFromAllocation ? (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                            style={{
+                              background: TOKENS.surfaceHigh,
+                              color: TOKENS.onSurfaceMuted,
+                              border: `1px solid ${TOKENS.outlineGhost}`,
+                            }}
+                          >
+                            Not allocated
+                          </span>
+                        ) : null}
                         {meta ? (
                           <span
                             className="text-xs"

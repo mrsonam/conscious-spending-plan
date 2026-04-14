@@ -29,6 +29,7 @@ model User {
   categoryBalances CategoryBalance[]
   categoryTransactions CategoryTransaction[]
   investmentHoldings InvestmentHolding[]
+  investmentDividends InvestmentDividend[]
   categoryMonthClosings CategoryMonthClosing[]
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
@@ -81,6 +82,9 @@ model IncomeEntry {
   allocationInvestment       Float?
   allocationGuiltFreeSpending Float?
 
+  /// When set, this row was created for an investment dividend (one-to-one).
+  investmentDividend InvestmentDividend?
+
   @@index([userId])
   @@index([accountId])
 }
@@ -103,6 +107,7 @@ model Account {
   recurringExpenses RecurringExpense[]
   incomeEntries IncomeEntry[]
   investmentHoldings InvestmentHolding[]
+  investmentDividends InvestmentDividend[]
   loans         Loan[]
   borrowedLoans BorrowedLoan[]
   
@@ -231,6 +236,26 @@ model InvestmentHolding {
   brokerageFee  Float?   // Optional brokerage / transaction fee for this purchase
   date          DateTime @default(now())
   createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([userId, name])
+}
+
+/// Cash dividend received on a stock / fund — credited to the investment account balance.
+model InvestmentDividend {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String   // Symbol / ticker (matches InvestmentHolding.name for the same line)
+  amount    Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  /// Mirrors this dividend on the income ledger (statement); cascades when income row is deleted.
+  incomeEntryId String?   @unique
+  incomeEntry   IncomeEntry? @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([accountId])

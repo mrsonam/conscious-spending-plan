@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Activity, BarChart3, FileText, Plus, RefreshCw, Search } from "lucide-react"
+import { Activity, Banknote, BarChart3, FileText, Plus, RefreshCw, Search } from "lucide-react"
 import {
   ScrambleCurrencyValue,
   ScrambleIntegerValue,
@@ -54,10 +54,33 @@ export function InvestmentsPageBentoLoading() {
               </span>
             </div>
             <p className="mt-2 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+              Dividend income (YTD){" "}
+              <ScrambleCurrencyValue
+                variant="prosperity"
+                min={0}
+                max={4200}
+                colorMain={TOKENS.primary}
+                className="inline text-[11px] font-semibold"
+              />
+            </p>
+            <p className="mt-1 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
               Last market refresh — syncing quotes
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled
+              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] opacity-50"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: TOKENS.secondary,
+                background: TOKENS.surfaceHigh,
+              }}
+            >
+              <Banknote className="h-4 w-4" />
+              Log dividend
+            </button>
             <button
               type="button"
               disabled
@@ -75,9 +98,10 @@ export function InvestmentsPageBentoLoading() {
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatBlock label="Invested" variant="income" />
         <StatBlock label="Available cash" variant="neutral" />
+        <StatBlock label="Dividend income (YTD)" variant="prosperity" subtitle="Cash credited to brokerage" />
         <StatBlock label="Profit / loss" variant="prosperity" />
       </div>
 
@@ -335,10 +359,13 @@ function MajorFigureScrambleHero() {
 function StatBlock({
   label,
   variant,
+  subtitle,
 }: {
   label: string
   variant: "income" | "neutral" | "prosperity"
+  subtitle?: string
 }) {
+  const isDividend = label.includes("Dividend")
   return (
     <div
       className="rounded-xl border p-4"
@@ -350,12 +377,18 @@ function StatBlock({
       <div className="mt-2">
         <ScrambleCurrencyValue
           variant={variant}
-          min={variant === "neutral" ? 1200 : 4000}
-          max={variant === "neutral" ? 48000 : 120000}
+          min={variant === "neutral" ? 1200 : isDividend ? 0 : 4000}
+          max={variant === "neutral" ? 48000 : isDividend ? 8000 : 120000}
+          colorDecimal={isDividend ? TOKENS.primary : undefined}
           className="text-xl font-bold! sm:text-2xl!"
           decimalEm={0.45}
         />
       </div>
+      {subtitle ? (
+        <p className="mt-1.5 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+          {subtitle}
+        </p>
+      ) : null}
       {label === "Profit / loss" ? (
         <p className="mt-1.5 text-[11px] tabular-nums" style={{ color: TOKENS.primary }}>
           <ScramblePercentValue
