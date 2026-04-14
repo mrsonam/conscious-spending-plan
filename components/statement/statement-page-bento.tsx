@@ -5,6 +5,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
+import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import type { StatementTransaction, StatementAccount } from "@/hooks/use-statement-page"
@@ -42,11 +43,14 @@ function txTypeLabel(t: StatementTransaction["type"]) {
   return "Investment"
 }
 
+/** Statement row pill for expense transactions — red on dark shell (parity with classic red-50/red-700). */
+const EXPENSE_TYPE_TAG_FG = "#f87171"
+
 function txTypeTagStyle(t: StatementTransaction["type"]) {
   if (t === "expense") {
     return {
-      bg: `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 10%, ${TOKENS.surfaceHigh})`,
-      fg: TOKENS.onSurfaceMuted,
+      bg: `color-mix(in srgb, ${EXPENSE_TYPE_TAG_FG} 18%, ${TOKENS.surfaceHigh})`,
+      fg: EXPENSE_TYPE_TAG_FG,
     }
   }
   if (t === "income") {
@@ -65,6 +69,7 @@ export function StatementPageBento({
   accounts,
   transactions,
   totals,
+  totalRows,
   loadingSummary,
   loadingTransactions,
   filterStartDate,
@@ -83,6 +88,7 @@ export function StatementPageBento({
     investments: number
     net: number
   }
+  totalRows: number
   loadingSummary: boolean
   loadingTransactions: boolean
   filterStartDate: string
@@ -170,7 +176,7 @@ export function StatementPageBento({
     [],
   )
 
-  const totalRows = transactions.length
+  const visibleRows = loadingTransactions ? totalRows : transactions.length
   const pagedTransactions = useMemo(() => {
     const startIdx = (page - 1) * CONSOLE_TABLE_PAGE_SIZE
     return transactions.slice(startIdx, startIdx + CONSOLE_TABLE_PAGE_SIZE)
@@ -189,12 +195,22 @@ export function StatementPageBento({
             </p>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
               <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
-                <MajorFigureCurrency
-                  amount={Math.abs(totals.net)}
-                  variant={totals.net >= 0 ? "prosperity" : "loss"}
-                  className="font-black!"
-                  decimalEm={0.45}
-                />
+                {loadingSummary ? (
+                  <ScrambleCurrencyValue
+                    variant={totals.net >= 0 ? "prosperity" : "loss"}
+                    min={400}
+                    max={22000}
+                    className="font-black!"
+                    decimalEm={0.45}
+                  />
+                ) : (
+                  <MajorFigureCurrency
+                    amount={Math.abs(totals.net)}
+                    variant={totals.net >= 0 ? "prosperity" : "loss"}
+                    className="font-black!"
+                    decimalEm={0.45}
+                  />
+                )}
               </div>
               <div
                 className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
@@ -207,7 +223,7 @@ export function StatementPageBento({
                   boxShadow: CARD_INSET,
                 }}
               >
-                {totalRows} rows
+                {visibleRows} rows
               </div>
             </div>
 
@@ -264,7 +280,20 @@ export function StatementPageBento({
                   </div>
                   <div className="mt-3 text-lg font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
                     {loadingSummary ? (
-                      <div className="h-7 w-40 rounded-md" style={{ background: TOKENS.surfaceHigh }} />
+                      <ScrambleCurrencyValue
+                        min={card.label === "Total income" ? 1200 : 200}
+                        max={
+                          card.label === "Total income"
+                            ? 15000
+                            : card.label === "Total expenses"
+                              ? 9000
+                              : card.label === "Transfers"
+                                ? 7000
+                                : 6000
+                        }
+                        variant={card.variant}
+                        className="text-lg font-semibold!"
+                      />
                     ) : (
                       <MajorFigureCurrency
                         amount={card.value}
@@ -343,7 +372,7 @@ export function StatementPageBento({
               Transaction History
             </h3>
             <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-              {totalRows === 0
+              {visibleRows === 0
                 ? "No rows in this range"
                 : "Combined ledger across income, expenses, transfers, and investments"}
             </p>
@@ -483,7 +512,7 @@ export function StatementPageBento({
           </div>
         ) : (
           <div className="mt-5 space-y-2">
-            {totalRows === 0 ? (
+            {visibleRows === 0 ? (
               <div className="py-14 text-center">
                 <p className="text-base font-semibold" style={{ color: TOKENS.onSurface }}>
                   No rows in this range
@@ -578,11 +607,11 @@ export function StatementPageBento({
           </div>
         )}
 
-        {!loadingTransactions && totalRows > 0 && (
+        {!loadingTransactions && visibleRows > 0 && (
           <ConsolePaginationBar
             page={page}
             pageSize={CONSOLE_TABLE_PAGE_SIZE}
-            total={totalRows}
+            total={visibleRows}
             onPageChange={setPage}
           />
         )}
@@ -590,4 +619,3 @@ export function StatementPageBento({
     </>
   )
 }
-

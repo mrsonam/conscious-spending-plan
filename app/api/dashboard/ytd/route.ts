@@ -42,12 +42,19 @@ export async function GET() {
     const totalExpenses = expenseAgg._sum.amount ?? 0
     const totalInvested = investedAgg._sum.amount ?? 0
 
-    return NextResponse.json({
-      year,
-      totalIncome,
-      totalExpenses,
-      totalInvested,
-    })
+    return NextResponse.json(
+      {
+        year,
+        totalIncome,
+        totalExpenses,
+        totalInvested,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching YTD summary:", error)
     return NextResponse.json(

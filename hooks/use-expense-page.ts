@@ -5,6 +5,12 @@ import {
   EXPENSE_CATEGORIES,
   FUND_CATEGORIES,
 } from "@/lib/expense-page-constants"
+import {
+  fetchJsonAndCache,
+  invalidateCachedJson,
+  invalidateCategoryTrackingAndDashboardCaches,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 import type {
   ExpenseEntry,
   ExpenseMessage,
@@ -14,6 +20,27 @@ import type {
 } from "@/lib/expense-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 
+const EMPTY_EXPENSE_STATS: ExpensePageStats = {
+  currentMonthTotal: 0,
+  ytdTotal: 0,
+  monthOverMonthPct: null,
+  lastMonthExpenses: 0,
+  fundBreakdownCurrentMonth: {
+    fixedCosts: 0,
+    investment: 0,
+    savings: 0,
+    guiltFreeSpending: 0,
+  },
+  subcategoryInsights: {
+    totalClassified: 0,
+    unclassifiedAmount: 0,
+    topSharePct: 0,
+    topThreeSharePct: 0,
+    averageEntryAmount: 0,
+    topCategories: [],
+  },
+}
+
 export function useExpensePage(
   status: string,
   router: { push: (path: string) => void },
@@ -22,20 +49,10 @@ export function useExpensePage(
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([])
   const [expensesTotal, setExpensesTotal] = useState(0)
   const [expensesPage, setExpensesPage] = useState(1)
-  const [expenseStats, setExpenseStats] = useState<ExpensePageStats>({
-    currentMonthTotal: 0,
-    ytdTotal: 0,
-    monthOverMonthPct: null,
-    lastMonthExpenses: 0,
-    fundBreakdownCurrentMonth: {
-      fixedCosts: 0,
-      investment: 0,
-      savings: 0,
-      guiltFreeSpending: 0,
-    },
-  })
+  const [expenseStats, setExpenseStats] = useState<ExpensePageStats>(EMPTY_EXPENSE_STATS)
   const [loadingAccounts, setLoadingAccounts] = useState(true)
-  const [loadingExpenses, setLoadingExpenses] = useState(true)
+  const [loadingSummary, setLoadingSummary] = useState(true)
+  const [loadingExpenses, setLoadingExpenses] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [message, setMessage] = useState<ExpenseMessage>(null)
 
@@ -57,6 +74,8 @@ export function useExpensePage(
 
   const [recurring, setRecurring] = useState<RecurringExpense[]>([])
   const [loadingRecurring, setLoadingRecurring] = useState(false)
+  const [hasLoadedExpenses, setHasLoadedExpenses] = useState(false)
+  const [hasLoadedRecurring, setHasLoadedRecurring] = useState(false)
   const [showRecurringForm, setShowRecurringForm] = useState(false)
   const [loggingRecurringId, setLoggingRecurringId] = useState<string | null>(
     null,
@@ -108,22 +127,48 @@ export function useExpensePage(
             savings: 0,
             guiltFreeSpending: 0,
           },
+        subcategoryInsights:
+          (data.subcategoryInsights as ExpensePageStats["subcategoryInsights"]) ??
+          {
+            totalClassified: 0,
+            unclassifiedAmount: 0,
+            topSharePct: 0,
+            topThreeSharePct: 0,
+            averageEntryAmount: 0,
+            topCategories: [],
+          },
       })
     }
   }, [])
 
-  const fetchAccounts = useCallback(async () => {
-    setLoadingAccounts(true)
+  const fetchAccounts = useCallback(async (force = false) => {
+    const cacheKey = "accounts"
+    const cached = !force
+      ? peekCachedJson<{ accounts: ExpensePageAccount[] }>(cacheKey, 60_000)
+      : undefined
+
+    if (cached) {
+      const list = cached.accounts || []
+      setAccounts(list)
+      if (list.length > 0) {
+        const defaultAccount = list.find((acc) => acc.isDefault)
+        setAccountId((prev) => prev || defaultAccount?.id || list[0].id)
+      }
+      setLoadingAccounts(false)
+    } else {
+      setLoadingAccounts(true)
+    }
+
     try {
-      const response = await fetch("/api/accounts")
-      if (response.ok) {
-        const data = await response.json()
-        const list = (data.accounts || []) as ExpensePageAccount[]
-        setAccounts(list)
-        if (list.length > 0) {
-          const defaultAccount = list.find((acc) => acc.isDefault)
-          setAccountId((prev) => prev || defaultAccount?.id || list[0].id)
-        }
+      const data = await fetchJsonAndCache<{ accounts: ExpensePageAccount[] }>(
+        cacheKey,
+        "/api/accounts",
+      )
+      const list = (data.accounts || []) as ExpensePageAccount[]
+      setAccounts(list)
+      if (list.length > 0) {
+        const defaultAccount = list.find((acc) => acc.isDefault)
+        setAccountId((prev) => prev || defaultAccount?.id || list[0].id)
       }
     } catch (error) {
       console.error("Error fetching accounts:", error)
@@ -132,9 +177,34 @@ export function useExpensePage(
     }
   }, [])
 
+  const fetchExpenseSummary = useCallback(async (force = false) => {
+    const cacheKey = "expenses-summary"
+    const cached = !force
+      ? peekCachedJson<ExpensePageStats>(cacheKey, 45_000)
+      : undefined
+
+    if (cached) {
+      setExpenseStats(cached)
+      setLoadingSummary(false)
+    } else {
+      setLoadingSummary(true)
+    }
+
+    try {
+      const data = await fetchJsonAndCache<ExpensePageStats>(
+        cacheKey,
+        "/api/expenses/summary",
+      )
+      setExpenseStats(data)
+    } catch (error) {
+      console.error("Error fetching expense summary:", error)
+    } finally {
+      setLoadingSummary(false)
+    }
+  }, [])
+
   const fetchExpenses = useCallback(
-    async (page: number = 1) => {
-      setLoadingExpenses(true)
+    async (page: number = 1, force = false) => {
       try {
         const params = new URLSearchParams()
         if (filterStartDate) params.append("startDate", filterStartDate)
@@ -145,12 +215,27 @@ export function useExpensePage(
         if (filterAccountId) params.append("accountId", filterAccountId)
         params.set("page", String(page))
         params.set("limit", String(CONSOLE_TABLE_PAGE_SIZE))
+        params.set("includeSummary", "false")
 
-        const response = await fetch(`/api/expenses?${params.toString()}`)
-        if (response.ok) {
-          const data = (await response.json()) as Record<string, unknown>
-          applyExpenseListPayload(data)
+        const cacheKey = `expenses:${params.toString()}`
+        const cached = !force
+          ? peekCachedJson<Record<string, unknown>>(cacheKey, 30_000)
+          : undefined
+
+        if (cached) {
+          applyExpenseListPayload(cached)
+          setHasLoadedExpenses(true)
+          setLoadingExpenses(false)
+        } else {
+          setLoadingExpenses(true)
         }
+
+        const data = await fetchJsonAndCache<Record<string, unknown>>(
+          cacheKey,
+          `/api/expenses?${params.toString()}`,
+        )
+        applyExpenseListPayload(data)
+        setHasLoadedExpenses(true)
       } catch (error) {
         console.error("Error fetching expenses:", error)
       } finally {
@@ -167,14 +252,27 @@ export function useExpensePage(
     ],
   )
 
-  const fetchRecurring = useCallback(async () => {
-    setLoadingRecurring(true)
+  const fetchRecurring = useCallback(async (force = false) => {
+    const cacheKey = "recurring-expenses"
+    const cached = !force
+      ? peekCachedJson<{ recurring: RecurringExpense[] }>(cacheKey, 60_000)
+      : undefined
+
+    if (cached) {
+      setRecurring((cached.recurring || []) as RecurringExpense[])
+      setHasLoadedRecurring(true)
+      setLoadingRecurring(false)
+    } else {
+      setLoadingRecurring(true)
+    }
+
     try {
-      const res = await fetch("/api/recurring-expenses")
-      if (res.ok) {
-        const data = await res.json()
-        setRecurring((data.recurring || []) as RecurringExpense[])
-      }
+      const data = await fetchJsonAndCache<{ recurring: RecurringExpense[] }>(
+        cacheKey,
+        "/api/recurring-expenses",
+      )
+      setRecurring((data.recurring || []) as RecurringExpense[])
+      setHasLoadedRecurring(true)
     } catch (e) {
       console.error(e)
     } finally {
@@ -186,25 +284,46 @@ export function useExpensePage(
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
-      const init = async () => {
+      void fetchAccounts()
+      void fetchExpenseSummary()
+
+      const processDue = async () => {
         try {
           await fetch("/api/recurring-expenses/process-due", {
             method: "POST",
           })
+          invalidateCachedJson("accounts")
+          invalidateCachedJson("expenses-summary")
+          invalidateCachedJson("expenses:")
+          invalidateCachedJson("recurring-expenses")
+          invalidateCategoryTrackingAndDashboardCaches()
+          void fetchAccounts(true)
+          void fetchExpenseSummary(true)
+          if (hasLoadedExpenses) {
+            void fetchExpenses(1, true)
+          }
+          if (hasLoadedRecurring) {
+            void fetchRecurring(true)
+          }
         } catch (error) {
           console.error("Error auto-logging recurring expenses:", error)
-        } finally {
-          void fetchAccounts()
-          void fetchExpenses(1)
-          void fetchRecurring()
         }
       }
-      void init()
+      void processDue()
     }
-  }, [status, router, fetchAccounts, fetchExpenses, fetchRecurring])
+  }, [
+    status,
+    router,
+    fetchAccounts,
+    fetchExpenseSummary,
+    fetchExpenses,
+    fetchRecurring,
+    hasLoadedExpenses,
+    hasLoadedRecurring,
+  ])
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === "authenticated" && hasLoadedExpenses) {
       setExpensesPage(1)
       void fetchExpenses(1)
     }
@@ -215,8 +334,19 @@ export function useExpensePage(
     filterExpenseCategory,
     filterAccountId,
     status,
+    hasLoadedExpenses,
     fetchExpenses,
   ])
+
+  const ensureExpensesLoaded = useCallback(async () => {
+    if (hasLoadedExpenses) return
+    await fetchExpenses(1)
+  }, [fetchExpenses, hasLoadedExpenses])
+
+  const ensureRecurringLoaded = useCallback(async () => {
+    if (hasLoadedRecurring) return
+    await fetchRecurring()
+  }, [fetchRecurring, hasLoadedRecurring])
 
   const handleAddRecurring = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,8 +417,19 @@ export function useExpensePage(
       const data = await res.json()
       if (res.ok) {
         setMessage({ type: "success", text: "Expense logged for today." })
-        void fetchAccounts()
-        void fetchExpenses(1)
+        invalidateCachedJson("accounts")
+        invalidateCachedJson("expenses-summary")
+        invalidateCachedJson("expenses:")
+        invalidateCachedJson("recurring-expenses")
+        invalidateCategoryTrackingAndDashboardCaches()
+        void fetchAccounts(true)
+        void fetchExpenseSummary(true)
+        if (hasLoadedExpenses) {
+          void fetchExpenses(1, true)
+        }
+        if (hasLoadedRecurring) {
+          void fetchRecurring(true)
+        }
       } else {
         setMessage({
           type: "error",
@@ -316,6 +457,9 @@ export function useExpensePage(
       if (res.ok) {
         setMessage({ type: "success", text: "Recurring expense removed." })
         setRecurring((prev) => prev.filter((r) => r.id !== recurringDeleteId))
+        invalidateCachedJson("recurring-expenses")
+        invalidateCachedJson("expenses-summary")
+        invalidateCategoryTrackingAndDashboardCaches()
       } else {
         const data = await res.json()
         setMessage({ type: "error", text: data.error || "Failed to delete." })
@@ -376,8 +520,15 @@ export function useExpensePage(
         setFundCategory("")
         setExpenseCategory("")
         setShowAddForm(false)
-        void fetchExpenses(1)
-        void fetchAccounts()
+        invalidateCachedJson("accounts")
+        invalidateCachedJson("expenses-summary")
+        invalidateCachedJson("expenses:")
+        invalidateCategoryTrackingAndDashboardCaches()
+        void fetchExpenseSummary(true)
+        void fetchAccounts(true)
+        if (hasLoadedExpenses) {
+          void fetchExpenses(1, true)
+        }
         return true
       }
       setMessage({ type: "error", text: data.error || "Failed to log expense" })
@@ -504,8 +655,15 @@ export function useExpensePage(
         })
         setBulkText("")
         setShowBulkForm(false)
-        void fetchExpenses(1)
-        void fetchAccounts()
+        invalidateCachedJson("accounts")
+        invalidateCachedJson("expenses-summary")
+        invalidateCachedJson("expenses:")
+        invalidateCategoryTrackingAndDashboardCaches()
+        void fetchExpenseSummary(true)
+        void fetchAccounts(true)
+        if (hasLoadedExpenses) {
+          void fetchExpenses(1, true)
+        }
       } else {
         setMessage({ type: "error", text: data.error || "Bulk add failed" })
       }
@@ -531,12 +689,19 @@ export function useExpensePage(
 
       if (response.ok) {
         setMessage({ type: "success", text: "Expense deleted successfully" })
+        invalidateCachedJson("accounts")
+        invalidateCachedJson("expenses-summary")
+        invalidateCachedJson("expenses:")
+        invalidateCategoryTrackingAndDashboardCaches()
         const nextPage =
           expenses.length <= 1 && expensesPage > 1
             ? expensesPage - 1
             : expensesPage
-        void fetchExpenses(nextPage)
-        void fetchAccounts()
+        void fetchExpenseSummary(true)
+        void fetchAccounts(true)
+        if (hasLoadedExpenses) {
+          void fetchExpenses(nextPage, true)
+        }
       } else {
         const data = await response.json()
         setMessage({
@@ -573,6 +738,7 @@ export function useExpensePage(
     expensesLimit: CONSOLE_TABLE_PAGE_SIZE,
     expenseStats,
     loadingAccounts,
+    loadingSummary,
     loadingExpenses,
     showAddForm,
     setShowAddForm,
@@ -640,9 +806,14 @@ export function useExpensePage(
     showDeleteConfirm,
     setShowDeleteConfirm,
     expenseToDelete,
+    hasLoadedExpenses,
+    hasLoadedRecurring,
     fetchAccounts,
+    fetchExpenseSummary,
     fetchExpenses,
     fetchRecurring,
+    ensureExpensesLoaded,
+    ensureRecurringLoaded,
     handleAddRecurring,
     handleLogRecurring,
     handleDeleteRecurring,

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Header } from "@/components/layout/header"
 import {
   AlertTriangle,
@@ -164,6 +164,7 @@ function SegmentedPillarBar({
     )
   }
   const pct = (v: number) => `${Math.max(0, (v / total) * 100)}%`
+
   return (
     <div className="flex h-4 w-full gap-px overflow-hidden rounded-lg">
       {fixedCosts > 0 && (
@@ -303,6 +304,7 @@ function DetailCard({
 }) {
   const isHero = size === "hero"
   const isCompact = size === "compact"
+
   return (
     <div
       className={`rounded-xl ${isHero ? "p-6 sm:p-7" : isCompact ? "p-4 sm:p-5" : "p-5"}`}
@@ -376,6 +378,235 @@ function DetailCard({
             </div>
           ))
         )}
+      </div>
+    </div>
+  )
+}
+
+function SkeletonBlock({
+  className = "",
+  style,
+}: {
+  className?: string
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      aria-hidden
+      className={`animate-pulse rounded-md ${className}`}
+      style={{ background: TOKENS.surfaceLow, ...style }}
+    />
+  )
+}
+
+function useScrambleNumber({
+  min,
+  max,
+  intervalMs = 90,
+}: {
+  min: number
+  max: number
+  intervalMs?: number
+}) {
+  const [displayValue, setDisplayValue] = useState(min)
+
+  useEffect(() => {
+    const updateValue = () => {
+      setDisplayValue(min + Math.random() * (max - min))
+    }
+
+    updateValue()
+    const timer = window.setInterval(updateValue, intervalMs)
+
+    return () => window.clearInterval(timer)
+  }, [intervalMs, max, min])
+
+  return displayValue
+}
+
+function ScrambleCurrencyValue({
+  variant = "neutral",
+  min = 1500,
+  max = 12000,
+  className,
+  colorMain,
+  colorDecimal,
+}: {
+  variant?: "income" | "neutral" | "prosperity" | "loss"
+  min?: number
+  max?: number
+  className?: string
+  colorMain?: string
+  colorDecimal?: string
+}) {
+  const displayValue = useScrambleNumber({ min, max })
+
+  return (
+    <span aria-hidden className={className}>
+      <MajorFigureCurrency
+        amount={displayValue}
+        variant={variant}
+        colorMain={colorMain}
+        colorDecimal={colorDecimal}
+      />
+    </span>
+  )
+}
+
+function ScramblePercentValue({
+  className,
+  color,
+}: {
+  className?: string
+  color?: string
+}) {
+  const value = useScrambleNumber({ min: 12, max: 96 })
+
+  return (
+    <span
+      aria-hidden
+      className={className}
+      style={{ color }}
+    >
+      {value.toFixed(0)}
+      <span
+        className="ml-0.5 text-xl font-bold"
+        style={{ color: TOKENS.onSurfaceMuted }}
+      >
+        %
+      </span>
+    </span>
+  )
+}
+
+function ScrambleIntegerValue({
+  className,
+  color,
+  min = 3,
+  max = 28,
+}: {
+  className?: string
+  color?: string
+  min?: number
+  max?: number
+}) {
+  const value = useScrambleNumber({ min, max })
+
+  return (
+    <span aria-hidden className={className} style={{ color }}>
+      {value.toFixed(0)}
+    </span>
+  )
+}
+
+function PillarAllocationLoading() {
+  const fixedCosts = useScrambleNumber({ min: 900, max: 2400 })
+  const savings = useScrambleNumber({ min: 300, max: 1400 })
+  const investment = useScrambleNumber({ min: 200, max: 1200 })
+  const guiltFree = useScrambleNumber({ min: 250, max: 1600 })
+  const total = fixedCosts + savings + investment + guiltFree
+
+  return (
+    <div className="mt-6">
+      <SegmentedPillarBar
+        fixedCosts={fixedCosts}
+        savings={savings}
+        investment={investment}
+        guiltFree={guiltFree}
+      />
+      <PillarLegend
+        total={total}
+        items={[
+          {
+            label: "Fixed Costs",
+            shortLabel: "Fixed",
+            amount: fixedCosts,
+            color: TOKENS.secondary,
+          },
+          {
+            label: "Savings",
+            shortLabel: "Savings",
+            amount: savings,
+            color: TOKENS.primary,
+          },
+          {
+            label: "Investment",
+            shortLabel: "Invest",
+            amount: investment,
+            color: TOKENS.tertiary,
+          },
+          {
+            label: "Guilt-Free",
+            shortLabel: "Guilt-free",
+            amount: guiltFree,
+            color: TOKENS.primary,
+          },
+        ]}
+      />
+    </div>
+  )
+}
+
+function DetailCardSkeleton({
+  title,
+  icon: Icon,
+  accent,
+  size = "default",
+}: {
+  title: string
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  accent: string
+  size?: "default" | "hero" | "compact"
+}) {
+  const isHero = size === "hero"
+  const isCompact = size === "compact"
+
+  return (
+    <div
+      className={`rounded-xl ${isHero ? "p-6 sm:p-7" : isCompact ? "p-4 sm:p-5" : "p-5"}`}
+      style={{
+        background: TOKENS.surfaceContainer,
+        boxShadow: CARD_INSET,
+      }}
+    >
+      <div className={`flex items-start justify-between gap-3 ${isHero ? "mb-5" : "mb-4"}`}>
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={`flex shrink-0 items-center justify-center rounded-lg ${isHero ? "h-12 w-12" : isCompact ? "h-9 w-9" : "h-10 w-10"}`}
+            style={{ background: TOKENS.surfaceLow, color: accent }}
+          >
+            <Icon className={isHero ? "h-6 w-6" : isCompact ? "h-4 w-4" : "h-5 w-5"} />
+          </div>
+          <div className="min-w-0">
+            <p
+              className={`font-semibold uppercase tracking-wider ${isHero ? "text-[11px] tracking-[0.15em]" : "text-[10px]"}`}
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              {title}
+            </p>
+            <div
+              className={`tabular-nums tracking-tight ${isHero ? "mt-2 text-xl sm:text-2xl" : isCompact ? "mt-1 text-base" : "mt-1 text-lg"}`}
+            >
+              <ScrambleCurrencyValue
+                min={300}
+                max={3200}
+                className={isHero ? "" : isCompact ? "font-bold!" : "font-semibold!"}
+              />
+            </div>
+          </div>
+        </div>
+        <SkeletonBlock className="h-7 w-7 rounded-md" />
+      </div>
+      <div className={`space-y-2 ${isCompact ? "text-[13px]" : ""}`}>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-[1fr_auto] gap-3 text-sm leading-tight"
+          >
+            <SkeletonBlock className="h-4 w-full" />
+            <SkeletonBlock className="h-4 w-20 justify-self-end" />
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -645,6 +876,24 @@ export function WealthConsoleView({
       ? "— vs last month"
       : `${incomeChangePct >= 0 ? "+" : ""}${incomeChangePct.toFixed(1)}% vs last month`
 
+  const breakdownData: Breakdown = breakdown ?? {
+    income: 0,
+    fixedCosts: 0,
+    savings: 0,
+    investment: 0,
+    guiltFreeSpending: 0,
+    total: 0,
+  }
+  const hasBreakdown = breakdown !== null
+  const showBreakdownSkeleton = loading && !hasBreakdown
+  const showNetWorthSkeleton =
+    loading && accounts.length === 0 && investmentAccounts.length === 0
+  const showExpenseSkeleton =
+    loading && expenses.length === 0 && expensesTotalForMonth === null
+  const showHeadroomSkeleton = showBreakdownSkeleton || showExpenseSkeleton
+  const showInvestmentMonthSkeleton = loading && investmentAccounts.length === 0
+  const showSafeToSpendSkeleton = showBreakdownSkeleton || showExpenseSkeleton
+
   return (
     <div
       className="min-h-[100dvh] pb-10"
@@ -659,38 +908,9 @@ export function WealthConsoleView({
         variant="console"
       />
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-        {loading ? (
-          <div className="space-y-8 animate-pulse">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-6 lg:items-end">
-              <div className="h-28 rounded-xl lg:col-span-4" style={{ background: TOKENS.surfaceLow }} />
-              <div className="h-28 rounded-xl lg:col-span-4" style={{ background: TOKENS.surfaceLow }} />
-              <div className="h-28 rounded-xl lg:col-span-4" style={{ background: TOKENS.surfaceLow }} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-              <div
-                className="h-80 rounded-xl lg:col-span-5"
-                style={{ background: TOKENS.surfaceLow }}
-              />
-              <div className="h-80 rounded-xl lg:col-span-7" style={{ background: TOKENS.surfaceLow }} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-              <div className="h-72 rounded-xl lg:col-span-7" style={{ background: TOKENS.surfaceLow }} />
-              <div className="h-72 rounded-xl lg:col-span-5" style={{ background: TOKENS.surfaceLow }} />
-              <div className="h-72 rounded-xl lg:col-span-5" style={{ background: TOKENS.surfaceLow }} />
-              <div className="h-72 rounded-xl lg:col-span-7" style={{ background: TOKENS.surfaceLow }} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-              <div className="min-h-[280px] rounded-xl lg:col-span-8" style={{ background: TOKENS.surfaceLow }} />
-              <div className="flex flex-col gap-3 lg:col-span-4">
-                <div className="h-24 rounded-xl" style={{ background: TOKENS.surfaceLow }} />
-                <div className="h-24 flex-1 rounded-xl" style={{ background: TOKENS.surfaceLow }} />
-                <div className="h-40 rounded-xl" style={{ background: TOKENS.surfaceLow }} />
-              </div>
-            </div>
-          </div>
-        ) : !breakdown ? (
+        {!hasBreakdown && !loading && (
           <div
-            className="rounded-xl p-10 text-center"
+            className="mb-8 rounded-xl p-10 text-center"
             style={{ background: TOKENS.surfaceContainer }}
           >
             <p className="text-lg font-medium">No allocation data</p>
@@ -708,37 +928,69 @@ export function WealthConsoleView({
               Go to Income
             </Link>
           </div>
-        ) : (
+        )}
           <>
             <div id="console-overview" className="scroll-mt-28 space-y-10">
               <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
                   <div className="lg:col-span-4">
-                    <p
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Monthly income
-                    </p>
-                    <div className="mt-1 text-3xl sm:text-4xl">
-                      <MajorFigureCurrency
-                        amount={breakdown.income}
-                        variant="income"
-                      />
-                    </div>
+                    {showBreakdownSkeleton ? (
+                      <div aria-hidden>
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Monthly income
+                        </p>
+                        <div className="mt-1 text-3xl sm:text-4xl">
+                          <ScrambleCurrencyValue variant="income" />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Monthly income
+                        </p>
+                        <div className="mt-1 text-3xl sm:text-4xl">
+                          <MajorFigureCurrency
+                            amount={breakdownData.income}
+                            variant="income"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="lg:col-span-4">
-                    <p
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Net savings
-                    </p>
-                    <div className="mt-1 text-3xl sm:text-4xl">
-                      <MajorFigureCurrency
-                        amount={netSavings}
-                        variant={netSavings >= 0 ? "prosperity" : "loss"}
-                      />
-                    </div>
+                    {showBreakdownSkeleton ? (
+                      <div aria-hidden>
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Net savings
+                        </p>
+                        <div className="mt-1 text-3xl sm:text-4xl">
+                          <ScrambleCurrencyValue variant="prosperity" />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Net savings
+                        </p>
+                        <div className="mt-1 text-3xl sm:text-4xl">
+                          <MajorFigureCurrency
+                            amount={netSavings}
+                            variant={netSavings >= 0 ? "prosperity" : "loss"}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="lg:col-span-4">
                     <div
@@ -756,20 +1008,35 @@ export function WealthConsoleView({
                         Plan trajectory
                       </p>
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <TrajectorySparkline series={trajectorySeries} />
-                        <p
-                          className="text-right text-sm font-semibold tabular-nums leading-tight"
-                          style={{
-                            color:
-                              incomeChangePct !== null && incomeChangePct >= 0
-                                ? TOKENS.primary
-                                : incomeChangePct !== null
-                                  ? "#ffb4ab"
-                                  : TOKENS.onSurface,
-                          }}
-                        >
-                          {changeLabel}
-                        </p>
+                        {loading && trajectorySeries.length === 0 ? (
+                          <>
+                            <div
+                              className="h-11 w-[140px] rounded-md"
+                              style={{ background: TOKENS.surfaceLow }}
+                            />
+                            <div
+                              className="h-8 w-28 rounded-md"
+                              style={{ background: TOKENS.surfaceLow }}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <TrajectorySparkline series={trajectorySeries} />
+                            <p
+                              className="text-right text-sm font-semibold tabular-nums leading-tight"
+                              style={{
+                                color:
+                                  incomeChangePct !== null && incomeChangePct >= 0
+                                    ? TOKENS.primary
+                                    : incomeChangePct !== null
+                                      ? "#ffb4ab"
+                                      : TOKENS.onSurface,
+                              }}
+                            >
+                              {changeLabel}
+                            </p>
+                          </>
+                        )}
                       </div>
                       <p
                         className="mt-2 text-[10px] leading-snug"
@@ -828,10 +1095,14 @@ export function WealthConsoleView({
                           Net worth
                         </p>
                         <div className="mt-2 text-3xl leading-[1.05] tracking-tight sm:text-4xl lg:text-[2.65rem]">
-                          <MajorFigureCurrency
-                            amount={pulseMetrics.netWorth}
-                            variant="neutral"
-                          />
+                          {showNetWorthSkeleton ? (
+                            <ScrambleCurrencyValue min={2500} max={28000} />
+                          ) : (
+                            <MajorFigureCurrency
+                              amount={pulseMetrics.netWorth}
+                              variant="neutral"
+                            />
+                          )}
                         </div>
                       </div>
                       <div
@@ -846,11 +1117,15 @@ export function WealthConsoleView({
                             Liquid · all accounts
                           </p>
                           <div className="mt-2 text-xl sm:text-2xl">
-                            <MajorFigureCurrency
-                              amount={pulseMetrics.cashBalance}
-                              variant="neutral"
-                              className="font-bold!"
-                            />
+                            {showNetWorthSkeleton ? (
+                              <ScrambleCurrencyValue min={1200} max={14000} className="font-bold!" />
+                            ) : (
+                              <MajorFigureCurrency
+                                amount={pulseMetrics.cashBalance}
+                                variant="neutral"
+                                className="font-bold!"
+                              />
+                            )}
                           </div>
                         </div>
                         <div
@@ -864,13 +1139,23 @@ export function WealthConsoleView({
                             Invested · holdings
                           </p>
                           <div className="mt-2 text-xl sm:text-2xl">
-                            <MajorFigureCurrency
-                              amount={pulseMetrics.investmentValue}
-                              variant="neutral"
-                              colorMain={TOKENS.tertiary}
-                              colorDecimal={TOKENS.onSurfaceMuted}
-                              className="font-bold!"
-                            />
+                            {showNetWorthSkeleton ? (
+                              <ScrambleCurrencyValue
+                                min={600}
+                                max={16000}
+                                className="font-bold!"
+                                colorMain={TOKENS.tertiary}
+                                colorDecimal={TOKENS.onSurfaceMuted}
+                              />
+                            ) : (
+                              <MajorFigureCurrency
+                                amount={pulseMetrics.investmentValue}
+                                variant="neutral"
+                                colorMain={TOKENS.tertiary}
+                                colorDecimal={TOKENS.onSurfaceMuted}
+                                className="font-bold!"
+                              />
+                            )}
                           </div>
                           <p
                             className="mt-2 text-[10px] leading-snug"
@@ -912,6 +1197,12 @@ export function WealthConsoleView({
                           </Link>
                         </div>
                       )}
+                      {loading && !loanSummary && (
+                        <div
+                          className="mt-4 h-[72px] rounded-lg"
+                          style={{ background: TOKENS.surfaceHigh }}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -932,10 +1223,14 @@ export function WealthConsoleView({
                           Outflow
                         </p>
                         <div className="mt-3 text-2xl leading-none sm:text-3xl lg:text-[2.125rem]">
-                          <MajorFigureCurrency
-                            amount={totalExpenses}
-                            variant="loss"
-                          />
+                          {showExpenseSkeleton ? (
+                            <ScrambleCurrencyValue min={400} max={5400} variant="loss" />
+                          ) : (
+                            <MajorFigureCurrency
+                              amount={totalExpenses}
+                              variant="loss"
+                            />
+                          )}
                         </div>
                         <p
                           className="mt-2 text-[11px] leading-snug"
@@ -955,14 +1250,18 @@ export function WealthConsoleView({
                           Headroom
                         </p>
                         <div className="mt-2 text-xl leading-tight sm:text-2xl">
-                          <MajorFigureCurrency
-                            amount={pulseMetrics.remainingBudget}
-                            variant={
-                              pulseMetrics.remainingBudget >= 0
-                                ? "prosperity"
-                                : "loss"
-                            }
-                          />
+                          {showHeadroomSkeleton ? (
+                            <ScrambleCurrencyValue min={150} max={2800} variant="prosperity" />
+                          ) : (
+                            <MajorFigureCurrency
+                              amount={pulseMetrics.remainingBudget}
+                              variant={
+                                pulseMetrics.remainingBudget >= 0
+                                  ? "prosperity"
+                                  : "loss"
+                              }
+                            />
+                          )}
                         </div>
                         <p
                           className="mt-2 text-[10px] leading-snug"
@@ -988,50 +1287,73 @@ export function WealthConsoleView({
                         >
                           Budget load
                         </p>
-                        <div
-                          className="mt-4 h-2 overflow-hidden rounded-full sm:h-2.5"
-                          style={{ background: TOKENS.surfaceLow }}
-                        >
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(100, pulseMetrics.budgetUsedPct)}%`,
-                              background:
-                                pulseMetrics.budgetUsedPct >= 100
-                                  ? "#ffb4ab"
-                                  : pulseMetrics.budgetUsedPct >= 80
-                                    ? "#e8c547"
-                                    : TOKENS.primary,
-                            }}
-                          />
-                        </div>
-                        <p
-                          className="mt-2 text-[10px]"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Expenses + invested vs monthly allocation
-                        </p>
+                        {showHeadroomSkeleton ? (
+                          <>
+                            <SkeletonBlock className="mt-4 h-2.5 w-full rounded-full" />
+                            <p
+                              className="mt-2 text-[10px]"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              Expenses + invested vs monthly allocation
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              className="mt-4 h-2 overflow-hidden rounded-full sm:h-2.5"
+                              style={{ background: TOKENS.surfaceLow }}
+                            >
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.min(100, pulseMetrics.budgetUsedPct)}%`,
+                                  background:
+                                    pulseMetrics.budgetUsedPct >= 100
+                                      ? "#ffb4ab"
+                                      : pulseMetrics.budgetUsedPct >= 80
+                                        ? "#e8c547"
+                                        : TOKENS.primary,
+                                }}
+                              />
+                            </div>
+                            <p
+                              className="mt-2 text-[10px]"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              Expenses + invested vs monthly allocation
+                            </p>
+                          </>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-baseline sm:pl-6">
-                        <span
-                          className="text-4xl font-black tabular-nums leading-none sm:text-5xl lg:text-[3.25rem]"
-                          style={{
-                            color:
-                              pulseMetrics.budgetUsedPct >= 100
-                                ? "#ffb4ab"
-                                : pulseMetrics.budgetUsedPct >= 80
-                                  ? "#e8c547"
-                                  : TOKENS.primary,
-                          }}
-                        >
-                          {pulseMetrics.budgetUsedPct.toFixed(0)}
-                        </span>
-                        <span
-                          className="ml-0.5 text-xl font-bold"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          %
-                        </span>
+                        {showHeadroomSkeleton ? (
+                          <ScramblePercentValue
+                            className="text-4xl font-black tabular-nums leading-none sm:text-5xl lg:text-[3.25rem]"
+                            color={TOKENS.primary}
+                          />
+                        ) : (
+                          <>
+                            <span
+                              className="text-4xl font-black tabular-nums leading-none sm:text-5xl lg:text-[3.25rem]"
+                              style={{
+                                color:
+                                  pulseMetrics.budgetUsedPct >= 100
+                                    ? "#ffb4ab"
+                                    : pulseMetrics.budgetUsedPct >= 80
+                                      ? "#e8c547"
+                                      : TOKENS.primary,
+                              }}
+                            >
+                              {pulseMetrics.budgetUsedPct.toFixed(0)}
+                            </span>
+                            <span
+                              className="ml-0.5 text-xl font-bold"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              %
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -1047,13 +1369,17 @@ export function WealthConsoleView({
                           Invested · month to date
                         </p>
                         <div className="mt-2 text-base sm:text-lg">
-                          <MajorFigureCurrency
-                            amount={pulseMetrics.investedThisMonth}
-                            variant="neutral"
-                            className="font-bold!"
-                          />
+                          {showInvestmentMonthSkeleton ? (
+                            <ScrambleCurrencyValue min={80} max={1800} className="font-bold!" />
+                          ) : (
+                            <MajorFigureCurrency
+                              amount={pulseMetrics.investedThisMonth}
+                              variant="neutral"
+                              className="font-bold!"
+                            />
+                          )}
                         </div>
-                        {investmentAllocated > 0 && (
+                        {!showInvestmentMonthSkeleton && investmentAllocated > 0 && (
                           <div
                             className="mt-3 h-1 overflow-hidden rounded-full"
                             style={{ background: TOKENS.surfaceHigh }}
@@ -1072,7 +1398,15 @@ export function WealthConsoleView({
                             />
                           </div>
                         )}
-                        {investmentAllocated > 0 && (
+                        {showInvestmentMonthSkeleton ? (
+                          <SkeletonBlock className="mt-3 h-1 w-full rounded-full" />
+                        ) : null}
+                        {showInvestmentMonthSkeleton ? (
+                          <div className="mt-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                            allocation syncing
+                          </div>
+                        ) : null}
+                        {!showInvestmentMonthSkeleton && investmentAllocated > 0 && (
                           <p
                             className="mt-2 text-[10px]"
                             style={{ color: TOKENS.onSurfaceMuted }}
@@ -1096,10 +1430,14 @@ export function WealthConsoleView({
                           Burn rate
                         </p>
                         <div className="mt-3 text-2xl sm:text-3xl">
-                          <MajorFigureCurrency
-                            amount={pulseMetrics.avgDailySpending}
-                            variant="neutral"
-                          />
+                          {showExpenseSkeleton ? (
+                            <ScrambleCurrencyValue min={20} max={260} />
+                          ) : (
+                            <MajorFigureCurrency
+                              amount={pulseMetrics.avgDailySpending}
+                              variant="neutral"
+                            />
+                          )}
                         </div>
                         <p
                           className="mt-2 text-[10px] leading-snug"
@@ -1118,18 +1456,35 @@ export function WealthConsoleView({
                         >
                           Runway
                         </p>
-                        <p
-                          className="mt-1 text-4xl font-black tabular-nums leading-none sm:text-5xl"
-                          style={{ color: TOKENS.secondary }}
-                        >
-                          {pulseMetrics.daysRemaining}
-                        </p>
-                        <p
-                          className="mt-1 text-[10px]"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          days after today
-                        </p>
+                        {showExpenseSkeleton ? (
+                          <>
+                            <ScrambleIntegerValue
+                              className="mt-1 text-4xl font-black tabular-nums leading-none sm:text-5xl"
+                              color={TOKENS.secondary}
+                            />
+                            <p
+                              className="mt-1 text-[10px]"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              days after today
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p
+                              className="mt-1 text-4xl font-black tabular-nums leading-none sm:text-5xl"
+                              style={{ color: TOKENS.secondary }}
+                            >
+                              {pulseMetrics.daysRemaining}
+                            </p>
+                            <p
+                              className="mt-1 text-[10px]"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              days after today
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1189,23 +1544,33 @@ export function WealthConsoleView({
                       )}
                     </div>
                     <div className="mt-6 text-3xl leading-none sm:text-4xl lg:text-[2.75rem]">
-                      <MajorFigureCurrency
-                        amount={breakdown.income}
-                        variant="income"
-                      />
+                      {showBreakdownSkeleton ? (
+                        <ScrambleCurrencyValue min={1800} max={12000} variant="income" />
+                      ) : (
+                        <MajorFigureCurrency
+                          amount={breakdownData.income}
+                          variant="income"
+                        />
+                      )}
                     </div>
-                    <p
-                      className="mt-3 text-sm"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Last month{" "}
-                      <span
-                        className="font-semibold tabular-nums"
-                        style={{ color: TOKENS.onSurface }}
+                    {showBreakdownSkeleton ? (
+                      <div className="mt-4 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+                        Last month syncing
+                      </div>
+                    ) : (
+                      <p
+                        className="mt-3 text-sm"
+                        style={{ color: TOKENS.onSurfaceMuted }}
                       >
-                        {formatCurrency(lastMonthIncome)}
-                      </span>
-                    </p>
+                        Last month{" "}
+                        <span
+                          className="font-semibold tabular-nums"
+                          style={{ color: TOKENS.onSurface }}
+                        >
+                          {formatCurrency(lastMonthIncome)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <div
@@ -1471,57 +1836,92 @@ export function WealthConsoleView({
                       Safe to spend
                     </p>
                     <div className="mt-4 flex flex-1 flex-col items-center justify-center">
-                      <div className="relative h-[168px] w-[168px] shrink-0">
-                        <PieChart width={168} height={168}>
-                          <Pie
-                            data={[
-                              { name: "used", value: dailyPct },
-                              {
-                                name: "rest",
-                                value: Math.max(0.001, 100 - dailyPct),
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={56}
-                            outerRadius={78}
-                            startAngle={90}
-                            endAngle={-270}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            <Cell fill={TOKENS.primary} />
-                            <Cell fill={TOKENS.surfaceHigh} />
-                          </Pie>
-                        </PieChart>
-                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-                          <p
-                            className="text-[9px] font-bold uppercase leading-tight tracking-wider"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            Daily limit
-                          </p>
-                          <div className="text-xl leading-tight sm:text-2xl">
-                            <MajorFigureCurrency
-                              amount={dailyLimit}
-                              variant="income"
-                            />
+                      {showSafeToSpendSkeleton ? (
+                        <div className="relative h-[168px] w-[168px] shrink-0">
+                          <SkeletonBlock className="h-full w-full rounded-full" />
+                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                            <p
+                              className="text-[9px] font-bold uppercase leading-tight tracking-wider"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              Daily limit
+                            </p>
+                            <div className="mt-3 text-xl leading-tight sm:text-2xl">
+                              <ScrambleCurrencyValue min={8} max={95} variant="income" />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="relative h-[168px] w-[168px] shrink-0">
+                          <PieChart width={168} height={168}>
+                            <Pie
+                              data={[
+                                { name: "used", value: dailyPct },
+                                {
+                                  name: "rest",
+                                  value: Math.max(0.001, 100 - dailyPct),
+                                },
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={56}
+                              outerRadius={78}
+                              startAngle={90}
+                              endAngle={-270}
+                              dataKey="value"
+                              stroke="none"
+                            >
+                              <Cell fill={TOKENS.primary} />
+                              <Cell fill={TOKENS.surfaceHigh} />
+                            </Pie>
+                          </PieChart>
+                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                            <p
+                              className="text-[9px] font-bold uppercase leading-tight tracking-wider"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              Daily limit
+                            </p>
+                            <div className="text-xl leading-tight sm:text-2xl">
+                              <MajorFigureCurrency
+                                amount={dailyLimit}
+                                variant="income"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p
-                      className="mt-4 text-center text-sm"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Remaining today:{" "}
-                      <MajorFigureCurrency
-                        amount={remainingToday}
-                        variant="prosperity"
-                        className="text-sm font-semibold!"
-                        decimalEm={0.5}
-                      />
-                    </p>
+                    {showSafeToSpendSkeleton ? (
+                      <div className="mt-4 flex justify-center">
+                        <p
+                          aria-hidden
+                          className="text-center text-sm"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Remaining today:{" "}
+                          <ScrambleCurrencyValue
+                            min={4}
+                            max={72}
+                            variant="prosperity"
+                            className="inline-block text-sm font-semibold!"
+                          />
+                        </p>
+                      </div>
+                    ) : (
+                      <p
+                        className="mt-4 text-center text-sm"
+                        style={{ color: TOKENS.onSurfaceMuted }}
+                      >
+                        Remaining today:{" "}
+                        <MajorFigureCurrency
+                          amount={remainingToday}
+                          variant="prosperity"
+                          className="text-sm font-semibold!"
+                          decimalEm={0.5}
+                        />
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1556,41 +1956,47 @@ export function WealthConsoleView({
                       </span>
                     </div>
                     <div className="mt-6">
-                      <SegmentedPillarBar
-                        fixedCosts={breakdown.fixedCosts}
-                        savings={breakdown.savings}
-                        investment={breakdown.investment}
-                        guiltFree={breakdown.guiltFreeSpending}
-                      />
-                      <PillarLegend
-                        total={pillarTotal}
-                        items={[
-                          {
-                            label: "Fixed Costs",
-                            shortLabel: "Fixed",
-                            amount: breakdown.fixedCosts,
-                            color: TOKENS.secondary,
-                          },
-                          {
-                            label: "Savings",
-                            shortLabel: "Savings",
-                            amount: breakdown.savings,
-                            color: TOKENS.primary,
-                          },
-                          {
-                            label: "Investment",
-                            shortLabel: "Invest",
-                            amount: breakdown.investment,
-                            color: TOKENS.tertiary,
-                          },
-                          {
-                            label: "Guilt-Free",
-                            shortLabel: "Guilt-free",
-                            amount: breakdown.guiltFreeSpending,
-                            color: TOKENS.primary,
-                          },
-                        ]}
-                      />
+                      {showBreakdownSkeleton ? (
+                        <PillarAllocationLoading />
+                      ) : (
+                        <>
+                          <SegmentedPillarBar
+                            fixedCosts={breakdownData.fixedCosts}
+                            savings={breakdownData.savings}
+                            investment={breakdownData.investment}
+                            guiltFree={breakdownData.guiltFreeSpending}
+                          />
+                          <PillarLegend
+                            total={pillarTotal}
+                            items={[
+                              {
+                                label: "Fixed Costs",
+                                shortLabel: "Fixed",
+                                amount: breakdownData.fixedCosts,
+                                color: TOKENS.secondary,
+                              },
+                              {
+                                label: "Savings",
+                                shortLabel: "Savings",
+                                amount: breakdownData.savings,
+                                color: TOKENS.primary,
+                              },
+                              {
+                                label: "Investment",
+                                shortLabel: "Invest",
+                                amount: breakdownData.investment,
+                                color: TOKENS.tertiary,
+                              },
+                              {
+                                label: "Guilt-Free",
+                                shortLabel: "Guilt-free",
+                                amount: breakdownData.guiltFreeSpending,
+                                color: TOKENS.primary,
+                              },
+                            ]}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1617,55 +2023,91 @@ export function WealthConsoleView({
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
                 <div className="lg:col-span-7">
-                  <DetailCard
-                    title="Fixed Costs"
-                    total={breakdown.fixedCosts}
-                    icon={Building2}
-                    rows={fixedRows}
-                    accent={TOKENS.secondary}
-                    size="hero"
-                  />
+                  {showBreakdownSkeleton ? (
+                    <DetailCardSkeleton
+                      title="Fixed Costs"
+                      icon={Building2}
+                      accent={TOKENS.secondary}
+                      size="hero"
+                    />
+                  ) : (
+                    <DetailCard
+                      title="Fixed Costs"
+                      total={breakdownData.fixedCosts}
+                      icon={Building2}
+                      rows={fixedRows}
+                      accent={TOKENS.secondary}
+                      size="hero"
+                    />
+                  )}
                 </div>
                 <div className="lg:col-span-5">
-                  <DetailCard
-                    title="Savings"
-                    total={breakdown.savings}
-                    icon={PiggyBank}
-                    rows={savingsDisplayRows}
-                    accent={TOKENS.primary}
-                    size="compact"
-                  />
+                  {showBreakdownSkeleton ? (
+                    <DetailCardSkeleton
+                      title="Savings"
+                      icon={PiggyBank}
+                      accent={TOKENS.primary}
+                      size="compact"
+                    />
+                  ) : (
+                    <DetailCard
+                      title="Savings"
+                      total={breakdownData.savings}
+                      icon={PiggyBank}
+                      rows={savingsDisplayRows}
+                      accent={TOKENS.primary}
+                      size="compact"
+                    />
+                  )}
                 </div>
                 <div className="lg:col-span-5">
-                  <DetailCard
-                    title="Investment"
-                    total={breakdown.investment}
-                    icon={TrendingUp}
-                    rows={
-                      investmentRows.length > 0
-                        ? investmentRows
-                        : breakdown.investment > 0
-                          ? [
-                              {
-                                label: "Allocated this month",
-                                amount: breakdown.investment,
-                              },
-                            ]
-                          : []
-                    }
-                    accent={TOKENS.tertiary}
-                    size="compact"
-                  />
+                  {showBreakdownSkeleton ? (
+                    <DetailCardSkeleton
+                      title="Investment"
+                      icon={TrendingUp}
+                      accent={TOKENS.tertiary}
+                      size="compact"
+                    />
+                  ) : (
+                    <DetailCard
+                      title="Investment"
+                      total={breakdownData.investment}
+                      icon={TrendingUp}
+                      rows={
+                        investmentRows.length > 0
+                          ? investmentRows
+                          : breakdownData.investment > 0
+                            ? [
+                                {
+                                  label: "Allocated this month",
+                                  amount: breakdownData.investment,
+                                },
+                              ]
+                            : []
+                      }
+                      accent={TOKENS.tertiary}
+                      size="compact"
+                    />
+                  )}
                 </div>
                 <div className="lg:col-span-7">
-                  <DetailCard
-                    title="Guilt-Free"
-                    total={breakdown.guiltFreeSpending}
-                    icon={Coffee}
-                    rows={guiltRows}
-                    accent={TOKENS.primary}
-                    size="hero"
-                  />
+                  {showBreakdownSkeleton ? (
+                    <DetailCardSkeleton
+                      title="Guilt-Free"
+                      icon={Coffee}
+                      accent={TOKENS.primary}
+                      size="hero"
+                    />
+                  ) : (
+                    <DetailCard
+                      title="Guilt-Free"
+                      total={breakdownData.guiltFreeSpending}
+                      icon={Coffee}
+                      rows={guiltRows}
+                      accent={TOKENS.primary}
+                      size="hero"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1681,19 +2123,10 @@ export function WealthConsoleView({
                   border: `1px solid ${TOKENS.outlineGhost}`,
                 }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-4">
+                <div className="border-b border-white/[0.06] px-5 py-4">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wider">
                     Bank sync · Connected
                   </h3>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                    style={{
-                      background: "rgba(78,222,163,0.15)",
-                      color: TOKENS.primary,
-                    }}
-                  >
-                    Live sync
-                  </span>
                 </div>
                 <div className="overflow-x-auto px-2 py-2">
                   <table className="w-full min-w-[320px] text-sm">
@@ -1720,7 +2153,18 @@ export function WealthConsoleView({
                       </tr>
                     </thead>
                     <tbody>
-                      {accounts.length === 0 ? (
+                      {loading && accounts.length === 0 ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <tr key={i}>
+                            <td colSpan={3} className="px-3 py-3">
+                              <div
+                                className="h-12 rounded-lg"
+                                style={{ background: TOKENS.surfaceContainer }}
+                              />
+                            </td>
+                          </tr>
+                        ))
+                      ) : accounts.length === 0 ? (
                         <tr>
                           <td
                             colSpan={3}
@@ -1850,6 +2294,28 @@ export function WealthConsoleView({
                     </div>
                   </div>
                 )}
+                {loading && !ytdSummary && (
+                  <div className="space-y-3">
+                    <div
+                      className="h-4 w-32 rounded"
+                      style={{ background: TOKENS.surfaceLow }}
+                    />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                      <div
+                        className="h-24 rounded-xl"
+                        style={{ background: TOKENS.surfaceContainer }}
+                      />
+                      <div
+                        className="h-24 rounded-xl"
+                        style={{ background: TOKENS.surfaceLow }}
+                      />
+                      <div
+                        className="h-24 rounded-xl"
+                        style={{ background: TOKENS.surfaceContainer }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {projectionValue != null && (
                   <div
@@ -1910,7 +2376,6 @@ export function WealthConsoleView({
               </div>
             </div>
           </>
-        )}
       </div>
 
     </div>

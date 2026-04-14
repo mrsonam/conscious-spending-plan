@@ -1,8 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import {
+  fetchJsonAndCache,
+  invalidateCachedJson,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 import {
   type CategoryTrackingRow,
   FUND_KEYS,
@@ -21,9 +26,27 @@ export type CategoryTrackingExpense = {
   account?: { name?: string; bankName?: string }
 }
 
+type TrackingApiPayload = {
+  tracking: Record<string, CategoryTrackingRow>
+  totalIncomeForMonth?: number
+}
+
+type HistoryApiPayload = {
+  history: Record<
+    string,
+    Array<{ month: string; allocated: number; spent: number; remaining: number }>
+  >
+}
+
+const SUMMARY_MAX_AGE_MS = 60_000
+const EXPENSES_MAX_AGE_MS = 45_000
+const HISTORY_MAX_AGE_MS = 120_000
+
 export function useCategoryTrackingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const loadSeq = useRef(0)
+
   const [tracking, setTracking] = useState<Record<string, CategoryTrackingRow> | null>(null)
   const [totalIncomeForMonth, setTotalIncomeForMonth] = useState<number | null>(null)
   const [expenses, setExpenses] = useState<CategoryTrackingExpense[]>([])
@@ -32,6 +55,7 @@ export function useCategoryTrackingPage() {
     Array<{ month: string; allocated: number; spent: number; remaining: number }>
   > | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -43,58 +67,83 @@ export function useCategoryTrackingPage() {
     }
   }, [status, router])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
+  const fetchData = useCallback(
+    async (opts?: { bypassCache?: boolean }) => {
+      if (opts?.bypassCache) {
+        invalidateCachedJson("category-tracking:")
+      }
+
+      const seq = ++loadSeq.current
+      const t = Date.now()
+      const periodKey = `${selectedYear}-${selectedMonth}`
+      const cacheKeySummary = `category-tracking:summary:${periodKey}`
+      const cacheKeyExpenses = `category-tracking:expenses:${periodKey}`
+      const cacheKeyHistory = `category-tracking:history`
+
       const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1)
       const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
-      const [trackingRes, expensesRes, historyRes] = await Promise.all([
-        fetch(`/api/category-tracking?month=${selectedMonth}&year=${selectedYear}`),
-        fetch(
-          `/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&category=fixedCosts,investment,savings,guiltFreeSpending`,
-        ),
-        fetch("/api/category-tracking/history"),
-      ])
+      const expensesPath = `/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&category=fixedCosts,investment,savings,guiltFreeSpending&t=${t}`
 
-      if (trackingRes.ok) {
-        const data = (await trackingRes.json()) as {
-          tracking: Record<string, CategoryTrackingRow>
-          totalIncomeForMonth?: number
+      const peekSummary = peekCachedJson<TrackingApiPayload>(cacheKeySummary, SUMMARY_MAX_AGE_MS)
+      const peekExpenses = peekCachedJson<{ expenses?: CategoryTrackingExpense[] }>(
+        cacheKeyExpenses,
+        EXPENSES_MAX_AGE_MS,
+      )
+      const peekHistory = peekCachedJson<HistoryApiPayload>(cacheKeyHistory, HISTORY_MAX_AGE_MS)
+
+      if (peekSummary) {
+        setTracking(peekSummary.tracking)
+        setTotalIncomeForMonth(peekSummary.totalIncomeForMonth ?? null)
+      }
+      if (peekExpenses) {
+        setExpenses(peekExpenses.expenses || [])
+      }
+      if (peekHistory) {
+        setHistory(peekHistory.history)
+      }
+
+      if (peekSummary) {
+        setLoading(false)
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+        setRefreshing(false)
+      }
+
+      try {
+        const [summaryData, expensesData, historyData] = await Promise.all([
+          fetchJsonAndCache<TrackingApiPayload>(
+            cacheKeySummary,
+            `/api/category-tracking?month=${selectedMonth}&year=${selectedYear}&t=${t}`,
+          ),
+          fetchJsonAndCache<{ expenses?: CategoryTrackingExpense[] }>(cacheKeyExpenses, expensesPath),
+          fetchJsonAndCache<HistoryApiPayload>(cacheKeyHistory, `/api/category-tracking/history?t=${t}`),
+        ])
+
+        if (seq !== loadSeq.current) return
+
+        setTracking(summaryData.tracking)
+        setTotalIncomeForMonth(summaryData.totalIncomeForMonth ?? null)
+        setExpenses(expensesData.expenses || [])
+        setHistory(historyData.history)
+      } catch (e) {
+        console.error("Error fetching category tracking:", e)
+        if (seq !== loadSeq.current) return
+        if (!peekSummary) {
+          setTracking(null)
+          setTotalIncomeForMonth(null)
+          setExpenses([])
+          setHistory(null)
         }
-        setTracking(data.tracking)
-        setTotalIncomeForMonth(data.totalIncomeForMonth ?? null)
-      } else {
-        setTracking(null)
-        setTotalIncomeForMonth(null)
-      }
-
-      if (expensesRes.ok) {
-        const data = (await expensesRes.json()) as { expenses?: CategoryTrackingExpense[] }
-        setExpenses(data.expenses || [])
-      } else {
-        setExpenses([])
-      }
-
-      if (historyRes.ok) {
-        const data = (await historyRes.json()) as {
-          history: Record<
-            string,
-            Array<{ month: string; allocated: number; spent: number; remaining: number }>
-          >
+      } finally {
+        if (seq === loadSeq.current) {
+          setLoading(false)
+          setRefreshing(false)
         }
-        setHistory(data.history)
-      } else {
-        setHistory(null)
       }
-    } catch (e) {
-      console.error("Error fetching category tracking:", e)
-      setTracking(null)
-      setHistory(null)
-      setExpenses([])
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedMonth, selectedYear])
+    },
+    [selectedMonth, selectedYear],
+  )
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -304,6 +353,7 @@ export function useCategoryTrackingPage() {
     expenses,
     history,
     loading,
+    refreshing,
     selectedMonth,
     selectedYear,
     setSelectedMonth,

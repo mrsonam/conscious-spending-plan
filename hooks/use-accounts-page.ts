@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import {
+  fetchJsonAndCache,
+  invalidateCachedJson,
+  invalidateCategoryTrackingAndDashboardCaches,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 
 export interface AccountRow {
   id: string
@@ -19,6 +25,9 @@ export const ACCOUNT_FUND_CATEGORIES = [
   { value: "savings", label: "Savings" },
   { value: "guiltFreeSpending", label: "Guilt-Free Spending" },
 ] as const
+
+/** Same key as dashboard core load — shared cache when navigating between pages. */
+export const ACCOUNTS_LIST_CACHE_KEY = "dashboard:accounts"
 
 export function useAccountsPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
   const router = useRouter()
@@ -45,30 +54,69 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const [transferCategory, setTransferCategory] = useState("")
   const [transferring, setTransferring] = useState(false)
 
-  const fetchAccounts = useCallback(async () => {
-    setLoadingAccounts(true)
+  const refetchAccounts = useCallback(async () => {
+    const t = Date.now()
     try {
-      const response = await fetch("/api/accounts")
-      if (response.ok) {
-        const data = (await response.json()) as { accounts?: AccountRow[] }
-        setAccounts(data.accounts || [])
-      }
+      const data = await fetchJsonAndCache<{ accounts?: AccountRow[] }>(
+        ACCOUNTS_LIST_CACHE_KEY,
+        `/api/accounts?t=${t}`,
+      )
+      setAccounts(data.accounts || [])
     } catch {
-      console.error("Error fetching accounts")
-    } finally {
-      setLoadingAccounts(false)
+      setAccounts([])
     }
   }, [])
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
       router.push("/login")
-    } else if (authStatus === "authenticated") {
-      void fetchAccounts()
-      const today = new Date()
-      setTransferDate(today.toISOString().split("T")[0])
+      return
     }
-  }, [authStatus, router, fetchAccounts])
+    if (authStatus !== "authenticated") return
+
+    let cancelled = false
+
+    async function load() {
+      setLoadingAccounts(true)
+      const t = Date.now()
+      try {
+        const cached = peekCachedJson<{ accounts?: AccountRow[] }>(
+          ACCOUNTS_LIST_CACHE_KEY,
+          45_000,
+        )
+        if (cached?.accounts) {
+          setAccounts(cached.accounts)
+          setLoadingAccounts(false)
+        }
+
+        const data = await fetchJsonAndCache<{ accounts?: AccountRow[] }>(
+          ACCOUNTS_LIST_CACHE_KEY,
+          `/api/accounts?t=${t}`,
+        )
+
+        if (cancelled) return
+
+        setAccounts(data.accounts || [])
+      } catch (e) {
+        console.error("Error fetching accounts", e)
+        if (!cancelled) {
+          setAccounts([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingAccounts(false)
+        }
+      }
+    }
+
+    void load()
+    const today = new Date()
+    setTransferDate(today.toISOString().split("T")[0])
+
+    return () => {
+      cancelled = true
+    }
+  }, [authStatus, router])
 
   const resetForm = useCallback(() => {
     setName("")
@@ -87,6 +135,11 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setAccountType(account.accountType)
     setIsDefault(account.isDefault)
     setShowAddForm(true)
+  }, [])
+
+  const invalidateAccountsCaches = useCallback(() => {
+    invalidateCachedJson(ACCOUNTS_LIST_CACHE_KEY)
+    invalidateCategoryTrackingAndDashboardCaches()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,7 +173,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       if (response.ok) {
         setMessage({ type: "success", text: editingAccount ? "Account updated!" : "Account created!" })
         resetForm()
-        await fetchAccounts()
+        invalidateAccountsCaches()
+        await refetchAccounts()
       } else {
         const data = (await response.json()) as { error?: string }
         setMessage({ type: "error", text: data.error || "Failed to save account" })
@@ -145,7 +199,10 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
 
       if (response.ok) {
         setMessage({ type: "success", text: "Account deleted!" })
-        await fetchAccounts()
+        setShowDeleteConfirm(false)
+        setAccountToDelete(null)
+        invalidateAccountsCaches()
+        await refetchAccounts()
       } else {
         const data = (await response.json()) as { error?: string }
         setMessage({ type: "error", text: data.error || "Failed to delete account" })
@@ -184,7 +241,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         setTransferCategory("")
         const today = new Date()
         setTransferDate(today.toISOString().split("T")[0])
-        await fetchAccounts()
+        invalidateAccountsCaches()
+        await refetchAccounts()
       } else {
         const data = (await response.json()) as { error?: string }
         setMessage({ type: "error", text: data.error || "Failed to transfer funds" })
@@ -206,7 +264,6 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   return {
     accounts,
     loadingAccounts,
-    fetchAccounts,
     showAddForm,
     setShowAddForm,
     showTransferForm,

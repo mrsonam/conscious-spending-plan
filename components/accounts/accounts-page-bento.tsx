@@ -29,6 +29,7 @@ import {
   ACCOUNT_FUND_CATEGORIES,
   type AccountRow,
 } from "@/hooks/use-accounts-page"
+import { AccountsPageBentoLoading } from "@/components/accounts/accounts-page-bento-loading"
 import {
   ArrowRightLeft,
   Building2,
@@ -191,17 +192,7 @@ export function AccountsPageBento() {
   }
 
   if (loadingAccounts) {
-    return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-        <div className="grid gap-3 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-          ))}
-        </div>
-        <div className="h-72 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-      </div>
-    )
+    return <AccountsPageBentoLoading />
   }
 
   if (accounts.length === 0) {

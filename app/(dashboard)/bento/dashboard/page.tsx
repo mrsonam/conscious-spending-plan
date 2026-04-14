@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import {
+  fetchJsonAndCache,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
+import {
   WealthConsoleView,
   type Account,
   type Breakdown,
@@ -32,7 +36,7 @@ function buildTrajectorySeries(
 }
 
 export default function ConsoleV2Page() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null)
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -64,7 +68,19 @@ export default function ConsoleV2Page() {
     if (status !== "authenticated") return
 
     let cancelled = false
-    const ac = new AbortController()
+    // Do not AbortController.abort() in cleanup: Next.js dev overlay surfaces
+    // fetch AbortError as a runtime error. Use `cancelled` only to ignore results.
+    const withCache = async <T,>(
+      key: string,
+      path: string,
+      maxAgeMs: number,
+    ) => {
+      const cached = peekCachedJson<T>(key, maxAgeMs)
+      return {
+        cached,
+        fresh: fetchJsonAndCache<T>(key, path),
+      }
+    }
 
     async function load() {
       setLoading(true)
@@ -90,188 +106,213 @@ export default function ConsoleV2Page() {
         999
       )
       const t = Date.now()
-      const signal = ac.signal
-      const api = (path: string) =>
-        fetch(path, { signal, credentials: "same-origin" })
 
       try {
-        const [
-          incomeMonthRes,
-          incomeMetaRes,
-          accountsRes,
-          expensesRes,
-          lastMonthExpensesRes,
-          trackingRes,
-          investmentsRes,
-          ytdRes,
-          historyRes,
-          loansRes,
-        ] = await Promise.all([
-          api(`/api/income-entries?currentMonth=true&t=${t}`),
-          api(`/api/income-entries?t=${t}`),
-          api(`/api/accounts?t=${t}`),
-          api(
-            `/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${t}`
+        const coreRequests = {
+          incomeMonth: await withCache<{ breakdown?: Breakdown | null }>(
+            "dashboard:income-month",
+            `/api/income-entries?currentMonth=true&t=${t}`,
+            45_000,
           ),
-          api(
-            `/api/expenses?startDate=${lastMonthStart.toISOString()}&endDate=${lastMonthEnd.toISOString()}&t=${t}`
+          incomeMeta: await withCache<{ lastMonthIncome?: number }>(
+            "dashboard:income-meta",
+            `/api/income-entries?t=${t}`,
+            45_000,
           ),
-          api(`/api/category-tracking?t=${t}`),
-          api(`/api/investments?t=${t}`),
-          api(`/api/dashboard/ytd?t=${t}`),
-          api(`/api/category-tracking/history?t=${t}`),
-          api(`/api/loans?status=active&t=${t}`),
-        ])
+          accounts: await withCache<{ accounts?: Account[] }>(
+            "dashboard:accounts",
+            `/api/accounts?t=${t}`,
+            45_000,
+          ),
+          expenses: await withCache<{ expenses?: Expense[]; total?: number }>(
+            "dashboard:expenses-current",
+            `/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&t=${t}`,
+            30_000,
+          ),
+        }
+
+        if (coreRequests.incomeMonth.cached) {
+          setBreakdown(coreRequests.incomeMonth.cached.breakdown ?? null)
+        }
+        if (typeof coreRequests.incomeMeta.cached?.lastMonthIncome === "number") {
+          setLastMonthIncome(coreRequests.incomeMeta.cached.lastMonthIncome)
+        }
+        if (coreRequests.accounts.cached?.accounts) {
+          setAccounts(coreRequests.accounts.cached.accounts)
+        }
+        if (coreRequests.expenses.cached) {
+          setExpenses(coreRequests.expenses.cached.expenses || [])
+          setExpensesTotalForMonth(
+            typeof coreRequests.expenses.cached.total === "number"
+              ? coreRequests.expenses.cached.total
+              : null,
+          )
+        }
+        if (coreRequests.incomeMonth.cached?.breakdown) {
+          setLoading(false)
+        }
+
+        const [incomeMonthData, incomeMetaData, accountsData, expensesData] =
+          await Promise.all([
+            coreRequests.incomeMonth.fresh,
+            coreRequests.incomeMeta.fresh,
+            coreRequests.accounts.fresh,
+            coreRequests.expenses.fresh,
+          ])
 
         if (cancelled) return
 
-        if (incomeMonthRes.ok) {
-          const data = await incomeMonthRes.json()
-          if (data.breakdown) {
-            setBreakdown(data.breakdown)
-          } else {
-            setBreakdown(null)
-          }
+        setBreakdown(incomeMonthData.breakdown ?? null)
+        if (typeof incomeMetaData.lastMonthIncome === "number") {
+          setLastMonthIncome(incomeMetaData.lastMonthIncome)
         }
+        setAccounts(accountsData.accounts || [])
+        setExpenses(expensesData.expenses || [])
+        setExpensesTotalForMonth(
+          typeof expensesData.total === "number" ? expensesData.total : null,
+        )
+        setLoading(false)
 
-        if (incomeMetaRes.ok) {
-          const data = await incomeMetaRes.json()
-          if (typeof data.lastMonthIncome === "number") {
-            setLastMonthIncome(data.lastMonthIncome)
-          }
-        }
+        void (async () => {
+          try {
+            const [
+              lastMonthExpensesData,
+              trackingData,
+              investmentsData,
+              ytdData,
+              historyData,
+              loansData,
+            ] = await Promise.all([
+              fetchJsonAndCache<{ expenses?: Expense[]; total?: number }>(
+                "dashboard:expenses-last-month",
+                `/api/expenses?startDate=${lastMonthStart.toISOString()}&endDate=${lastMonthEnd.toISOString()}&t=${t}`,
+              ),
+              fetchJsonAndCache<{ tracking?: Record<string, CategoryTracking> }>(
+                "dashboard:tracking",
+                `/api/category-tracking?t=${t}`,
+              ),
+              fetchJsonAndCache<{
+                accounts?: Array<{
+                  name: string
+                  bankName: string
+                  investedAmount?: number
+                  holdings?: Array<{
+                    name: string
+                    totalAmount?: number
+                    totalShares?: number
+                    purchases?: Array<{ amount: number; date: string }>
+                  }>
+                }>
+              }>(
+                "dashboard:investments",
+                `/api/investments?t=${t}`,
+              ),
+              fetchJsonAndCache<YtdSummary>(
+                "dashboard:ytd",
+                `/api/dashboard/ytd?t=${t}`,
+              ),
+              fetchJsonAndCache<{ history?: Record<string, { month: string; remaining: number }[]> }>(
+                "dashboard:history",
+                `/api/category-tracking/history?t=${t}`,
+              ),
+              fetchJsonAndCache<{ loans?: Array<{ amount: number; repaidAmount: number }> }>(
+                "dashboard:loans",
+                `/api/loans?status=active&t=${t}`,
+              ),
+            ])
 
-        if (accountsRes.ok) {
-          const data = await accountsRes.json()
-          setAccounts(data.accounts || [])
-        }
+            if (cancelled) return
 
-        if (expensesRes.ok) {
-          const data = await expensesRes.json()
-          setExpenses(data.expenses || [])
-          setExpensesTotalForMonth(
-            typeof data.total === "number" ? data.total : null
-          )
-        }
+            const list: Expense[] = lastMonthExpensesData.expenses || []
+            const total =
+              typeof lastMonthExpensesData.total === "number"
+                ? lastMonthExpensesData.total
+                : list.reduce((s, e) => s + e.amount, 0)
+            setLastMonthExpenses(total)
 
-        if (lastMonthExpensesRes.ok) {
-          const data = await lastMonthExpensesRes.json()
-          const list: Expense[] = data.expenses || []
-          const total =
-            typeof data.total === "number"
-              ? data.total
-              : list.reduce((s, e) => s + e.amount, 0)
-          setLastMonthExpenses(total)
-        }
-
-        if (trackingRes.ok) {
-          const data = await trackingRes.json()
-          const raw = data.tracking || {}
-          const slim: Record<string, CategoryTracking> = {}
-          for (const key of Object.keys(raw)) {
-            const tr = raw[key]
-            slim[key] = {
-              allocated: tr.allocated ?? 0,
-              spent: tr.spent ?? 0,
-              remaining: tr.remaining ?? 0,
-              overspent: tr.overspent ?? 0,
-            }
-          }
-          setCategoryTracking(slim)
-        }
-
-        if (investmentsRes.ok) {
-          const data = await investmentsRes.json()
-          const list: InvestmentAccount[] = (data.accounts || []).map(
-            (acc: {
-              name: string
-              bankName: string
-              investedAmount?: number
-              holdings?: Array<{
-                name: string
-                totalAmount?: number
-                totalShares?: number
-                purchases?: Array<{ amount: number; date: string }>
-              }>
-            }) => ({
-              name: acc.name,
-              bankName: acc.bankName,
-              investedAmount: acc.investedAmount ?? 0,
-              holdings: (acc.holdings || []).map((h) => ({
-                name: h.name,
-                totalAmount: h.totalAmount ?? 0,
-                totalShares: h.totalShares ?? 0,
-                purchases: h.purchases || [],
-              })),
-            })
-          )
-          setInvestmentAccounts(list)
-
-          const symbols = new Set<string>()
-          list.forEach((acc) => {
-            acc.holdings.forEach((h) => {
-              if (h.totalShares > 0) {
-                symbols.add(h.name.trim().toUpperCase())
+            const raw = trackingData.tracking || {}
+            const slim: Record<string, CategoryTracking> = {}
+            for (const key of Object.keys(raw)) {
+              const tr = raw[key]
+              slim[key] = {
+                allocated: tr.allocated ?? 0,
+                spent: tr.spent ?? 0,
+                remaining: tr.remaining ?? 0,
+                overspent: tr.overspent ?? 0,
               }
+            }
+            setCategoryTracking(slim)
+
+            const investmentList: InvestmentAccount[] = (investmentsData.accounts || []).map(
+              (acc) => ({
+                name: acc.name,
+                bankName: acc.bankName,
+                investedAmount: acc.investedAmount ?? 0,
+                holdings: (acc.holdings || []).map((h) => ({
+                  name: h.name,
+                  totalAmount: h.totalAmount ?? 0,
+                  totalShares: h.totalShares ?? 0,
+                  purchases: h.purchases || [],
+                })),
+              }),
+            )
+            setInvestmentAccounts(investmentList)
+            setYtdSummary({
+              year: ytdData.year,
+              totalIncome: ytdData.totalIncome ?? 0,
+              totalExpenses: ytdData.totalExpenses ?? 0,
+              totalInvested: ytdData.totalInvested ?? 0,
             })
-          })
-          if (symbols.size > 0) {
-            fetch("/api/stock-prices", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ symbols: Array.from(symbols) }),
-              signal,
-              credentials: "same-origin",
+            setTrajectorySeries(buildTrajectorySeries(historyData.history))
+
+            const loans = loansData.loans || []
+            const outstanding = loans.reduce(
+              (s, l) => s + Math.max(0, l.amount - (l.repaidAmount ?? 0)),
+              0,
+            )
+            setLoanSummary({
+              activeCount: loans.length,
+              outstandingPrincipal: outstanding,
             })
-              .then((res) => res.json())
-              .then((d) => {
-                if (!cancelled && d.prices) setMarketPrices(d.prices)
+
+            const symbols = new Set<string>()
+            investmentList.forEach((acc) => {
+              acc.holdings.forEach((h) => {
+                if (h.totalShares > 0) {
+                  symbols.add(h.name.trim().toUpperCase())
+                }
               })
-              .catch(() => {})
+            })
+
+            if (symbols.size > 0) {
+              fetch("/api/stock-prices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ symbols: Array.from(symbols) }),
+                credentials: "same-origin",
+              })
+                .then((res) => res.json())
+                .then((d) => {
+                  if (!cancelled && d.prices) setMarketPrices(d.prices)
+                })
+                .catch(() => {})
+            }
+          } catch (e) {
+            console.error("Wealth console secondary load error:", e)
           }
-        }
-
-        if (ytdRes.ok) {
-          const data = await ytdRes.json()
-          setYtdSummary({
-            year: data.year,
-            totalIncome: data.totalIncome ?? 0,
-            totalExpenses: data.totalExpenses ?? 0,
-            totalInvested: data.totalInvested ?? 0,
-          })
-        }
-
-        if (historyRes.ok) {
-          const data = await historyRes.json()
-          setTrajectorySeries(buildTrajectorySeries(data.history))
-        }
-
-        if (loansRes.ok) {
-          const data = await loansRes.json()
-          const loans: Array<{ amount: number; repaidAmount: number }> =
-            data.loans || []
-          const outstanding = loans.reduce(
-            (s, l) => s + Math.max(0, l.amount - (l.repaidAmount ?? 0)),
-            0
-          )
-          setLoanSummary({
-            activeCount: loans.length,
-            outstandingPrincipal: outstanding,
-          })
-        }
+        })()
       } catch (e) {
-        const err = e as { name?: string }
-        if (err?.name === "AbortError" || ac.signal.aborted) return
         console.error("Wealth console load error:", e)
       } finally {
-        if (!cancelled && !ac.signal.aborted) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
-    load()
+    void load()
     return () => {
       cancelled = true
-      ac.abort()
     }
   }, [status])
 

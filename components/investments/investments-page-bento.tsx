@@ -1,6 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useSession } from "next-auth/react"
+import {
+  fetchJsonAndCache,
+  invalidateCachedJson,
+  invalidateCategoryTrackingAndDashboardCaches,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
+import { InvestmentsPageBentoLoading } from "@/components/investments/investments-page-bento-loading"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -75,7 +83,11 @@ function formatDateShort(iso: string) {
   })
 }
 
+/** Same cache key as dashboard secondary load — warm cache when navigating between pages. */
+const INVESTMENTS_CACHE_KEY = "dashboard:investments"
+
 export function InvestmentsPageBento() {
+  const { status } = useSession()
   const investmentSearchRef = useRef<HTMLDivElement | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [accounts, setAccounts] = useState<InvestmentAccountSummary[]>([])
@@ -102,9 +114,52 @@ export function InvestmentsPageBento() {
   const [chartRange, setChartRange] = useState<"1W" | "3M" | "1Y" | "ALL">("3M")
 
   useEffect(() => {
-    void fetchData()
     setDate(new Date().toISOString().split("T")[0])
   }, [])
+
+  useEffect(() => {
+    if (status !== "authenticated") return
+
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      const t = Date.now()
+      try {
+        const cached = peekCachedJson<{ accounts?: InvestmentAccountSummary[] }>(
+          INVESTMENTS_CACHE_KEY,
+          45_000,
+        )
+        if (cached?.accounts) {
+          setAccounts(cached.accounts)
+          setLoading(false)
+        }
+
+        const data = await fetchJsonAndCache<{ accounts?: InvestmentAccountSummary[] }>(
+          INVESTMENTS_CACHE_KEY,
+          `/api/investments?t=${t}`,
+        )
+
+        if (cancelled) return
+
+        setAccounts(data.accounts || [])
+      } catch (e) {
+        console.error("Investments load error:", e)
+        if (!cancelled) {
+          setAccounts([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [status])
 
   useEffect(() => {
     if (accounts.length === 0 || loading || loadingMarketPrices) return
@@ -158,20 +213,16 @@ export function InvestmentsPageBento() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const fetchData = async () => {
-    setLoading(true)
+  const refetchAccounts = async () => {
+    const t = Date.now()
     try {
-      const res = await fetch("/api/investments")
-      if (!res.ok) {
-        setAccounts([])
-      } else {
-        const data = (await res.json()) as { accounts?: InvestmentAccountSummary[] }
-        setAccounts(data.accounts || [])
-      }
+      const data = await fetchJsonAndCache<{ accounts?: InvestmentAccountSummary[] }>(
+        INVESTMENTS_CACHE_KEY,
+        `/api/investments?t=${t}`,
+      )
+      setAccounts(data.accounts || [])
     } catch {
       setAccounts([])
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -511,7 +562,9 @@ export function InvestmentsPageBento() {
       setPricePerUnit("")
       setNumberOfShares("")
       setBrokerageFee("")
-      await fetchData()
+      invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+      invalidateCategoryTrackingAndDashboardCaches()
+      await refetchAccounts()
     } catch {
       setMessage({ type: "error", text: "Something went wrong while saving." })
     } finally {
@@ -520,25 +573,7 @@ export function InvestmentsPageBento() {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-12">
-          <div className="h-72 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-8 lg:h-80" />
-          <div className="h-64 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-4" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-          ))}
-        </div>
-      </div>
-    )
+    return <InvestmentsPageBentoLoading />
   }
 
   if (accounts.length === 0) {

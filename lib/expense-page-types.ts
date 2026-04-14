@@ -42,11 +42,28 @@ export interface ExpensePageStats {
   ytdTotal: number
   monthOverMonthPct: number | null
   lastMonthExpenses: number
-  fundBreakdownCurrentMonth?: {
+  fundBreakdownCurrentMonth: {
     fixedCosts: number
     investment: number
     savings: number
     guiltFreeSpending: number
+  }
+  subcategoryInsights: {
+    totalClassified: number
+    unclassifiedAmount: number
+    topSharePct: number
+    topThreeSharePct: number
+    averageEntryAmount: number
+    topCategories: Array<{
+      category: string
+      label: string
+      amount: number
+      count: number
+      sharePct: number
+      averageAmount: number
+      momentumPct: number | null
+      previousAmount: number
+    }>
   }
 }
 

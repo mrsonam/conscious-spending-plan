@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
@@ -14,11 +14,11 @@ import {
 import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import {
-  IncomeFormSkeleton,
   IncomeHistorySkeleton,
 } from "@/components/skeletons/income-sections"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
+import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
 import {
   INCOME_PAGE_ERROR_SOFT as ERROR_SOFT,
   INCOME_PAGE_WARN_SURFACE as WARN_SURFACE,
@@ -28,65 +28,19 @@ import { ConsolePaginationBar } from "@/components/wealth-console/console-pagina
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import {
-  BarChart3,
   Building2,
   Calculator,
-  DollarSign,
   Download,
+  ChevronDown,
   Plus,
   Trash2,
   TrendingDown,
   TrendingUp,
-  Wallet,
   X,
 } from "lucide-react"
 
 const consoleField =
   "mt-1 w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
-
-function SourceIcon({ entry }: { entry: IncomeEntry }) {
-  const at = entry.account?.accountType?.toLowerCase() ?? ""
-  if (at === "investment") {
-    return (
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-        style={{
-          background: TOKENS.surfaceHigh,
-          borderColor: TOKENS.outlineGhost,
-          color: TOKENS.secondary,
-        }}
-      >
-        <TrendingUp className="h-5 w-5" strokeWidth={2} />
-      </div>
-    )
-  }
-  if (at === "cash") {
-    return (
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-        style={{
-          background: TOKENS.surfaceHigh,
-          borderColor: TOKENS.outlineGhost,
-          color: TOKENS.tertiary,
-        }}
-      >
-        <Wallet className="h-5 w-5" strokeWidth={2} />
-      </div>
-    )
-  }
-  return (
-    <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border"
-      style={{
-        background: `color-mix(in srgb, ${TOKENS.primary} 14%, ${TOKENS.surfaceLow})`,
-        borderColor: TOKENS.outlineGhost,
-        color: TOKENS.primary,
-      }}
-    >
-      <DollarSign className="h-5 w-5" strokeWidth={2} />
-    </div>
-  )
-}
 
 function allocationPct(part: number, whole: number) {
   if (!whole || whole <= 0) return 0
@@ -327,6 +281,18 @@ function IncomeLoggedAllocationPanel({
 export function IncomePageBento(p: UseIncomePageResult) {
   const [logOpen, setLogOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const showMetricSkeleton =
+    p.loadingSummary &&
+    p.incomeStats.currentMonthTotal === 0 &&
+    p.incomeStats.ytdTotal === 0
+  const showSourceSkeleton = p.loadingSource && p.sourceEntries.length === 0
+
+  useEffect(() => {
+    if (historyOpen) {
+      void p.ensureHistoryLoaded()
+    }
+  }, [historyOpen, p])
 
   const submitLog = async (e: React.FormEvent) => {
     const ok = await p.handleSubmit(e)
@@ -376,17 +342,14 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
   const perf = p.incomeStats.monthOverMonthPct
   const perfPositive = perf !== null && perf >= 0
-  const source = groupIncomeByLabel(p.incomeEntries, 3)
+  const source = groupIncomeByLabel(p.sourceEntries, 3)
   const currentMonthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
   }).format(new Date())
 
   return (
     <>
-      {p.loadingForm ? (
-        <IncomeFormSkeleton variant="console" />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
           <section className="lg:col-span-8">
             <div className="px-1 py-2 sm:px-2">
               <p
@@ -396,14 +359,25 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 Current monthly revenue
               </p>
               <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-                <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
-                  <MajorFigureCurrency
-                    amount={p.incomeStats.currentMonthTotal}
-                    variant="income"
-                    decimalEm={0.5}
-                    className="font-black!"
-                  />
-                </div>
+                {showMetricSkeleton ? (
+                  <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                    <ScrambleCurrencyValue
+                      variant="income"
+                      min={1800}
+                      max={12000}
+                      className="font-black!"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                    <MajorFigureCurrency
+                      amount={p.incomeStats.currentMonthTotal}
+                      variant="income"
+                      decimalEm={0.5}
+                      className="font-black!"
+                    />
+                  </div>
+                )}
                 <div
                   className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
                   style={{
@@ -442,17 +416,27 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   >
                     YTD aggregate
                   </p>
-                  <p
-                    className="mt-2 text-lg font-semibold tabular-nums"
-                    style={{ color: TOKENS.onSurface }}
-                  >
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }).format(p.incomeStats.ytdTotal)}
-                  </p>
+                  {showMetricSkeleton ? (
+                    <div className="mt-2 text-lg font-semibold tabular-nums">
+                      <ScrambleCurrencyValue
+                        min={5000}
+                        max={75000}
+                        className="font-semibold!"
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      className="mt-2 text-lg font-semibold tabular-nums"
+                      style={{ color: TOKENS.onSurface }}
+                    >
+                      {new Intl.NumberFormat("en-US", {
+                        style: "currency",
+                        currency: "USD",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(p.incomeStats.ytdTotal)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -483,7 +467,37 @@ export function IncomePageBento(p: UseIncomePageResult) {
               </div>
 
               <div className="mt-5 space-y-4">
-                {source.rows.length === 0 ? (
+                {showSourceSkeleton ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div
+                          className="h-4 w-40 animate-pulse rounded-md"
+                          style={{ background: TOKENS.surfaceLow }}
+                        />
+                        <div
+                          className="h-4 w-10 animate-pulse rounded-md"
+                          style={{ background: TOKENS.surfaceLow }}
+                        />
+                      </div>
+                      <div className="mt-2 flex gap-1">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className="h-2 w-3 rounded-[4px]"
+                            style={{
+                              background:
+                                i < 6
+                                  ? TOKENS.surfaceHigh
+                                  : `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 22%, ${TOKENS.surfaceLow})`,
+                              opacity: i < 6 ? 1 : 0.55,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : source.rows.length === 0 ? (
                   <p className="text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
                     No inflows logged this month.
                   </p>
@@ -562,6 +576,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               <button
                 type="button"
                 onClick={() => setLogOpen(true)}
+                disabled={p.loadingForm || !p.allocation}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95"
                 style={{
                   background: TOKENS.primary,
@@ -575,8 +590,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
             </div>
           </section>
-        </div>
-      )}
+      </div>
 
       {p.breakdown && (
         <IncomeLoggedAllocationPanel
@@ -794,30 +808,28 @@ export function IncomePageBento(p: UseIncomePageResult) {
         </DialogContent>
       </Dialog>
 
-      {p.loadingHistory ? (
-        <IncomeHistorySkeleton variant="console" />
-      ) : (
-        <section
-          className="rounded-xl border p-5 sm:p-8"
-          style={{
-            background: TOKENS.surfaceContainer,
-            borderColor: TOKENS.outlineGhost,
-            boxShadow: CARD_INSET,
-          }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h3
-                className="text-lg font-semibold tracking-tight"
-                style={{ color: TOKENS.onSurface }}
-              >
-                Income Ledger
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
+      <section
+        className="rounded-xl border p-5 sm:p-8"
+        style={{
+          background: TOKENS.surfaceContainer,
+          borderColor: TOKENS.outlineGhost,
+          boxShadow: CARD_INSET,
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h3
+              className="text-lg font-semibold tracking-tight"
+              style={{ color: TOKENS.onSurface }}
+            >
+              Income Ledger
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {historyOpen ? (
               <button
                 type="button"
-                disabled={exporting}
+                disabled={exporting || p.loadingHistory}
                 onClick={exportCsv}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50"
                 style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -826,11 +838,37 @@ export function IncomePageBento(p: UseIncomePageResult) {
               >
                 <Download className="h-4 w-4" />
               </button>
-            </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em]"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: TOKENS.onSurfaceMuted,
+                background: TOKENS.surfaceContainer,
+              }}
+            >
+              {historyOpen ? "Hide history" : "View history"}
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  historyOpen && "rotate-180",
+                )}
+              />
+            </button>
           </div>
+        </div>
 
-          <div className="mt-6 space-y-3">
-            {p.incomeEntries.map((entry) => (
+        {historyOpen ? (
+          p.loadingHistory && p.incomeEntries.length === 0 ? (
+            <div className="mt-6">
+              <IncomeHistorySkeleton variant="console" />
+            </div>
+          ) : (
+            <>
+              <div className="mt-6 space-y-3">
+                {p.incomeEntries.map((entry) => (
                 <div
                   key={entry.id}
                   className="flex flex-col gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
@@ -920,48 +958,50 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     </button>
                   </div>
                 </div>
-              ))}
-          </div>
+                ))}
+              </div>
 
-          {p.incomeEntries.length === 0 && (
-            <div className="py-14 text-center">
-              <Building2
-                className="mx-auto h-12 w-12"
-                style={{ color: TOKENS.onSurfaceMuted }}
-                strokeWidth={1.25}
+              {p.incomeEntries.length === 0 && (
+                <div className="py-14 text-center">
+                  <Building2
+                    className="mx-auto h-12 w-12"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                    strokeWidth={1.25}
+                  />
+                  <p
+                    className="mt-4 text-base font-semibold"
+                    style={{ color: TOKENS.onSurface }}
+                  >
+                    No ledger rows yet
+                  </p>
+                  <p className="mt-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+                    Use Log new income to record your first inflow.
+                  </p>
+                </div>
+              )}
+
+              <ConsolePaginationBar
+                page={p.incomePage}
+                pageSize={p.incomeLimit}
+                total={p.incomeTotal}
+                onPageChange={p.fetchIncomeEntries}
               />
-              <p
-                className="mt-4 text-base font-semibold"
-                style={{ color: TOKENS.onSurface }}
-              >
-                No ledger rows yet
-              </p>
-              <p className="mt-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-                Use Log new income to record your first inflow.
-              </p>
-            </div>
-          )}
+            </>
+          )
+        ) : null}
 
-          <ConsolePaginationBar
-            page={p.incomePage}
-            pageSize={p.incomeLimit}
-            total={p.incomeTotal}
-            onPageChange={p.fetchIncomeEntries}
-          />
-
-          <ConfirmDialog
-            open={p.deleteEntryId !== null}
-            onOpenChange={(open) => !open && p.setDeleteEntryId(null)}
-            title="Delete income entry"
-            description="Are you sure you want to delete this income entry? This cannot be undone."
-            confirmText="Delete"
-            cancelText="Cancel"
-            variant="destructive"
-            theme="console"
-            onConfirm={p.handleDeleteEntry}
-          />
-        </section>
-      )}
+        <ConfirmDialog
+          open={p.deleteEntryId !== null}
+          onOpenChange={(open) => !open && p.setDeleteEntryId(null)}
+          title="Delete income entry"
+          description="Are you sure you want to delete this income entry? This cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+          theme="console"
+          onConfirm={p.handleDeleteEntry}
+        />
+      </section>
     </>
   )
 }

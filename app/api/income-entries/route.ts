@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear, getCurrentMonthIncomeEntries, getIncomeEntriesForMonthByDate } from "@/lib/monthly-tracking"
+import { getIncomePageStats } from "@/lib/income-summary"
+import {
+  getCurrentMonthIncomeEntries,
+  getIncomeEntriesForMonthByDate,
+} from "@/lib/monthly-tracking"
 
 export async function GET(request: Request) {
   try {
@@ -20,6 +24,7 @@ export async function GET(request: Request) {
     const startDateParam = searchParams.get("startDate")
     const endDateParam = searchParams.get("endDate")
     const forStatement = searchParams.get("forStatement") === "true"
+    const includeStats = searchParams.get("includeStats") !== "false"
 
     if (currentMonth) {
       // Get income entries whose *date* falls in the current month (not createdAt)
@@ -27,7 +32,9 @@ export async function GET(request: Request) {
       const allMonthEntries = await getIncomeEntriesForMonthByDate(session.user.id)
       
       // Split entries into those included in allocation and those explicitly excluded
-      const monthEntries = allMonthEntries.filter(entry => !(entry as any).excludeFromAllocation)
+      const monthEntries = allMonthEntries.filter(
+        (entry) => entry.excludeFromAllocation !== true,
+      )
       
       // Calculate total income including entries that are excluded from allocation (for display)
       const totalIncomeIncludingAll = allMonthEntries.reduce((sum, entry) => sum + entry.amount, 0)
@@ -184,7 +191,14 @@ export async function GET(request: Request) {
         total: totalIncome, // Total allocated (excludes cash income - cash is not allocated)
       }
 
-      return NextResponse.json({ breakdown, entries: monthEntries, period: "currentMonth" })
+      return NextResponse.json(
+        { breakdown, entries: monthEntries, period: "currentMonth" },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+          },
+        },
+      )
     }
 
     if (latest) {
@@ -264,7 +278,14 @@ export async function GET(request: Request) {
 
       // Get all month entries for the response
       const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
-      return NextResponse.json({ breakdown, entry: latestEntry, entries: allMonthEntries })
+      return NextResponse.json(
+        { breakdown, entry: latestEntry, entries: allMonthEntries },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+          },
+        },
+      )
     }
 
     // Statement (or any caller) can request all entries in a date range or all entries
@@ -283,31 +304,21 @@ export async function GET(request: Request) {
         orderBy: { date: "desc" },
         take: 10000,
       })
-      return NextResponse.json({ entries })
+      return NextResponse.json(
+        { entries },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+          },
+        },
+      )
     }
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
     const limit = Math.min(20, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
     const skip = (page - 1) * limit
 
-    // Date ranges by income `date` (not createdAt)
-    const now = new Date()
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const currentMonthEnd = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
-    )
-    const yearStart = new Date(now.getFullYear(), 0, 1)
-    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
-
-    const [entries, total, lastMonthAgg, currentMonthAgg, ytdAgg] = await Promise.all([
+    const [entries, total, stats] = await Promise.all([
       prisma.incomeEntry.findMany({
         where: { userId: session.user.id },
         include: { account: true },
@@ -316,51 +327,25 @@ export async function GET(request: Request) {
         take: limit,
       }),
       prisma.incomeEntry.count({ where: { userId: session.user.id } }),
-      prisma.incomeEntry.aggregate({
-        where: {
-          userId: session.user.id,
-          date: { gte: lastMonthStart, lte: lastMonthEnd },
-        },
-        _sum: { amount: true },
-      }),
-      prisma.incomeEntry.aggregate({
-        where: {
-          userId: session.user.id,
-          date: { gte: currentMonthStart, lte: currentMonthEnd },
-        },
-        _sum: { amount: true },
-      }),
-      prisma.incomeEntry.aggregate({
-        where: {
-          userId: session.user.id,
-          date: { gte: yearStart, lte: yearEnd },
-        },
-        _sum: { amount: true },
-      }),
+      includeStats
+        ? getIncomePageStats(session.user.id)
+        : Promise.resolve(null),
     ])
 
-    const lastMonthIncome = lastMonthAgg._sum.amount ?? 0
-    const currentMonthTotal = currentMonthAgg._sum.amount ?? 0
-    const ytdTotal = ytdAgg._sum.amount ?? 0
-
-    let monthOverMonthPct: number | null = null
-    if (lastMonthIncome > 0) {
-      monthOverMonthPct =
-        ((currentMonthTotal - lastMonthIncome) / lastMonthIncome) * 100
-    } else if (currentMonthTotal > 0) {
-      monthOverMonthPct = null
-    }
-
-    return NextResponse.json({
-      entries,
-      total,
-      page,
-      limit,
-      lastMonthIncome,
-      currentMonthTotal,
-      ytdTotal,
-      monthOverMonthPct,
-    })
+    return NextResponse.json(
+      {
+        entries,
+        total,
+        page,
+        limit,
+        ...(stats ?? {}),
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching income entries:", error)
     return NextResponse.json(

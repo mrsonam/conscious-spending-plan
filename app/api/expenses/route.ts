@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { getExpenseSummary } from "@/lib/expense-summary"
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
     const expenseCategoryParam = searchParams.get("expenseCategory")
     const accountIdParam = searchParams.get("accountId")
 
-    const where: any = {
+    const where: Prisma.ExpenseWhereInput = {
       userId: session.user.id,
     }
 
@@ -53,6 +55,7 @@ export async function GET(request: Request) {
 
     const pageParam = searchParams.get("page")
     const usePagination = pageParam !== null && pageParam !== ""
+    const includeSummary = searchParams.get("includeSummary") !== "false"
     const page = usePagination ? Math.max(1, parseInt(pageParam || "1", 10)) : 1
     const limit = Math.min(50, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
     const skip = usePagination ? (page - 1) * limit : 0
@@ -60,43 +63,7 @@ export async function GET(request: Request) {
 
     const hasDateRange = !!(startDate && endDate)
 
-    const userId = session.user.id
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    )
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const startPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const endPrevMonth = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      0,
-      23,
-      59,
-      59,
-      999,
-    )
-    const statsWhereMonth = {
-      userId,
-      date: { gte: startOfMonth, lte: endOfMonth },
-    }
-    const statsWhereYtd = {
-      userId,
-      date: { gte: startOfYear, lte: endOfMonth },
-    }
-    const statsWherePrev = {
-      userId,
-      date: { gte: startPrevMonth, lte: endPrevMonth },
-    }
-
-    const [expenses, total, sumResult, monthAgg, ytdAgg, prevAgg, monthByFund] =
+    const [expenses, total, sumResult, summary] =
       await Promise.all([
         prisma.expense.findMany({
           where,
@@ -128,74 +95,44 @@ export async function GET(request: Request) {
               _sum: { amount: true },
             })
           : Promise.resolve(null),
-        usePagination
-          ? prisma.expense.aggregate({
-              where: statsWhereMonth,
-              _sum: { amount: true },
-            })
+        usePagination && includeSummary
+          ? getExpenseSummary(session.user.id)
           : Promise.resolve(null),
-        usePagination
-          ? prisma.expense.aggregate({
-              where: statsWhereYtd,
-              _sum: { amount: true },
-            })
-          : Promise.resolve(null),
-        usePagination
-          ? prisma.expense.aggregate({
-              where: statsWherePrev,
-              _sum: { amount: true },
-            })
-          : Promise.resolve(null),
-        usePagination
-          ? prisma.expense.groupBy({
-              by: ["category"],
-              where: statsWhereMonth,
-              _sum: { amount: true },
-            })
-          : Promise.resolve([]),
       ])
 
     const totalAmount = sumResult?._sum?.amount ?? null
 
     if (usePagination) {
-      const currentMonthTotal = monthAgg?._sum.amount ?? 0
-      const ytdTotal = ytdAgg?._sum.amount ?? 0
-      const lastMonthExpenses = prevAgg?._sum.amount ?? 0
-      const monthOverMonthPct =
-        lastMonthExpenses > 0
-          ? ((currentMonthTotal - lastMonthExpenses) / lastMonthExpenses) * 100
-          : null
-
-      const fundBreakdownCurrentMonth = {
-        fixedCosts: 0,
-        investment: 0,
-        savings: 0,
-        guiltFreeSpending: 0,
-      }
-      for (const row of monthByFund) {
-        const key = row.category
-        if (!key) continue
-        if (key in fundBreakdownCurrentMonth) {
-          fundBreakdownCurrentMonth[key as keyof typeof fundBreakdownCurrentMonth] =
-            (row._sum.amount ?? 0) as number
-        }
-      }
       return NextResponse.json({
         expenses,
         total,
         page,
         limit,
-        currentMonthTotal,
-        ytdTotal,
-        monthOverMonthPct,
-        lastMonthExpenses,
-        fundBreakdownCurrentMonth,
+        ...(summary ?? {}),
+      }, {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
       })
     }
     if (hasDateRange && totalAmount !== null) {
-      return NextResponse.json({ expenses, total: totalAmount })
+      return NextResponse.json(
+        { expenses, total: totalAmount },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+          },
+        },
+      )
     }
-    return NextResponse.json({ expenses })
+    return NextResponse.json(
+      { expenses },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
+      },
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

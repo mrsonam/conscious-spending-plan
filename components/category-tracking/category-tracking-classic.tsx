@@ -172,7 +172,12 @@ export function CategoryTrackingClassic() {
                 <p className="text-sm text-gray-600">
                   Couldn&apos;t load category data. Refresh the page or try again later.
                 </p>
-                <Button className="mt-4" type="button" variant="outline" onClick={() => void fetchData()}>
+                <Button
+                  className="mt-4"
+                  type="button"
+                  variant="outline"
+                  onClick={() => void fetchData({ bypassCache: true })}
+                >
                   Retry
                 </Button>
               </div>

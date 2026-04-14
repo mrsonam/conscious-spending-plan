@@ -19,7 +19,14 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     })
 
-    return NextResponse.json({ accounts })
+    return NextResponse.json(
+      { accounts },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
+      },
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

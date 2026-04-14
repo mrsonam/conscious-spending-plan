@@ -18,7 +18,9 @@ import {
   ArrowRight,
   Activity,
   History,
+  Loader2,
 } from "lucide-react"
+import { CategoryTrackingBentoLoading } from "@/components/category-tracking/category-tracking-bento-loading"
 
 const consoleField =
   "w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
@@ -74,6 +76,7 @@ export function CategoryTrackingBento() {
     expenses,
     history,
     loading,
+    refreshing,
     selectedMonth,
     selectedYear,
     setSelectedMonth,
@@ -133,13 +136,14 @@ export function CategoryTrackingBento() {
   return (
     <div className="space-y-6 sm:space-y-8">
       {loading ? (
-        <div className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
-            <div className="h-48 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-8" />
-            <div className="h-48 animate-pulse rounded-xl border border-white/10 bg-white/5 lg:col-span-4" />
-          </div>
-          <div className="h-64 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-        </div>
+        <CategoryTrackingBentoLoading
+          monthOptions={monthOptions}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          setSelectedMonth={setSelectedMonth}
+          setSelectedYear={setSelectedYear}
+          selectedMonthLabel={selectedMonthLabel}
+        />
       ) : !hasTracking ? (
         <section
           className="rounded-xl border p-10 text-center"
@@ -154,7 +158,7 @@ export function CategoryTrackingBento() {
           </p>
           <button
             type="button"
-            onClick={() => void fetchData()}
+            onClick={() => void fetchData({ bypassCache: true })}
             className="mt-4 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-[0.18em]"
             style={{
               border: `1px solid ${TOKENS.outlineGhost}`,
@@ -370,11 +374,23 @@ export function CategoryTrackingBento() {
                 </p>
 
                 <div
-                  className="mt-6 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  className="mt-6 flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-[0.22em]"
                   style={{ color: TOKENS.onSurfaceMuted }}
                 >
-                  <Calendar className="h-4 w-4 shrink-0" style={{ color: TOKENS.onSurfaceMuted }} />
-                  <span>Period</span>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 shrink-0" style={{ color: TOKENS.onSurfaceMuted }} />
+                    <span>Period</span>
+                  </div>
+                  {refreshing ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 normal-case tracking-normal"
+                      style={{ color: TOKENS.secondary }}
+                      aria-live="polite"
+                    >
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                      Syncing
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-2">
                   <AppSelect

@@ -1,6 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  fetchJsonAndCache,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 
 type IncomeEntry = {
   id: string
@@ -71,6 +75,24 @@ export type StatementTransaction = {
   toAccount?: { id: string; name: string; bankName: string }
 }
 
+type StatementSummary = {
+  income: number
+  expenses: number
+  transfers: number
+  investments: number
+  net: number
+  totalRows: number
+}
+
+const EMPTY_SUMMARY: StatementSummary = {
+  income: 0,
+  expenses: 0,
+  transfers: 0,
+  investments: 0,
+  net: 0,
+  totalRows: 0,
+}
+
 export function useStatementPage(
   status: string,
   router: { push: (path: string) => void },
@@ -89,94 +111,167 @@ export function useStatementPage(
   const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>(
     [],
   )
+  const [summary, setSummary] = useState<StatementSummary>(EMPTY_SUMMARY)
 
   const fetchAccounts = useCallback(async () => {
+    const cached = peekCachedJson<{ accounts?: StatementAccount[] }>(
+      "statement:accounts",
+      60_000,
+    )
+    if (cached) {
+      setAccounts(cached.accounts ?? [])
+    }
+
     try {
-      const response = await fetch("/api/accounts")
-      if (response.ok) {
-        const data = (await response.json()) as { accounts?: StatementAccount[] }
-        setAccounts(data.accounts ?? [])
-      }
+      const data = await fetchJsonAndCache<{ accounts?: StatementAccount[] }>(
+        "statement:accounts",
+        `/api/accounts?t=${Date.now()}`,
+      )
+      setAccounts(data.accounts ?? [])
     } catch (error) {
       console.error("Error fetching accounts:", error)
     }
   }, [])
 
-  const fetchData = useCallback(async () => {
-    setLoadingSummary(true)
-    setLoadingTransactions(true)
+  const summaryParams = useMemo(() => {
+    const params = new URLSearchParams()
+    if (filterStartDate) params.set("startDate", filterStartDate)
+    if (filterEndDate) params.set("endDate", filterEndDate)
+    if (filterAccountId) params.set("accountId", filterAccountId)
+    return params
+  }, [filterAccountId, filterEndDate, filterStartDate])
+
+  const transactionParams = useMemo(() => {
+    const params = new URLSearchParams()
+    if (filterStartDate) params.set("startDate", filterStartDate)
+    if (filterEndDate) params.set("endDate", filterEndDate)
+    return params
+  }, [filterEndDate, filterStartDate])
+
+  const fetchSummary = useCallback(async () => {
+    const query = summaryParams.toString()
+    const cacheKey = `statement:summary:${query || "all"}`
+    const cached = peekCachedJson<StatementSummary>(cacheKey, 30_000)
+    if (cached) {
+      setSummary(cached)
+      setLoadingSummary(false)
+    } else {
+      setLoadingSummary(true)
+    }
 
     try {
-      const [incomeRes, expensesRes, transfersRes, investmentsRes] =
+      const data = await fetchJsonAndCache<StatementSummary>(
+        cacheKey,
+        `/api/statement/summary${query ? `?${query}&t=${Date.now()}` : `?t=${Date.now()}`}`,
+      )
+      setSummary(data)
+    } catch (error) {
+      console.error("Error fetching statement summary:", error)
+    } finally {
+      setLoadingSummary(false)
+    }
+  }, [summaryParams])
+
+  const fetchData = useCallback(async () => {
+    const query = transactionParams.toString()
+    const suffix = query ? `?${query}&t=${Date.now()}` : `?t=${Date.now()}`
+    const incomeUrl =
+      filterStartDate && filterEndDate
+        ? `/api/income-entries?${new URLSearchParams({
+            startDate: filterStartDate,
+            endDate: filterEndDate,
+          }).toString()}&t=${Date.now()}`
+        : `/api/income-entries?forStatement=true&t=${Date.now()}`
+
+    const cacheKeys = {
+      income: `statement:income:${query || "all"}`,
+      expenses: `statement:expenses:${query || "all"}`,
+      transfers: `statement:transfers:${query || "all"}`,
+      investments: `statement:investments:all`,
+    }
+
+    const cachedIncome = peekCachedJson<{ entries?: IncomeEntry[] }>(
+      cacheKeys.income,
+      30_000,
+    )
+    const cachedExpenses = peekCachedJson<{ expenses?: Expense[] }>(
+      cacheKeys.expenses,
+      30_000,
+    )
+    const cachedTransfers = peekCachedJson<{ transfers?: Transfer[] }>(
+      cacheKeys.transfers,
+      30_000,
+    )
+    const cachedInvestments = peekCachedJson<{ accounts?: InvestmentAccount[] }>(
+      cacheKeys.investments,
+      30_000,
+    )
+
+    if (cachedIncome) setIncomeEntries(cachedIncome.entries ?? [])
+    if (cachedExpenses) setExpenses(cachedExpenses.expenses ?? [])
+    if (cachedTransfers) setTransfers(cachedTransfers.transfers ?? [])
+    if (cachedInvestments) setInvestmentAccounts(cachedInvestments.accounts ?? [])
+
+    if (cachedIncome && cachedExpenses && cachedTransfers && cachedInvestments) {
+      setLoadingTransactions(false)
+    } else {
+      setLoadingTransactions(true)
+    }
+
+    try {
+      const [incomeData, expenseData, transferData, investmentData] =
         await Promise.all([
-          fetch(
-            filterStartDate && filterEndDate
-              ? `/api/income-entries?${new URLSearchParams({
-                  startDate: filterStartDate,
-                  endDate: filterEndDate,
-                }).toString()}`
-              : `/api/income-entries?forStatement=true`,
+          fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
+            cacheKeys.income,
+            incomeUrl,
           ),
-          fetch(
-            filterStartDate || filterEndDate
-              ? `/api/expenses?${new URLSearchParams({
-                  ...(filterStartDate && { startDate: filterStartDate }),
-                  ...(filterEndDate && { endDate: filterEndDate }),
-                }).toString()}`
-              : "/api/expenses",
+          fetchJsonAndCache<{ expenses?: Expense[] }>(
+            cacheKeys.expenses,
+            `/api/expenses${suffix}`,
           ),
-          fetch(
-            filterStartDate || filterEndDate
-              ? `/api/transfers?${new URLSearchParams({
-                  ...(filterStartDate && { startDate: filterStartDate }),
-                  ...(filterEndDate && { endDate: filterEndDate }),
-                }).toString()}`
-              : "/api/transfers",
+          fetchJsonAndCache<{ transfers?: Transfer[] }>(
+            cacheKeys.transfers,
+            `/api/transfers${suffix}`,
           ),
-          fetch("/api/investments"),
+          fetchJsonAndCache<{ accounts?: InvestmentAccount[] }>(
+            cacheKeys.investments,
+            `/api/investments?t=${Date.now()}`,
+          ),
         ])
 
-      if (incomeRes.ok) {
-        const data = (await incomeRes.json()) as { entries?: IncomeEntry[] }
-        setIncomeEntries(data.entries ?? [])
-      }
-      if (expensesRes.ok) {
-        const data = (await expensesRes.json()) as { expenses?: Expense[] }
-        setExpenses(data.expenses ?? [])
-      }
-      if (transfersRes.ok) {
-        const data = (await transfersRes.json()) as { transfers?: Transfer[] }
-        setTransfers(data.transfers ?? [])
-      }
-      if (investmentsRes.ok) {
-        const data = (await investmentsRes.json()) as {
-          accounts?: InvestmentAccount[]
-        }
-        setInvestmentAccounts(data.accounts ?? [])
-      }
-
-      setLoadingSummary(false)
+      setIncomeEntries(incomeData.entries ?? [])
+      setExpenses(expenseData.expenses ?? [])
+      setTransfers(transferData.transfers ?? [])
+      setInvestmentAccounts(investmentData.accounts ?? [])
     } catch (error) {
       console.error("Error fetching statement data:", error)
-      setLoadingSummary(false)
+    } finally {
       setLoadingTransactions(false)
     }
-  }, [filterStartDate, filterEndDate])
+  }, [filterEndDate, filterStartDate, transactionParams])
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
       void fetchAccounts()
+      void fetchSummary()
       void fetchData()
     }
-  }, [status, router, fetchAccounts, fetchData])
+  }, [status, router, fetchAccounts, fetchData, fetchSummary])
 
   useEffect(() => {
     if (status === "authenticated") {
+      void fetchSummary()
+    }
+  }, [filterAccountId, status, fetchSummary])
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      void fetchSummary()
       void fetchData()
     }
-  }, [filterStartDate, filterEndDate, filterAccountId, status, fetchData])
+  }, [filterStartDate, filterEndDate, status, fetchData, fetchSummary])
 
   const transactions = useMemo<StatementTransaction[]>(() => {
     const combined: StatementTransaction[] = []
@@ -266,36 +361,17 @@ export function useStatementPage(
     filterEndDate,
   ])
 
-  useEffect(() => {
-    if (!loadingSummary) setLoadingTransactions(false)
-  }, [loadingSummary])
-
-  const totals = useMemo(() => {
-    const income = transactions
-      .filter((t) => t.type === "income")
-      .reduce((s, t) => s + t.amount, 0)
-    const expenses = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((s, t) => s + t.amount, 0)
-    const transfers = transactions
-      .filter((t) => t.type === "transfer")
-      .reduce((s, t) => s + t.amount, 0)
-    const investments = transactions
-      .filter((t) => t.type === "investment")
-      .reduce((s, t) => s + t.amount, 0)
-    return {
-      income,
-      expenses,
-      transfers,
-      investments,
-      net: income - expenses,
-    }
-  }, [transactions])
-
   return {
     accounts,
     transactions,
-    totals,
+    totals: {
+      income: summary.income,
+      expenses: summary.expenses,
+      transfers: summary.transfers,
+      investments: summary.investments,
+      net: summary.net,
+    },
+    totalRows: summary.totalRows,
     loadingSummary,
     loadingTransactions,
     filterStartDate,

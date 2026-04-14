@@ -182,7 +182,21 @@ export async function GET(request: Request) {
       )
 
     const categories = ["fixedCosts", "investment", "guiltFreeSpending", "savings"]
-    const tracking: Record<string, any> = {}
+    const tracking: Record<
+      string,
+      {
+        allocated: number
+        spent: number
+        transferred: number
+        income: number
+        carryover: number
+        overspending: number
+        available: number
+        remaining: number
+        overspent: number
+        overspentFromTransfer: number
+      }
+    > = {}
 
     for (const cat of categories) {
       // Explicitly: carryover = previous month's remaining (allocated - spent, when >= 0)
@@ -234,12 +248,19 @@ export async function GET(request: Request) {
       tracking.savings.allocated = Math.round((tracking.savings.allocated + roundingDiff) * 100) / 100
     }
 
-    return NextResponse.json({
-      tracking,
-      month: currentMonth,
-      year: currentYear,
-      totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
-    })
+    return NextResponse.json(
+      {
+        tracking,
+        month: currentMonth,
+        year: currentYear,
+        totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+        },
+      },
+    )
   } catch (error) {
     console.error("Error fetching category tracking:", error)
     return NextResponse.json(
