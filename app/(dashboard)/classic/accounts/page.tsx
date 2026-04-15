@@ -86,7 +86,7 @@ export default function AccountsPage() {
     return (
       <>
         <Header title="Accounts" />
-        <div className="mx-auto max-w-6xl space-y-4 p-4 sm:space-y-6 sm:p-6">
+        <div className="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-6 sm:p-6">
           <AccountsSkeleton />
         </div>
       </>
@@ -98,7 +98,7 @@ export default function AccountsPage() {
   return (
     <>
       <Header title="Accounts" />
-      <div className="mx-auto max-w-6xl space-y-4 p-4 sm:space-y-6 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-6 sm:p-6">
         {message && (
           <div
             className={`rounded-lg p-3 ${

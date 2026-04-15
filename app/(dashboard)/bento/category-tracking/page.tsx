@@ -17,7 +17,7 @@ export default function BentoCategoryTrackingPage() {
           description="Fund pillars, allocation, and spend pace."
           variant="console"
         />
-        <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -44,7 +44,7 @@ export default function BentoCategoryTrackingPage() {
         description="Fund pillars, allocation, and spend pace."
         variant="console"
       />
-      <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <CategoryTrackingBento />
       </div>
     </>

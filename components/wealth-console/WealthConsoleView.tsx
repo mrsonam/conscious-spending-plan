@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Header } from "@/components/layout/header"
 import {
   AlertTriangle,
   ArrowUpRight,
   Building2,
+  CalendarClock,
   Coffee,
   Gem,
   PiggyBank,
@@ -16,6 +17,12 @@ import dynamic from "next/dynamic"
 import { BENTO } from "@/lib/app-routes"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
+import {
+  ScrambleCurrencyValue,
+  ScrambleIntegerValue,
+  ScramblePercentValue,
+} from "@/components/ui/scramble-number"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const PieChart = dynamic(
   () => import("recharts").then((m) => m.PieChart),
@@ -75,6 +82,18 @@ export interface InvestmentAccount {
 export interface LoanSummary {
   activeCount: number
   outstandingPrincipal: number
+}
+
+export interface SubscriptionDashboardSnapshot {
+  monthlyActiveTotal: number
+  upcoming: Array<{
+    subscriptionId: string
+    label: string
+    provider: string | null
+    amount: number
+    date: string
+    kind: "renewal" | "trial"
+  }>
 }
 
 export interface YtdSummary {
@@ -399,150 +418,18 @@ function SkeletonBlock({
   )
 }
 
-function useScrambleNumber({
-  min,
-  max,
-  intervalMs = 90,
-}: {
-  min: number
-  max: number
-  intervalMs?: number
-}) {
-  const [displayValue, setDisplayValue] = useState(min)
-
-  useEffect(() => {
-    const updateValue = () => {
-      setDisplayValue(min + Math.random() * (max - min))
-    }
-
-    updateValue()
-    const timer = window.setInterval(updateValue, intervalMs)
-
-    return () => window.clearInterval(timer)
-  }, [intervalMs, max, min])
-
-  return displayValue
-}
-
-function ScrambleCurrencyValue({
-  variant = "neutral",
-  min = 1500,
-  max = 12000,
-  className,
-  colorMain,
-  colorDecimal,
-}: {
-  variant?: "income" | "neutral" | "prosperity" | "loss"
-  min?: number
-  max?: number
-  className?: string
-  colorMain?: string
-  colorDecimal?: string
-}) {
-  const displayValue = useScrambleNumber({ min, max })
-
-  return (
-    <span aria-hidden className={className}>
-      <MajorFigureCurrency
-        amount={displayValue}
-        variant={variant}
-        colorMain={colorMain}
-        colorDecimal={colorDecimal}
-      />
-    </span>
-  )
-}
-
-function ScramblePercentValue({
-  className,
-  color,
-}: {
-  className?: string
-  color?: string
-}) {
-  const value = useScrambleNumber({ min: 12, max: 96 })
-
-  return (
-    <span
-      aria-hidden
-      className={className}
-      style={{ color }}
-    >
-      {value.toFixed(0)}
-      <span
-        className="ml-0.5 text-xl font-bold"
-        style={{ color: TOKENS.onSurfaceMuted }}
-      >
-        %
-      </span>
-    </span>
-  )
-}
-
-function ScrambleIntegerValue({
-  className,
-  color,
-  min = 3,
-  max = 28,
-}: {
-  className?: string
-  color?: string
-  min?: number
-  max?: number
-}) {
-  const value = useScrambleNumber({ min, max })
-
-  return (
-    <span aria-hidden className={className} style={{ color }}>
-      {value.toFixed(0)}
-    </span>
-  )
-}
-
 function PillarAllocationLoading() {
-  const fixedCosts = useScrambleNumber({ min: 900, max: 2400 })
-  const savings = useScrambleNumber({ min: 300, max: 1400 })
-  const investment = useScrambleNumber({ min: 200, max: 1200 })
-  const guiltFree = useScrambleNumber({ min: 250, max: 1600 })
-  const total = fixedCosts + savings + investment + guiltFree
-
   return (
-    <div className="mt-6">
-      <SegmentedPillarBar
-        fixedCosts={fixedCosts}
-        savings={savings}
-        investment={investment}
-        guiltFree={guiltFree}
-      />
-      <PillarLegend
-        total={total}
-        items={[
-          {
-            label: "Fixed Costs",
-            shortLabel: "Fixed",
-            amount: fixedCosts,
-            color: TOKENS.secondary,
-          },
-          {
-            label: "Savings",
-            shortLabel: "Savings",
-            amount: savings,
-            color: TOKENS.primary,
-          },
-          {
-            label: "Investment",
-            shortLabel: "Invest",
-            amount: investment,
-            color: TOKENS.tertiary,
-          },
-          {
-            label: "Guilt-Free",
-            shortLabel: "Guilt-free",
-            amount: guiltFree,
-            color: TOKENS.primary,
-          },
-        ]}
-      />
+    <div className="mt-6 space-y-5">
+      <Skeleton className="h-4 w-full rounded-lg" />
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
+        {(["Fixed", "Savings", "Invest", "Guilt-free"] as const).map((label) => (
+          <div key={label} className="min-w-0 space-y-2">
+            <Skeleton className="h-2.5 w-14 rounded" />
+            <Skeleton className="h-7 w-full max-w-[9rem] rounded-md" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -626,6 +513,7 @@ export function WealthConsoleView({
   lastMonthExpenses,
   marketPrices,
   loanSummary,
+  subscriptionDash,
   loading,
 }: {
   breakdown: Breakdown | null
@@ -641,6 +529,7 @@ export function WealthConsoleView({
   lastMonthExpenses: number
   marketPrices: Record<string, number>
   loanSummary: LoanSummary | null
+  subscriptionDash: SubscriptionDashboardSnapshot
   loading: boolean
 }) {
   const totalExpenses =
@@ -1458,10 +1347,7 @@ export function WealthConsoleView({
                         </p>
                         {showExpenseSkeleton ? (
                           <>
-                            <ScrambleIntegerValue
-                              className="mt-1 text-4xl font-black tabular-nums leading-none sm:text-5xl"
-                              color={TOKENS.secondary}
-                            />
+                            <ScrambleIntegerValue className="mt-1 text-4xl font-black tabular-nums leading-none sm:text-5xl" />
                             <p
                               className="mt-1 text-[10px]"
                               style={{ color: TOKENS.onSurfaceMuted }}
@@ -2373,6 +2259,136 @@ export function WealthConsoleView({
                     </Link>
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div
+              id="console-subscriptions"
+              className="scroll-mt-28 mt-12"
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Link
+                  href={BENTO.subscriptions}
+                  className="block rounded-xl p-5 transition-colors hover:opacity-95"
+                  style={{
+                    background: TOKENS.surfaceContainer,
+                    boxShadow: CARD_INSET,
+                    border: `1px solid ${TOKENS.outlineGhost}`,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                        style={{
+                          background: TOKENS.surfaceLow,
+                          color: TOKENS.secondary,
+                        }}
+                      >
+                        <CalendarClock className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p
+                          className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Subscriptions
+                        </p>
+                        <p
+                          className="mt-1 text-xs leading-snug"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Monthly equivalent (active)
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowUpRight
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    />
+                  </div>
+                  <div className="mt-4 text-2xl font-bold tabular-nums tracking-tight">
+                    <MajorFigureCurrency
+                      amount={subscriptionDash.monthlyActiveTotal}
+                      variant="neutral"
+                    />
+                  </div>
+                </Link>
+                <div
+                  className="rounded-xl p-5"
+                  style={{
+                    background: TOKENS.surfaceContainer,
+                    boxShadow: CARD_INSET,
+                    border: `1px solid ${TOKENS.outlineGhost}`,
+                  }}
+                >
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
+                    Upcoming renewals
+                  </p>
+                  <p
+                    className="mt-1 text-xs leading-snug"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
+                    Next 14 days
+                  </p>
+                  <ul className="mt-4 space-y-2.5">
+                    {subscriptionDash.upcoming.length === 0 ? (
+                      <li
+                        className="text-sm"
+                        style={{ color: TOKENS.onSurfaceMuted }}
+                      >
+                        None scheduled in this window.
+                      </li>
+                    ) : (
+                      subscriptionDash.upcoming.slice(0, 4).map((u) => (
+                        <li
+                          key={`${u.subscriptionId}-${u.kind}-${u.date}`}
+                          className="flex flex-wrap items-baseline justify-between gap-2 text-sm"
+                        >
+                          <span
+                            className="min-w-0 truncate font-medium"
+                            style={{ color: TOKENS.onSurface }}
+                          >
+                            {u.label}
+                            <span
+                              className="ml-1.5 text-[10px] font-normal uppercase tracking-wide"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              {u.kind === "trial" ? "trial" : "renewal"}
+                            </span>
+                          </span>
+                          <span
+                            className="shrink-0 tabular-nums text-xs"
+                            style={{ color: TOKENS.onSurfaceMuted }}
+                          >
+                            {new Date(u.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}{" "}
+                            ·{" "}
+                            <MajorFigureCurrency
+                              amount={u.amount}
+                              variant="neutral"
+                              className="inline text-xs font-semibold!"
+                            />
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                  {subscriptionDash.upcoming.length > 4 ? (
+                    <Link
+                      href={BENTO.subscriptions}
+                      className="mt-3 inline-block text-xs font-semibold"
+                      style={{ color: TOKENS.primary }}
+                    >
+                      View all
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
           </>

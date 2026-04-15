@@ -18,7 +18,7 @@ export default function BentoProfilePage() {
           description="Account and preferences."
           variant="console"
         />
-        <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <ProfileSkeleton />
         </div>
       </>
@@ -34,7 +34,7 @@ export default function BentoProfilePage() {
         description="Account and preferences."
         variant="console"
       />
-      <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <ProfilePageBento />
       </div>
     </>

@@ -19,7 +19,7 @@ export default function BentoStatementPage() {
           description="Consolidated ledger across income, expenses, transfers, and investments."
           variant="console"
         />
-        <div className="mx-auto max-w-5xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
           <div className="h-28 rounded-xl border border-white/10 bg-white/5" />
           <div className="h-[420px] rounded-xl border border-white/10 bg-white/5" />
         </div>
@@ -36,7 +36,7 @@ export default function BentoStatementPage() {
         description="Consolidated ledger across income, expenses, transfers, and investments."
         variant="console"
       />
-      <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <StatementPageBento {...statement} />
       </div>
     </>

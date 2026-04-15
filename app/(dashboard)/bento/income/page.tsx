@@ -24,7 +24,7 @@ export default function BentoIncomePage() {
           description="Log inflows and see how they split across your fund pillars."
           variant="console"
         />
-        <div className="mx-auto max-w-4xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
           <IncomeFormSkeleton variant="console" />
           <IncomeHistorySkeleton variant="console" />
         </div>
@@ -41,7 +41,7 @@ export default function BentoIncomePage() {
         description="Log inflows and see how they split across your fund pillars."
         variant="console"
       />
-      <div className="mx-auto max-w-4xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <IncomePageBento {...income} />
       </div>
     </>

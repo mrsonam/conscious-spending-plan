@@ -10,6 +10,7 @@ import {
   TrendingUp,
   BarChart3,
   HandCoins,
+  CalendarClock,
 } from "lucide-react"
 import { DASHBOARD_HOME } from "@/lib/dashboard-theme"
 import { BENTO, CLASSIC } from "@/lib/app-routes"
@@ -40,6 +41,8 @@ function navGroups(
   const accountsHref = theme === "console" ? BENTO.accounts : CLASSIC.accounts
   const loansHref = theme === "console" ? BENTO.loans : CLASSIC.loans
   const profileHref = theme === "console" ? BENTO.profile : CLASSIC.profile
+  const subscriptionsHref =
+    theme === "console" ? BENTO.subscriptions : CLASSIC.subscriptions
   return [
     {
       id: "overview",
@@ -54,6 +57,7 @@ function navGroups(
       items: [
         { name: "Income", href: incomeHref, icon: DollarSign },
         { name: "Expenses", href: expensesHref, icon: TrendingDown },
+        { name: "Subscriptions", href: subscriptionsHref, icon: CalendarClock },
         { name: "Statement", href: statementHref, icon: FileText },
       ],
     },

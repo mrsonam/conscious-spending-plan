@@ -31,8 +31,10 @@ export default function ProfilePage() {
     return (
       <>
         <Header title="Profile" />
-        <div className="p-4 sm:p-6 max-w-2xl mx-auto">
-          <ProfileSkeleton />
+        <div className="mx-auto max-w-7xl p-4 sm:p-6">
+          <div className="mx-auto max-w-2xl">
+            <ProfileSkeleton />
+          </div>
         </div>
       </>
     )
@@ -47,16 +49,17 @@ export default function ProfilePage() {
   return (
     <>
       <Header title="Profile" />
-      <div className="p-4 sm:p-6 max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Account Information</CardTitle>
-            <CardDescription>
-              Your profile details and account preferences.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center gap-4">
+      <div className="mx-auto max-w-7xl p-4 sm:p-6">
+        <div className="mx-auto max-w-2xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Information</CardTitle>
+              <CardDescription>
+                Your profile details and account preferences.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center gap-4">
               {session.user?.image ? (
                 <img
                   src={session.user.image}
@@ -107,7 +110,7 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card>
           <CardHeader>
             <CardTitle>This device</CardTitle>
             <CardDescription>
@@ -118,6 +121,7 @@ export default function ProfilePage() {
             <AppCacheResetSection variant="classic" />
           </CardContent>
         </Card>
+        </div>
       </div>
     </>
   )

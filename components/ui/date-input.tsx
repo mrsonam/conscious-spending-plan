@@ -16,6 +16,8 @@ export interface DateInputProps
   value?: string
   onChange?: React.ChangeEventHandler<HTMLInputElement>
   wrapperClassName?: string
+  popoverClassName?: string
+  popoverStyle?: React.CSSProperties
 }
 
 const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
@@ -34,6 +36,8 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       onFocus,
       onBlur,
       style,
+      popoverClassName,
+      popoverStyle,
     },
     ref
   ) => {
@@ -120,7 +124,11 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           </PopoverTrigger>
           <PopoverContent
             align="start"
-            className="date-input-popover-content w-auto border-gray-200 p-0 shadow-lg"
+            className={cn(
+              "date-input-popover-content w-auto border-gray-200 p-0 shadow-lg",
+              popoverClassName,
+            )}
+            style={popoverStyle}
             data-date-input-popover="true"
           >
             <Calendar

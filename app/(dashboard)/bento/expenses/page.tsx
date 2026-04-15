@@ -23,7 +23,7 @@ export default function BentoExpensesPage() {
           description="Track outflows, recurring charges, and history."
           variant="console"
         />
-        <div className="mx-auto max-w-4xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
             <div className="lg:col-span-7">
               <IncomeFormSkeleton variant="console" />
@@ -46,7 +46,7 @@ export default function BentoExpensesPage() {
         description="Track outflows, recurring charges, and history."
         variant="console"
       />
-      <div className="mx-auto max-w-4xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <ExpensePageBento {...expense} />
       </div>
     </>

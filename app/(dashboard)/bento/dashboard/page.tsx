@@ -56,6 +56,20 @@ export default function ConsoleV2Page() {
   const [trajectorySeries, setTrajectorySeries] = useState<TrajectoryPoint[]>([])
   const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
   const [loanSummary, setLoanSummary] = useState<LoanSummary | null>(null)
+  const [subscriptionDash, setSubscriptionDash] = useState<{
+    monthlyActiveTotal: number
+    upcoming: Array<{
+      subscriptionId: string
+      label: string
+      provider: string | null
+      amount: number
+      date: string
+      kind: "renewal" | "trial"
+    }>
+  }>({
+    monthlyActiveTotal: 0,
+    upcoming: [],
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -182,6 +196,7 @@ export default function ConsoleV2Page() {
               ytdData,
               historyData,
               loansData,
+              subscriptionsData,
             ] = await Promise.all([
               fetchJsonAndCache<{ expenses?: Expense[]; total?: number }>(
                 "dashboard:expenses-last-month",
@@ -218,6 +233,20 @@ export default function ConsoleV2Page() {
               fetchJsonAndCache<{ loans?: Array<{ amount: number; repaidAmount: number }> }>(
                 "dashboard:loans",
                 `/api/loans?status=active&t=${t}`,
+              ),
+              fetchJsonAndCache<{
+                monthlyActiveTotal?: number
+                upcoming?: Array<{
+                  subscriptionId: string
+                  label: string
+                  provider: string | null
+                  amount: number
+                  date: string
+                  kind: "renewal" | "trial"
+                }>
+              }>(
+                "dashboard:subscriptions",
+                `/api/subscriptions?upcomingDays=14&t=${t}`,
               ),
             ])
 
@@ -273,6 +302,11 @@ export default function ConsoleV2Page() {
             setLoanSummary({
               activeCount: loans.length,
               outstandingPrincipal: outstanding,
+            })
+
+            setSubscriptionDash({
+              monthlyActiveTotal: subscriptionsData.monthlyActiveTotal ?? 0,
+              upcoming: subscriptionsData.upcoming ?? [],
             })
 
             const symbols = new Set<string>()
@@ -340,6 +374,7 @@ export default function ConsoleV2Page() {
       lastMonthExpenses={lastMonthExpenses}
       marketPrices={marketPrices}
       loanSummary={loanSummary}
+      subscriptionDash={subscriptionDash}
       loading={loading}
     />
   )

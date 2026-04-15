@@ -28,7 +28,7 @@ export default function ClassicIncomePage() {
     return (
       <>
         <Header title="Income" variant="classic" />
-        <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
           <IncomeSkeleton />
         </div>
       </>
@@ -46,7 +46,7 @@ export default function ClassicIncomePage() {
       <Header title="Income" variant="classic" />
       <div
         className={cn(
-          "p-4 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6 pb-10",
+          "p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-10",
         )}
       >
         <IncomePageClassic {...income} />

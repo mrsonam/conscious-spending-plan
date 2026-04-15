@@ -24,6 +24,7 @@ model User {
   transfers     Transfer[]
   expenses      Expense[]
   recurringExpenses RecurringExpense[]
+  subscriptions Subscription[]
   loans         Loan[]
   borrowedLoans BorrowedLoan[]
   categoryBalances CategoryBalance[]
@@ -200,9 +201,30 @@ model RecurringExpense {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  subscription    Subscription?
 
   @@index([userId])
   @@index([accountId])
+}
+
+/// Recurring charge tracked as a subscription (1:1 with RecurringExpense for billing).
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurringExpenseId String   @unique
+  recurringExpense   RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  provider           String?
+  label              String?
+  status             String   @default("active") // active | paused | cancelled
+  trialEndsAt        DateTime?
+  nextRenewalAt      DateTime?
+  reminderDaysBefore Int      @default(7)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
 }
 
 model CategoryTransaction {

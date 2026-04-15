@@ -17,7 +17,7 @@ export default function BentoLoansPage() {
           description="Lending you extended and borrowing you owe — outside income and expense flows."
           variant="console"
         />
-        <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <div className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
           <div className="grid gap-3 sm:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -42,7 +42,7 @@ export default function BentoLoansPage() {
         description="Lending you extended and borrowing you owe — outside income and expense flows."
         variant="console"
       />
-      <div className="mx-auto max-w-5xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <LoansPageBento />
       </div>
     </>

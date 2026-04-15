@@ -28,7 +28,7 @@ export default function ClassicExpensesPage() {
     return (
       <>
         <Header title="Expenses" />
-        <div className="mx-auto max-w-6xl space-y-4 p-4 sm:space-y-6 sm:p-6">
+        <div className="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-6 sm:p-6">
           <ExpensesSkeleton />
         </div>
       </>
@@ -46,7 +46,7 @@ export default function ClassicExpensesPage() {
       <Header title="Expenses" />
       <div
         className={cn(
-          "mx-auto max-w-6xl space-y-4 p-4 pb-10 sm:space-y-6 sm:p-6",
+          "mx-auto max-w-7xl space-y-4 p-4 pb-10 sm:space-y-6 sm:p-6",
         )}
       >
         <ExpensePageClassic {...expense} />

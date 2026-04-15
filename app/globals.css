@@ -313,9 +313,17 @@ html {
   animation: splash-shimmer 1.15s ease-in-out infinite;
 }
 
-/* Shared skeleton: Wealth Console uses muted cool surfaces */
+/* Shared skeleton: shimmer on light + console (same keyframes, different fills). */
 .skeleton-base {
   background-color: rgb(229 231 235);
+  background-image: linear-gradient(
+    105deg,
+    rgb(229 231 235) 0%,
+    rgb(255 255 255) 45%,
+    rgb(229 231 235) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer-wave 1.4s ease-in-out infinite;
 }
 
 html[data-csp-dashboard-theme="console"] .skeleton-base {
@@ -327,7 +335,7 @@ html[data-csp-dashboard-theme="console"] .skeleton-base {
     rgba(218, 226, 253, 0.04) 100%
   );
   background-size: 200% 100%;
-  animation: skeleton-shimmer-wave 1.4s ease-in-out infinite !important;
+  animation: skeleton-shimmer-wave 1.4s ease-in-out infinite;
 }
 
 @keyframes skeleton-shimmer-wave {
