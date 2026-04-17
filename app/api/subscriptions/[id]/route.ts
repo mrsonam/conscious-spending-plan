@@ -35,6 +35,8 @@ export async function PATCH(
       nextRenewalAt,
       reminderDaysBefore,
       recurring,
+      foreignCurrency,
+      foreignAmount,
     } = body
 
     if (
@@ -110,6 +112,12 @@ export async function PATCH(
           ...(typeof reminderDaysBefore === "number" &&
             reminderDaysBefore >= 0 &&
             reminderDaysBefore <= 90 && { reminderDaysBefore: Math.floor(reminderDaysBefore) }),
+          ...(foreignCurrency !== undefined && {
+            foreignCurrency: typeof foreignCurrency === "string" && foreignCurrency ? foreignCurrency.toUpperCase() : null,
+          }),
+          ...(foreignAmount !== undefined && {
+            foreignAmount: typeof foreignAmount === "number" ? foreignAmount : null,
+          }),
         },
         include: {
           recurringExpense: {

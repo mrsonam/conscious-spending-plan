@@ -220,6 +220,8 @@ model Subscription {
   trialEndsAt        DateTime?
   nextRenewalAt      DateTime?
   reminderDaysBefore Int      @default(7)
+  foreignCurrency    String?  // null if local currency, e.g. "USD" if foreign
+  foreignAmount      Float?   // original amount in the foreign currency
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

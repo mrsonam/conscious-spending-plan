@@ -42,7 +42,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center max-sm:items-end"
       onClick={() => onOpenChange(false)}
     >
       <div
@@ -50,7 +50,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         aria-hidden="true"
       />
       <div
-        className="scrollbar-none relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="scrollbar-none relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto max-sm:max-w-none max-sm:max-h-[min(95dvh,100%-env(safe-area-inset-top))] max-sm:animate-drawer-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -67,11 +67,13 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        "scrollbar-none bg-white rounded-lg shadow-lg p-6 w-full max-sm:max-h-[min(90dvh,100%-1rem)] max-sm:pt-[max(1.5rem,env(safe-area-inset-top))] max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] max-sm:pl-[max(1.5rem,env(safe-area-inset-left))] max-sm:pr-[max(1.5rem,env(safe-area-inset-right))]",
+        "scrollbar-none bg-white rounded-xl shadow-lg p-6 w-full max-sm:rounded-t-[2rem] max-sm:rounded-b-none max-sm:p-5 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
         className
       )}
       {...props}
     >
+      {/* Mobile drag handle indicator */}
+      <div className="mx-auto mt-[-8px] mb-6 h-1 w-10 flex-shrink-0 cursor-grab rounded-full bg-slate-200 dark:bg-slate-700 sm:hidden" />
       {children}
     </div>
   )

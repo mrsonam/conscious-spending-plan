@@ -5,9 +5,9 @@ export function currencyDisplayParts(amount: number): {
   main: string
   decimals: string
 } {
-  const parts = new Intl.NumberFormat("en-US", {
+  const parts = new Intl.NumberFormat("en-AU", {
     style: "currency",
-    currency: "USD",
+    currency: "AUD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).formatToParts(amount)

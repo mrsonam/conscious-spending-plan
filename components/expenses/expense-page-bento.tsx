@@ -2025,7 +2025,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
               >
                 Liquidity buffer analysis
               </p>
-              <p
+              <div
                 className="mt-3 max-w-3xl text-sm leading-snug"
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
@@ -2042,7 +2042,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   {runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} months`}
                 </span>{" "}
                 of operational runway without further capital injection.
-              </p>
+              </div>
             </div>
             <div
               className="flex h-14 w-20 items-end justify-end gap-1 rounded-xl border p-3"

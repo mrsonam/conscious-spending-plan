@@ -19,8 +19,9 @@ import {
 import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
+import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { monthlyEquivalent, type SubscriptionFrequency } from "@/lib/subscription-utils"
-import { CalendarClock, Plus, Trash2, Pencil } from "lucide-react"
+import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const CACHE_KEY = "subscriptions:list"
@@ -53,6 +54,8 @@ export type SubscriptionRow = {
   trialEndsAt: string | null
   nextRenewalAt: string | null
   reminderDaysBefore: number
+  foreignCurrency: string | null
+  foreignAmount: number | null
   recurringExpense: Recurring
 }
 
@@ -74,6 +77,31 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "paused", label: "Paused" },
   { value: "cancelled", label: "Cancelled" },
+]
+
+const EXPENSE_CATEGORIES = [
+  { value: "groceries", label: "Groceries" },
+  { value: "food", label: "Food & Dining" },
+  { value: "transport", label: "Transportation" },
+  { value: "gas", label: "Gas & Fuel" },
+  { value: "bills", label: "Bills & Utilities" },
+  { value: "rent", label: "Rent & Mortgage" },
+  { value: "insurance", label: "Insurance" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "shopping", label: "Shopping" },
+  { value: "clothing", label: "Clothing & Apparel" },
+  { value: "healthcare", label: "Healthcare" },
+  { value: "pharmacy", label: "Pharmacy & Medicine" },
+  { value: "education", label: "Education" },
+  { value: "subscriptions", label: "Subscriptions" },
+  { value: "personal", label: "Personal Care" },
+  { value: "gifts", label: "Gifts & Donations" },
+  { value: "travel", label: "Travel" },
+  { value: "home", label: "Home & Garden" },
+  { value: "pet", label: "Pet Care" },
+  { value: "fitness", label: "Fitness & Sports" },
+  { value: "technology", label: "Technology & Electronics" },
+  { value: "other", label: "Other" },
 ]
 
 function formatShort(iso: string) {
@@ -114,11 +142,17 @@ export function SubscriptionsPageBento() {
   const [label, setLabel] = useState("")
   const [frequency, setFrequency] = useState("monthly")
   const [fundCategory, setFundCategory] = useState("")
+  const [expenseCategory, setExpenseCategory] = useState("")
   const [startDate, setStartDate] = useState("")
   const [trialEndsAt, setTrialEndsAt] = useState("")
   const [nextRenewalAt, setNextRenewalAt] = useState("")
   const [reminderDays, setReminderDays] = useState("7")
   const [status, setStatus] = useState("active")
+  
+  const [isInternational, setIsInternational] = useState(false)
+  const [foreignCurrency, setForeignCurrency] = useState("")
+  const [foreignAmount, setForeignAmount] = useState("")
+
   const [submitting, setSubmitting] = useState(false)
 
   const refetch = useCallback(async () => {
@@ -181,11 +215,15 @@ export function SubscriptionsPageBento() {
     setLabel("")
     setFrequency("monthly")
     setFundCategory("")
+    setExpenseCategory("")
     setStartDate(new Date().toISOString().split("T")[0])
     setTrialEndsAt("")
     setNextRenewalAt("")
     setReminderDays("7")
     setStatus("active")
+    setIsInternational(false)
+    setForeignCurrency("")
+    setForeignAmount("")
   }
 
   useEffect(() => {
@@ -208,11 +246,15 @@ export function SubscriptionsPageBento() {
     setLabel(s.label ?? "")
     setFrequency(s.recurringExpense.frequency)
     setFundCategory(s.recurringExpense.category ?? "")
+    setExpenseCategory(s.recurringExpense.expenseCategory ?? "")
     setStartDate(s.recurringExpense.startDate.slice(0, 10))
     setTrialEndsAt(s.trialEndsAt ? s.trialEndsAt.slice(0, 10) : "")
     setNextRenewalAt(s.nextRenewalAt ? s.nextRenewalAt.slice(0, 10) : "")
     setReminderDays(String(s.reminderDaysBefore))
     setStatus(s.status)
+    setIsInternational(!!s.foreignCurrency)
+    setForeignCurrency(s.foreignCurrency ?? "")
+    setForeignAmount(s.foreignAmount ? String(s.foreignAmount) : "")
     setOpen(true)
   }
 
@@ -237,11 +279,14 @@ export function SubscriptionsPageBento() {
             trialEndsAt: trialEndsAt || null,
             nextRenewalAt: nextRenewalAt || null,
             reminderDaysBefore: parseInt(reminderDays, 10) || 7,
+            foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
+            foreignAmount: isInternational && foreignAmount ? parseFloat(foreignAmount) : null,
             recurring: {
               accountId,
               amount: amt,
               description: description.trim() || null,
               category: fundCategory || null,
+              expenseCategory: expenseCategory || null,
               frequency,
               startDate,
             },
@@ -262,6 +307,7 @@ export function SubscriptionsPageBento() {
             amount: amt,
             description: description.trim() || null,
             category: fundCategory || null,
+            expenseCategory: expenseCategory || null,
             frequency,
             startDate,
             provider: provider.trim() || null,
@@ -270,6 +316,8 @@ export function SubscriptionsPageBento() {
             nextRenewalAt: nextRenewalAt || null,
             reminderDaysBefore: parseInt(reminderDays, 10) || 7,
             status,
+            foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
+            foreignAmount: isInternational && foreignAmount ? parseFloat(foreignAmount) : null,
           }),
         })
         const data = (await res.json()) as { error?: string }
@@ -333,184 +381,328 @@ export function SubscriptionsPageBento() {
     color: TOKENS.onSurface,
   }
 
+  const PILLAR_COLORS: Record<string, string> = {
+    fixedCosts: "rgba(248,113,113,0.92)",
+    savings: "rgba(74,222,128,0.92)",
+    investment: "rgba(137,206,255,0.95)",
+    guiltFreeSpending: "rgba(196,181,253,0.92)",
+  }
+
+  const activeSubs = rows.filter((r) => r.s.status === "active")
+  const categorySplit = FUND_OPTIONS.filter((o) => o.value)
+    .map((opt) => {
+      const amt = activeSubs
+        .filter((r) => r.s.recurringExpense.category === opt.value)
+        .reduce((sum, r) => sum + r.monthlyEq, 0)
+      return { key: opt.value as string, label: opt.label, amount: amt }
+    })
+    .sort((a, b) => b.amount - a.amount)
+
+  const annualEq = monthlyActiveTotal * 12
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {message ? (
         <p
           className="text-sm font-medium"
-          style={{
-            color: message.type === "success" ? TOKENS.primary : "#ffb4ab",
-          }}
+          style={{ color: message.type === "success" ? TOKENS.primary : ERROR_SOFT }}
         >
           {message.text}
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div
-          className="rounded-xl border p-5"
-          style={{
-            background: TOKENS.surfaceContainer,
-            borderColor: TOKENS.outlineGhost,
-            boxShadow: CARD_INSET,
-          }}
-        >
-          <p
-            className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-            style={{ color: TOKENS.onSurfaceMuted }}
-          >
-            Active (monthly eq.)
-          </p>
-          <div className="mt-2 text-2xl font-bold tabular-nums">
-            {loading ? (
-              "—"
-            ) : (
-              <MajorFigureCurrency
-                amount={monthlyActiveTotal}
-                variant="neutral"
-                className="text-2xl font-bold!"
-              />
-            )}
-          </div>
-        </div>
-        <div
-          className="rounded-xl border p-5 sm:col-span-2"
-          style={{
-            background: TOKENS.surfaceContainer,
-            borderColor: TOKENS.outlineGhost,
-            boxShadow: CARD_INSET,
-          }}
-        >
-          <p
-            className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-            style={{ color: TOKENS.onSurfaceMuted }}
-          >
-            Next 14 days
-          </p>
-          {loading ? (
-            <p className="mt-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-              Loading…
-            </p>
-          ) : upcoming.length === 0 ? (
-            <p className="mt-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-              No renewals or trial endings in this window.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {upcoming.slice(0, 6).map((u) => (
-                <li
-                  key={`${u.subscriptionId}-${u.kind}-${u.date}`}
-                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-start">
+        {/* Telemetry Hero */}
+        <section className="lg:col-span-7">
+          <div className="px-1 py-2 sm:px-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: TOKENS.primary, boxShadow: CARD_INSET }}
+                />
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+                  style={{ color: TOKENS.onSurfaceMuted }}
                 >
-                  <span style={{ color: TOKENS.onSurface }}>
-                    {u.label}
-                    <span
-                      className="ml-2 text-[10px] uppercase tracking-wide"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      {u.kind === "trial" ? "trial ends" : "renews"}
-                    </span>
-                  </span>
-                  <span className="tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
-                    {formatShort(u.date)} ·{" "}
-                    <MajorFigureCurrency
-                      amount={u.amount}
-                      variant="neutral"
-                      className="inline text-sm font-semibold!"
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+                  Live fund telemetry
+                </p>
+              </div>
+            </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <CalendarClock className="h-5 w-5" style={{ color: TOKENS.secondary }} />
-          <h2 className="text-lg font-semibold tracking-tight">Your subscriptions</h2>
-        </div>
-        <Button
-          type="button"
-          onClick={openCreate}
-          className="gap-2 rounded-xl font-bold uppercase tracking-wider"
-          style={{ background: TOKENS.primary, color: TOKENS.surface }}
-        >
-          <Plus className="h-4 w-4" />
-          Add subscription
-        </Button>
-      </div>
+            <p
+              className="mt-3 text-[10px] font-semibold uppercase tracking-[0.22em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Monthly commit
+            </p>
+            <div className="mt-2 text-4xl font-black leading-none tracking-tight sm:text-5xl lg:text-[3.5rem]">
+              {loading ? (
+                <span style={{ color: TOKENS.onSurfaceMuted }}>—</span>
+              ) : (
+                <MajorFigureCurrency
+                  amount={monthlyActiveTotal}
+                  variant="prosperity"
+                  className="font-black!"
+                  decimalEm={0.45}
+                />
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+              Total scheduled outflow. These auto-renewing charges anchor your envelope requirements.
+            </p>
 
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceLow }}
-      >
-        {loading ? (
-          <p className="p-6 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-            Loading…
-          </p>
-        ) : rows.length === 0 ? (
-          <p className="p-6 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-            No subscriptions yet. Add one to link a recurring charge and see renewals here.
-          </p>
-        ) : (
-          <div className="divide-y" style={{ borderColor: TOKENS.outlineGhost }}>
-            {rows.map(({ s, monthlyEq, title }) => (
-              <div
-                key={s.id}
-                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold" style={{ color: TOKENS.onSurface }}>
-                    {title}
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-                    {s.recurringExpense.account.name} · {s.recurringExpense.frequency} ·{" "}
-                    <MajorFigureCurrency
-                      amount={s.recurringExpense.amount}
-                      variant="neutral"
-                      className="inline text-xs!"
-                    />
-                    {s.status !== "active" ? (
-                      <span className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                        {s.status}
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase" style={{ color: TOKENS.onSurfaceMuted }}>
-                      /mo eq.
-                    </p>
-                    <MajorFigureCurrency
-                      amount={monthlyEq}
-                      variant="prosperity"
-                      className="text-base font-bold!"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(s)}
-                    className="rounded-lg p-2 transition-colors hover:bg-white/10"
-                    style={{ color: TOKENS.secondary }}
-                    aria-label="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(s.id)}
-                    className="rounded-lg p-2 transition-colors hover:bg-white/10"
-                    style={{ color: "#ffb4ab" }}
-                    aria-label="Remove from list"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+            <div className="mt-8 grid grid-cols-1 gap-6 border-t pt-6 sm:grid-cols-3" style={{ borderColor: TOKENS.outlineGhost }}>
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Annual anchor
+                </p>
+                <div className="mt-2">
+                  <MajorFigureCurrency
+                    amount={annualEq}
+                    variant="neutral"
+                    className="text-lg font-bold!"
+                    decimalEm={0.45}
+                  />
                 </div>
               </div>
-            ))}
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Active contracts
+                </p>
+                <div className="mt-2">
+                  <span className="text-lg font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                    {activeSubs.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Subscriptions by envelope */}
+            {categorySplit.some((c) => c.amount > 0) && (
+              <div className="mt-6">
+                <p
+                  className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Envelope Distribution
+                </p>
+                <div className="flex h-2.5 w-full min-w-0 overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
+                  {categorySplit.map((cat) => {
+                    if (cat.amount <= 0) return null
+                    const w = (cat.amount / monthlyActiveTotal) * 100
+                    const color = PILLAR_COLORS[cat.key] || TOKENS.tertiary
+                    return (
+                      <div
+                        key={cat.key}
+                        className="min-w-[2px] shrink-0 transition-all"
+                        style={{ width: `${w}%`, background: color }}
+                        title={`${cat.label} (${w.toFixed(1)}%)`}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {categorySplit.map((cat) => {
+                    if (cat.amount <= 0) return null
+                    const pct = (cat.amount / monthlyActiveTotal) * 100
+                    const color = PILLAR_COLORS[cat.key] || TOKENS.tertiary
+                    return (
+                      <div key={cat.key}>
+                        <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: TOKENS.onSurface }}>
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+                          <span className="truncate">{cat.label}</span>
+                        </div>
+                        <div className="mt-1 flex items-baseline gap-1 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                          <span>{pct.toFixed(0)}%</span>
+                          <span className="opacity-50">·</span>
+                          <MajorFigureCurrency amount={cat.amount} variant="neutral" className="text-[11px] font-medium!" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Command surface — Upcoming Renewals */}
+        <section className="lg:col-span-5">
+          <div
+            className="rounded-xl border p-5 sm:p-6 lg:sticky lg:top-4"
+            style={{
+              background: TOKENS.surfaceContainer,
+              borderColor: TOKENS.outlineGhost,
+              boxShadow: CARD_INSET,
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.28em]">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 shrink-0" style={{ color: TOKENS.secondary }} />
+                <span style={{ color: TOKENS.onSurfaceMuted }}>Radar</span>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-snug" style={{ color: TOKENS.onSurfaceMuted }}>
+              Upcoming renewals & trial expirations within next 14 days.
+            </p>
+
+            {loading ? (
+              <p className="mt-5 text-xs italic" style={{ color: TOKENS.onSurfaceMuted }}>Scanning...</p>
+            ) : upcoming.length === 0 ? (
+              <div className="mt-5 rounded-xl border p-4 text-center text-xs" style={{ borderColor: TOKENS.outlineGhost, background: `color-mix(in srgb, ${TOKENS.surfaceLow} 50%, transparent)` }}>
+                <span style={{ color: TOKENS.onSurfaceMuted }}>No events on radar.</span>
+              </div>
+            ) : (
+              <ul className="mt-5 space-y-3">
+                {upcoming.slice(0, 6).map((u) => (
+                  <li
+                    key={`${u.subscriptionId}-${u.kind}-${u.date}`}
+                    className="flex flex-col gap-1.5 rounded-lg border p-3.5 transition-colors"
+                    style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceLow }}
+                  >
+                    <div className="flex justify-between items-start font-semibold" style={{ color: TOKENS.onSurface }}>
+                      <span className="text-sm truncate pr-2">{u.label}</span>
+                      <MajorFigureCurrency amount={u.amount} variant="neutral" className="text-sm shrink-0!" />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                      <span className="uppercase tracking-wider font-bold" style={{ color: u.kind === 'trial' ? ERROR_SOFT : TOKENS.secondary }}>
+                        {u.kind === 'trial' ? 'Trial Ending' : 'Renews'}
+                      </span>
+                      <span className="font-medium">{formatShort(u.date)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Grid Ledger */}
+      <div className="space-y-5 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5" style={{ color: TOKENS.secondary }} />
+            <h2 className="text-lg font-semibold tracking-tight" style={{ color: TOKENS.onSurface }}>Registry</h2>
+          </div>
+          <Button
+            type="button"
+            onClick={openCreate}
+            className="gap-2 rounded-xl font-bold uppercase tracking-wider"
+            style={{ background: TOKENS.primary, color: TOKENS.surface }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Entity
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-sm rounded-xl border" style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceContainer }}>
+            <p style={{ color: TOKENS.onSurfaceMuted }}>Loading ledger…</p>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="py-16 text-center text-sm rounded-xl border" style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceContainer }}>
+            <p style={{ color: TOKENS.onSurfaceMuted }}>No active contracts on file.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map(({ s, monthlyEq, title }) => {
+              const catOpt = FUND_OPTIONS.find((o) => o.value === s.recurringExpense.category)
+              const catLabel = catOpt?.label || "Uncategorized"
+              const isInactive = s.status !== "active"
+
+              return (
+                <div
+                  key={s.id}
+                  className="group relative flex flex-col justify-between rounded-xl border p-5 transition-all focus-within:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] md:hover:-translate-y-0.5"
+                  style={{
+                    background: TOKENS.surfaceContainer,
+                    borderColor: isInactive ? ERROR_SOFT : TOKENS.outlineGhost,
+                    boxShadow: CARD_INSET,
+                  }}
+                >
+                  <div className="absolute top-3 right-3 flex opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(s)}
+                      className="rounded-lg p-2 transition-colors hover:bg-white/10"
+                      style={{ color: TOKENS.secondary }}
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(s.id)}
+                      className="rounded-lg p-2 transition-colors hover:bg-white/10"
+                      style={{ color: ERROR_SOFT }}
+                      title="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <div className="pr-16">
+                      <p className="text-base font-bold truncate" style={{ color: TOKENS.onSurface }}>
+                        {title}
+                      </p>
+                      <p className="mt-0.5 text-xs truncate" style={{ color: TOKENS.onSurfaceMuted }}>
+                        {s.recurringExpense.account.name}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="rounded px-2 py-1" style={{ background: `color-mix(in srgb, ${TOKENS.secondary} 15%, transparent)`, color: TOKENS.secondary }}>
+                        {s.recurringExpense.frequency}
+                      </span>
+                      <span className="rounded px-2 py-1" style={{ background: TOKENS.surfaceLow, color: TOKENS.onSurfaceMuted }}>
+                        {catLabel}
+                      </span>
+                      {s.recurringExpense.expenseCategory && (
+                        <span className="rounded px-2 py-1" style={{ background: TOKENS.surfaceLow, color: TOKENS.onSurfaceMuted }}>
+                          {EXPENSE_CATEGORIES.find(c => c.value === s.recurringExpense.expenseCategory)?.label || s.recurringExpense.expenseCategory}
+                        </span>
+                      )}
+                      {isInactive && (
+                        <span className="rounded px-2 py-1" style={{ background: `color-mix(in srgb, ${ERROR_SOFT} 15%, transparent)`, color: ERROR_SOFT }}>
+                          {s.status}
+                        </span>
+                      )}
+                      {s.foreignCurrency && s.foreignAmount && (
+                        <span className="rounded px-2 py-1" style={{ background: `color-mix(in srgb, ${TOKENS.primary} 15%, transparent)`, color: TOKENS.primary }}>
+                          ~{s.foreignAmount} {s.foreignCurrency}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-end justify-between border-t pt-4" style={{ borderColor: TOKENS.outlineGhost }}>
+                    <div>
+                      <p className="text-[10px] uppercase font-semibold tracking-wider flex items-center gap-1" style={{ color: TOKENS.onSurfaceMuted }}>
+                        {s.foreignCurrency ? "Live Equiv." : "Base"}
+                      </p>
+                      <div className="mt-1">
+                        <MajorFigureCurrency amount={s.recurringExpense.amount} variant="neutral" className="text-sm font-bold!" />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: TOKENS.secondary }}>/mo eq.</p>
+                      <div className="mt-1">
+                        <MajorFigureCurrency amount={monthlyEq} variant="prosperity" className="text-xl font-black!" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -551,7 +743,7 @@ export function SubscriptionsPageBento() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Amount</Label>
+                <Label>{isInternational ? "Projected Equiv. (AUD fallback)" : "Amount"}</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -589,7 +781,48 @@ export function SubscriptionsPageBento() {
                 placeholder="e.g. Netflix"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 border-t pt-4" style={{ borderColor: TOKENS.outlineGhost }}>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="intl-sub"
+                  checked={isInternational}
+                  onChange={(e) => setIsInternational(e.target.checked)}
+                  className="rounded border-gray-600 bg-transparent"
+                />
+                <Label htmlFor="intl-sub" className="cursor-pointer">International / Forex Subscription?</Label>
+              </div>
+              
+              {isInternational && (
+                <div className="grid grid-cols-2 gap-3 mt-2 mb-2">
+                  <div>
+                    <Label>Foreign Currency (e.g. USD, EUR)</Label>
+                    <Input
+                      value={foreignCurrency}
+                      onChange={(e) => setForeignCurrency(e.target.value)}
+                      className={cn("mt-1", consoleFieldClass)}
+                      style={consoleFieldStyle}
+                      placeholder="USD"
+                    />
+                  </div>
+                  <div>
+                    <Label>Foreign Amount</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={foreignAmount}
+                      onChange={(e) => setForeignAmount(e.target.value)}
+                      className={cn("mt-1", consoleFieldClass)}
+                      style={consoleFieldStyle}
+                      placeholder="e.g. 15.99"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t pt-4" style={{ borderColor: TOKENS.outlineGhost }}>
               <div>
                 <Label>Provider (optional)</Label>
                 <Input
@@ -609,20 +842,40 @@ export function SubscriptionsPageBento() {
                 />
               </div>
             </div>
-            <div>
-              <Label>Fund category</Label>
-              <AppSelect
-                className="mt-1"
-                variant="console"
-                style={{
-                  background: TOKENS.surfaceLow,
-                  borderColor: TOKENS.outlineGhost,
-                  color: TOKENS.onSurface,
-                }}
-                value={fundCategory}
-                onValueChange={setFundCategory}
-                options={FUND_OPTIONS}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Fund category</Label>
+                <AppSelect
+                  className="mt-1"
+                  variant="console"
+                  style={{
+                    background: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  value={fundCategory}
+                  onValueChange={setFundCategory}
+                  options={FUND_OPTIONS}
+                />
+              </div>
+              <div>
+                <Label>Expense category</Label>
+                <AppSelect
+                  className="mt-1"
+                  variant="console"
+                  style={{
+                    background: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  value={expenseCategory}
+                  onValueChange={setExpenseCategory}
+                  options={[
+                    { value: "", label: "—" },
+                    ...EXPENSE_CATEGORIES.map(c => ({ value: c.value, label: c.label }))
+                  ]}
+                />
+              </div>
             </div>
             <div>
               <Label>Start date</Label>

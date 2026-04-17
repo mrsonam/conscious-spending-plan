@@ -8,6 +8,7 @@ import {
   type SubscriptionFrequency,
 } from "@/lib/subscription-utils"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { getExchangeRate } from "@/lib/fx-rate"
 
 const VALID_FREQ = ["weekly", "monthly", "yearly"] as const
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
       where.status = statusFilter
     }
 
-    const subscriptions = await prismaSubscription.findMany({
+    const rawSubscriptions = await prismaSubscription.findMany({
       where,
       include: {
         recurringExpense: {
@@ -44,6 +45,39 @@ export async function GET(request: Request) {
       },
       orderBy: { createdAt: "desc" },
     })
+
+    // --- FX Processing ---
+    const currencies = new Set<string>()
+    for (const s of rawSubscriptions) {
+      const fc = (s as any).foreignCurrency
+      if (fc && typeof fc === 'string') currencies.add(fc.toUpperCase())
+    }
+
+    const fxMap: Record<string, number> = {}
+    if (currencies.size > 0) {
+      await Promise.all(
+        Array.from(currencies).map(async (curr) => {
+          fxMap[curr] = await getExchangeRate(curr, "AUD")
+        })
+      )
+    }
+
+    const subscriptions = rawSubscriptions.map((s) => {
+      const sub = s as any
+      if (sub.foreignCurrency && sub.foreignAmount) {
+        const rate = fxMap[sub.foreignCurrency.toUpperCase()] || 1
+        return {
+          ...sub,
+          recurringExpense: {
+            ...sub.recurringExpense,
+            // Dynamically evaluate local amount based on FX rate
+            amount: sub.foreignAmount * rate
+          }
+        }
+      }
+      return sub
+    })
+    // -----------------------
 
     const activeForTotals = subscriptions.filter(
       (s) => s.status === "active" && s.recurringExpense.isActive
@@ -66,7 +100,7 @@ export async function GET(request: Request) {
         nextRenewalAt: s.nextRenewalAt,
         reminderDaysBefore: s.reminderDaysBefore,
         recurringExpense: {
-          amount: s.recurringExpense.amount,
+          amount: s.recurringExpense.amount, // Now reflects local FX rate
           frequency: s.recurringExpense.frequency,
           startDate: s.recurringExpense.startDate,
           isActive: s.recurringExpense.isActive,
@@ -120,6 +154,8 @@ export async function POST(request: Request) {
       nextRenewalAt,
       reminderDaysBefore,
       status,
+      foreignCurrency,
+      foreignAmount,
     } = body
 
     if (!accountId || !amount || Number(amount) <= 0 || !frequency) {
@@ -157,7 +193,7 @@ export async function POST(request: Request) {
         data: {
           userId: session.user.id,
           accountId,
-          amount: Number(amount),
+          amount: Number(amount), // Local projected amount Fallback
           description: description || null,
           category: category || null,
           expenseCategory: expenseCategory || null,
@@ -181,6 +217,8 @@ export async function POST(request: Request) {
           trialEndsAt: trialEndsAt ? new Date(trialEndsAt) : null,
           nextRenewalAt: nextRenewalAt ? new Date(nextRenewalAt) : null,
           reminderDaysBefore: rb,
+          foreignCurrency: typeof foreignCurrency === "string" && foreignCurrency ? foreignCurrency.toUpperCase() : null,
+          foreignAmount: typeof foreignAmount === "number" ? foreignAmount : null,
         },
         include: {
           recurringExpense: {

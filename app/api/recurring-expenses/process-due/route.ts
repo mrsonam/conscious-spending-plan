@@ -57,9 +57,16 @@ function isDueToday(recurring: { frequency: string; startDate: Date; endDate: Da
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const authHeader = request.headers.get("authorization")
+    const isCron = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+
+    let sessionUserId: string | null = null
+    if (!isCron) {
+      const session = await auth()
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      sessionUserId = session.user.id
     }
 
     const url = new URL(request.url)
@@ -68,7 +75,7 @@ export async function POST(request: Request) {
 
     const recurringList = await prisma.recurringExpense.findMany({
       where: {
-        userId: session.user.id,
+        ...(isCron ? {} : { userId: sessionUserId as string }),
         isActive: true,
       },
       include: {
@@ -87,7 +94,7 @@ export async function POST(request: Request) {
       // Check if an expense that looks like this recurring has already been logged for today
       const existing = await prisma.expense.findFirst({
         where: {
-          userId: session.user.id,
+          userId: recurring.userId,
           accountId: recurring.accountId,
           amount: recurring.amount,
           description: recurring.description,
@@ -105,7 +112,7 @@ export async function POST(request: Request) {
       }
 
       const account = await prisma.account.findFirst({
-        where: { id: recurring.accountId, userId: session.user.id },
+        where: { id: recurring.accountId, userId: recurring.userId },
       })
       if (!account) {
         continue
@@ -118,7 +125,7 @@ export async function POST(request: Request) {
       const expense = await prisma.$transaction(async (tx) => {
         const created = await tx.expense.create({
           data: {
-            userId: session.user.id,
+            userId: recurring.userId,
             accountId: recurring.accountId,
             amount: recurring.amount,
             description: recurring.description,
