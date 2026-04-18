@@ -283,20 +283,6 @@ html {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Mobile Bottom Sheet Drawer Animation */
-@keyframes drawer-slide-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.animate-drawer-slide-up {
-  animation: drawer-slide-up 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
 /* Login hero (classic) */
 @keyframes login-enter {
   from {

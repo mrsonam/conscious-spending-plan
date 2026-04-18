@@ -1,8 +1,19 @@
 "use client"
 
 import * as React from "react"
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useDragControls,
+  useReducedMotion,
+} from "framer-motion"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+const SHEET_EASE = [0.32, 0.72, 0, 1] as const
+const CLOSE_DRAG_PX = 100
+const CLOSE_VELOCITY_Y = 450
 
 interface DialogProps {
   open: boolean
@@ -26,7 +37,137 @@ interface DialogDescriptionProps extends React.HTMLAttributes<HTMLParagraphEleme
   children: React.ReactNode
 }
 
+type DialogSheetContextValue = {
+  startSheetDrag: (e: React.PointerEvent) => void
+} | null
+
+const DialogSheetContext = React.createContext<DialogSheetContextValue>(null)
+
+function useMaxSm() {
+  const [maxSm, setMaxSm] = React.useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 639px)").matches : false
+  )
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)")
+    const onChange = () => setMaxSm(mq.matches)
+    onChange()
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+  return maxSm
+}
+
+type DialogBackdropProps = {
+  onOpenChange: (open: boolean) => void
+  reduceMotion: boolean
+}
+
+function DialogBackdrop({ onOpenChange, reduceMotion }: DialogBackdropProps) {
+  return (
+    <motion.div
+      layout={false}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduceMotion ? 0.12 : 0.22 }}
+      onClick={() => onOpenChange(false)}
+      aria-hidden
+    />
+  )
+}
+
+type DialogSheetProps = {
+  maxSm: boolean
+  reduceMotion: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}
+
+function DialogSheet({ maxSm, reduceMotion, onOpenChange, children }: DialogSheetProps) {
+  const dragControls = useDragControls()
+  const sheetRef = React.useRef<HTMLDivElement | null>(null)
+
+  const handleSheetDragEnd = React.useCallback(
+    (_event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { y: number }; velocity: { y: number } }) => {
+      if (!maxSm) return
+      if (info.offset.y > CLOSE_DRAG_PX || info.velocity.y > CLOSE_VELOCITY_Y) {
+        onOpenChange(false)
+        return
+      }
+      const el = sheetRef.current
+      if (el) {
+        animate(el, { y: 0 }, { type: "spring", stiffness: 420, damping: 38 })
+      }
+    },
+    [maxSm, onOpenChange]
+  )
+
+  const mobileDrag =
+    maxSm
+      ? {
+          drag: "y" as const,
+          dragControls,
+          dragListener: false,
+          dragConstraints: { top: 0, bottom: 520 } as const,
+          dragElastic: { top: 0, bottom: 0.14 } as const,
+          dragMomentum: false,
+          onDragEnd: handleSheetDragEnd,
+        }
+      : {}
+
+  const desktopMotion = {
+    initial: { opacity: 0, scale: 0.96, y: 8 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 0.96, y: 8 },
+    transition: { type: "spring" as const, stiffness: 380, damping: 32 },
+  }
+
+  const mobileMotionReduce = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.2 },
+  }
+
+  const mobileMotionFull = {
+    initial: { y: "100%" },
+    animate: { y: 0 },
+    exit: { y: "100%" },
+    transition: { type: "tween" as const, duration: 0.5, ease: SHEET_EASE },
+  }
+
+  const sheetMotion = !maxSm ? desktopMotion : reduceMotion ? mobileMotionReduce : mobileMotionFull
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center max-sm:items-end">
+      <motion.div
+        ref={sheetRef}
+        layout={false}
+        className={cn(
+          "pointer-events-auto relative z-50 w-full max-w-lg max-h-[90vh]",
+          "scrollbar-none max-sm:max-w-none max-sm:max-h-[min(95dvh,100%-env(safe-area-inset-top))]",
+          maxSm ? "max-sm:overflow-y-auto" : "overflow-y-auto"
+        )}
+        {...sheetMotion}
+        {...mobileDrag}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DialogSheetContext.Provider
+          value={maxSm ? { startSheetDrag: (e) => dragControls.start(e) } : null}
+        >
+          {children}
+        </DialogSheetContext.Provider>
+      </motion.div>
+    </div>
+  )
+}
+
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  const prefersReducedMotion = useReducedMotion()
+  const reduceMotion = Boolean(prefersReducedMotion)
+  const maxSm = useMaxSm()
+
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden"
@@ -38,24 +179,26 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     }
   }, [open])
 
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center max-sm:items-end"
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        aria-hidden="true"
-      />
-      <div
-        className="scrollbar-none relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto max-sm:max-w-none max-sm:max-h-[min(95dvh,100%-env(safe-area-inset-top))] max-sm:animate-drawer-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <>
+          <DialogBackdrop
+            key="dialog-backdrop"
+            onOpenChange={onOpenChange}
+            reduceMotion={reduceMotion}
+          />
+          <DialogSheet
+            key="dialog-sheet"
+            maxSm={maxSm}
+            reduceMotion={reduceMotion}
+            onOpenChange={onOpenChange}
+          >
+            {children}
+          </DialogSheet>
+        </>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -64,6 +207,8 @@ export function DialogContent({
   children,
   ...props
 }: DialogContentProps) {
+  const sheet = React.useContext(DialogSheetContext)
+
   return (
     <div
       className={cn(
@@ -72,8 +217,13 @@ export function DialogContent({
       )}
       {...props}
     >
-      {/* Mobile drag handle indicator */}
-      <div className="mx-auto mt-[-8px] mb-6 h-1 w-10 flex-shrink-0 cursor-grab rounded-full bg-slate-200 dark:bg-slate-700 sm:hidden" />
+      <div
+        role="presentation"
+        className="mx-auto mt-[-8px] flex cursor-grab touch-none select-none justify-center pb-4 pt-2 active:cursor-grabbing sm:hidden"
+        onPointerDown={(e) => sheet?.startSheetDrag(e)}
+      >
+        <div className="h-1 w-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700" />
+      </div>
       {children}
     </div>
   )
@@ -136,11 +286,11 @@ export function DialogClose({
       type="button"
       onClick={onClose}
       className={cn(
-        "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
+        "absolute right-4 top-4 rounded-sm text-white/90 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-white/45 focus:ring-offset-2 focus:ring-offset-transparent",
         className
       )}
     >
-      <X className="h-4 w-4" />
+      <X className="h-4 w-4 text-inherit" strokeWidth={2} />
       <span className="sr-only">Close</span>
     </button>
   )

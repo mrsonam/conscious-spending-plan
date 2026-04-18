@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils"
 
+/** Use `<span>` so skeletons can be nested inside `<p>` / inline runs without invalid DOM (div-in-p). */
 function Skeleton({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <div
-      className={cn("skeleton-base rounded-md", className)}
+    <span
+      className={cn("skeleton-base inline-block rounded-md", className)}
       {...props}
     />
   )
