@@ -7,40 +7,67 @@ import { useState } from "react"
 import { AuthCard, AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { AuthTextInput } from "@/components/auth/auth-text-input"
 import { GoogleMark } from "@/components/auth/google-mark"
+import { PasswordRequirements } from "@/components/auth/password-requirements"
 import type { DashboardTheme } from "@/lib/dashboard-theme"
+import { PASSWORD_MAX_LENGTH, passwordMeetsPolicy } from "@/lib/password-policy"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { DEMO_ACCOUNT } from "@/lib/demo-credentials"
 import { cn } from "@/lib/utils"
 
-export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) {
+export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme }) {
   const router = useRouter()
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirm, setConfirm] = useState("")
   const [error, setError] = useState("")
-  const [credentialsLoading, setCredentialsLoading] = useState(false)
+  const [submitLoading, setSubmitLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const isConsole = initialTheme === "console"
 
-  const handleCredentials = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setCredentialsLoading(true)
+    if (password !== confirm) {
+      setError("Passwords do not match.")
+      return
+    }
+    if (!passwordMeetsPolicy(password)) {
+      setError("Please meet all password requirements below.")
+      return
+    }
+    setSubmitLoading(true)
     try {
-      const res = await signIn("credentials", {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          name: name.trim() || undefined,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setError(data.error ?? "Could not create account.")
+        setSubmitLoading(false)
+        return
+      }
+
+      const sign = await signIn("credentials", {
         email: email.trim(),
         password,
         redirect: false,
       })
-      if (res?.error) {
-        setError("Invalid email or password.")
-        setCredentialsLoading(false)
+      if (sign?.error) {
+        setError("Account created but sign-in failed. Try logging in from the login page.")
+        setSubmitLoading(false)
         return
       }
       router.push("/dashboard")
       router.refresh()
     } catch {
       setError("Something went wrong. Please try again.")
-      setCredentialsLoading(false)
+      setSubmitLoading(false)
     }
   }
 
@@ -81,43 +108,8 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             )}
             style={isConsole ? { color: TOKENS.onSurface } : undefined}
           >
-            Welcome back
+            Create your account
           </h1>
-          <p
-            className={cn(
-              "mx-auto mt-2 max-w-[320px] text-center text-sm leading-relaxed",
-              !isConsole && "text-slate-600",
-            )}
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
-          >
-            Sign in with email or Google—one calm dashboard for income,
-            spending, and goals.
-          </p>
-
-          <p
-            className={cn(
-              "mt-4 rounded-xl border px-3 py-2.5 text-center text-xs leading-relaxed",
-              !isConsole && "border-indigo-200/70 bg-indigo-50/80 text-slate-700",
-            )}
-            style={
-              isConsole
-                ? {
-                    borderColor: TOKENS.outlineGhost,
-                    background: TOKENS.surfaceHigh,
-                    color: TOKENS.onSurfaceMuted,
-                  }
-                : undefined
-            }
-          >
-            <span className="font-semibold" style={isConsole ? { color: TOKENS.primary } : { color: "#4f46e5" }}>
-              Demo account
-            </span>
-            {" — "}
-            explore with{" "}
-            <span className="font-mono text-[11px]">{DEMO_ACCOUNT.email}</span>
-            {" / "}
-            <span className="font-mono text-[11px]">{DEMO_ACCOUNT.password}</span>
-          </p>
 
           {error ? (
             <div
@@ -140,17 +132,42 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             </div>
           ) : null}
 
-          <form onSubmit={(e) => void handleCredentials(e)} className="mt-8 space-y-4">
+          <form onSubmit={(e) => void handleRegister(e)} className="mt-8 space-y-4">
             <div className="space-y-1.5 text-left">
               <label
-                htmlFor="login-email"
+                htmlFor="signup-name"
+                className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
+                style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+              >
+                Name{" "}
+                <span
+                  className={cn("font-normal", !isConsole && "text-slate-500")}
+                  style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                >
+                  (optional)
+                </span>
+              </label>
+              <AuthTextInput
+                id="signup-name"
+                theme={initialTheme}
+                type="text"
+                name="name"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jane Doe"
+              />
+            </div>
+            <div className="space-y-1.5 text-left">
+              <label
+                htmlFor="signup-email"
                 className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
                 style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
               >
                 Email
               </label>
               <AuthTextInput
-                id="login-email"
+                id="signup-email"
                 theme={initialTheme}
                 type="email"
                 name="email"
@@ -163,27 +180,51 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             </div>
             <div className="space-y-1.5 text-left">
               <label
-                htmlFor="login-password"
+                htmlFor="signup-password"
                 className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
                 style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
               >
                 Password
               </label>
               <AuthTextInput
-                id="login-password"
+                id="signup-password"
                 theme={initialTheme}
                 type="password"
                 name="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                maxLength={PASSWORD_MAX_LENGTH}
+                placeholder="••••••••"
+              />
+              <PasswordRequirements password={password} theme={initialTheme} />
+            </div>
+            <div className="space-y-1.5 text-left">
+              <label
+                htmlFor="signup-confirm"
+                className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
+                style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+              >
+                Confirm password
+              </label>
+              <AuthTextInput
+                id="signup-confirm"
+                theme={initialTheme}
+                type="password"
+                name="confirm"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                maxLength={PASSWORD_MAX_LENGTH}
                 placeholder="••••••••"
               />
             </div>
+
             <button
               type="submit"
-              disabled={credentialsLoading}
+              disabled={submitLoading || googleLoading}
               className={cn(
                 "w-full rounded-xl py-3.5 text-[15px] font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
                 !isConsole &&
@@ -199,7 +240,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
                   : undefined
               }
             >
-              {credentialsLoading ? "Signing in…" : "Sign in"}
+              {submitLoading ? "Creating account…" : "Create account"}
             </button>
           </form>
 
@@ -214,10 +255,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             />
             <div className="relative flex justify-center">
               <span
-                className={cn(
-                  "px-3 text-xs font-medium",
-                  !isConsole && "bg-white/90 text-slate-500 backdrop-blur-sm",
-                )}
+                className={cn("px-3 text-xs font-medium", !isConsole && "bg-white/90 text-slate-500")}
                 style={
                   isConsole
                     ? {
@@ -225,7 +263,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
                         color: TOKENS.onSurfaceMuted,
                       }
                     : undefined
-                }
+              }
               >
                 or
               </span>
@@ -235,7 +273,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
           <button
             type="button"
             onClick={() => void handleGoogleSignIn()}
-            disabled={googleLoading || credentialsLoading}
+            disabled={googleLoading || submitLoading}
             className={cn(
               "group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl py-3.5 pl-4 pr-5 text-[15px] font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
               !isConsole &&
@@ -275,7 +313,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
               />
             )}
             <span className="relative">
-              {googleLoading ? "Signing in…" : "Continue with Google"}
+              {googleLoading ? "Continuing…" : "Continue with Google"}
             </span>
           </button>
 
@@ -286,16 +324,16 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             )}
             style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
           >
-            No account?{" "}
+            Already have an account?{" "}
             <Link
-              href="/signup"
+              href="/login"
               className={cn(
                 "font-semibold underline-offset-4 hover:underline",
                 !isConsole && "text-indigo-600",
               )}
               style={isConsole ? { color: TOKENS.primary } : undefined}
             >
-              Create one
+              Sign in
             </Link>
           </p>
 
@@ -306,8 +344,7 @@ export function LoginClient({ initialTheme }: { initialTheme: DashboardTheme }) 
             )}
             style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
           >
-            By continuing, you agree to use this app under your own account. We
-            never post on your behalf.
+            By continuing, you agree to use this app under your own account.
           </p>
         </AuthCard>
 

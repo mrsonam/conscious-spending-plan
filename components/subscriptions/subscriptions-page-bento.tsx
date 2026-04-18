@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
@@ -436,9 +437,12 @@ export function SubscriptionsPageBento() {
             >
               Monthly commit
             </p>
-            <div className="mt-2 text-4xl font-black leading-none tracking-tight sm:text-5xl lg:text-[3.5rem]">
+            <div className="mt-2 min-h-[2.75rem] text-4xl font-black leading-none tracking-tight sm:min-h-[3.25rem] sm:text-5xl lg:min-h-[3.5rem] lg:text-[3.5rem]">
               {loading ? (
-                <span style={{ color: TOKENS.onSurfaceMuted }}>—</span>
+                <Skeleton
+                  className="block h-10 w-40 max-w-full sm:h-12 sm:w-48 lg:h-14 lg:w-56"
+                  aria-hidden
+                />
               ) : (
                 <MajorFigureCurrency
                   amount={monthlyActiveTotal}
@@ -460,13 +464,17 @@ export function SubscriptionsPageBento() {
                 >
                   Annual anchor
                 </p>
-                <div className="mt-2">
-                  <MajorFigureCurrency
-                    amount={annualEq}
-                    variant="neutral"
-                    className="text-lg font-bold!"
-                    decimalEm={0.45}
-                  />
+                <div className="mt-2 min-h-7">
+                  {loading ? (
+                    <Skeleton className="block h-7 w-28" aria-hidden />
+                  ) : (
+                    <MajorFigureCurrency
+                      amount={annualEq}
+                      variant="neutral"
+                      className="text-lg font-bold!"
+                      decimalEm={0.45}
+                    />
+                  )}
                 </div>
               </div>
               <div>
@@ -476,16 +484,34 @@ export function SubscriptionsPageBento() {
                 >
                   Active contracts
                 </p>
-                <div className="mt-2">
-                  <span className="text-lg font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
-                    {activeSubs.length}
-                  </span>
+                <div className="mt-2 min-h-7">
+                  {loading ? (
+                    <Skeleton className="inline-block h-7 w-10" aria-hidden />
+                  ) : (
+                    <span className="text-lg font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                      {activeSubs.length}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Subscriptions by envelope */}
-            {categorySplit.some((c) => c.amount > 0) && (
+            {loading ? (
+              <div className="mt-6 space-y-3">
+                <Skeleton className="block h-2.5 w-36" aria-hidden />
+                <Skeleton className="block h-2.5 w-full rounded-full" aria-hidden />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="block h-3 w-20" aria-hidden />
+                      <Skeleton className="block h-3 w-14" aria-hidden />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              categorySplit.some((c) => c.amount > 0) && (
               <div className="mt-6">
                 <p
                   className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em]"
@@ -529,6 +555,7 @@ export function SubscriptionsPageBento() {
                   })}
                 </div>
               </div>
+            )
             )}
           </div>
         </section>
@@ -554,7 +581,24 @@ export function SubscriptionsPageBento() {
             </p>
 
             {loading ? (
-              <p className="mt-5 text-xs italic" style={{ color: TOKENS.onSurfaceMuted }}>Scanning...</p>
+              <ul className="mt-5 space-y-3" aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <li
+                    key={i}
+                    className="flex flex-col gap-2 rounded-lg border p-3.5"
+                    style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceLow }}
+                  >
+                    <div className="flex justify-between gap-3">
+                      <Skeleton className="block h-4 flex-1 max-w-[70%]" />
+                      <Skeleton className="block h-4 w-16 shrink-0" />
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <Skeleton className="block h-3 w-24" />
+                      <Skeleton className="block h-3 w-20" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : upcoming.length === 0 ? (
               <div className="mt-5 rounded-xl border p-4 text-center text-xs" style={{ borderColor: TOKENS.outlineGhost, background: `color-mix(in srgb, ${TOKENS.surfaceLow} 50%, transparent)` }}>
                 <span style={{ color: TOKENS.onSurfaceMuted }}>No events on radar.</span>
@@ -604,8 +648,38 @@ export function SubscriptionsPageBento() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-sm rounded-xl border" style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceContainer }}>
-            <p style={{ color: TOKENS.onSurfaceMuted }}>Loading ledger…</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy aria-label="Loading subscriptions">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex flex-col justify-between rounded-xl border p-5"
+                style={{
+                  background: TOKENS.surfaceContainer,
+                  borderColor: TOKENS.outlineGhost,
+                  boxShadow: CARD_INSET,
+                }}
+              >
+                <div>
+                  <Skeleton className="block h-5 w-[78%] max-w-full" />
+                  <Skeleton className="mt-2 block h-3 w-[42%]" />
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Skeleton className="block h-6 w-14 rounded" />
+                    <Skeleton className="block h-6 w-24 rounded" />
+                    <Skeleton className="block h-6 w-20 rounded" />
+                  </div>
+                </div>
+                <div className="mt-6 flex items-end justify-between border-t pt-4" style={{ borderColor: TOKENS.outlineGhost }}>
+                  <div>
+                    <Skeleton className="block h-2.5 w-12" />
+                    <Skeleton className="mt-2 block h-5 w-16" />
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="ml-auto block h-2.5 w-14" />
+                    <Skeleton className="mt-2 inline-block h-7 w-20" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : rows.length === 0 ? (
           <div className="py-16 text-center text-sm rounded-xl border" style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceContainer }}>

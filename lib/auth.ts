@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { isDashboardTheme } from "./dashboard-theme"
+import { normalizeEmail } from "./password-policy"
 
 // Validate required environment variables
 if (!process.env.NEXTAUTH_SECRET) {
@@ -37,10 +38,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null
         }
 
-        const user = await prisma.user.findUnique({
+        const email = normalizeEmail(credentials.email as string)
+
+        const user = await prisma.user.findFirst({
           where: {
-            email: credentials.email as string
-          }
+            email: { equals: email, mode: "insensitive" },
+          },
         })
 
         if (!user) {
@@ -75,18 +78,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Handle Google OAuth sign-in
       if (account?.provider === "google" && user.email) {
         // Check if user exists, if not create them
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email }
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: normalizeEmail(user.email),
+              mode: "insensitive",
+            },
+          },
         })
 
         if (!existingUser) {
           // Create new user with Google OAuth
           // Generate a random password since Google users don't need one
           const randomPassword = await bcrypt.hash(Math.random().toString(36), 10)
+
+          const googleEmail = normalizeEmail(user.email)
           
           await prisma.user.create({
             data: {
-              email: user.email,
+              email: googleEmail,
               password: randomPassword, // Not used for OAuth users, but required by schema
               name: user.name || null,
               fundAllocation: {
@@ -117,14 +127,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (user) {
-        if (user.email) token.email = user.email
+        if (user.email) token.email = normalizeEmail(user.email)
         if (user.image) token.picture = user.image
       }
 
       // Google: never assign `user.id` (OAuth subject) to `token.id` — only Prisma `User.id`.
       if (account?.provider === "google" && user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
+        const dbUser = await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: normalizeEmail(user.email),
+              mode: "insensitive",
+            },
+          },
           select: { id: true, dashboardTheme: true },
         })
         if (dbUser) {
@@ -152,8 +167,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = typeof token.email === "string" ? token.email : undefined
         let resolved: { id: string; dashboardTheme: string | null } | null = null
         if (email) {
-          resolved = await prisma.user.findUnique({
-            where: { email },
+          resolved = await prisma.user.findFirst({
+            where: {
+              email: { equals: normalizeEmail(email), mode: "insensitive" },
+            },
             select: { id: true, dashboardTheme: true },
           })
         }
