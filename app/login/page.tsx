@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { Suspense } from "react"
 import { LoginClient } from "./login-client"
 import {
   DASHBOARD_THEME_COOKIE,
@@ -18,5 +19,9 @@ export default async function LoginPage() {
   const raw = jar.get(DASHBOARD_THEME_COOKIE)?.value
   const initialTheme: DashboardTheme = parseDashboardTheme(raw)
 
-  return <LoginClient initialTheme={initialTheme} />
+  return (
+    <Suspense fallback={null}>
+      <LoginClient initialTheme={initialTheme} />
+    </Suspense>
+  )
 }

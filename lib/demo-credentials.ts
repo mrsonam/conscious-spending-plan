@@ -3,3 +3,13 @@ export const DEMO_ACCOUNT = {
   email: "demo@try.conscious-spending.plan",
   password: "DemoTour2026!",
 } as const
+
+/**
+ * When this exact query pair is present on `/login`, the “Use demo account”
+ * control is visually emphasized (e.g. link from your portfolio site).
+ *
+ * Example: `/login?csp_portfolio_ref=explore_demo_v1`
+ */
+export const PORTFOLIO_DEMO_QUERY_KEY = "csp_portfolio_ref" as const
+export const PORTFOLIO_DEMO_QUERY_VALUE = "explore_demo_v1" as const
+
