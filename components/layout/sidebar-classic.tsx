@@ -65,7 +65,7 @@ export function SidebarClassic() {
               alt=""
               className="h-8 w-8 rounded-lg object-contain"
             />
-            <span className="text-lg font-semibold text-gray-900">Finance</span>
+            <span className="text-lg font-semibold text-gray-900">CSP</span>
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}

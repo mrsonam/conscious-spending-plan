@@ -4,29 +4,38 @@ import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
-import { X, Menu, LogOut } from "lucide-react"
+import { X, Menu, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useMemo } from "react"
 import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
 
+const SIDEBAR_COLLAPSED_KEY = "csp-wealth-console-sidebar-collapsed"
+
 function NavRow({
   href,
   icon: Icon,
   label,
   active,
+  collapsed,
 }: {
   href: string
   icon: LucideIcon
   label: string
   active: boolean
+  collapsed: boolean
 }) {
   return (
     <Link
       href={href}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
       className={cn(
-        "group relative flex touch-manipulation items-center gap-3 rounded-xl py-2 pl-2 pr-3 transition-all duration-200",
+        "group relative flex touch-manipulation items-center rounded-xl py-2 transition-all duration-200",
+        collapsed
+          ? "justify-center px-0"
+          : "gap-3 pl-2 pr-3",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326]",
         !active && "hover:bg-white/[0.04]"
       )}
@@ -39,7 +48,7 @@ function NavRow({
           : undefined
       }
     >
-      {active ? (
+      {active && !collapsed ? (
         <span
           className="absolute bottom-2 left-0 top-2 w-1 rounded-full"
           style={{ background: TOKENS.primary }}
@@ -54,21 +63,24 @@ function NavRow({
             : TOKENS.surfaceContainer,
           boxShadow: active ? CARD_INSET : CARD_INSET,
           color: active ? TOKENS.primary : TOKENS.onSurfaceMuted,
+          outline: active && collapsed ? `2px solid color-mix(in srgb, ${TOKENS.primary} 45%, transparent)` : undefined,
         }}
       >
         <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.25 : 2} />
       </span>
-      <span
-        className={cn(
-          "min-w-0 flex-1 text-[13px] leading-tight tracking-tight transition-colors",
-          active ? "font-semibold" : "font-medium"
-        )}
-        style={{
-          color: active ? TOKENS.onSurface : TOKENS.onSurfaceMuted,
-        }}
-      >
-        {label}
-      </span>
+      {!collapsed ? (
+        <span
+          className={cn(
+            "min-w-0 flex-1 text-[13px] leading-tight tracking-tight transition-colors",
+            active ? "font-semibold" : "font-medium"
+          )}
+          style={{
+            color: active ? TOKENS.onSurface : TOKENS.onSurfaceMuted,
+          }}
+        >
+          {label}
+        </span>
+      ) : null}
     </Link>
   )
 }
@@ -77,6 +89,41 @@ export function SidebarBento() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [isLg, setIsLg] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const onChange = () => setIsLg(mq.matches)
+    onChange()
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+
+  const railCollapsed = collapsed && isLg
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      if (window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1") {
+        setCollapsed(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      window.localStorage.setItem(
+        SIDEBAR_COLLAPSED_KEY,
+        collapsed ? "1" : "0"
+      )
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed])
 
   const groups = useMemo(
     () => buildSidebarNavigationGroups(session?.user?.dashboardTheme),
@@ -130,8 +177,9 @@ export function SidebarBento() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-[17.5rem] flex-col transition-transform duration-300 ease-out lg:static lg:translate-x-0",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[17.5rem] flex-col transition-[width,transform] duration-300 ease-out lg:static lg:translate-x-0",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
+          railCollapsed && "lg:w-[4.75rem]"
         )}
         style={{
           background: `linear-gradient(175deg, ${TOKENS.surface} 0%, ${TOKENS.surfaceLow} 45%, #0d1528 100%)`,
@@ -152,62 +200,100 @@ export function SidebarBento() {
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* Brand */}
           <div
-            className="shrink-0 border-b px-4 pb-4 pt-5 sm:px-5"
+            className={cn(
+              "shrink-0 border-b pb-4 pt-5",
+              railCollapsed ? "px-2 sm:px-2" : "px-4 sm:px-5"
+            )}
             style={{ borderColor: TOKENS.outlineGhost }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div
+              className={cn(
+                "flex items-start justify-between gap-2",
+                railCollapsed && "lg:flex-col lg:items-center"
+              )}
+            >
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                style={{
-                  background: TOKENS.surfaceContainer,
-                  boxShadow: `${CARD_INSET}, 0 12px 28px rgba(0,0,0,0.25)`,
-                }}
+                className={cn(
+                  "flex min-w-0 flex-1 items-start gap-3",
+                  railCollapsed && "lg:flex-col lg:items-center lg:gap-2"
+                )}
               >
                 <img
                   src="/icon.svg"
                   alt=""
-                  className="h-7 w-7 object-contain opacity-95"
+                  className={cn(
+                    "shrink-0 object-contain opacity-95",
+                    railCollapsed ? "h-9 w-9 lg:mx-auto" : "h-11 w-11"
+                  )}
                 />
+                {!railCollapsed ? (
+                  <div className="min-w-0 pt-0.5">
+                    <p
+                      className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    >
+                      Wealth Console
+                    </p>
+                    <p
+                      className="mt-1.5 text-lg font-semibold leading-none tracking-tight"
+                      style={{ color: TOKENS.onSurface }}
+                    >
+                      CSP
+                    </p>
+                  </div>
+                ) : null}
               </div>
-              <div className="min-w-0 pt-0.5">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Wealth Console
-                </p>
-                <p
-                  className="mt-1.5 text-lg font-semibold leading-none tracking-tight"
-                  style={{ color: TOKENS.onSurface }}
-                >
-                  Finance
-                </p>
-              </div>
-              </div>
-              <button
-                onClick={() => setIsMobileOpen(false)}
-                className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/[0.06] lg:hidden"
-                style={{ color: TOKENS.onSurfaceMuted }}
-                aria-label="Close menu"
-                type="button"
+              <div
+                className={cn(
+                  "flex shrink-0 items-center gap-1",
+                  railCollapsed && "lg:w-full lg:justify-center"
+                )}
               >
-                <X className="h-5 w-5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setCollapsed((c) => !c)}
+                  className="hidden rounded-lg p-2 transition-colors hover:bg-white/[0.06] lg:flex"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                  aria-expanded={!collapsed}
+                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  {railCollapsed ? (
+                    <ChevronsRight className="h-5 w-5" strokeWidth={2} />
+                  ) : (
+                    <ChevronsLeft className="h-5 w-5" strokeWidth={2} />
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsMobileOpen(false)}
+                  className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/[0.06] lg:hidden"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                  aria-label="Close menu"
+                  type="button"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Scrollable nav */}
-          <nav className="scrollbar-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-4">
+          <nav
+            className={cn(
+              "scrollbar-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4",
+              railCollapsed ? "px-1.5 sm:px-1.5" : "px-3 sm:px-4"
+            )}
+          >
             <div className="space-y-7">
               {groups.map((group) => (
-                <div key={group.id}>
-                  <p
-                    className="mb-2.5 px-2 text-[10px] font-semibold uppercase tracking-[0.22em]"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    {group.label}
-                  </p>
+                <div key={group.id} aria-label={railCollapsed ? group.label : undefined}>
+                  {!railCollapsed ? (
+                    <p
+                      className="mb-2.5 px-2 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    >
+                      {group.label}
+                    </p>
+                  ) : null}
                   <div className="space-y-1">
                     {group.items.map((item) => (
                       <NavRow
@@ -216,6 +302,7 @@ export function SidebarBento() {
                         icon={item.icon}
                         label={item.name}
                         active={pathname === item.href}
+                        collapsed={railCollapsed}
                       />
                     ))}
                   </div>
@@ -226,7 +313,10 @@ export function SidebarBento() {
 
           {/* Footer — session + sign out (console header language) */}
           <div
-            className="shrink-0 border-t px-3 py-4 sm:px-4"
+            className={cn(
+              "shrink-0 border-t py-4",
+              railCollapsed ? "px-1.5 sm:px-1.5" : "px-3 sm:px-4"
+            )}
             style={{
               borderColor: TOKENS.outlineGhost,
               background: `color-mix(in srgb, ${TOKENS.surface} 65%, transparent)`,
@@ -234,7 +324,13 @@ export function SidebarBento() {
           >
             <Link
               href={BENTO.profile}
-              className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/[0.04]"
+              title={railCollapsed ? "Profile" : undefined}
+              className={cn(
+                "flex min-w-0 items-center rounded-xl py-2 transition-colors hover:bg-white/[0.04]",
+                railCollapsed
+                  ? "justify-center px-0"
+                  : "gap-3 px-2"
+              )}
             >
               {session?.user?.image ? (
                 <img
@@ -260,34 +356,42 @@ export function SidebarBento() {
                     : "?"}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate text-[13px] font-semibold leading-tight"
-                  style={{ color: TOKENS.onSurface }}
-                >
-                  {displayName}
-                </p>
-                {email ? (
+              {!railCollapsed ? (
+                <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-[11px] leading-tight"
-                    style={{ color: TOKENS.onSurfaceMuted }}
+                    className="truncate text-[13px] font-semibold leading-tight"
+                    style={{ color: TOKENS.onSurface }}
                   >
-                    {email}
+                    {displayName}
                   </p>
-                ) : null}
-              </div>
+                  {email ? (
+                    <p
+                      className="truncate text-[11px] leading-tight"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    >
+                      {email}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </Link>
             <button
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors hover:bg-white/[0.06]"
+              title="Sign out"
+              className={cn(
+                "flex w-full items-center rounded-lg border transition-colors hover:bg-white/[0.06]",
+                railCollapsed
+                  ? "mt-2 justify-center px-0 py-2.5"
+                  : "mt-3 justify-center gap-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em]"
+              )}
               style={{
                 borderColor: TOKENS.outlineGhost,
                 color: TOKENS.onSurfaceMuted,
               }}
             >
-              <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
-              Sign out
+              <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {!railCollapsed ? <span>Sign out</span> : null}
             </button>
           </div>
         </div>
