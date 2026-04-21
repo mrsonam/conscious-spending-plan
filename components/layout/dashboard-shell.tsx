@@ -12,7 +12,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         style={{ background: TOKENS.surface }}
       >
         <Sidebar />
-        <main className="flex-1 overflow-y-auto lg:ml-0 w-full">
+        <main className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] lg:ml-0 w-full">
           <div className="min-h-full">{children}</div>
         </main>
       </div>

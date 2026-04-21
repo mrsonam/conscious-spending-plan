@@ -20,14 +20,16 @@ A Next.js finance application based on Ramit Sethi's Conscious Spending Plan. Th
 ### Installation
 
 1. Clone or download this repository
-
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
+1. Set up environment variables:
+
 Create a `.env` file in the root directory with the following:
+
 ```
 DATABASE_URL="file:./dev.db"
 NEXTAUTH_SECRET="your-secret-key-here"
@@ -39,6 +41,7 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 **⚠️ IMPORTANT: NEXTAUTH_SECRET is required!**
 
 To generate a secure `NEXTAUTH_SECRET`, you can run:
+
 ```bash
 npm run generate-secret
 ```
@@ -46,6 +49,7 @@ npm run generate-secret
 This will generate a secure random secret. Copy the output and add it to your `.env` file.
 
 Alternatively, you can use:
+
 ```bash
 openssl rand -base64 32
 ```
@@ -60,39 +64,41 @@ To enable Google sign-in:
 4. Go to "Credentials" → "Create Credentials" → "OAuth client ID"
 5. Choose "Web application"
 6. Add authorized redirect URIs:
-   - For development: `http://localhost:3000/api/auth/callback/google`
-   - For production: `https://yourdomain.com/api/auth/callback/google`
+  - For development: `http://localhost:3000/api/auth/callback/google`
+  - For production: `https://yourdomain.com/api/auth/callback/google`
 7. Copy the Client ID and Client Secret to your `.env` file
 
 **Note**: Google OAuth is optional. The app will work with email/password authentication even without Google credentials.
 
-4. Set up the database:
+1. Set up the database:
+
 ```bash
 npx prisma generate
 npx prisma db push
 ```
 
-5. Run the development server:
+1. Run the development server:
+
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+1. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Usage
 
-1. **Register**: 
-   - Create a new account with your email and password, OR
-   - Sign in with Google (if configured)
-2. **Configure Fund Allocation**: 
-   - Set each category (Fixed Costs, Savings, Investment, Guilt-Free Spending) as either:
-     - **Percentage**: A percentage of your total income
-     - **Fixed Amount**: A specific dollar amount
-   - If you use fixed amounts, any remaining income will automatically go to savings
-3. **Calculate Breakdown**: 
-   - Enter your fortnightly income
-   - Select the period start and end dates
-   - Click "Calculate Breakdown" to see how your income is divided
+1. **Register**:
+  - Create a new account with your email and password, OR
+  - Sign in with Google (if configured)
+2. **Configure Fund Allocation**:
+  - Set each category (Fixed Costs, Savings, Investment, Guilt-Free Spending) as either:
+    - **Percentage**: A percentage of your total income
+    - **Fixed Amount**: A specific dollar amount
+  - If you use fixed amounts, any remaining income will automatically go to savings
+3. **Calculate Breakdown**:
+  - Enter your fortnightly income
+  - Select the period start and end dates
+  - Click "Calculate Breakdown" to see how your income is divided
 4. **View Results**: See a visual breakdown of your income allocation with percentages and amounts
 
 ## Fund Allocation Logic
@@ -141,6 +147,7 @@ npm run dev
 See `VERCEL_DEPLOYMENT.md` for detailed instructions.
 
 **Quick steps:**
+
 1. Create a Supabase project and get your database URL
 2. Update `prisma/schema.prisma` to use `postgresql` (already done)
 3. Run migrations: `npx prisma migrate dev --name init`

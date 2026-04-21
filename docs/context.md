@@ -8,27 +8,31 @@ The primary experience is the **Wealth Console**: a dark obsidian dashboard (see
 
 ## Stack
 
-| Layer | Choice |
-|--------|--------|
-| Framework | [Next.js](https://nextjs.org/) (App Router) |
-| UI | React, Tailwind CSS v4, Framer Motion (dialogs), Lucide icons |
-| Auth | [NextAuth.js](https://next-auth.js.org/) v5 (email/password, Google) |
-| Database | PostgreSQL via [Prisma](https://www.prisma.io/) |
-| Charts | Recharts (where used) |
+
+| Layer     | Choice                                                               |
+| --------- | -------------------------------------------------------------------- |
+| Framework | [Next.js](https://nextjs.org/) (App Router)                          |
+| UI        | React, Tailwind CSS v4, Framer Motion (dialogs), Lucide icons        |
+| Auth      | [NextAuth.js](https://next-auth.js.org/) v5 (email/password, Google) |
+| Database  | PostgreSQL via [Prisma](https://www.prisma.io/)                      |
+| Charts    | Recharts (where used)                                                |
+
 
 Package name in `package.json` is `finance`; scripts: `npm run dev`, `npm run build`, `npm run lint`, Prisma helpers (`migrate:dev`, `db:seed`, `studio`).
 
 ## Repository map
 
-| Path | Role |
-|------|------|
-| `app/` | Routes, layouts, API route handlers, global providers |
-| `app/(dashboard)/` | Authenticated shell: sidebar, main dashboard pages |
-| `components/` | Shared UI (layout, forms, wealth console views) |
-| `lib/` | Auth, routing helpers, tokens, domain utilities |
-| `hooks/` | Client hooks (e.g. currency formatting) |
-| `prisma/` | Schema, migrations, seed |
-| `types/` | TypeScript augmentations (e.g. NextAuth) |
+
+| Path               | Role                                                  |
+| ------------------ | ----------------------------------------------------- |
+| `app/`             | Routes, layouts, API route handlers, global providers |
+| `app/(dashboard)/` | Authenticated shell: sidebar, main dashboard pages    |
+| `components/`      | Shared UI (layout, forms, wealth console views)       |
+| `lib/`             | Auth, routing helpers, tokens, domain utilities       |
+| `hooks/`           | Client hooks (e.g. currency formatting)               |
+| `prisma/`          | Schema, migrations, seed                              |
+| `types/`           | TypeScript augmentations (e.g. NextAuth)              |
+
 
 ## Data & auth
 
@@ -38,8 +42,8 @@ Package name in `package.json` is `finance`; scripts: `npm run dev`, `npm run bu
 
 ## Configuration
 
-- **`DATABASE_URL`** / **`DIRECT_URL`**: PostgreSQL (see `prisma/schema.prisma`).
-- **`NEXTAUTH_SECRET`**, **`NEXTAUTH_URL`**: required for auth.
+- `**DATABASE_URL`** / `**DIRECT_URL**`: PostgreSQL (see `prisma/schema.prisma`).
+- `**NEXTAUTH_SECRET**`, `**NEXTAUTH_URL**`: required for auth.
 - **Google OAuth**: optional (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
 
 After schema changes: `npx prisma migrate dev` (or deploy migration in production). `npm run build` runs `prisma generate` first.
@@ -48,3 +52,4 @@ After schema changes: `npx prisma migrate dev` (or deploy migration in productio
 
 - `docs/design.md` — Wealth Console tokens, typography, UI patterns.
 - `README.md` — install steps, env template, feature list (source of truth for onboarding).
+

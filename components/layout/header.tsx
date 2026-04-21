@@ -57,7 +57,7 @@ export function Header({
   if (isConsole) {
     return (
       <header
-        className="sticky top-0 z-30 border-b px-4 py-3 backdrop-blur-md sm:px-6 lg:pl-6"
+        className="sticky top-0 z-30 border-b px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-md sm:px-6 lg:pl-6"
         style={{
           background: `color-mix(in srgb, ${TOKENS.surface} 92%, transparent)`,
           borderColor: TOKENS.outlineGhost,
@@ -107,7 +107,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:pl-6",
+        "sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] sm:px-6 lg:pl-6",
         "bg-white shadow-sm"
       )}
     >

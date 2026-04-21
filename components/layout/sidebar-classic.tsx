@@ -37,7 +37,11 @@ export function SidebarClassic() {
     <>
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="fixed left-3 top-3 z-50 touch-manipulation rounded-lg bg-white p-2 shadow-md transition-colors hover:bg-gray-50 active:bg-gray-100 lg:hidden"
+        className="fixed z-50 touch-manipulation rounded-lg bg-white p-2 shadow-md transition-colors hover:bg-gray-50 active:bg-gray-100 lg:hidden"
+        style={{
+          left: "max(0.75rem, env(safe-area-inset-left, 0px))",
+          top: "max(0.75rem, env(safe-area-inset-top, 0px))",
+        }}
         aria-label="Open menu"
         type="button"
       >
@@ -54,7 +58,7 @@ export function SidebarClassic() {
 
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-white shadow-lg transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-white pt-[env(safe-area-inset-top,0px)] shadow-lg transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:pt-0 lg:shadow-none",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

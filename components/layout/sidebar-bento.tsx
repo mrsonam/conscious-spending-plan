@@ -154,8 +154,10 @@ export function SidebarBento() {
     <>
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="fixed left-3 top-3 z-50 flex touch-manipulation items-center justify-center rounded-xl border p-2.5 shadow-xl backdrop-blur-md transition-transform active:scale-95 lg:hidden"
+        className="fixed z-50 flex touch-manipulation items-center justify-center rounded-xl border p-2.5 shadow-xl backdrop-blur-md transition-transform active:scale-95 lg:hidden"
         style={{
+          left: "max(0.75rem, env(safe-area-inset-left, 0px))",
+          top: "max(0.75rem, env(safe-area-inset-top, 0px))",
           background: `color-mix(in srgb, ${TOKENS.surface} 88%, transparent)`,
           borderColor: TOKENS.outlineGhost,
           color: TOKENS.primary,
@@ -177,7 +179,7 @@ export function SidebarBento() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-[17.5rem] flex-col transition-[width,transform] duration-300 ease-out lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[17.5rem] flex-col pt-[env(safe-area-inset-top,0px)] transition-[width,transform] duration-300 ease-out lg:static lg:translate-x-0 lg:pt-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
           railCollapsed && "lg:w-[4.75rem]"
         )}

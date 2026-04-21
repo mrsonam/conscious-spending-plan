@@ -53,4 +53,3 @@ Use `**TOKENS`** from `lib/wealth-console-tokens.ts` (inline `style` or shared c
 - `lib/app-routes.ts` — dashboard route map (`BENTO`).
 - `lib/dashboard-theme.ts` — theme type and home URL helpers.
 - `app/globals.css` — Tailwind v4 import, PWA safe areas, console overrides (e.g. date inputs).
-
