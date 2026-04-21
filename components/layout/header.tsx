@@ -1,10 +1,11 @@
 "use client"
 
 import { useSession, signOut } from "next-auth/react"
-import { ChevronDown, LogOut } from "lucide-react"
+import { ChevronDown, LogOut, Search } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { TOKENS } from "@/lib/wealth-console-tokens"
+import { useCommandPalette } from "@/components/command-palette"
 
 export function Header({
   title,
@@ -19,8 +20,19 @@ export function Header({
 }) {
   const isConsole = variant === "console"
   const { data: session } = useSession()
+  const { open: openCommandPalette } = useCommandPalette()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [searchShortcut, setSearchShortcut] = useState("⌘K")
+
+  useEffect(() => {
+    setSearchShortcut(
+      typeof navigator !== "undefined" &&
+        /Mac|iPhone|iPod|iPad/i.test(navigator.platform)
+        ? "⌘K"
+        : "Ctrl+K"
+    )
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -51,21 +63,42 @@ export function Header({
           borderColor: TOKENS.outlineGhost,
         }}
       >
-        <div className="min-w-0 pl-12 sm:pl-14 lg:pl-0">
-          <h1
-            className="text-lg font-semibold leading-tight tracking-tight sm:text-xl"
-            style={{ color: TOKENS.onSurface }}
+        <div className="flex items-start justify-between gap-3 pl-12 sm:pl-14 lg:pl-0">
+          <div className="min-w-0 flex-1">
+            <h1
+              className="text-lg font-semibold leading-tight tracking-tight sm:text-xl"
+              style={{ color: TOKENS.onSurface }}
+            >
+              {title}
+            </h1>
+            {description ? (
+              <p
+                className="mt-1 max-w-2xl text-[11px] leading-snug sm:text-xs"
+                style={{ color: TOKENS.onSurfaceMuted }}
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => openCommandPalette()}
+            className="flex shrink-0 touch-manipulation items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors sm:px-3"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              color: TOKENS.onSurfaceMuted,
+              background: `color-mix(in srgb, ${TOKENS.surfaceHigh} 70%, transparent)`,
+            }}
+            aria-label="Search and navigate"
           >
-            {title}
-          </h1>
-          {description ? (
-            <p
-              className="mt-1 max-w-2xl text-[11px] leading-snug sm:text-xs"
+            <Search className="h-4 w-4" style={{ color: TOKENS.onSurface }} />
+            <kbd
+              className="hidden font-mono text-[10px] opacity-90 sm:inline"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              {description}
-            </p>
-          ) : null}
+              {searchShortcut}
+            </kbd>
+          </button>
         </div>
       </header>
     )
@@ -86,7 +119,19 @@ export function Header({
           <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{description}</p>
         ) : null}
       </div>
-      <div className="relative flex-shrink-0 self-center" ref={dropdownRef}>
+      <div className="flex flex-shrink-0 items-center gap-2 self-center">
+        <button
+          type="button"
+          onClick={() => openCommandPalette()}
+          className="flex touch-manipulation items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+          aria-label="Search and navigate"
+        >
+          <Search className="h-4 w-4 text-gray-700" />
+          <kbd className="hidden font-mono text-[10px] text-gray-500 sm:inline">
+            {searchShortcut}
+          </kbd>
+        </button>
+      <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="flex touch-manipulation items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 active:bg-gray-100 sm:px-3"
@@ -142,6 +187,7 @@ export function Header({
             </div>
           </div>
         )}
+      </div>
       </div>
     </header>
   )
