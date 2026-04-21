@@ -100,6 +100,21 @@ export function getCommandPaletteItems(
       group: "You",
       keywords: ["settings", "account", "currency", "preferences", "user"],
     },
+    {
+      id: "shortcuts",
+      title: "Shortcuts",
+      href: BENTO.shortcuts,
+      group: "You",
+      keywords: [
+        "api",
+        "token",
+        "integration",
+        "apple",
+        "wallet",
+        "automation",
+        "ios",
+      ],
+    },
   ]
 }
 

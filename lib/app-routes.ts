@@ -32,4 +32,5 @@ export const BENTO = {
   accounts: "/accounts",
   loans: "/loans",
   profile: "/profile",
+  shortcuts: "/shortcuts",
 } as const

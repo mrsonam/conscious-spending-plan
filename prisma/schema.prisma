@@ -32,11 +32,30 @@ model User {
   investmentHoldings InvestmentHolding[]
   investmentDividends InvestmentDividend[]
   categoryMonthClosings CategoryMonthClosing[]
+  apiTokens        ApiToken[]
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
   dashboardTheme   String   @default("classic")
   /// ISO 4217 code for display (amounts in DB remain in the user's primary unit)
   displayCurrency  String   @default("AUD")
+}
+
+/// Personal access token for external integrations (e.g. Apple Shortcuts).
+/// Plaintext is persisted so the user can always copy it later. `tokenHash`
+/// is retained for O(1) indexed lookup in the auth path.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String    // user-visible label, e.g. "iPhone Shortcut"
+  token      String?   // plaintext token; null only for legacy rows created before plaintext was kept
+  tokenHash  String    @unique // sha256 of full token secret — used for bearer lookup
+  prefix     String    // first ~10 chars of the plaintext, for display (e.g. "csp_abcdef")
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
 }
 
 model FundAllocation {

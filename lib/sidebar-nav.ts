@@ -11,6 +11,7 @@ import {
   BarChart3,
   HandCoins,
   CalendarClock,
+  Zap,
 } from "lucide-react"
 import { DASHBOARD_HOME } from "@/lib/dashboard-theme"
 import { BENTO, CLASSIC } from "@/lib/app-routes"
@@ -85,7 +86,10 @@ function navGroups(
     {
       id: "account",
       label: "You",
-      items: [{ name: "Profile", href: profileHref, icon: User }],
+      items: [
+        { name: "Profile", href: profileHref, icon: User },
+        { name: "Shortcuts", href: BENTO.shortcuts, icon: Zap },
+      ],
     },
   ]
 }

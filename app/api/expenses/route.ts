@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExpenseSummary } from "@/lib/expense-summary"
@@ -146,20 +147,63 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
 
-    const { accountId, amount, description, category, expenseCategory, date } = await request.json()
+    const userId = authed.userId
+    const body = await request.json()
+    const {
+      amount,
+      description,
+      category,
+      expenseCategory,
+      date,
+    }: {
+      amount?: number
+      description?: string | null
+      category?: string | null
+      expenseCategory?: string | null
+      date?: string
+    } = body
+    let accountId: string | undefined = body.accountId
 
-    if (!accountId || !amount || amount <= 0 || !date) {
+    if (!amount || amount <= 0) {
       return NextResponse.json(
-        { error: "Account ID, amount, and date are required" },
+        { error: "Amount is required and must be greater than 0" },
+        { status: 400 }
+      )
+    }
+
+    // Fall back to the user's default account when caller (e.g. a Shortcut)
+    // omits accountId. Existing web flows always send one explicitly.
+    if (!accountId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { defaultAccountId: true },
+      })
+      if (!user?.defaultAccountId) {
+        return NextResponse.json(
+          {
+            error:
+              "No accountId provided and no default account is set on this user",
+          },
+          { status: 400 }
+        )
+      }
+      accountId = user.defaultAccountId
+    }
+
+    // Default the date to "now" when omitted (Shortcuts may not pass one).
+    const expenseDate = date ? new Date(date) : new Date()
+    if (Number.isNaN(expenseDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date" },
         { status: 400 }
       )
     }
@@ -168,7 +212,7 @@ export async function POST(request: Request) {
     const account = await prisma.account.findFirst({
       where: {
         id: accountId,
-        userId: session.user.id,
+        userId,
       },
     })
 
@@ -191,13 +235,13 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.create({
         data: {
-          userId: session.user.id,
+          userId,
           accountId,
           amount,
           description,
           category,
           expenseCategory,
-          date: new Date(date),
+          date: expenseDate,
         },
         include: {
           account: {
