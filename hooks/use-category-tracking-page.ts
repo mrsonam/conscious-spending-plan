@@ -15,6 +15,7 @@ import {
   expenseTypeLabel,
   getMonthElapsedFraction,
 } from "@/lib/category-tracking-shared"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 export type CategoryTrackingExpense = {
   id: string
@@ -44,6 +45,7 @@ const HISTORY_MAX_AGE_MS = 120_000
 
 export function useCategoryTrackingPage() {
   const { data: session, status } = useSession()
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
   const loadSeq = useRef(0)
 
@@ -177,12 +179,6 @@ export function useCategoryTrackingPage() {
       month: "short",
       year: "numeric",
     })
-
-  const formatCurrency = useCallback(
-    (amount: number) =>
-      new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount),
-    [],
-  )
 
   const formatDate = useCallback(
     (dateString: string) =>

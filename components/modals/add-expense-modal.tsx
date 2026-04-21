@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 interface Account {
   id: string
@@ -55,6 +56,7 @@ const EXPENSE_CATEGORIES = [
 ]
 
 export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseModalProps) {
+  const { formatCurrency } = useFormatCurrency()
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
@@ -82,13 +84,6 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
       })
     }
   }, [open])
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

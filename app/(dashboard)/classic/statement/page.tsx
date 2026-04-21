@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SummaryCardsSkeleton, FilterCardSkeleton, TransactionsListSkeleton } from "@/components/skeletons/statement-sections";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { Header } from "@/components/layout/header";
 import {
   Card,
@@ -164,6 +165,7 @@ type Transaction = {
 
 export default function StatementPage() {
   const { data: session, status } = useSession();
+  const { formatCurrency } = useFormatCurrency();
   const router = useRouter();
   const [incomeEntries, setIncomeEntries] = useState<IncomeEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -409,13 +411,6 @@ export default function StatementPage() {
     filterEndDate,
     filterAccountId,
   ]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
 
   const getTotalIncome = () => {
     return transactions

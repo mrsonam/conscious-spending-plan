@@ -24,17 +24,10 @@ import {
   DollarSign,
   Trash2,
 } from "lucide-react"
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 export function IncomePageClassic(p: UseIncomePageResult) {
+  const { formatCurrency } = useFormatCurrency()
   return (
     <>
       {p.loadingForm ? (

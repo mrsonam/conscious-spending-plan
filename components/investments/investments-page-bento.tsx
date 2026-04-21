@@ -21,6 +21,7 @@ import {
 import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
@@ -107,6 +108,7 @@ function formatDateShort(iso: string) {
 const INVESTMENTS_CACHE_KEY = "dashboard:investments"
 
 export function InvestmentsPageBento() {
+  const { formatCurrency } = useFormatCurrency()
   const { status } = useSession()
   const investmentSearchRef = useRef<HTMLDivElement | null>(null)
   const [logOpen, setLogOpen] = useState(false)
@@ -340,13 +342,6 @@ export function InvestmentsPageBento() {
       setSubmittingDividend(false)
     }
   }
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(amount || 0)
 
   const totalInvested = useMemo(
     () => accounts.reduce((sum, acc) => sum + acc.investedAmount, 0),

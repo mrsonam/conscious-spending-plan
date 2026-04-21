@@ -1,33 +1,9 @@
+"use client"
+
+import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { currencyDisplayParts } from "@/lib/currency-display-parts"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
-/** Splits formatted currency into body (incl. $ and commas) and ".xx" cents for split-decimal display. */
-export function currencyDisplayParts(amount: number): {
-  main: string
-  decimals: string
-} {
-  const parts = new Intl.NumberFormat("en-AU", {
-    style: "currency",
-    currency: "AUD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).formatToParts(amount)
-  let main = ""
-  let decimals = ""
-  for (let i = 0; i < parts.length; i++) {
-    const p = parts[i]
-    if (p.type === "decimal") {
-      const frac = parts[i + 1]
-      if (frac?.type === "fraction") {
-        decimals = `.${frac.value}`
-      }
-      break
-    }
-    main += p.value
-  }
-  return { main, decimals }
-}
-
-/** Split-decimal display — main amount at full size, cents ~half. */
 export type MajorFigureVariant = "income" | "prosperity" | "loss" | "neutral"
 
 export function MajorFigureCurrency({
@@ -45,7 +21,8 @@ export function MajorFigureCurrency({
   colorMain?: string
   colorDecimal?: string
 }) {
-  const { main, decimals } = currencyDisplayParts(amount)
+  const { currencyCode } = useFormatCurrency()
+  const { main, decimals } = currencyDisplayParts(amount, currencyCode)
   const error = "#ffb4ab"
   let mainColor: string
   let decColor: string

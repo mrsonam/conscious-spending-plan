@@ -9,6 +9,8 @@ declare module "next-auth" {
       image?: string | null
       /** Persisted dashboard experience: classic or Wealth Console */
       dashboardTheme?: string
+      /** ISO 4217 display currency for formatted amounts */
+      displayCurrency?: string
     }
   }
 
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     id: string
     picture?: string | null
     dashboardTheme?: string
+    displayCurrency?: string
   }
 }

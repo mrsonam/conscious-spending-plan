@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 interface Account {
   id: string
@@ -29,6 +30,7 @@ const FUND_CATEGORIES = [
 ]
 
 export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalProps) {
+  const { formatCurrency } = useFormatCurrency()
   const [fromAccountId, setFromAccountId] = useState("")
   const [toAccountId, setToAccountId] = useState("")
   const [transferAmount, setTransferAmount] = useState("")
@@ -53,13 +55,6 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
       })
     }
   }, [open])
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
-  }
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()

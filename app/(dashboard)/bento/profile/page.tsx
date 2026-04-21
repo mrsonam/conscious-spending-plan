@@ -1,16 +1,17 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { ProfilePageBento } from "@/components/profile/profile-page-bento"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
+import { TOKENS } from "@/lib/wealth-console-tokens"
 
 export default function BentoProfilePage() {
   const { data: session, status } = useSession()
-  const router = useRouter()
 
-  if (status === "loading") {
+  const initialSessionLoading = status === "loading" && !session
+
+  if (initialSessionLoading) {
     return (
       <>
         <Header
@@ -18,8 +19,11 @@ export default function BentoProfilePage() {
           description="Account and preferences."
           variant="console"
         />
-        <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
-          <ProfileSkeleton />
+        <div
+          className="mx-auto min-h-[calc(100dvh-5.5rem)] max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
+          style={{ background: TOKENS.surface }}
+        >
+          <ProfileSkeleton variant="console" />
         </div>
       </>
     )
@@ -34,7 +38,10 @@ export default function BentoProfilePage() {
         description="Account and preferences."
         variant="console"
       />
-      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div
+        className="mx-auto min-h-[calc(100dvh-5.5rem)] max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
+        style={{ background: TOKENS.surface }}
+      >
         <ProfilePageBento />
       </div>
     </>

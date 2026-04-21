@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useMemo } from "react"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { Header } from "@/components/layout/header"
 import {
   AlertTriangle,
@@ -106,15 +107,6 @@ export interface YtdSummary {
 export interface TrajectoryPoint {
   month: string
   value: number
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
 }
 
 function accountTypeDisplay(accountType: string) {
@@ -321,6 +313,7 @@ function DetailCard({
   accent: string
   size?: "default" | "hero" | "compact"
 }) {
+  const { formatCurrency } = useFormatCurrency()
   const isHero = size === "hero"
   const isCompact = size === "compact"
 
@@ -532,6 +525,7 @@ export function WealthConsoleView({
   subscriptionDash: SubscriptionDashboardSnapshot
   loading: boolean
 }) {
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const totalExpenses =
     expensesTotalForMonth !== null
       ? expensesTotalForMonth
@@ -758,7 +752,7 @@ export function WealthConsoleView({
       }
     })
     return alerts
-  }, [categoryTracking])
+  }, [categoryTracking, formatCurrency, currencyCode])
 
   const changeLabel =
     incomeChangePct === null

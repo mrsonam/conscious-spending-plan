@@ -17,6 +17,7 @@ import { TrendingUp, Wallet, DollarSign, PieChart as PieChartIcon, BarChart3, Tr
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, LineChart, Line, CartesianGrid } from "recharts"
 import { cn } from "@/lib/utils"
 import { BENTO } from "@/lib/app-routes"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 interface Account {
   id: string
@@ -56,6 +57,7 @@ interface InvestmentAccountSummary {
 
 export default function InvestmentsPage() {
   const { data: session, status } = useSession()
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
 
   const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccountSummary[]>([])
@@ -181,13 +183,6 @@ export default function InvestmentsPage() {
       setLoadingAccounts(false)
     }
   }
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(amount || 0)
 
   // Helper function to get holding key
   const getHoldingKey = (accountId: string, holdingName: string) => {

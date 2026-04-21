@@ -4,6 +4,10 @@ import Google from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { isDashboardTheme } from "./dashboard-theme"
+import {
+  isValidDisplayCurrency,
+  normalizeDisplayCurrency,
+} from "./display-currency"
 import { normalizeEmail } from "./password-policy"
 
 // Validate required environment variables
@@ -119,9 +123,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account, trigger, session }) {
       if (trigger === "update" && session && typeof session === "object") {
-        const next = (session as { dashboardTheme?: unknown }).dashboardTheme
-        if (isDashboardTheme(next)) {
-          token.dashboardTheme = next
+        const s = session as {
+          dashboardTheme?: unknown
+          displayCurrency?: unknown
+        }
+        if (isDashboardTheme(s.dashboardTheme)) {
+          token.dashboardTheme = s.dashboardTheme
+        }
+        if (isValidDisplayCurrency(s.displayCurrency)) {
+          token.displayCurrency = s.displayCurrency
         }
         return token
       }
@@ -140,23 +150,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               mode: "insensitive",
             },
           },
-          select: { id: true, dashboardTheme: true },
+          select: { id: true, dashboardTheme: true, displayCurrency: true },
         })
         if (dbUser) {
           token.id = dbUser.id
           token.dashboardTheme = dbUser.dashboardTheme
+          token.displayCurrency = normalizeDisplayCurrency(dbUser.displayCurrency)
         }
       } else if (user?.id && account?.provider === "credentials") {
         token.id = user.id
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { dashboardTheme: true },
+          select: { dashboardTheme: true, displayCurrency: true },
         })
         token.dashboardTheme = dbUser?.dashboardTheme ?? "console"
+        token.displayCurrency = normalizeDisplayCurrency(
+          dbUser?.displayCurrency
+        )
       }
 
       if (!token.dashboardTheme) {
         token.dashboardTheme = "console"
+      }
+      if (!token.displayCurrency) {
+        token.displayCurrency = normalizeDisplayCurrency(undefined)
       }
 
       return token
@@ -165,19 +182,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         // Always resolve to a real Prisma User.id (fixes stale JWTs with Google OAuth subject).
         const email = typeof token.email === "string" ? token.email : undefined
-        let resolved: { id: string; dashboardTheme: string | null } | null = null
+        let resolved: {
+          id: string
+          dashboardTheme: string | null
+          displayCurrency: string
+        } | null = null
         if (email) {
           resolved = await prisma.user.findFirst({
             where: {
               email: { equals: normalizeEmail(email), mode: "insensitive" },
             },
-            select: { id: true, dashboardTheme: true },
+            select: { id: true, dashboardTheme: true, displayCurrency: true },
           })
         }
         if (!resolved && token.id) {
           resolved = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { id: true, dashboardTheme: true },
+            select: { id: true, dashboardTheme: true, displayCurrency: true },
           })
         }
         if (resolved) {
@@ -185,6 +206,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.dashboardTheme = isDashboardTheme(resolved.dashboardTheme)
             ? resolved.dashboardTheme
             : "console"
+          session.user.displayCurrency = normalizeDisplayCurrency(
+            resolved.displayCurrency
+          )
         } else {
           session.user.id = ""
         }

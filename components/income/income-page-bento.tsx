@@ -27,6 +27,7 @@ import type { IncomeBreakdown, IncomeEntry } from "@/lib/income-page-types"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 import {
   Building2,
   Calculator,
@@ -279,6 +280,7 @@ function IncomeLoggedAllocationPanel({
 }
 
 export function IncomePageBento(p: UseIncomePageResult) {
+  const { formatCurrency } = useFormatCurrency()
   const [logOpen, setLogOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -429,12 +431,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                       className="mt-2 text-lg font-semibold tabular-nums"
                       style={{ color: TOKENS.onSurface }}
                     >
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).format(p.incomeStats.ytdTotal)}
+                      {formatCurrency(p.incomeStats.ytdTotal)}
                     </p>
                   )}
                 </div>

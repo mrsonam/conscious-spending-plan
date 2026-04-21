@@ -35,6 +35,8 @@ model User {
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
   dashboardTheme   String   @default("classic")
+  /// ISO 4217 code for display (amounts in DB remain in the user's primary unit)
+  displayCurrency  String   @default("AUD")
 }
 
 model FundAllocation {

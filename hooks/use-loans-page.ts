@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 export interface LoanAccountRef {
   id: string
@@ -49,6 +50,7 @@ export interface LoansPageAccount {
 }
 
 export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
   const [accounts, setAccounts] = useState<LoansPageAccount[]>([])
   const [loans, setLoans] = useState<LoanRow[]>([])
@@ -298,10 +300,6 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
       setMessage({ type: "error", text: "An error occurred" })
     }
   }
-
-  const formatCurrency = useCallback((n: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)
-  }, [])
 
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {

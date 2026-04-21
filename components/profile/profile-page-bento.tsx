@@ -1,9 +1,17 @@
 "use client"
 
 import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { Mail, Shield, User } from "lucide-react"
+import { Coins, Mail, Shield, User } from "lucide-react"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
+import { AppSelect } from "@/components/ui/app-select"
+import { Button } from "@/components/ui/button"
+import {
+  DEFAULT_DISPLAY_CURRENCY,
+  normalizeDisplayCurrency,
+} from "@/lib/display-currency"
+import { buildCurrencySelectOptions } from "@/components/ui/currency-select-options"
 
 function getInitials(email: string) {
   return email
@@ -16,11 +24,45 @@ function getInitials(email: string) {
 }
 
 export function ProfilePageBento() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
+  const [displayCurrency, setDisplayCurrency] = useState(
+    DEFAULT_DISPLAY_CURRENCY,
+  )
+  const [currencySaving, setCurrencySaving] = useState(false)
+  const [currencyMessage, setCurrencyMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (session?.user?.displayCurrency) {
+      setDisplayCurrency(normalizeDisplayCurrency(session.user.displayCurrency))
+    }
+  }, [session?.user?.displayCurrency])
 
   if (!session?.user) return null
 
   const u = session.user
+
+  const saveDisplayCurrency = async () => {
+    setCurrencySaving(true)
+    setCurrencyMessage(null)
+    try {
+      const res = await fetch("/api/user/display-currency", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayCurrency }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setCurrencyMessage(data.error || "Could not save currency")
+        return
+      }
+      await update({ displayCurrency })
+      setCurrencyMessage("Display currency saved.")
+    } catch {
+      setCurrencyMessage("Something went wrong.")
+    } finally {
+      setCurrencySaving(false)
+    }
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -108,6 +150,76 @@ export function ProfilePageBento() {
               </div>
             ) : null}
           </div>
+        </section>
+      </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-12 lg:gap-5">
+        <section
+          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div
+              className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: TOKENS.secondary,
+                background: TOKENS.surfaceHigh,
+              }}
+            >
+              <Coins className="h-3.5 w-3.5" />
+              Numbers
+            </div>
+          </div>
+          <p
+            className="mt-5 text-[10px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            Display currency
+          </p>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+            Amounts in the app are shown in this currency. Stored values are unchanged; only labels and
+            grouping update.
+          </p>
+          <div className="mt-5 flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="display-currency"
+                className="text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: TOKENS.onSurfaceMuted }}
+              >
+                Currency
+              </label>
+              <AppSelect
+                id="display-currency"
+                value={displayCurrency}
+                onValueChange={setDisplayCurrency}
+                variant="console"
+                options={buildCurrencySelectOptions()}
+                placeholder="Select currency"
+                className="mt-1.5"
+                style={{
+                  borderColor: TOKENS.outlineGhost,
+                  background: TOKENS.surfaceLow,
+                  color: TOKENS.onSurface,
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={currencySaving}
+              onClick={() => void saveDisplayCurrency()}
+              className="shrink-0 border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd] hover:bg-white/10"
+            >
+              {currencySaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+          {currencyMessage ? (
+            <p className="mt-3 text-sm" style={{ color: TOKENS.primary }}>
+              {currencyMessage}
+            </p>
+          ) : null}
         </section>
       </div>
 

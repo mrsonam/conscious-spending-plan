@@ -8,6 +8,7 @@ import {
   invalidateCategoryTrackingAndDashboardCaches,
   peekCachedJson,
 } from "@/lib/client-fetch-cache"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 export interface AccountRow {
   id: string
@@ -30,6 +31,7 @@ export const ACCOUNT_FUND_CATEGORIES = [
 export const ACCOUNTS_LIST_CACHE_KEY = "dashboard:accounts"
 
 export function useAccountsPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
   const [accounts, setAccounts] = useState<AccountRow[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -253,13 +255,6 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       setTransferring(false)
     }
   }
-
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
-  }, [])
 
   return {
     accounts,

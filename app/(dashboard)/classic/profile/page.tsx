@@ -2,17 +2,33 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Mail } from "lucide-react"
+import { User, Mail, Coins } from "lucide-react"
+import { AppSelect } from "@/components/ui/app-select"
+import { Button } from "@/components/ui/button"
+import {
+  DEFAULT_DISPLAY_CURRENCY,
+  normalizeDisplayCurrency,
+} from "@/lib/display-currency"
+import { buildCurrencySelectOptions } from "@/components/ui/currency-select-options"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 import { BENTO } from "@/lib/app-routes"
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
+  const [displayCurrency, setDisplayCurrency] = useState(DEFAULT_DISPLAY_CURRENCY)
+  const [currencySaving, setCurrencySaving] = useState(false)
+  const [currencyMessage, setCurrencyMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (session?.user?.displayCurrency) {
+      setDisplayCurrency(normalizeDisplayCurrency(session.user.displayCurrency))
+    }
+  }, [session?.user?.displayCurrency])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -44,6 +60,29 @@ export default function ProfilePage() {
 
   if ((session.user.dashboardTheme ?? "classic") === "console") {
     return null
+  }
+
+  const saveDisplayCurrency = async () => {
+    setCurrencySaving(true)
+    setCurrencyMessage(null)
+    try {
+      const res = await fetch("/api/user/display-currency", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayCurrency }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setCurrencyMessage(data.error || "Could not save currency")
+        return
+      }
+      await update({ displayCurrency })
+      setCurrencyMessage("Display currency saved.")
+    } catch {
+      setCurrencyMessage("Something went wrong.")
+    } finally {
+      setCurrencySaving(false)
+    }
   }
 
   return (
@@ -107,6 +146,47 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5 text-indigo-600" />
+              Display currency
+            </CardTitle>
+            <CardDescription>
+              Amounts across the app use this symbol and grouping. Stored numbers are unchanged.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="classic-display-currency" className="text-sm font-medium text-gray-700">
+                  Currency
+                </label>
+                <AppSelect
+                  id="classic-display-currency"
+                  value={displayCurrency}
+                  onValueChange={setDisplayCurrency}
+                  variant="classic"
+                  options={buildCurrencySelectOptions()}
+                  placeholder="Select currency"
+                  className="mt-1.5"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={currencySaving}
+                onClick={() => void saveDisplayCurrency()}
+              >
+                {currencySaving ? "Saving…" : "Save"}
+              </Button>
+            </div>
+            {currencyMessage ? (
+              <p className="text-sm text-green-700">{currencyMessage}</p>
+            ) : null}
           </CardContent>
         </Card>
 

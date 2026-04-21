@@ -14,6 +14,7 @@ import { CardSkeleton, CardGridSkeleton } from "@/components/skeletons/card-skel
 import { ChartSkeleton, PieChartSkeleton } from "@/components/skeletons/chart-skeleton"
 import { cn } from "@/lib/utils"
 import { BENTO, CLASSIC } from "@/lib/app-routes"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 // Lazy load modals and charts to improve initial load time
 const AddIncomeModal = dynamic(() => import("@/components/modals/add-income-modal").then(mod => ({ default: mod.AddIncomeModal })), { 
@@ -165,6 +166,7 @@ const COLORS = {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null)
   const [fundAllocation, setFundAllocation] = useState<FundAllocation | null>(null)
@@ -365,13 +367,6 @@ export default function DashboardPage() {
     await fetchCriticalData()
     // Then load secondary data
     await fetchSecondaryData()
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
   }
 
   // Show header and tabs even during loading

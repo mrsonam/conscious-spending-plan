@@ -19,6 +19,7 @@ import type {
   RecurringExpense,
 } from "@/lib/expense-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 const EMPTY_EXPENSE_STATS: ExpensePageStats = {
   currentMonthTotal: 0,
@@ -45,6 +46,7 @@ export function useExpensePage(
   status: string,
   router: { push: (path: string) => void },
 ) {
+  const { formatCurrency } = useFormatCurrency()
   const [accounts, setAccounts] = useState<ExpensePageAccount[]>([])
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([])
   const [expensesTotal, setExpensesTotal] = useState(0)
@@ -716,12 +718,6 @@ export function useExpensePage(
       setShowDeleteConfirm(false)
     }
   }
-
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(n)
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString("en-US", {

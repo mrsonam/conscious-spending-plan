@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
 
 export interface FundAllocation {
   id: string
@@ -28,6 +29,7 @@ export interface CategoryBalance {
 
 export function useFundSettingsPage() {
   const { data: session, status } = useSession()
+  const { formatCurrency } = useFormatCurrency()
   const router = useRouter()
   const [allocation, setAllocation] = useState<FundAllocation | null>(null)
   const [balances, setBalances] = useState<CategoryBalance[]>([])
@@ -114,13 +116,6 @@ export function useFundSettingsPage() {
     },
     [balances],
   )
-
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount)
-  }, [])
 
   return {
     session,
