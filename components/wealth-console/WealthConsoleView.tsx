@@ -14,7 +14,6 @@ import {
   PiggyBank,
   TrendingUp,
 } from "lucide-react"
-import dynamic from "next/dynamic"
 import { BENTO } from "@/lib/app-routes"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
@@ -24,13 +23,6 @@ import {
   ScramblePercentValue,
 } from "@/components/ui/scramble-number"
 import { Skeleton } from "@/components/ui/skeleton"
-
-const PieChart = dynamic(
-  () => import("recharts").then((m) => m.PieChart),
-  { ssr: false }
-)
-const Pie = dynamic(() => import("recharts").then((m) => m.Pie), { ssr: false })
-const Cell = dynamic(() => import("recharts").then((m) => m.Cell), { ssr: false })
 
 export { TOKENS } from "@/lib/wealth-console-tokens"
 
@@ -152,105 +144,6 @@ function groupExpensesByDescription(
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([label, amount]) => ({ label, amount }))
-}
-
-function SegmentedPillarBar({
-  fixedCosts,
-  savings,
-  investment,
-  guiltFree,
-}: {
-  fixedCosts: number
-  savings: number
-  investment: number
-  guiltFree: number
-}) {
-  const total = fixedCosts + savings + investment + guiltFree
-  if (total <= 0) {
-    return (
-      <div
-        className="h-4 w-full rounded-lg opacity-30"
-        style={{ background: TOKENS.surfaceHigh }}
-      />
-    )
-  }
-  const pct = (v: number) => `${Math.max(0, (v / total) * 100)}%`
-
-  return (
-    <div className="flex h-4 w-full gap-px overflow-hidden rounded-lg">
-      {fixedCosts > 0 && (
-        <div
-          className="h-full min-w-[6px] transition-all"
-          style={{ width: pct(fixedCosts), background: TOKENS.secondary }}
-        />
-      )}
-      {savings > 0 && (
-        <div
-          className="h-full min-w-[6px] transition-all"
-          style={{ width: pct(savings), background: TOKENS.primary }}
-        />
-      )}
-      {investment > 0 && (
-        <div
-          className="h-full min-w-[6px] transition-all"
-          style={{ width: pct(investment), background: TOKENS.tertiary }}
-        />
-      )}
-      {guiltFree > 0 && (
-        <div
-          className="h-full min-w-[6px] transition-all"
-          style={{ width: pct(guiltFree), background: TOKENS.primary }}
-        />
-      )}
-    </div>
-  )
-}
-
-function PillarLegend({
-  items,
-  total,
-}: {
-  items: { label: string; shortLabel: string; amount: number; color: string }[]
-  total: number
-}) {
-  return (
-    <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
-      {items.map((row) => {
-        const pct =
-          total > 0 ? ((row.amount / total) * 100).toFixed(0) : "0"
-        return (
-          <div key={row.label} className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: row.color }}
-              />
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wider"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                {row.shortLabel}
-              </span>
-              <span
-                className="text-[10px] tabular-nums"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                {pct}%
-              </span>
-            </div>
-            <div className="mt-1.5 pl-4 text-base font-semibold tabular-nums tracking-tight">
-              <MajorFigureCurrency
-                amount={row.amount}
-                variant="neutral"
-                decimalEm={0.55}
-                className="font-semibold!"
-              />
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
 function TrajectorySparkline({ series }: { series: TrajectoryPoint[] }) {
@@ -411,22 +304,6 @@ function SkeletonBlock({
   )
 }
 
-function PillarAllocationLoading() {
-  return (
-    <div className="mt-6 space-y-5">
-      <Skeleton className="h-4 w-full rounded-lg" />
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
-        {(["Fixed", "Savings", "Invest", "Guilt-free"] as const).map((label) => (
-          <div key={label} className="min-w-0 space-y-2">
-            <Skeleton className="h-2.5 w-14 rounded" />
-            <Skeleton className="h-7 w-full max-w-[9rem] rounded-md" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function DetailCardSkeleton({
   title,
   icon: Icon,
@@ -556,7 +433,6 @@ export function WealthConsoleView({
     }
     const totalAllocated = breakdown?.total ?? 0
     const totalUsedFromBudget = totalExpenses + investedThisMonth
-    const remainingBudget = totalAllocated - totalUsedFromBudget
     const budgetUsedPct =
       totalAllocated > 0
         ? Math.min(100, (totalUsedFromBudget / totalAllocated) * 100)
@@ -591,8 +467,6 @@ export function WealthConsoleView({
     const netWorth = cashBalance + investmentValue
     return {
       investedThisMonth,
-      totalUsedFromBudget,
-      remainingBudget,
       budgetUsedPct,
       daysRemaining,
       avgDailySpending,
@@ -622,29 +496,11 @@ export function WealthConsoleView({
     return breakdown.income - totalExpenses
   }, [breakdown, totalExpenses])
 
-  const now = new Date()
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-
-  const guilt = categoryTracking.guiltFreeSpending
-  const guiltAllocated = breakdown?.guiltFreeSpending ?? guilt?.allocated ?? 0
-  const dailyLimit = daysInMonth > 0 ? guiltAllocated / daysInMonth : 0
-
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  ).getTime()
-  const spentGuiltToday = expenses
-    .filter(
-      (e) =>
-        e.category === "guiltFreeSpending" &&
-        new Date(e.date).getTime() >= startOfToday
-    )
-    .reduce((s, e) => s + e.amount, 0)
-
-  const remainingToday = Math.max(0, dailyLimit - spentGuiltToday)
-  const dailyPct =
-    dailyLimit > 0 ? Math.min(100, (spentGuiltToday / dailyLimit) * 100) : 0
+  /** Share of monthly income left after spending (distinct from allocation “headroom”). */
+  const savingsRatePct = useMemo(() => {
+    if (!breakdown || breakdown.income <= 0) return null
+    return (netSavings / breakdown.income) * 100
+  }, [breakdown, netSavings])
 
   const expensesThisMonth = useMemo(
     () => filterExpensesCurrentMonth(expenses),
@@ -710,13 +566,6 @@ export function WealthConsoleView({
     return projected
   }, [breakdown])
 
-  const pillarTotal = breakdown
-    ? breakdown.fixedCosts +
-      breakdown.savings +
-      breakdown.investment +
-      breakdown.guiltFreeSpending
-    : 0
-
   const spendingAlerts = useMemo(() => {
     const alerts: Array<{
       category: string
@@ -775,7 +624,6 @@ export function WealthConsoleView({
     loading && expenses.length === 0 && expensesTotalForMonth === null
   const showHeadroomSkeleton = showBreakdownSkeleton || showExpenseSkeleton
   const showInvestmentMonthSkeleton = loading && investmentAccounts.length === 0
-  const showSafeToSpendSkeleton = showBreakdownSkeleton || showExpenseSkeleton
 
   return (
     <div
@@ -942,9 +790,6 @@ export function WealthConsoleView({
                   >
                     Operational intelligence
                   </p>
-                  <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
-                    Position & runway
-                  </h2>
                   <p
                     className="mt-3 text-sm leading-relaxed sm:text-[0.9375rem]"
                     style={{ color: TOKENS.onSurfaceMuted }}
@@ -1130,27 +975,46 @@ export function WealthConsoleView({
                           className="text-[10px] font-semibold uppercase tracking-wider"
                           style={{ color: TOKENS.onSurfaceMuted }}
                         >
-                          Headroom
+                          Savings rate
                         </p>
-                        <div className="mt-2 text-xl leading-tight sm:text-2xl">
+                        <div className="mt-2 flex items-baseline gap-0.5">
                           {showHeadroomSkeleton ? (
-                            <ScrambleCurrencyValue min={150} max={2800} variant="prosperity" />
-                          ) : (
-                            <MajorFigureCurrency
-                              amount={pulseMetrics.remainingBudget}
-                              variant={
-                                pulseMetrics.remainingBudget >= 0
-                                  ? "prosperity"
-                                  : "loss"
-                              }
+                            <ScramblePercentValue
+                              className="text-2xl font-bold leading-none sm:text-3xl"
+                              suffixClassName="text-lg font-bold sm:text-xl"
                             />
+                          ) : savingsRatePct === null ? (
+                            <span
+                              className="text-xl font-semibold leading-none sm:text-2xl"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              —
+                            </span>
+                          ) : (
+                            <>
+                              <span
+                                className="text-2xl font-bold tabular-nums leading-none sm:text-3xl"
+                                style={{
+                                  color:
+                                    savingsRatePct >= 0 ? TOKENS.primary : "#ffb4ab",
+                                }}
+                              >
+                                {savingsRatePct.toFixed(1)}
+                              </span>
+                              <span
+                                className="text-lg font-semibold sm:text-xl"
+                                style={{ color: TOKENS.onSurfaceMuted }}
+                              >
+                                %
+                              </span>
+                            </>
                           )}
                         </div>
                         <p
                           className="mt-2 text-[10px] leading-snug"
                           style={{ color: TOKENS.onSurfaceMuted }}
                         >
-                          Allocated − expenses − invested
+                          Net savings as a share of monthly income
                         </p>
                       </div>
                     </div>
@@ -1403,7 +1267,7 @@ export function WealthConsoleView({
                             Delta
                           </p>
                           <p
-                            className="text-3xl font-black tabular-nums leading-none sm:text-4xl"
+                            className="text-2xl font-black tabular-nums leading-none sm:text-3xl"
                             style={{
                               color:
                                 incomeChangePct >= 0
@@ -1414,7 +1278,7 @@ export function WealthConsoleView({
                             {incomeChangePct >= 0 ? "+" : ""}
                             {incomeChangePct.toFixed(1)}
                             <span
-                              className="text-lg font-bold"
+                              className="text-base font-bold sm:text-lg"
                               style={{ color: TOKENS.onSurfaceMuted }}
                             >
                               %
@@ -1471,7 +1335,7 @@ export function WealthConsoleView({
                     </div>
                     {lastMonthExpenses > 0 && expenseChangePct !== null && (
                       <p
-                        className="mt-2 text-lg font-bold tabular-nums"
+                        className="mt-2 text-base font-bold tabular-nums leading-snug"
                         style={{
                           color:
                             expenseChangePct <= 0
@@ -1495,10 +1359,10 @@ export function WealthConsoleView({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
-                  {spendingAlerts.length > 0 && (
+                <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-5">
+                  {spendingAlerts.length > 0 ? (
                     <aside
-                      className="lg:col-span-4 lg:order-none"
+                      className="min-w-0"
                       style={{
                         borderLeft: `3px solid ${TOKENS.primary}`,
                         background: TOKENS.surfaceLow,
@@ -1539,344 +1403,146 @@ export function WealthConsoleView({
                         ))}
                       </ul>
                     </aside>
-                  )}
+                  ) : null}
                   <div
+                    id="console-subscriptions"
                     className={
-                      spendingAlerts.length > 0 ? "lg:col-span-8" : "lg:col-span-12"
+                      spendingAlerts.length === 0
+                        ? "scroll-mt-28 min-w-0 lg:col-span-2"
+                        : "scroll-mt-28 min-w-0"
                     }
                   >
-                    <p
-                      className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                      style={{ color: TOKENS.onSurfaceMuted }}
+                    <div
+                      className="h-full rounded-xl border p-5 transition-colors hover:opacity-[0.98] sm:p-6"
+                      style={{
+                        background: TOKENS.surfaceContainer,
+                        boxShadow: CARD_INSET,
+                        borderColor: TOKENS.outlineGhost,
+                      }}
                     >
-                      Workspace
-                    </p>
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
-                      <Link
-                        href={BENTO.income}
-                        className="group relative col-span-2 flex flex-col justify-between overflow-hidden rounded-xl p-5 transition-all duration-200 ease-out hover:scale-[1.02] hover:brightness-105 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:col-span-3 lg:col-span-2 lg:min-h-[140px]"
-                        style={{
-                          background: TOKENS.primary,
-                          color: TOKENS.surface,
-                        }}
-                      >
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-90">
-                          Primary
-                        </span>
-                        <span className="mt-4 text-lg font-bold leading-tight">
-                          Record income
-                        </span>
-                        <ArrowUpRight className="absolute right-4 top-4 h-5 w-5 opacity-80 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                      </Link>
-                      <Link
-                        href={BENTO.expenses}
-                        className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
-                        style={{
-                          background: TOKENS.surfaceContainer,
-                          boxShadow:
-                            "inset 0 1px 0 0 rgba(218,226,253,0.06)",
-                        }}
-                      >
-                        <ArrowUpRight
-                          className="pointer-events-none absolute right-2 top-2 h-3.5 w-3.5 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-70"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                          aria-hidden
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-wider"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Spend
-                        </span>
-                        <span
-                          className="mt-2 text-xs font-semibold"
-                          style={{ color: TOKENS.onSurface }}
-                        >
-                          Expenses
-                        </span>
-                      </Link>
-                      <Link
-                        href={BENTO.categoryTracking}
-                        className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
-                        style={{
-                          background: TOKENS.surfaceLow,
-                        }}
-                      >
-                        <ArrowUpRight
-                          className="pointer-events-none absolute right-2 top-2 h-3.5 w-3.5 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-70"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                          aria-hidden
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-wider"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Track
-                        </span>
-                        <span
-                          className="mt-2 text-xs font-semibold"
-                          style={{ color: TOKENS.onSurface }}
-                        >
-                          Categories
-                        </span>
-                      </Link>
-                      <Link
-                        href={BENTO.statement}
-                        className="group relative col-span-2 flex flex-col justify-center overflow-hidden rounded-xl p-4 transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.06] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89ceff]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:col-span-1 lg:col-span-2"
-                        style={{
-                          background: TOKENS.surfaceContainer,
-                          boxShadow:
-                            "inset 0 1px 0 0 rgba(218,226,253,0.06)",
-                        }}
-                      >
-                        <ArrowUpRight
-                          className="pointer-events-none absolute right-3 top-3 h-4 w-4 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-80"
-                          style={{ color: TOKENS.secondary }}
-                          aria-hidden
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-wider"
-                          style={{ color: TOKENS.secondary }}
-                        >
-                          Ledger
-                        </span>
-                        <span
-                          className="mt-2 text-sm font-bold"
-                          style={{ color: TOKENS.onSurface }}
-                        >
-                          Full statement
-                        </span>
-                      </Link>
-                      <Link
-                        href={BENTO.investments}
-                        className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
-                        style={{ background: TOKENS.surfaceLow }}
-                      >
-                        <ArrowUpRight
-                          className="pointer-events-none absolute right-2 top-2 h-3.5 w-3.5 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-70"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                          aria-hidden
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-wider"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Holdings
-                        </span>
-                        <span
-                          className="mt-2 text-xs font-semibold"
-                          style={{ color: TOKENS.onSurface }}
-                        >
-                          Invest
-                        </span>
-                      </Link>
-                      <Link
-                        href={BENTO.loans}
-                        className="group relative col-span-1 flex flex-col justify-center overflow-hidden rounded-xl p-4 text-center transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/[0.08] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b9c8de]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] lg:col-span-1"
-                        style={{
-                          background: TOKENS.surfaceHigh,
-                        }}
-                      >
-                        <ArrowUpRight
-                          className="pointer-events-none absolute right-2 top-2 h-3.5 w-3.5 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-70"
-                          style={{ color: TOKENS.tertiary }}
-                          aria-hidden
-                        />
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-wider"
-                          style={{ color: TOKENS.tertiary }}
-                        >
-                          Credit
-                        </span>
-                        <span
-                          className="mt-2 text-xs font-semibold"
-                          style={{ color: TOKENS.onSurface }}
-                        >
-                          Loans
-                        </span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-stretch">
-                <div className="flex flex-col lg:col-span-5">
-                  <div
-                    className="flex h-full min-h-[280px] flex-col rounded-xl p-5 sm:p-6 lg:-translate-y-1"
-                    style={{
-                      background: TOKENS.surfaceLow,
-                      boxShadow: CARD_INSET,
-                    }}
-                  >
-                    <p
-                      className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Safe to spend
-                    </p>
-                    <div className="mt-4 flex flex-1 flex-col items-center justify-center">
-                      {showSafeToSpendSkeleton ? (
-                        <div className="relative h-[168px] w-[168px] shrink-0">
-                          <SkeletonBlock className="h-full w-full rounded-full" />
-                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                            style={{
+                              background: TOKENS.surfaceLow,
+                              color: TOKENS.secondary,
+                            }}
+                          >
+                            <CalendarClock className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
                             <p
-                              className="text-[9px] font-bold uppercase leading-tight tracking-wider"
+                              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
                               style={{ color: TOKENS.onSurfaceMuted }}
                             >
-                              Daily limit
+                              Subscriptions
                             </p>
-                            <div className="mt-3 text-xl leading-tight sm:text-2xl">
-                              <ScrambleCurrencyValue min={8} max={95} variant="income" />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="relative h-[168px] w-[168px] shrink-0">
-                          <PieChart width={168} height={168}>
-                            <Pie
-                              data={[
-                                { name: "used", value: dailyPct },
-                                {
-                                  name: "rest",
-                                  value: Math.max(0.001, 100 - dailyPct),
-                                },
-                              ]}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={56}
-                              outerRadius={78}
-                              startAngle={90}
-                              endAngle={-270}
-                              dataKey="value"
-                              stroke="none"
-                            >
-                              <Cell fill={TOKENS.primary} />
-                              <Cell fill={TOKENS.surfaceHigh} />
-                            </Pie>
-                          </PieChart>
-                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
                             <p
-                              className="text-[9px] font-bold uppercase leading-tight tracking-wider"
+                              className="mt-1 max-w-xl text-xs leading-relaxed"
                               style={{ color: TOKENS.onSurfaceMuted }}
                             >
-                              Daily limit
+                              Monthly run rate from active plans, with renewals
+                              in the next 14 days below.
                             </p>
-                            <div className="text-xl leading-tight sm:text-2xl">
-                              <MajorFigureCurrency
-                                amount={dailyLimit}
-                                variant="income"
-                              />
-                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                    {showSafeToSpendSkeleton ? (
-                      <div className="mt-4 flex justify-center">
-                        <p
-                          aria-hidden
-                          className="text-center text-sm"
-                          style={{ color: TOKENS.onSurfaceMuted }}
+                        <Link
+                          href={BENTO.subscriptions}
+                          className="shrink-0 rounded-md p-1 transition-colors hover:bg-white/5"
+                          aria-label="Open subscriptions"
                         >
-                          Remaining today:{" "}
-                          <ScrambleCurrencyValue
-                            min={4}
-                            max={72}
-                            variant="prosperity"
-                            className="inline-block text-sm font-semibold!"
+                          <ArrowUpRight
+                            className="h-4 w-4"
+                            style={{ color: TOKENS.onSurfaceMuted }}
                           />
-                        </p>
+                        </Link>
                       </div>
-                    ) : (
-                      <p
-                        className="mt-4 text-center text-sm"
-                        style={{ color: TOKENS.onSurfaceMuted }}
-                      >
-                        Remaining today:{" "}
-                        <MajorFigureCurrency
-                          amount={remainingToday}
-                          variant="prosperity"
-                          className="text-sm font-semibold!"
-                          decimalEm={0.5}
-                        />
-                      </p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="flex flex-col lg:col-span-7">
-                  <div
-                    className="h-full min-h-[280px] flex-1 rounded-xl p-6 sm:p-7 lg:translate-y-1"
-                    style={{
-                      background: TOKENS.surfaceContainer,
-                      boxShadow: CARD_INSET,
-                    }}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+                      <div className="mt-5">
+                        <div className="text-3xl font-bold tabular-nums tracking-tight sm:text-[1.75rem]">
+                          <MajorFigureCurrency
+                            amount={subscriptionDash.monthlyActiveTotal}
+                            variant="neutral"
+                          />
+                        </div>
                         <p
-                          className="text-[10px] font-semibold uppercase tracking-[0.2em]"
+                          className="mt-1.5 text-[10px] font-medium uppercase tracking-wider"
                           style={{ color: TOKENS.onSurfaceMuted }}
                         >
-                          Pillar allocation
+                          Monthly equivalent (active)
                         </p>
-                        <h2 className="mt-2 text-lg font-semibold tracking-tight sm:text-xl">
-                          Conscious Spending Plan
-                        </h2>
                       </div>
-                      <span
-                        className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide"
+
+                      <div
+                        className="mt-5 rounded-lg px-3 py-3 sm:px-4"
                         style={{
                           background: TOKENS.surfaceLow,
-                          color: TOKENS.primary,
+                          boxShadow:
+                            "inset 0 1px 0 0 rgba(218,226,253,0.05)",
                         }}
                       >
-                        Active strategy
-                      </span>
-                    </div>
-                    <div className="mt-6">
-                      {showBreakdownSkeleton ? (
-                        <PillarAllocationLoading />
-                      ) : (
-                        <>
-                          <SegmentedPillarBar
-                            fixedCosts={breakdownData.fixedCosts}
-                            savings={breakdownData.savings}
-                            investment={breakdownData.investment}
-                            guiltFree={breakdownData.guiltFreeSpending}
-                          />
-                          <PillarLegend
-                            total={pillarTotal}
-                            items={[
-                              {
-                                label: "Fixed Costs",
-                                shortLabel: "Fixed",
-                                amount: breakdownData.fixedCosts,
-                                color: TOKENS.secondary,
-                              },
-                              {
-                                label: "Savings",
-                                shortLabel: "Savings",
-                                amount: breakdownData.savings,
-                                color: TOKENS.primary,
-                              },
-                              {
-                                label: "Investment",
-                                shortLabel: "Invest",
-                                amount: breakdownData.investment,
-                                color: TOKENS.tertiary,
-                              },
-                              {
-                                label: "Guilt-Free",
-                                shortLabel: "Guilt-free",
-                                amount: breakdownData.guiltFreeSpending,
-                                color: TOKENS.primary,
-                              },
-                            ]}
-                          />
-                        </>
-                      )}
+                        <p
+                          className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                          style={{ color: TOKENS.onSurfaceMuted }}
+                        >
+                          Renewals in the next 14 days
+                        </p>
+                        <ul className="mt-3 space-y-2.5">
+                          {subscriptionDash.upcoming.length === 0 ? (
+                            <li
+                              className="text-sm leading-snug"
+                              style={{ color: TOKENS.onSurfaceMuted }}
+                            >
+                              None scheduled — you&apos;re clear for this window.
+                            </li>
+                          ) : (
+                            subscriptionDash.upcoming.slice(0, 4).map((u) => (
+                              <li
+                                key={`${u.subscriptionId}-${u.kind}-${u.date}`}
+                                className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm"
+                              >
+                                <span
+                                  className="min-w-0 truncate font-medium"
+                                  style={{ color: TOKENS.onSurface }}
+                                >
+                                  {u.label}
+                                  <span
+                                    className="ml-1.5 text-[10px] font-normal uppercase tracking-wide"
+                                    style={{ color: TOKENS.onSurfaceMuted }}
+                                  >
+                                    {u.kind === "trial" ? "trial" : "renewal"}
+                                  </span>
+                                </span>
+                                <span
+                                  className="shrink-0 tabular-nums text-xs"
+                                  style={{ color: TOKENS.onSurfaceMuted }}
+                                >
+                                  {new Date(u.date).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}{" "}
+                                  ·{" "}
+                                  <MajorFigureCurrency
+                                    amount={u.amount}
+                                    variant="neutral"
+                                    className="inline text-xs font-semibold!"
+                                  />
+                                </span>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                        {subscriptionDash.upcoming.length > 4 ? (
+                          <Link
+                            href={BENTO.subscriptions}
+                            className="mt-3 inline-block text-xs font-semibold"
+                            style={{ color: TOKENS.primary }}
+                          >
+                            View all subscriptions
+                          </Link>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2253,136 +1919,6 @@ export function WealthConsoleView({
                     </Link>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div
-              id="console-subscriptions"
-              className="scroll-mt-28 mt-12"
-            >
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Link
-                  href={BENTO.subscriptions}
-                  className="block rounded-xl p-5 transition-colors hover:opacity-95"
-                  style={{
-                    background: TOKENS.surfaceContainer,
-                    boxShadow: CARD_INSET,
-                    border: `1px solid ${TOKENS.outlineGhost}`,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                        style={{
-                          background: TOKENS.surfaceLow,
-                          color: TOKENS.secondary,
-                        }}
-                      >
-                        <CalendarClock className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p
-                          className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Subscriptions
-                        </p>
-                        <p
-                          className="mt-1 text-xs leading-snug"
-                          style={{ color: TOKENS.onSurfaceMuted }}
-                        >
-                          Monthly equivalent (active)
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowUpRight
-                      className="h-4 w-4 shrink-0"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    />
-                  </div>
-                  <div className="mt-4 text-2xl font-bold tabular-nums tracking-tight">
-                    <MajorFigureCurrency
-                      amount={subscriptionDash.monthlyActiveTotal}
-                      variant="neutral"
-                    />
-                  </div>
-                </Link>
-                <div
-                  className="rounded-xl p-5"
-                  style={{
-                    background: TOKENS.surfaceContainer,
-                    boxShadow: CARD_INSET,
-                    border: `1px solid ${TOKENS.outlineGhost}`,
-                  }}
-                >
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    Upcoming renewals
-                  </p>
-                  <p
-                    className="mt-1 text-xs leading-snug"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    Next 14 days
-                  </p>
-                  <ul className="mt-4 space-y-2.5">
-                    {subscriptionDash.upcoming.length === 0 ? (
-                      <li
-                        className="text-sm"
-                        style={{ color: TOKENS.onSurfaceMuted }}
-                      >
-                        None scheduled in this window.
-                      </li>
-                    ) : (
-                      subscriptionDash.upcoming.slice(0, 4).map((u) => (
-                        <li
-                          key={`${u.subscriptionId}-${u.kind}-${u.date}`}
-                          className="flex flex-wrap items-baseline justify-between gap-2 text-sm"
-                        >
-                          <span
-                            className="min-w-0 truncate font-medium"
-                            style={{ color: TOKENS.onSurface }}
-                          >
-                            {u.label}
-                            <span
-                              className="ml-1.5 text-[10px] font-normal uppercase tracking-wide"
-                              style={{ color: TOKENS.onSurfaceMuted }}
-                            >
-                              {u.kind === "trial" ? "trial" : "renewal"}
-                            </span>
-                          </span>
-                          <span
-                            className="shrink-0 tabular-nums text-xs"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            {new Date(u.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}{" "}
-                            ·{" "}
-                            <MajorFigureCurrency
-                              amount={u.amount}
-                              variant="neutral"
-                              className="inline text-xs font-semibold!"
-                            />
-                          </span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                  {subscriptionDash.upcoming.length > 4 ? (
-                    <Link
-                      href={BENTO.subscriptions}
-                      className="mt-3 inline-block text-xs font-semibold"
-                      style={{ color: TOKENS.primary }}
-                    >
-                      View all
-                    </Link>
-                  ) : null}
-                </div>
               </div>
             </div>
           </>
