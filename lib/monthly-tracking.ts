@@ -1,4 +1,5 @@
 import { prisma } from "./prisma"
+import { TRACKING_CATEGORIES, calculateMonthClosing } from "./category-tracking-calculation"
 
 /**
  * Get current month and year
@@ -22,8 +23,6 @@ export type PreviousMonthResult = {
   overspent: Record<string, number>
 }
 
-const CATEGORIES = ["fixedCosts", "savings", "investment", "guiltFreeSpending"] as const
-
 /**
  * Compute remaining and overspent for a given month, **after** applying the previous month's
  * carryover and overspent, then store in CategoryMonthClosing.
@@ -31,7 +30,8 @@ const CATEGORIES = ["fixedCosts", "savings", "investment", "guiltFreeSpending"] 
  * Logic:
  * - Effective allocated for this month = this month's CategoryBalance − previous month's overspent
  *   (so we start from: previous remaining − previous overspent + income this month = balance − prev overspent).
- * - Spent = this month's expenses + transfers (or investment holdings for investment).
+ * - Spent = this month's expenses + transfers. For investments, the transfer is the spend
+ *   because the money leaves the spending bucket before the investment holding is purchased.
  * - net = effective_allocated − spent; remaining = max(0, net); overspent = max(0, −net).
  */
 export async function ensureMonthClosing(
@@ -40,8 +40,8 @@ export async function ensureMonthClosing(
   year: number
 ): Promise<PreviousMonthResult> {
   const emptyResult = (): PreviousMonthResult => ({
-    remaining: Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
-    overspent: Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
+    remaining: Object.fromEntries(TRACKING_CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
+    overspent: Object.fromEntries(TRACKING_CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
   })
 
   // Stale JWT, deleted user, or bad id — avoid FK violation on CategoryMonthClosing (P2003).
@@ -61,7 +61,7 @@ export async function ensureMonthClosing(
 
   // Previous month's overspent: use stored closing so this month's remaining/overspent is after carryover/overspent.
   // If previous month not yet stored, use 0 (no recursion).
-  let prevOverspentByCat: Record<string, number> = {}
+  const prevOverspentByCat: Record<string, number> = {}
   const prevClosings = await prisma.categoryMonthClosing.findMany({
     where: { userId, month: prevMonth, year: prevYear },
   })
@@ -98,34 +98,17 @@ export async function ensureMonthClosing(
     }),
   ])
 
-  const remaining: Record<string, number> = {}
-  const overspent: Record<string, number> = {}
+  const { remaining, overspent } = calculateMonthClosing({
+    categoryBalances: balances,
+    expenses,
+    transfers,
+    investments,
+    previousOverspentByCategory: prevOverspentByCat,
+  })
 
-  for (const cat of CATEGORIES) {
-    let balance = 0
-    for (const b of balances) {
-      if (b.category === cat) balance += b.balance ?? 0
-    }
-    const prevOverspent = prevOverspentByCat[cat] ?? 0
-    const allocatedAfterPrevOverspent = Math.max(0, balance - prevOverspent)
-
-    let spent = 0
-    if (cat === "investment") {
-      for (const inv of investments) spent += inv.amount
-    } else {
-      for (const e of expenses) {
-        if (e.category === cat) spent += e.amount
-      }
-      for (const t of transfers) {
-        if (t.category === cat) spent += t.amount
-      }
-    }
-
-    const net = allocatedAfterPrevOverspent - spent
-    const rem = net >= 0 ? net : 0
-    const over = net < 0 ? Math.abs(net) : 0
-    remaining[cat] = rem
-    overspent[cat] = over
+  for (const cat of TRACKING_CATEGORIES) {
+    const rem = remaining[cat]
+    const over = overspent[cat]
 
     await prisma.categoryMonthClosing.upsert({
       where: {
@@ -232,11 +215,9 @@ export async function getIncomeEntriesForMonthByDate(
   month?: number,
   year?: number
 ) {
-  const { month: m, year: y, startOfMonth, endOfMonth } =
+  const { startOfMonth, endOfMonth } =
     month !== undefined && year !== undefined
       ? {
-          month,
-          year,
           startOfMonth: new Date(year, month - 1, 1),
           endOfMonth: new Date(year, month, 0, 23, 59, 59, 999),
         }
