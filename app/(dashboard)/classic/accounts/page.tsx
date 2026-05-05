@@ -55,6 +55,7 @@ export default function AccountsPage() {
     transferCategory,
     setTransferCategory,
     transferring,
+    savingAccount,
     resetForm,
     startEdit,
     handleSubmit,
@@ -146,11 +147,12 @@ export default function AccountsPage() {
             <CardHeader>
               <CardTitle>{editingAccount ? "Edit Account" : "Add New Account"}</CardTitle>
               <CardDescription>
-                {editingAccount ? "Update account details" : "Create a new account to track your funds"}
+                {editingAccount ? "Update account details and current balance" : "Create a new account to track your funds"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} inert={savingAccount}>
+              <fieldset disabled={savingAccount} className="space-y-4 border-0 p-0 m-0 min-w-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="name">Account Name *</Label>
@@ -159,6 +161,7 @@ export default function AccountsPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
+                      disabled={savingAccount}
                       placeholder="e.g., Main Checking"
                       className="mt-1"
                     />
@@ -170,6 +173,7 @@ export default function AccountsPage() {
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       required
+                      disabled={savingAccount}
                       placeholder="e.g., Chase Bank"
                       className="mt-1"
                     />
@@ -183,6 +187,7 @@ export default function AccountsPage() {
                       id="accountType"
                       value={accountType}
                       onValueChange={setAccountType}
+                      disabled={savingAccount}
                       required
                       variant="classic"
                       className="mt-1"
@@ -195,21 +200,22 @@ export default function AccountsPage() {
                       ]}
                     />
                   </div>
-                  {!editingAccount && (
-                    <div>
-                      <Label htmlFor="startingFunds">Starting Balance</Label>
-                      <Input
-                        id="startingFunds"
-                        type="number"
-                        value={startingFunds}
-                        onChange={(e) => setStartingFunds(e.target.value)}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="mt-1"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <Label htmlFor="startingFunds">
+                      {editingAccount ? "Current balance" : "Starting balance"}
+                    </Label>
+                    <Input
+                      id="startingFunds"
+                      type="number"
+                      value={startingFunds}
+                      onChange={(e) => setStartingFunds(e.target.value)}
+                      min={editingAccount ? undefined : "0"}
+                      step="0.01"
+                      disabled={savingAccount}
+                      placeholder="0.00"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -218,16 +224,20 @@ export default function AccountsPage() {
                     id="isDefault"
                     checked={isDefault}
                     onChange={(e) => setIsDefault(e.target.checked)}
+                    disabled={savingAccount}
                     className="h-4 w-4 text-indigo-600"
                   />
                   <Label htmlFor="isDefault" className="cursor-pointer">
                     Set as default account (income will be deposited here)
                   </Label>
                 </div>
+              </fieldset>
 
-                <div className="flex gap-2">
-                  <Button type="submit">{editingAccount ? "Update Account" : "Create Account"}</Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
+                <div className="mt-4 flex gap-2">
+                  <Button type="submit" loading={savingAccount}>
+                    {editingAccount ? "Update Account" : "Create Account"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={resetForm} disabled={savingAccount}>
                     Cancel
                   </Button>
                 </div>
@@ -243,13 +253,15 @@ export default function AccountsPage() {
               <CardDescription>Move money between your accounts</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleTransfer} className="space-y-4">
+              <form onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
+                <fieldset disabled={transferring} className="space-y-4 border-0 p-0 m-0 min-w-0">
                 <div>
                   <Label htmlFor="fromAccount">From Account *</Label>
                   <AppSelect
                     id="fromAccount"
                     value={fromAccountId}
                     onValueChange={setFromAccountId}
+                    disabled={transferring}
                     required
                     variant="classic"
                     className="mt-1 rounded-md border border-gray-300"
@@ -270,6 +282,7 @@ export default function AccountsPage() {
                     id="toAccount"
                     value={toAccountId}
                     onValueChange={setToAccountId}
+                    disabled={transferring}
                     required
                     variant="classic"
                     className="mt-1 rounded-md border border-gray-300"
@@ -293,6 +306,7 @@ export default function AccountsPage() {
                     value={transferDate}
                     onChange={(e) => setTransferDate(e.target.value)}
                     required
+                    disabled={transferring}
                     className="mt-1 scheme-light dark:scheme-dark"
                   />
                 </div>
@@ -307,6 +321,7 @@ export default function AccountsPage() {
                     min="0.01"
                     step="0.01"
                     required
+                    disabled={transferring}
                     placeholder="0.00"
                     className="mt-1"
                   />
@@ -318,6 +333,7 @@ export default function AccountsPage() {
                     id="transferCategory"
                     value={transferCategory}
                     onValueChange={setTransferCategory}
+                    disabled={transferring}
                     variant="classic"
                     className="mt-1 rounded-lg border border-gray-300"
                     placeholder="No category"
@@ -340,18 +356,21 @@ export default function AccountsPage() {
                     id="transferDescription"
                     value={transferDescription}
                     onChange={(e) => setTransferDescription(e.target.value)}
+                    disabled={transferring}
                     placeholder="e.g., Monthly savings transfer"
                     className="mt-1"
                   />
                 </div>
+                </fieldset>
 
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={transferring}>
-                    {transferring ? "Transferring..." : "Transfer Funds"}
+                  <Button type="submit" loading={transferring}>
+                    Transfer Funds
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={transferring}
                     onClick={() => {
                       setShowTransferForm(false)
                       setFromAccountId("")

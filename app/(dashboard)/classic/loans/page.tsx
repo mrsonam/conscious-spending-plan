@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { TrendingDown, TrendingUp, HandCoins } from "lucide-react"
 import { ExpensesSkeleton } from "@/components/skeletons/expenses-skeleton"
 import { useLoansPage } from "@/hooks/use-loans-page"
@@ -20,6 +27,11 @@ export default function LoansPage() {
   const router = useRouter()
   const [showAddForm, setShowAddForm] = useState(false)
   const [showAddBorrowedForm, setShowAddBorrowedForm] = useState(false)
+  const [lentRepayDialog, setLentRepayDialog] = useState<{ loanId: string; toAccountId: string } | null>(null)
+  const [borrowedRepayDialog, setBorrowedRepayDialog] = useState<{
+    borrowedLoanId: string
+    fromAccountId: string
+  } | null>(null)
 
   const {
     accounts,
@@ -53,6 +65,7 @@ export default function LoansPage() {
     borrowedDueDate,
     setBorrowedDueDate,
     borrowedSubmitting,
+    repaySubmitting,
     handleSubmit,
     handleMarkRepaid,
     handleSubmitBorrowed,
@@ -72,6 +85,15 @@ export default function LoansPage() {
   const repaidLoans = loans.filter((loan) => loan.status === "repaid")
   const activeBorrowedLoans = borrowedLoans.filter((loan) => loan.status === "active")
   const repaidBorrowedLoans = borrowedLoans.filter((loan) => loan.status === "repaid")
+
+  const accountSelectOptions = useMemo(
+    () =>
+      accounts.map((a) => ({
+        value: a.id,
+        label: `${a.name} (${a.bankName})`,
+      })),
+    [accounts],
+  )
 
   if (status === "loading" || loading) {
     return (
@@ -135,7 +157,9 @@ export default function LoansPage() {
                   if (ok) setShowAddForm(false)
                 }}
                 className="space-y-4"
+                inert={submitting}
               >
+                <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="account">Account *</Label>
@@ -143,6 +167,7 @@ export default function LoansPage() {
                       id="account"
                       value={accountId}
                       onValueChange={setAccountId}
+                      disabled={submitting}
                       required
                       variant="classic"
                       className="mt-1 rounded-lg"
@@ -162,6 +187,7 @@ export default function LoansPage() {
                       min="0"
                       step="0.01"
                       required
+                      disabled={submitting}
                       placeholder="0.00"
                       className="mt-1"
                     />
@@ -173,6 +199,7 @@ export default function LoansPage() {
                       type="text"
                       value={borrowerName}
                       onChange={(e) => setBorrowerName(e.target.value)}
+                      disabled={submitting}
                       placeholder="Name or description"
                       className="mt-1"
                     />
@@ -184,6 +211,7 @@ export default function LoansPage() {
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       required
+                      disabled={submitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
@@ -193,6 +221,7 @@ export default function LoansPage() {
                       id="dueDate"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
+                      disabled={submitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
@@ -204,12 +233,14 @@ export default function LoansPage() {
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    disabled={submitting}
                     placeholder="Brief description of the loan"
                     className="mt-1"
                   />
                 </div>
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? "Saving..." : "Save Loan"}
+                </fieldset>
+                <Button type="submit" loading={submitting} className="w-full">
+                  Save Loan
                 </Button>
               </form>
             </CardContent>
@@ -256,7 +287,14 @@ export default function LoansPage() {
                               {loan.dueDate && <span>• Due: {formatDate(loan.dueDate)}</span>}
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => void handleMarkRepaid(loan.id)} className="ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setLentRepayDialog({ loanId: loan.id, toAccountId: loan.accountId })
+                            }
+                            className="ml-4"
+                          >
                             <TrendingUp className="mr-1 h-4 w-4" />
                             Mark Repaid
                           </Button>
@@ -335,7 +373,9 @@ export default function LoansPage() {
                   if (ok) setShowAddBorrowedForm(false)
                 }}
                 className="space-y-4"
+                inert={borrowedSubmitting}
               >
+                <fieldset disabled={borrowedSubmitting} className="min-w-0 space-y-4 border-0 p-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="borrowedAccount">Account *</Label>
@@ -343,6 +383,7 @@ export default function LoansPage() {
                       id="borrowedAccount"
                       value={borrowedAccountId || accountId}
                       onValueChange={setBorrowedAccountId}
+                      disabled={borrowedSubmitting}
                       required
                       variant="classic"
                       className="mt-1 rounded-lg"
@@ -362,6 +403,7 @@ export default function LoansPage() {
                       min="0"
                       step="0.01"
                       required
+                      disabled={borrowedSubmitting}
                       placeholder="0.00"
                       className="mt-1"
                     />
@@ -373,6 +415,7 @@ export default function LoansPage() {
                       type="text"
                       value={lenderName}
                       onChange={(e) => setLenderName(e.target.value)}
+                      disabled={borrowedSubmitting}
                       placeholder="Name or description"
                       className="mt-1"
                     />
@@ -384,6 +427,7 @@ export default function LoansPage() {
                       value={borrowedDate}
                       onChange={(e) => setBorrowedDate(e.target.value)}
                       required
+                      disabled={borrowedSubmitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
@@ -393,6 +437,7 @@ export default function LoansPage() {
                       id="borrowedDueDate"
                       value={borrowedDueDate}
                       onChange={(e) => setBorrowedDueDate(e.target.value)}
+                      disabled={borrowedSubmitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
@@ -404,12 +449,14 @@ export default function LoansPage() {
                     type="text"
                     value={borrowedDescription}
                     onChange={(e) => setBorrowedDescription(e.target.value)}
+                    disabled={borrowedSubmitting}
                     placeholder="Brief description of the borrowed money"
                     className="mt-1"
                   />
                 </div>
-                <Button type="submit" disabled={borrowedSubmitting} className="w-full">
-                  {borrowedSubmitting ? "Saving..." : "Save Borrowed Money"}
+                </fieldset>
+                <Button type="submit" loading={borrowedSubmitting} className="w-full">
+                  Save Borrowed Money
                 </Button>
               </form>
             </CardContent>
@@ -457,7 +504,12 @@ export default function LoansPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => void handleMarkBorrowedRepaid(loan.id)}
+                          onClick={() =>
+                            setBorrowedRepayDialog({
+                              borrowedLoanId: loan.id,
+                              fromAccountId: loan.accountId,
+                            })
+                          }
                           className="ml-4"
                         >
                           <TrendingDown className="mr-1 h-4 w-4" />
@@ -505,6 +557,117 @@ export default function LoansPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={lentRepayDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && repaySubmitting) return
+          if (!open) setLentRepayDialog(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark loan repaid</DialogTitle>
+            <DialogDescription>
+              Choose which account should receive the repayment. This does not count as new income for fund allocation.
+            </DialogDescription>
+          </DialogHeader>
+          <fieldset disabled={repaySubmitting} className="min-w-0 space-y-2 border-0 p-0">
+            <Label htmlFor="repay-lent-account">Receive into</Label>
+            <AppSelect
+              id="repay-lent-account"
+              value={lentRepayDialog?.toAccountId ?? ""}
+              onValueChange={(value) =>
+                setLentRepayDialog((d) => (d ? { ...d, toAccountId: value } : d))
+              }
+              disabled={repaySubmitting}
+              options={accountSelectOptions}
+              placeholder="Select account"
+            />
+          </fieldset>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={repaySubmitting}
+              onClick={() => setLentRepayDialog(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              loading={repaySubmitting}
+              disabled={!lentRepayDialog?.toAccountId || repaySubmitting}
+              onClick={() => {
+                if (!lentRepayDialog) return
+                void (async () => {
+                  const ok = await handleMarkRepaid(lentRepayDialog.loanId, lentRepayDialog.toAccountId)
+                  if (ok) setLentRepayDialog(null)
+                })()
+              }}
+            >
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={borrowedRepayDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && repaySubmitting) return
+          if (!open) setBorrowedRepayDialog(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark borrowing repaid</DialogTitle>
+            <DialogDescription>
+              Choose which account the repayment should be deducted from. This is not counted as a spending category.
+            </DialogDescription>
+          </DialogHeader>
+          <fieldset disabled={repaySubmitting} className="min-w-0 space-y-2 border-0 p-0">
+            <Label htmlFor="repay-borrowed-account">Pay from</Label>
+            <AppSelect
+              id="repay-borrowed-account"
+              value={borrowedRepayDialog?.fromAccountId ?? ""}
+              onValueChange={(value) =>
+                setBorrowedRepayDialog((d) => (d ? { ...d, fromAccountId: value } : d))
+              }
+              disabled={repaySubmitting}
+              options={accountSelectOptions}
+              placeholder="Select account"
+            />
+          </fieldset>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={repaySubmitting}
+              onClick={() => setBorrowedRepayDialog(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              loading={repaySubmitting}
+              disabled={!borrowedRepayDialog?.fromAccountId || repaySubmitting}
+              onClick={() => {
+                if (!borrowedRepayDialog) return
+                void (async () => {
+                  const ok = await handleMarkBorrowedRepaid(
+                    borrowedRepayDialog.borrowedLoanId,
+                    borrowedRepayDialog.fromAccountId,
+                  )
+                  if (ok) setBorrowedRepayDialog(null)
+                })()
+              }}
+            >
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

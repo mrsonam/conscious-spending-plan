@@ -152,13 +152,14 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
           <DialogTitle>Add Expense</DialogTitle>
           <DialogDescription>Log a new expense and deduct from an account</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" inert={submitting}>
           {error && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
               {error}
             </div>
           )}
 
+          <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
               <Label htmlFor="account">Account *</Label>
@@ -172,6 +173,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                     setFundCategory("")
                   }
                 }}
+                disabled={submitting}
                 required
                 variant="classic"
                 className="mt-1 rounded-lg"
@@ -191,6 +193,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 min="0"
                 step="0.01"
                 required
+                disabled={submitting}
                 placeholder="0.00"
                 className="mt-1"
               />
@@ -202,6 +205,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
+                disabled={submitting}
                 className="mt-1"
               />
             </div>
@@ -220,6 +224,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                     id="fundCategory"
                     value={fundCategory}
                     onValueChange={setFundCategory}
+                    disabled={submitting}
                     required
                     variant="classic"
                     className="mt-1 rounded-lg"
@@ -241,6 +246,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 id="expenseCategory"
                 value={expenseCategory}
                 onValueChange={setExpenseCategory}
+                disabled={submitting}
                 variant="classic"
                 className="mt-1 rounded-lg"
                 placeholder="Select an expense category (optional)"
@@ -261,17 +267,19 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={submitting}
               placeholder="e.g., Groceries, Rent, etc."
               className="mt-1"
             />
           </div>
+          </fieldset>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : "Add Expense"}
+            <Button type="submit" loading={submitting}>
+              Add Expense
             </Button>
           </div>
         </form>

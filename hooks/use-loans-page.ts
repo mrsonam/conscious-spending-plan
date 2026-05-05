@@ -75,6 +75,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   const [borrowedDate, setBorrowedDate] = useState(new Date().toISOString().split("T")[0])
   const [borrowedDueDate, setBorrowedDueDate] = useState("")
   const [borrowedSubmitting, setBorrowedSubmitting] = useState(false)
+  const [repaySubmitting, setRepaySubmitting] = useState(false)
 
   const fetchAccounts = useCallback(async () => {
     setLoadingAccounts(true)
@@ -193,13 +194,14 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     }
   }
 
-  const handleMarkRepaid = async (loanId: string) => {
+  const handleMarkRepaid = async (loanId: string, toAccountId: string): Promise<boolean> => {
     setMessage(null)
+    setRepaySubmitting(true)
     try {
       const response = await fetch("/api/loans", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loanId }),
+        body: JSON.stringify({ loanId, toAccountId }),
       })
 
       const data = (await response.json()) as { error?: string }
@@ -207,15 +209,19 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
       if (response.ok) {
         setMessage({
           type: "success",
-          text: "Loan marked as repaid. Amount returned to account.",
+          text: "Loan marked as repaid. Amount credited to the selected account.",
         })
         await fetchLoans()
         await fetchAccounts()
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to update loan" })
+        return true
       }
+      setMessage({ type: "error", text: data.error || "Failed to update loan" })
+      return false
     } catch {
       setMessage({ type: "error", text: "An error occurred" })
+      return false
+    } finally {
+      setRepaySubmitting(false)
     }
   }
 
@@ -275,13 +281,17 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     }
   }
 
-  const handleMarkBorrowedRepaid = async (borrowedLoanId: string) => {
+  const handleMarkBorrowedRepaid = async (
+    borrowedLoanId: string,
+    fromAccountId: string,
+  ): Promise<boolean> => {
     setMessage(null)
+    setRepaySubmitting(true)
     try {
       const response = await fetch("/api/borrowed-loans", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ borrowedLoanId }),
+        body: JSON.stringify({ borrowedLoanId, fromAccountId }),
       })
 
       const data = (await response.json()) as { error?: string }
@@ -289,15 +299,19 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
       if (response.ok) {
         setMessage({
           type: "success",
-          text: "Marked repaid. Amount deducted from account.",
+          text: "Marked repaid. Amount deducted from the selected account.",
         })
         await fetchBorrowedLoans()
         await fetchAccounts()
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to update borrowed loan" })
+        return true
       }
+      setMessage({ type: "error", text: data.error || "Failed to update borrowed loan" })
+      return false
     } catch {
       setMessage({ type: "error", text: "An error occurred" })
+      return false
+    } finally {
+      setRepaySubmitting(false)
     }
   }
 
@@ -348,6 +362,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     borrowedDueDate,
     setBorrowedDueDate,
     borrowedSubmitting,
+    repaySubmitting,
     fetchAccounts,
     fetchLoans,
     fetchBorrowedLoans,

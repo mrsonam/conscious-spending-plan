@@ -144,7 +144,10 @@ export async function PATCH(request: Request) {
       )
     }
 
-    const { borrowedLoanId } = await request.json()
+    const { borrowedLoanId, fromAccountId } = await request.json() as {
+      borrowedLoanId?: string
+      fromAccountId?: string
+    }
 
     if (!borrowedLoanId) {
       return NextResponse.json(
@@ -183,6 +186,23 @@ export async function PATCH(request: Request) {
       )
     }
 
+    let debitAccountId = borrowedLoan.accountId as string
+    if (typeof fromAccountId === "string" && fromAccountId.trim().length > 0) {
+      const payer = await prisma.account.findFirst({
+        where: {
+          id: fromAccountId.trim(),
+          userId: session.user.id,
+        },
+      })
+      if (!payer) {
+        return NextResponse.json(
+          { error: "Account not found or does not belong to user" },
+          { status: 404 },
+        )
+      }
+      debitAccountId = payer.id
+    }
+
     const updatedBorrowedLoan = await prisma.$transaction(async (tx) => {
       const loanUpdate = await (tx as any).borrowedLoan.update({
         where: { id: borrowedLoan.id },
@@ -202,7 +222,7 @@ export async function PATCH(request: Request) {
       })
 
       await tx.account.update({
-        where: { id: borrowedLoan.accountId },
+        where: { id: debitAccountId },
         data: {
           // Repaying reduces the account balance
           balance: { decrement: outstanding },

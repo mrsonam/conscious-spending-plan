@@ -34,6 +34,7 @@ import {
   ArrowRightLeft,
   Building2,
   Link2,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -93,6 +94,7 @@ export function AccountsPageBento() {
     transferCategory,
     setTransferCategory,
     transferring,
+    savingAccount,
     resetForm,
     startEdit,
     handleSubmit,
@@ -535,10 +537,13 @@ export function AccountsPageBento() {
                 {editingAccount ? "Edit account" : "Link account"}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-                {editingAccount ? "Update institution details." : "Create a manual account to track balances and transfers."}
+                {editingAccount
+                  ? "Update institution details and current balance."
+                  : "Create a manual account to track balances and transfers."}
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+            <form className="mt-6 space-y-5" onSubmit={handleSubmit} inert={savingAccount}>
+              <fieldset disabled={savingAccount} className="min-w-0 space-y-5 border-0 p-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -548,6 +553,7 @@ export function AccountsPageBento() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
+                    disabled={savingAccount}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -560,6 +566,7 @@ export function AccountsPageBento() {
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     required
+                    disabled={savingAccount}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -574,6 +581,7 @@ export function AccountsPageBento() {
                     value={accountType}
                     onValueChange={setAccountType}
                     required
+                    disabled={savingAccount}
                     variant="console"
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
@@ -590,40 +598,46 @@ export function AccountsPageBento() {
                     ]}
                   />
                 </div>
-                {!editingAccount ? (
-                  <div>
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                      Starting balance
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={startingFunds}
-                      onChange={(e) => setStartingFunds(e.target.value)}
-                      className={cn(consoleField, "mt-1 border-transparent")}
-                      style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-                    />
-                  </div>
-                ) : null}
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                    {editingAccount ? "Current balance" : "Starting balance"}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={editingAccount ? undefined : "0"}
+                    step="0.01"
+                    value={startingFunds}
+                    onChange={(e) => setStartingFunds(e.target.value)}
+                    disabled={savingAccount}
+                    className={cn(consoleField, "mt-1 border-transparent")}
+                    style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                  />
+                </div>
               </div>
               <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
                 <input
                   type="checkbox"
                   checked={isDefault}
                   onChange={(e) => setIsDefault(e.target.checked)}
+                  disabled={savingAccount}
                   className="h-4 w-4 rounded border"
                   style={{ borderColor: TOKENS.outlineGhost, accentColor: TOKENS.primary }}
                 />
                 Default for income deposits
               </label>
+              </fieldset>
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em]"
+                disabled={savingAccount}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
-                <Plus className="h-4 w-4" />
-                {editingAccount ? "Save changes" : "Create account"}
+                {savingAccount ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {savingAccount ? "Saving…" : editingAccount ? "Save changes" : "Create account"}
               </button>
             </form>
           </div>
@@ -649,7 +663,8 @@ export function AccountsPageBento() {
                 Move money between linked accounts.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={handleTransfer}>
+            <form className="mt-6 space-y-5" onSubmit={handleTransfer} inert={transferring}>
+              <fieldset disabled={transferring} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   From *
@@ -658,6 +673,7 @@ export function AccountsPageBento() {
                   value={fromAccountId}
                   onValueChange={setFromAccountId}
                   required
+                  disabled={transferring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -683,6 +699,7 @@ export function AccountsPageBento() {
                   value={toAccountId}
                   onValueChange={setToAccountId}
                   required
+                  disabled={transferring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -710,6 +727,7 @@ export function AccountsPageBento() {
                   value={transferDate}
                   onChange={(e) => setTransferDate(e.target.value)}
                   required
+                  disabled={transferring}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
@@ -725,6 +743,7 @@ export function AccountsPageBento() {
                   value={transferAmount}
                   onChange={(e) => setTransferAmount(e.target.value)}
                   required
+                  disabled={transferring}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
@@ -736,6 +755,7 @@ export function AccountsPageBento() {
                 <AppSelect
                   value={transferCategory}
                   onValueChange={setTransferCategory}
+                  disabled={transferring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -760,17 +780,23 @@ export function AccountsPageBento() {
                 <Input
                   value={transferDescription}
                   onChange={(e) => setTransferDescription(e.target.value)}
+                  disabled={transferring}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
               </div>
+              </fieldset>
               <button
                 type="submit"
                 disabled={transferring}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
-                <Plus className="h-4 w-4" />
+                {transferring ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 {transferring ? "Transferring…" : "Execute transfer"}
               </button>
             </form>

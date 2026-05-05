@@ -120,19 +120,21 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
           <DialogTitle>Transfer Funds</DialogTitle>
           <DialogDescription>Move money between your accounts</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleTransfer} className="space-y-4">
+        <form onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
           {error && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
               {error}
             </div>
           )}
 
+          <fieldset disabled={transferring} className="min-w-0 space-y-4 border-0 p-0">
           <div>
             <Label htmlFor="fromAccount">From Account *</Label>
             <AppSelect
               id="fromAccount"
               value={fromAccountId}
               onValueChange={setFromAccountId}
+              disabled={transferring}
               required
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
@@ -153,6 +155,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               id="toAccount"
               value={toAccountId}
               onValueChange={setToAccountId}
+              disabled={transferring}
               required
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
@@ -177,6 +180,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 value={transferDate}
                 onChange={(e) => setTransferDate(e.target.value)}
                 required
+                disabled={transferring}
                 className="mt-1"
               />
             </div>
@@ -190,6 +194,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 min="0.01"
                 step="0.01"
                 required
+                disabled={transferring}
                 placeholder="0.00"
                 className="mt-1"
               />
@@ -202,6 +207,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               id="transferCategory"
               value={transferCategory}
               onValueChange={setTransferCategory}
+              disabled={transferring}
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="None"
@@ -225,17 +231,19 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               type="text"
               value={transferDescription}
               onChange={(e) => setTransferDescription(e.target.value)}
+              disabled={transferring}
               placeholder="e.g., Monthly savings transfer"
               className="mt-1"
             />
           </div>
+          </fieldset>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" disabled={transferring} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={transferring}>
-              {transferring ? "Transferring..." : "Transfer"}
+            <Button type="submit" loading={transferring}>
+              Transfer
             </Button>
           </div>
         </form>

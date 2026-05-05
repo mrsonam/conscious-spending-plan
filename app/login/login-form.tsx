@@ -15,6 +15,7 @@ import {
 } from "@/lib/demo-credentials"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
+import { Loader2 } from "lucide-react"
 
 export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
   const router = useRouter()
@@ -112,6 +113,7 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
             <button
               type="button"
               onClick={fillDemoCredentials}
+              disabled={credentialsLoading || googleLoading}
               className={cn(
                 "group relative w-full overflow-hidden rounded-xl border px-4 py-3 text-center text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
                 fromPortfolio && !isConsole
@@ -179,7 +181,15 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
             </div>
           ) : null}
 
-          <form onSubmit={(e) => void handleCredentials(e)} className="mt-8 space-y-4">
+          <form
+            onSubmit={(e) => void handleCredentials(e)}
+            className="mt-8 space-y-4"
+            inert={credentialsLoading}
+          >
+            <fieldset
+              disabled={credentialsLoading}
+              className="min-w-0 space-y-4 border-0 p-0"
+            >
             <div className="space-y-1.5 text-left">
               <label
                 htmlFor="login-email"
@@ -197,6 +207,7 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={credentialsLoading}
                 placeholder="you@example.com"
               />
             </div>
@@ -217,14 +228,16 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={credentialsLoading}
                 placeholder="••••••••"
               />
             </div>
+            </fieldset>
             <button
               type="submit"
               disabled={credentialsLoading}
               className={cn(
-                "w-full rounded-xl py-3.5 text-[15px] font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
+                "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
                 !isConsole &&
                   "bg-indigo-600 text-white shadow-md hover:bg-indigo-700 focus-visible:ring-indigo-500",
               )}
@@ -238,6 +251,9 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
                   : undefined
               }
             >
+              {credentialsLoading ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+              ) : null}
               {credentialsLoading ? "Signing in…" : "Sign in"}
             </button>
           </form>

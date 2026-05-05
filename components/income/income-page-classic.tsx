@@ -42,7 +42,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={p.handleSubmit} className="space-y-4">
+            <form onSubmit={p.handleSubmit} className="space-y-4" inert={p.calculating}>
               {p.error && (
                 <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
                   {p.error}
@@ -59,6 +59,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                   min="0"
                   step="0.01"
                   required
+                  disabled={p.calculating}
                   placeholder="0.00"
                   className="mt-1"
                 />
@@ -72,6 +73,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                   value={p.description}
                   onChange={(e) => p.setDescription(e.target.value)}
                   placeholder="e.g., Salary, Freelance work, etc."
+                  disabled={p.calculating}
                   className="mt-1"
                 />
               </div>
@@ -83,6 +85,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                   value={p.date}
                   onChange={(e) => p.setDate(e.target.value)}
                   required
+                  disabled={p.calculating}
                   className="mt-1 scheme-light dark:scheme-dark"
                 />
                 <p className="mt-1 text-xs text-gray-500">
@@ -97,6 +100,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                     id="account-classic"
                     value={p.selectedAccountId}
                     onValueChange={p.setSelectedAccountId}
+                    disabled={p.calculating}
                     variant="classic"
                     className="mt-1 rounded-lg border border-gray-300"
                     options={p.accounts.map((account) => ({
@@ -133,6 +137,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                     type="checkbox"
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     checked={p.allocateToBudget}
+                    disabled={p.calculating}
                     onChange={(e) => p.setAllocateToBudget(e.target.checked)}
                   />
                   Allocate this income to budget categories

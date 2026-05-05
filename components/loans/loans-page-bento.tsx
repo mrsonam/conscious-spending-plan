@@ -25,6 +25,7 @@ import {
   Building2,
   CheckCircle2,
   HandCoins,
+  Loader2,
   Plus,
   TrendingDown,
   TrendingUp,
@@ -68,6 +69,7 @@ export function LoansPageBento() {
     borrowedDueDate,
     setBorrowedDueDate,
     borrowedSubmitting,
+    repaySubmitting,
     handleSubmit,
     handleMarkRepaid,
     handleSubmitBorrowed,
@@ -78,6 +80,11 @@ export function LoansPageBento() {
 
   const [lentOpen, setLentOpen] = useState(false)
   const [borrowedOpen, setBorrowedOpen] = useState(false)
+  const [lentRepayDialog, setLentRepayDialog] = useState<{ loanId: string; toAccountId: string } | null>(null)
+  const [borrowedRepayDialog, setBorrowedRepayDialog] = useState<{
+    borrowedLoanId: string
+    fromAccountId: string
+  } | null>(null)
 
   const activeLoans = useMemo(
     () => loans.filter((l) => l.status === "active"),
@@ -111,6 +118,15 @@ export function LoansPageBento() {
   const netExposure = useMemo(
     () => outstandingLent - outstandingBorrowed,
     [outstandingLent, outstandingBorrowed],
+  )
+
+  const repayAccountOptions = useMemo(
+    () =>
+      accounts.map((a) => ({
+        value: a.id,
+        label: `${a.name} (${a.bankName}) · ${formatCurrency(a.balance)}`,
+      })),
+    [accounts, formatCurrency],
   )
 
   const openLent = () => {
@@ -351,7 +367,9 @@ export function LoansPageBento() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => void handleMarkRepaid(loan.id)}
+                        onClick={() =>
+                          setLentRepayDialog({ loanId: loan.id, toAccountId: loan.accountId })
+                        }
                         className="shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
                         style={{ borderColor: TOKENS.primary, color: TOKENS.primary, background: TOKENS.surfaceContainer }}
                       >
@@ -429,7 +447,12 @@ export function LoansPageBento() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => void handleMarkBorrowedRepaid(loan.id)}
+                          onClick={() =>
+                            setBorrowedRepayDialog({
+                              borrowedLoanId: loan.id,
+                              fromAccountId: loan.accountId,
+                            })
+                          }
                           className="shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
                           style={{
                             borderColor: ERROR_SOFT,
@@ -540,7 +563,8 @@ export function LoansPageBento() {
                 Deducts from the selected account without counting as spending.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={onLentSubmit}>
+            <form className="mt-6 space-y-5" onSubmit={onLentSubmit} inert={submitting}>
+              <fieldset disabled={submitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
@@ -549,6 +573,7 @@ export function LoansPageBento() {
                   value={accountId}
                   onValueChange={setAccountId}
                   required
+                  disabled={submitting}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -574,6 +599,7 @@ export function LoansPageBento() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
+                    disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -586,6 +612,7 @@ export function LoansPageBento() {
                     value={borrowerName}
                     onChange={(e) => setBorrowerName(e.target.value)}
                     placeholder="Optional"
+                    disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -600,6 +627,7 @@ export function LoansPageBento() {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
+                    disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -611,6 +639,7 @@ export function LoansPageBento() {
                   <DateInput
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -623,17 +652,23 @@ export function LoansPageBento() {
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  disabled={submitting}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
               </div>
+              </fieldset>
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
-                <Plus className="h-4 w-4" />
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 {submitting ? "Saving…" : "Save loan"}
               </button>
             </form>
@@ -660,7 +695,8 @@ export function LoansPageBento() {
                 Credits the selected account without counting as income.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={onBorrowedSubmit}>
+            <form className="mt-6 space-y-5" onSubmit={onBorrowedSubmit} inert={borrowedSubmitting}>
+              <fieldset disabled={borrowedSubmitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
@@ -669,6 +705,7 @@ export function LoansPageBento() {
                   value={borrowedAccountId}
                   onValueChange={setBorrowedAccountId}
                   required
+                  disabled={borrowedSubmitting}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -694,6 +731,7 @@ export function LoansPageBento() {
                     value={borrowedAmount}
                     onChange={(e) => setBorrowedAmount(e.target.value)}
                     required
+                    disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -706,6 +744,7 @@ export function LoansPageBento() {
                     value={lenderName}
                     onChange={(e) => setLenderName(e.target.value)}
                     placeholder="Optional"
+                    disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -720,6 +759,7 @@ export function LoansPageBento() {
                     value={borrowedDate}
                     onChange={(e) => setBorrowedDate(e.target.value)}
                     required
+                    disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -731,6 +771,7 @@ export function LoansPageBento() {
                   <DateInput
                     value={borrowedDueDate}
                     onChange={(e) => setBorrowedDueDate(e.target.value)}
+                    disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                   />
@@ -743,20 +784,195 @@ export function LoansPageBento() {
                 <Input
                   value={borrowedDescription}
                   onChange={(e) => setBorrowedDescription(e.target.value)}
+                  disabled={borrowedSubmitting}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                 />
               </div>
+              </fieldset>
               <button
                 type="submit"
                 disabled={borrowedSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
-                <Plus className="h-4 w-4" />
+                {borrowedSubmitting ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 {borrowedSubmitting ? "Saving…" : "Save borrowing"}
               </button>
             </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={lentRepayDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && repaySubmitting) return
+          if (!open) setLentRepayDialog(null)
+        }}
+      >
+        <DialogContent
+          className="relative max-h-[90vh] overflow-y-auto border p-0 shadow-2xl sm:max-w-md"
+          style={{
+            background: TOKENS.surfaceContainer,
+            borderColor: TOKENS.outlineGhost,
+            boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)",
+          }}
+        >
+          <DialogClose onClose={() => setLentRepayDialog(null)} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>
+                Mark loan repaid
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+                Choose which account receives the repayment. This does not count as new income for fund allocation.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 space-y-5">
+              <fieldset disabled={repaySubmitting} className="min-w-0 border-0 p-0">
+              <div>
+                <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Receive into
+                </Label>
+                <AppSelect
+                  value={lentRepayDialog?.toAccountId ?? ""}
+                  onValueChange={(value) =>
+                    setLentRepayDialog((d) => (d ? { ...d, toAccountId: value } : d))
+                  }
+                  disabled={repaySubmitting}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  options={repayAccountOptions}
+                  placeholder="Select account"
+                />
+              </div>
+              </fieldset>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={repaySubmitting}
+                  onClick={() => setLentRepayDialog(null)}
+                  className="rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!lentRepayDialog?.toAccountId || repaySubmitting}
+                  onClick={() => {
+                    if (!lentRepayDialog) return
+                    void (async () => {
+                      const ok = await handleMarkRepaid(lentRepayDialog.loanId, lentRepayDialog.toAccountId)
+                      if (ok) setLentRepayDialog(null)
+                    })()
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
+                >
+                  {repaySubmitting ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                  ) : null}
+                  {repaySubmitting ? "Processing…" : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={borrowedRepayDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && repaySubmitting) return
+          if (!open) setBorrowedRepayDialog(null)
+        }}
+      >
+        <DialogContent
+          className="relative max-h-[90vh] overflow-y-auto border p-0 shadow-2xl sm:max-w-md"
+          style={{
+            background: TOKENS.surfaceContainer,
+            borderColor: TOKENS.outlineGhost,
+            boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)",
+          }}
+        >
+          <DialogClose onClose={() => setBorrowedRepayDialog(null)} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>
+                Mark borrowing repaid
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+                Choose which account the repayment is deducted from. This is not counted as a spending category.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 space-y-5">
+              <fieldset disabled={repaySubmitting} className="min-w-0 border-0 p-0">
+              <div>
+                <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Pay from
+                </Label>
+                <AppSelect
+                  value={borrowedRepayDialog?.fromAccountId ?? ""}
+                  onValueChange={(value) =>
+                    setBorrowedRepayDialog((d) => (d ? { ...d, fromAccountId: value } : d))
+                  }
+                  disabled={repaySubmitting}
+                  variant="console"
+                  className={cn(consoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  options={repayAccountOptions}
+                  placeholder="Select account"
+                />
+              </div>
+              </fieldset>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={repaySubmitting}
+                  onClick={() => setBorrowedRepayDialog(null)}
+                  className="rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!borrowedRepayDialog?.fromAccountId || repaySubmitting}
+                  onClick={() => {
+                    if (!borrowedRepayDialog) return
+                    void (async () => {
+                      const ok = await handleMarkBorrowedRepaid(
+                        borrowedRepayDialog.borrowedLoanId,
+                        borrowedRepayDialog.fromAccountId,
+                      )
+                      if (ok) setBorrowedRepayDialog(null)
+                    })()
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
+                >
+                  {repaySubmitting ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                  ) : null}
+                  {repaySubmitting ? "Processing…" : "Confirm"}
+                </button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

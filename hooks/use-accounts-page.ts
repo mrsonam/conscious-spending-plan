@@ -55,6 +55,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const [transferDate, setTransferDate] = useState("")
   const [transferCategory, setTransferCategory] = useState("")
   const [transferring, setTransferring] = useState(false)
+  const [savingAccount, setSavingAccount] = useState(false)
 
   const refetchAccounts = useCallback(async () => {
     const t = Date.now()
@@ -136,6 +137,9 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setBankName(account.bankName)
     setAccountType(account.accountType)
     setIsDefault(account.isDefault)
+    setStartingFunds(
+      Number.isFinite(account.balance) ? String(account.balance) : "0",
+    )
     setShowAddForm(true)
   }, [])
 
@@ -150,6 +154,14 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
 
     try {
       const method = editingAccount ? "PUT" : "POST"
+      if (editingAccount) {
+        const balance = parseFloat(startingFunds)
+        if (startingFunds.trim() === "" || Number.isNaN(balance) || !Number.isFinite(balance)) {
+          setMessage({ type: "error", text: "Please enter a valid balance" })
+          return
+        }
+      }
+
       const body = editingAccount
         ? {
             id: editingAccount.id,
@@ -157,6 +169,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
             bankName,
             accountType,
             isDefault,
+            balance: parseFloat(startingFunds),
           }
         : {
             name,
@@ -166,6 +179,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
             isDefault,
           }
 
+      setSavingAccount(true)
       const response = await fetch("/api/accounts", {
         method,
         headers: { "Content-Type": "application/json" },
@@ -183,6 +197,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       }
     } catch {
       setMessage({ type: "error", text: "An error occurred" })
+    } finally {
+      setSavingAccount(false)
     }
   }
 
@@ -293,6 +309,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     transferCategory,
     setTransferCategory,
     transferring,
+    savingAccount,
     resetForm,
     startEdit,
     handleSubmit,

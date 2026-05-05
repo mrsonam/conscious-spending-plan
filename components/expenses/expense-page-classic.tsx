@@ -90,13 +90,14 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={p.handleBulkSubmit} className="space-y-4">
+              <form onSubmit={p.handleBulkSubmit} className="space-y-4" inert={p.submittingBulk}>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label>Account (Smart Access / default)</Label>
                     <AppSelect
                       value={p.bulkAccountId}
                       onValueChange={p.setBulkAccountId}
+                      disabled={p.submittingBulk}
                       variant="classic"
                       className="mt-1 rounded-lg"
                       options={p.accounts.map((acc) => ({
@@ -110,6 +111,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     <AppSelect
                       value={p.bulkFundCategory}
                       onValueChange={p.setBulkFundCategory}
+                      disabled={p.submittingBulk}
                       variant="classic"
                       className="mt-1 rounded-lg"
                       placeholder="—"
@@ -127,6 +129,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     <AppSelect
                       value={p.bulkExpenseCategory}
                       onValueChange={p.setBulkExpenseCategory}
+                      disabled={p.submittingBulk}
                       variant="classic"
                       className="mt-1 rounded-lg"
                       placeholder="—"
@@ -147,6 +150,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     onChange={(e) => p.setBulkText(e.target.value)}
                     placeholder={"50, lunch, 26/02/2026, guiltFreeSpending, food\n12.5, coffee, 10/02/2026, guiltFreeSpending, food\n30, groceries, 01/02/2026, fixedCosts, groceries"}
                     rows={8}
+                    disabled={p.submittingBulk}
                     className="mt-1 w-full px-4 py-2 border-0 bg-gray-50 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white font-mono text-sm"
                   />
                 </div>
@@ -189,7 +193,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
           </CardHeader>
           <CardContent>
             {p.showRecurringForm && (
-              <form onSubmit={p.handleAddRecurring} className="mb-6 p-4 rounded-lg bg-gray-50 space-y-4">
+              <form onSubmit={p.handleAddRecurring} className="mb-6 p-4 rounded-lg bg-gray-50 space-y-4" inert={p.submittingRecurring}>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label>Account *</Label>
@@ -197,6 +201,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       value={p.recurringAccountId}
                       onValueChange={p.setRecurringAccountId}
                       required
+                      disabled={p.submittingRecurring}
                       variant="classic"
                       className="mt-1 rounded-lg bg-white"
                       options={p.accounts.map((acc) => ({
@@ -214,6 +219,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       value={p.recurringAmount}
                       onChange={(e) => p.setRecurringAmount(e.target.value)}
                       placeholder="0.00"
+                      disabled={p.submittingRecurring}
                       className="mt-1"
                     />
                   </div>
@@ -222,6 +228,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     <AppSelect
                       value={p.recurringFrequency}
                       onValueChange={p.setRecurringFrequency}
+                      disabled={p.submittingRecurring}
                       variant="classic"
                       className="mt-1 rounded-lg bg-white"
                       options={FREQUENCIES.map((f) => ({
@@ -232,7 +239,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                   </div>
                   <div>
                     <Label>Start date</Label>
-                    <DateInput value={p.recurringStartDate} onChange={(e) => p.setRecurringStartDate(e.target.value)} className="mt-1 scheme-light dark:scheme-dark" />
+                    <DateInput value={p.recurringStartDate} onChange={(e) => p.setRecurringStartDate(e.target.value)} disabled={p.submittingRecurring} className="mt-1 scheme-light dark:scheme-dark" />
                   </div>
                   <div className="sm:col-span-2">
                     <Label>Description (optional)</Label>
@@ -240,6 +247,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       value={p.recurringDescription}
                       onChange={(e) => p.setRecurringDescription(e.target.value)}
                       placeholder="e.g. Rent, Netflix"
+                      disabled={p.submittingRecurring}
                       className="mt-1"
                     />
                   </div>
@@ -248,6 +256,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     <AppSelect
                       value={p.recurringFundCategory}
                       onValueChange={p.setRecurringFundCategory}
+                      disabled={p.submittingRecurring}
                       variant="classic"
                       className="mt-1 rounded-lg bg-white"
                       placeholder="—"
@@ -265,6 +274,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     <AppSelect
                       value={p.recurringExpenseCategory}
                       onValueChange={p.setRecurringExpenseCategory}
+                      disabled={p.submittingRecurring}
                       variant="classic"
                       className="mt-1 rounded-lg bg-white"
                       placeholder="—"
@@ -279,7 +289,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                   </div>
                   <div>
                     <Label>End date (optional)</Label>
-                    <DateInput value={p.recurringEndDate} onChange={(e) => p.setRecurringEndDate(e.target.value)} className="mt-1 scheme-light dark:scheme-dark" />
+                    <DateInput value={p.recurringEndDate} onChange={(e) => p.setRecurringEndDate(e.target.value)} disabled={p.submittingRecurring} className="mt-1 scheme-light dark:scheme-dark" />
                   </div>
                 </div>
                 <Button type="submit" disabled={p.submittingRecurring} size="sm">
@@ -338,7 +348,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
               <CardDescription>Deduct amount from an account</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={p.handleSubmit} className="space-y-4">
+              <form onSubmit={p.handleSubmit} className="space-y-4" inert={p.submitting}>
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="account">Account *</Label>
@@ -352,6 +362,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                           p.setFundCategory("")
                         }
                       }}
+                      disabled={p.submitting}
                       required
                       variant="classic"
                       className="mt-1 rounded-lg"
@@ -371,6 +382,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       min="0"
                       step="0.01"
                       required
+                      disabled={p.submitting}
                       placeholder="0.00"
                       className="mt-1"
                     />
@@ -382,6 +394,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       value={p.date}
                       onChange={(e) => p.setDate(e.target.value)}
                       required
+                      disabled={p.submitting}
                     className="mt-1 scheme-light dark:scheme-dark"
                     />
                   </div>
@@ -400,6 +413,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                           id="fundCategory"
                           value={p.fundCategory}
                           onValueChange={p.setFundCategory}
+                          disabled={p.submitting}
                           required
                           variant="classic"
                           className="mt-1 rounded-lg"
@@ -424,6 +438,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                       id="expenseCategory"
                       value={p.expenseCategory}
                       onValueChange={p.setExpenseCategory}
+                      disabled={p.submitting}
                       variant="classic"
                       className="mt-1 rounded-lg"
                       placeholder="Select an expense category (optional)"
@@ -445,6 +460,7 @@ export function ExpensePageClassic(p: UseExpensePageResult) {
                     value={p.description}
                     onChange={(e) => p.setDescription(e.target.value)}
                     placeholder="Brief description of the expense"
+                    disabled={p.submitting}
                     className="mt-1"
                   />
                 </div>

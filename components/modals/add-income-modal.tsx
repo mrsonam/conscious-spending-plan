@@ -147,13 +147,14 @@ export function AddIncomeModal({
             Enter your income to calculate allocation breakdown
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" inert={calculating}>
           {error && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
               {error}
             </div>
           )}
 
+          <fieldset disabled={calculating} className="min-w-0 space-y-4 border-0 p-0">
           <div>
             <Label htmlFor="income">Income ($) *</Label>
             <Input
@@ -164,6 +165,7 @@ export function AddIncomeModal({
               min="0"
               step="0.01"
               required
+              disabled={calculating}
               placeholder="0.00"
               className="mt-1"
             />
@@ -176,6 +178,7 @@ export function AddIncomeModal({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={calculating}
               placeholder="e.g., Salary, Freelance work, etc."
               className="mt-1"
             />
@@ -188,6 +191,7 @@ export function AddIncomeModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
+              disabled={calculating}
               className="mt-1"
             />
           </div>
@@ -199,6 +203,7 @@ export function AddIncomeModal({
                 id="account"
                 value={selectedAccountId}
                 onValueChange={setSelectedAccountId}
+                disabled={calculating}
                 variant="classic"
                 className="mt-1 rounded-lg border border-gray-300"
                 options={accounts.map((account) => ({
@@ -234,6 +239,7 @@ export function AddIncomeModal({
                 type="checkbox"
                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 checked={allocateToBudget}
+                disabled={calculating}
                 onChange={(e) => setAllocateToBudget(e.target.checked)}
               />
               Allocate this income to budget categories
@@ -244,18 +250,20 @@ export function AddIncomeModal({
               that should not affect your budget (e.g., reimbursements, one-off transfers).
             </p>
           </div>
+          </fieldset>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
               variant="outline"
+              disabled={calculating}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={calculating || !allocation}>
-              <Calculator className="mr-2 h-4 w-4" />
-              {calculating ? "Calculating..." : "Calculate Breakdown"}
+            <Button type="submit" loading={calculating} disabled={!allocation}>
+              {!calculating ? <Calculator className="mr-2 h-4 w-4" /> : null}
+              Calculate Breakdown
             </Button>
           </div>
         </form>

@@ -623,7 +623,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 spending pillars.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={submitLog} className="mt-6 space-y-5">
+            <form onSubmit={submitLog} className="mt-6 space-y-5" inert={p.calculating}>
               {p.error && (
                 <div
                   className="rounded-xl border px-4 py-3 text-sm"
@@ -653,6 +653,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   min="0"
                   step="0.01"
                   required
+                  disabled={p.calculating}
                   placeholder="0.00"
                   className={cn(consoleField, "border-transparent")}
                   style={{
@@ -677,6 +678,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   value={p.description}
                   onChange={(e) => p.setDescription(e.target.value)}
                   placeholder="Salary, freelance, etc."
+                  disabled={p.calculating}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -699,6 +701,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   value={p.date}
                   onChange={(e) => p.setDate(e.target.value)}
                   required
+                  disabled={p.calculating}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -721,6 +724,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     id="account-modal"
                     value={p.selectedAccountId}
                     onValueChange={p.setSelectedAccountId}
+                    disabled={p.calculating}
                     variant="console"
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
@@ -767,6 +771,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                       accentColor: TOKENS.primary,
                     }}
                     checked={p.allocateToBudget}
+                    disabled={p.calculating}
                     onChange={(e) => p.setAllocateToBudget(e.target.checked)}
                   />
                   <span style={{ color: TOKENS.onSurface }}>

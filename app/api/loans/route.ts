@@ -151,7 +151,10 @@ export async function PATCH(request: Request) {
       )
     }
 
-    const { loanId } = await request.json()
+    const { loanId, toAccountId } = await request.json() as {
+      loanId?: string
+      toAccountId?: string
+    }
 
     if (!loanId) {
       return NextResponse.json(
@@ -190,6 +193,23 @@ export async function PATCH(request: Request) {
       )
     }
 
+    let creditAccountId = loan.accountId
+    if (typeof toAccountId === "string" && toAccountId.trim().length > 0) {
+      const destination = await prisma.account.findFirst({
+        where: {
+          id: toAccountId.trim(),
+          userId: session.user.id,
+        },
+      })
+      if (!destination) {
+        return NextResponse.json(
+          { error: "Destination account not found or does not belong to user" },
+          { status: 404 }
+        )
+      }
+      creditAccountId = destination.id
+    }
+
     const updatedLoan = await prisma.$transaction(async (tx) => {
       const loanUpdate = await tx.loan.update({
         where: { id: loan.id },
@@ -209,7 +229,7 @@ export async function PATCH(request: Request) {
       })
 
       await tx.account.update({
-        where: { id: loan.accountId },
+        where: { id: creditAccountId },
         data: {
           balance: { increment: outstanding },
         },

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import {
   AnimatePresence,
   animate,
@@ -66,7 +67,7 @@ function DialogBackdrop({ onOpenChange, reduceMotion }: DialogBackdropProps) {
   return (
     <motion.div
       layout={false}
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[300] min-h-[100dvh] w-full bg-black/50 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -140,12 +141,12 @@ function DialogSheet({ maxSm, reduceMotion, onOpenChange, children }: DialogShee
   const sheetMotion = !maxSm ? desktopMotion : reduceMotion ? mobileMotionReduce : mobileMotionFull
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center max-sm:items-end">
+    <div className="pointer-events-none fixed inset-0 z-[301] flex min-h-[100dvh] w-full items-center justify-center max-sm:items-end">
       <motion.div
         ref={sheetRef}
         layout={false}
         className={cn(
-          "pointer-events-auto relative z-50 w-full max-w-lg max-h-[90vh]",
+          "pointer-events-auto relative z-[302] w-full max-w-lg max-h-[90vh]",
           "scrollbar-none max-sm:max-w-none max-sm:max-h-[min(95dvh,100%-env(safe-area-inset-top))]",
           maxSm ? "max-sm:overflow-y-auto" : "overflow-y-auto"
         )}
@@ -164,9 +165,14 @@ function DialogSheet({ maxSm, reduceMotion, onOpenChange, children }: DialogShee
 }
 
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  const [mounted, setMounted] = React.useState(false)
   const prefersReducedMotion = useReducedMotion()
   const reduceMotion = Boolean(prefersReducedMotion)
   const maxSm = useMaxSm()
+
+  React.useLayoutEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (open) {
@@ -179,7 +185,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     }
   }, [open])
 
-  return (
+  const dialogTree = (
     <AnimatePresence>
       {open && (
         <>
@@ -200,6 +206,12 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
       )}
     </AnimatePresence>
   )
+
+  if (!mounted || typeof document === "undefined") {
+    return null
+  }
+
+  return createPortal(dialogTree, document.body)
 }
 
 export function DialogContent({

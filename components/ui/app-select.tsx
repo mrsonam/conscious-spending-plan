@@ -77,11 +77,12 @@ export function AppSelect({
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
+        {/* z-[310]: above app Dialog (z 300–302); content is portaled to body */}
         <SelectPrimitive.Content
           position="popper"
           sideOffset={4}
           className={cn(
-            "z-[110] max-h-[min(320px,70dvh)] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-lg",
+            "z-[310] max-h-[min(320px,70dvh)] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-lg",
             variant === "console" &&
               "border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd]"
           )}

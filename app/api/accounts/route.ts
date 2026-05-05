@@ -101,7 +101,14 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, name, bankName, accountType, isDefault } = await request.json()
+    const { id, name, bankName, accountType, isDefault, balance } = await request.json() as {
+      id?: string
+      name?: string
+      bankName?: string
+      accountType?: string
+      isDefault?: boolean
+      balance?: unknown
+    }
 
     if (!id) {
       return NextResponse.json(
@@ -130,6 +137,18 @@ export async function PUT(request: Request) {
       })
     }
 
+    let balanceNum: number | undefined
+    if (balance !== undefined && balance !== null) {
+      const n = typeof balance === "number" ? balance : Number(balance)
+      if (!Number.isFinite(n)) {
+        return NextResponse.json(
+          { error: "Balance must be a valid number" },
+          { status: 400 },
+        )
+      }
+      balanceNum = n
+    }
+
     const account = await prisma.account.update({
       where: { id },
       data: {
@@ -137,6 +156,7 @@ export async function PUT(request: Request) {
         ...(bankName && { bankName }),
         ...(accountType && { accountType }),
         ...(isDefault !== undefined && { isDefault }),
+        ...(balanceNum !== undefined && { balance: balanceNum }),
       },
     })
 

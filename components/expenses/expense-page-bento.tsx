@@ -912,7 +912,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 pillar.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={submitLog} className="mt-6 space-y-5">
+            <form onSubmit={submitLog} className="mt-6 space-y-5" inert={p.submitting}>
               <div>
                 <label
                   htmlFor="exp-account"
@@ -929,6 +929,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                     const a = p.accounts.find((acc) => acc.id === v)
                     if (a?.accountType === "cash") p.setFundCategory("")
                   }}
+                  disabled={p.submitting}
                   required
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
@@ -959,6 +960,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   value={p.amount}
                   onChange={(e) => p.setAmount(e.target.value)}
                   required
+                  disabled={p.submitting}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -980,6 +982,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   value={p.date}
                   onChange={(e) => p.setDate(e.target.value)}
                   required
+                  disabled={p.submitting}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -1005,6 +1008,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                       id="exp-fund"
                       value={p.fundCategory}
                       onValueChange={p.setFundCategory}
+                      disabled={p.submitting}
                       required
                       variant="console"
                       className={cn(consoleField, "mt-1 border-transparent")}
@@ -1037,6 +1041,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   id="exp-ec"
                   value={p.expenseCategory}
                   onValueChange={p.setExpenseCategory}
+                  disabled={p.submitting}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1068,6 +1073,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   value={p.description}
                   onChange={(e) => p.setDescription(e.target.value)}
                   placeholder="Memo"
+                  disabled={p.submitting}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -1126,7 +1132,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 expense category (tab or comma).
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={p.handleBulkSubmit} className="mt-6 space-y-5">
+            <form onSubmit={p.handleBulkSubmit} className="mt-6 space-y-5" inert={p.submittingBulk}>
               <div>
                 <label
                   className="text-[10px] font-semibold uppercase tracking-wider"
@@ -1137,6 +1143,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 <AppSelect
                   value={p.bulkAccountId}
                   onValueChange={p.setBulkAccountId}
+                  disabled={p.submittingBulk}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1161,6 +1168,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   <AppSelect
                     value={p.bulkFundCategory}
                     onValueChange={p.setBulkFundCategory}
+                    disabled={p.submittingBulk}
                     variant="console"
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
@@ -1188,6 +1196,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   <AppSelect
                     value={p.bulkExpenseCategory}
                     onValueChange={p.setBulkExpenseCategory}
+                    disabled={p.submittingBulk}
                     variant="console"
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
@@ -1217,6 +1226,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   value={p.bulkText}
                   onChange={(e) => p.setBulkText(e.target.value)}
                   rows={8}
+                  disabled={p.submittingBulk}
                   className={cn(
                     consoleField,
                     "font-mono text-xs leading-relaxed",
@@ -1341,6 +1351,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
               borderColor: TOKENS.outlineGhost,
               background: TOKENS.surfaceContainer,
             }}
+            inert={p.submittingRecurring}
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -1354,6 +1365,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   value={p.recurringAccountId}
                   onValueChange={p.setRecurringAccountId}
                   required
+                  disabled={p.submittingRecurring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1380,6 +1392,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                   step="0.01"
                   value={p.recurringAmount}
                   onChange={(e) => p.setRecurringAmount(e.target.value)}
+                  disabled={p.submittingRecurring}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -1398,6 +1411,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 <AppSelect
                   value={p.recurringFrequency}
                   onValueChange={p.setRecurringFrequency}
+                  disabled={p.submittingRecurring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1421,6 +1435,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
               <DateInput
                   value={p.recurringStartDate}
                   onChange={(e) => p.setRecurringStartDate(e.target.value)}
+                  disabled={p.submittingRecurring}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -1439,6 +1454,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 <Input
                   value={p.recurringDescription}
                   onChange={(e) => p.setRecurringDescription(e.target.value)}
+                  disabled={p.submittingRecurring}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,
@@ -1457,6 +1473,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 <AppSelect
                   value={p.recurringFundCategory}
                   onValueChange={p.setRecurringFundCategory}
+                  disabled={p.submittingRecurring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1484,6 +1501,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
                 <AppSelect
                   value={p.recurringExpenseCategory}
                   onValueChange={p.setRecurringExpenseCategory}
+                  disabled={p.submittingRecurring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
@@ -1511,6 +1529,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
               <DateInput
                   value={p.recurringEndDate}
                   onChange={(e) => p.setRecurringEndDate(e.target.value)}
+                  disabled={p.submittingRecurring}
                   className={cn(consoleField, "border-transparent")}
                   style={{
                     background: TOKENS.surfaceLow,

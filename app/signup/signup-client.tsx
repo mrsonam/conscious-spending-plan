@@ -12,6 +12,7 @@ import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { PASSWORD_MAX_LENGTH, passwordMeetsPolicy } from "@/lib/password-policy"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
+import { Loader2 } from "lucide-react"
 
 export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme }) {
   const router = useRouter()
@@ -132,7 +133,12 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
             </div>
           ) : null}
 
-          <form onSubmit={(e) => void handleRegister(e)} className="mt-8 space-y-4">
+          <form
+            onSubmit={(e) => void handleRegister(e)}
+            className="mt-8 space-y-4"
+            inert={submitLoading}
+          >
+            <fieldset disabled={submitLoading} className="min-w-0 space-y-4 border-0 p-0">
             <div className="space-y-1.5 text-left">
               <label
                 htmlFor="signup-name"
@@ -155,6 +161,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={submitLoading}
                 placeholder="Jane Doe"
               />
             </div>
@@ -175,6 +182,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={submitLoading}
                 placeholder="you@example.com"
               />
             </div>
@@ -196,6 +204,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 maxLength={PASSWORD_MAX_LENGTH}
+                disabled={submitLoading}
                 placeholder="••••••••"
               />
               <PasswordRequirements password={password} theme={initialTheme} />
@@ -218,15 +227,17 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 onChange={(e) => setConfirm(e.target.value)}
                 required
                 maxLength={PASSWORD_MAX_LENGTH}
+                disabled={submitLoading}
                 placeholder="••••••••"
               />
             </div>
+            </fieldset>
 
             <button
               type="submit"
               disabled={submitLoading || googleLoading}
               className={cn(
-                "w-full rounded-xl py-3.5 text-[15px] font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
+                "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55",
                 !isConsole &&
                   "bg-indigo-600 text-white shadow-md hover:bg-indigo-700 focus-visible:ring-indigo-500",
               )}
@@ -240,6 +251,9 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                   : undefined
               }
             >
+              {submitLoading ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+              ) : null}
               {submitLoading ? "Creating account…" : "Create account"}
             </button>
           </form>

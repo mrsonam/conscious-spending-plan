@@ -10,6 +10,8 @@ const PopoverTrigger = PopoverPrimitive.Trigger
 
 const PopoverAnchor = PopoverPrimitive.Anchor
 
+// z-[310] on content: must stack above app Dialog (z 300–302) when used inside modals
+
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
@@ -20,7 +22,7 @@ const PopoverContent = React.forwardRef<
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        "z-[100] max-h-[min(100dvh-2rem,28rem)] min-w-[min(100vw-2rem,18rem)] origin-[--radix-popover-content-transform-origin] overflow-y-auto rounded-xl border border-gray-200 bg-white p-0 text-gray-900 shadow-lg outline-none",
+        "z-[310] max-h-[min(100dvh-2rem,28rem)] min-w-[min(100vw-2rem,18rem)] origin-[--radix-popover-content-transform-origin] overflow-y-auto rounded-xl border border-gray-200 bg-white p-0 text-gray-900 shadow-lg outline-none",
         className
       )}
       {...props}
