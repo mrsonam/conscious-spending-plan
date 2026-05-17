@@ -8,9 +8,15 @@ import {
   ScramblePercentValue,
 } from "@/components/ui/scramble-number"
 import { cn } from "@/lib/utils"
+import {
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
+import {
+  investmentConsoleField,
+  investmentPlBadgeStyle,
+} from "@/components/investments/investment-console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-const consoleField =
-  "w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
 
 /** Matches loaded layout: hero → stat strip → chart + risk → three tiles → search strip → composition teaser. */
 export function InvestmentsPageBentoLoading() {
@@ -19,7 +25,7 @@ export function InvestmentsPageBentoLoading() {
       <section className="px-1 py-2 sm:px-2">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <div
-            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary, background: TOKENS.surfaceHigh }}
           >
             <Activity className="h-3.5 w-3.5" />
@@ -36,11 +42,7 @@ export function InvestmentsPageBentoLoading() {
               <MajorFigureScrambleHero />
               <span
                 className="mb-1 inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold tabular-nums"
-                style={{
-                  borderColor: TOKENS.primary,
-                  color: TOKENS.primary,
-                  background: "color-mix(in srgb, #4edea3 12%, transparent)",
-                }}
+                style={investmentPlBadgeStyle(true)}
               >
                 <ScramblePercentValue
                   className="text-[11px] font-bold"
@@ -119,12 +121,18 @@ export function InvestmentsPageBentoLoading() {
                 Last 90 days performance
               </p>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {(["1W", "3M", "1Y", "ALL"] as const).map((r) => (
+            <div
+              className="inline-flex flex-wrap gap-1 rounded-xl p-1"
+              style={{ background: TOKENS.surfaceHigh, boxShadow: CARD_INSET }}
+            >
+              {(["1W", "3M", "1Y", "ALL"] as const).map((r, i) => (
                 <span
                   key={r}
-                  className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]"
-                  style={{ color: TOKENS.onSurfaceMuted }}
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{
+                    color: i === 1 ? TOKENS.primary : TOKENS.onSurfaceMuted,
+                    background: i === 1 ? TOKENS.surfaceContainer : "transparent",
+                  }}
                 >
                   {r}
                 </span>
@@ -134,9 +142,10 @@ export function InvestmentsPageBentoLoading() {
           <div
             className="relative mt-4 h-[240px] w-full min-h-[220px] overflow-hidden rounded-lg sm:h-[280px]"
             style={{
-              background: `linear-gradient(180deg, color-mix(in srgb, ${TOKENS.primary} 18%, transparent) 0%, ${TOKENS.surfaceLow} 55%, ${TOKENS.surfaceHigh} 100%)`,
+              background: TOKENS.surfaceLow,
               border: `1px solid ${TOKENS.outlineGhost}`,
             }}
+            aria-hidden
           >
             <div className="absolute inset-0 flex flex-col justify-between px-3 py-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -149,12 +158,6 @@ export function InvestmentsPageBentoLoading() {
                 />
               ))}
             </div>
-            <div
-              className="absolute bottom-0 left-0 right-0 h-[55%] opacity-80"
-              style={{
-                background: `linear-gradient(180deg, color-mix(in srgb, ${TOKENS.primary} 35%, transparent) 0%, transparent 100%)`,
-              }}
-            />
           </div>
           <p className="mt-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
             Curve uses cumulative purchases through each day, then snaps to current portfolio value (cash plus holdings at live prices where available, else cost).
@@ -240,6 +243,42 @@ export function InvestmentsPageBentoLoading() {
       </div>
 
       <section
+        className="rounded-xl border p-5 sm:p-6"
+        style={{
+          background: TOKENS.surfaceContainer,
+          borderColor: TOKENS.outlineGhost,
+          boxShadow: CARD_INSET,
+        }}
+      >
+        <p className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
+          Holdings by account
+        </p>
+        <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+          Merged positions with latest purchase activity.
+        </p>
+        <div className="mt-4 space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl border p-4"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                background: TOKENS.surfaceLow,
+                boxShadow: CARD_INSET,
+              }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Account
+                </p>
+                <ScrambleCurrencyValue min={2000} max={48000} className="text-sm font-bold!" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section
         className="rounded-xl border p-4 sm:p-5"
         style={{
           background: TOKENS.surfaceContainer,
@@ -256,7 +295,7 @@ export function InvestmentsPageBentoLoading() {
             <input
               readOnly
               placeholder="Search ticker or account…"
-              className={cn(consoleField, "mt-0 cursor-not-allowed pl-9 opacity-60")}
+              className={cn(investmentConsoleField, "mt-0 cursor-not-allowed pl-9 opacity-60")}
               style={{
                 backgroundColor: TOKENS.surfaceLow,
                 borderColor: TOKENS.outlineGhost,
@@ -269,20 +308,20 @@ export function InvestmentsPageBentoLoading() {
             style={{ background: TOKENS.surfaceHigh, boxShadow: CARD_INSET }}
           >
             <span
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
               style={{
                 background: TOKENS.surfaceContainer,
                 color: TOKENS.primary,
               }}
             >
-              <BarChart3 className="h-3.5 w-3.5" />
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden />
               Analytics
             </span>
             <span
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              <FileText className="h-3.5 w-3.5" />
+              <FileText className="h-3.5 w-3.5" aria-hidden />
               Reports
             </span>
           </div>
@@ -344,12 +383,12 @@ export function InvestmentsPageBentoLoading() {
 
 function MajorFigureScrambleHero() {
   return (
-    <div className="text-3xl font-black tracking-tight sm:text-4xl!">
+    <div className={consoleHeroFigureClass}>
       <ScrambleCurrencyValue
         variant="prosperity"
         min={42000}
         max={280000}
-        className="font-black!"
+        className={consoleHeroFigureInnerClass}
         decimalEm={0.45}
       />
     </div>

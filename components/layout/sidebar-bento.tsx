@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from "react"
 import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
+import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 
 const SIDEBAR_COLLAPSED_KEY = "csp-wealth-console-sidebar-collapsed"
 
@@ -214,37 +215,18 @@ export function SidebarBento() {
                 railCollapsed && "lg:flex-col lg:items-center"
               )}
             >
-              <div
+              <CspBrandMark
+                href={BENTO.dashboard}
+                size={railCollapsed ? "md" : "lg"}
+                wordmark={railCollapsed ? "none" : "short"}
+                eyebrow={railCollapsed ? undefined : "Wealth Console"}
+                variant="console"
                 className={cn(
-                  "flex min-w-0 flex-1 items-start gap-3",
-                  railCollapsed && "lg:flex-col lg:items-center lg:gap-2"
+                  "min-w-0 flex-1 items-start",
+                  railCollapsed && "lg:mx-auto lg:flex-none lg:justify-center",
                 )}
-              >
-                <img
-                  src="/icon.svg"
-                  alt=""
-                  className={cn(
-                    "shrink-0 object-contain opacity-95",
-                    railCollapsed ? "h-9 w-9 lg:mx-auto" : "h-11 w-11"
-                  )}
-                />
-                {!railCollapsed ? (
-                  <div className="min-w-0 pt-0.5">
-                    <p
-                      className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                    >
-                      Wealth Console
-                    </p>
-                    <p
-                      className="mt-1.5 text-lg font-semibold leading-none tracking-tight"
-                      style={{ color: TOKENS.onSurface }}
-                    >
-                      CSP
-                    </p>
-                  </div>
-                ) : null}
-              </div>
+                onClick={() => setIsMobileOpen(false)}
+              />
               <div
                 className={cn(
                   "flex shrink-0 items-center gap-1",

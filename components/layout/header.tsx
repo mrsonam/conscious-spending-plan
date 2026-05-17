@@ -6,6 +6,8 @@ import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { useCommandPalette } from "@/components/command-palette"
+import { CspBrandMark } from "@/components/brand/csp-brand-mark"
+import { BENTO, CLASSIC } from "@/lib/app-routes"
 
 export function Header({
   title,
@@ -57,33 +59,42 @@ export function Header({
   if (isConsole) {
     return (
       <header
-        className="sticky top-0 z-30 border-b px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-md sm:px-6 lg:pl-6"
+        className="sticky top-0 z-30 border-b px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] sm:px-6 lg:pl-6"
         style={{
-          background: `color-mix(in srgb, ${TOKENS.surface} 92%, transparent)`,
+          background: `color-mix(in srgb, ${TOKENS.surface} 96%, transparent)`,
           borderColor: TOKENS.outlineGhost,
         }}
       >
         <div className="flex items-start justify-between gap-3 pl-12 sm:pl-14 lg:pl-0">
-          <div className="min-w-0 flex-1">
-            <h1
-              className="text-lg font-semibold leading-tight tracking-tight sm:text-xl"
-              style={{ color: TOKENS.onSurface }}
-            >
-              {title}
-            </h1>
-            {description ? (
-              <p
-                className="mt-1 max-w-2xl text-[11px] leading-snug sm:text-xs"
-                style={{ color: TOKENS.onSurfaceMuted }}
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <CspBrandMark
+              href={BENTO.dashboard}
+              size="sm"
+              wordmark="none"
+              variant="console"
+              className="shrink-0 lg:hidden"
+            />
+            <div className="min-w-0 flex-1">
+              <h1
+                className="text-lg font-semibold leading-tight tracking-tight sm:text-xl"
+                style={{ color: TOKENS.onSurface }}
               >
-                {description}
-              </p>
-            ) : null}
+                {title}
+              </h1>
+              {description ? (
+                <p
+                  className="mt-1 max-w-2xl text-[11px] leading-snug sm:text-xs"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  {description}
+                </p>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
             onClick={() => openCommandPalette()}
-            className="flex shrink-0 touch-manipulation items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors sm:px-3"
+            className="flex shrink-0 touch-manipulation items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:px-3"
             style={{
               borderColor: TOKENS.outlineGhost,
               color: TOKENS.onSurfaceMuted,
@@ -111,13 +122,22 @@ export function Header({
         "bg-white shadow-sm"
       )}
     >
-      <div className="ml-14 min-w-0 flex-1 pr-2 sm:ml-16 lg:ml-0">
+      <div className="ml-14 flex min-w-0 flex-1 items-center gap-3 pr-2 sm:ml-16 lg:ml-0">
+        <CspBrandMark
+          href={CLASSIC.dashboard}
+          size="sm"
+          wordmark="none"
+          variant="classic"
+          className="shrink-0 lg:hidden"
+        />
+        <div className="min-w-0 flex-1">
         <h1 className="text-lg sm:text-xl font-semibold truncate text-gray-900">
           {title}
         </h1>
         {description ? (
           <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{description}</p>
         ) : null}
+        </div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-2 self-center">
         <button

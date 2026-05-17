@@ -167,6 +167,15 @@ body {
   width: 100%;
 }
 
+/* Dashboard: scroll only inside <main>, never on html/body (avoids dual scrollbars). */
+html:has([data-dashboard-shell]),
+html:has([data-dashboard-shell]) body {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -299,6 +308,12 @@ html {
   animation: login-enter 0.65s ease-out both;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .login-animate-enter {
+    animation: none;
+  }
+}
+
 /* Splash progress bar */
 @keyframes splash-shimmer {
   0% {
@@ -344,6 +359,243 @@ html[data-csp-dashboard-theme="console"] .skeleton-base {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* Marketing landing (public home) */
+.landing-page-root {
+  --landing-focus-ring: rgba(78, 222, 163, 0.45);
+  --landing-focus-offset: #0b1326;
+  --landing-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --landing-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+.landing-focus-visible:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--landing-focus-ring),
+    0 0 0 4px var(--landing-focus-offset);
+}
+
+.landing-skip-link:focus {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+@keyframes landing-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes landing-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Hero: grid settles, copy staggers */
+.landing-page-root .landing-hero-enter {
+  animation: landing-reveal 0.55s var(--landing-ease-out) both;
+}
+
+.landing-page-root .landing-hero-copy > * {
+  opacity: 0;
+  animation: landing-reveal 0.5s var(--landing-ease-out) forwards;
+}
+
+.landing-page-root .landing-hero-copy > *:nth-child(1) {
+  animation-delay: 0.06s;
+}
+.landing-page-root .landing-hero-copy > *:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.landing-page-root .landing-hero-copy > *:nth-child(3) {
+  animation-delay: 0.18s;
+}
+.landing-page-root .landing-hero-copy > *:nth-child(4) {
+  animation-delay: 0.24s;
+}
+
+/* Preview card: slightly later, explains the product */
+.landing-page-root .landing-preview-enter {
+  opacity: 0;
+  animation: landing-reveal 0.6s var(--landing-ease-out) 0.14s both;
+}
+
+.landing-page-root .landing-preview-enter .landing-bar-fill {
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: landing-bar-grow 0.5s var(--landing-ease-out) forwards;
+}
+
+.landing-page-root .landing-preview-bars > li:nth-child(1) .landing-bar-fill {
+  animation-delay: 0.38s;
+}
+.landing-page-root .landing-preview-bars > li:nth-child(2) .landing-bar-fill {
+  animation-delay: 0.46s;
+}
+.landing-page-root .landing-preview-bars > li:nth-child(3) .landing-bar-fill {
+  animation-delay: 0.54s;
+}
+.landing-page-root .landing-preview-bars > li:nth-child(4) .landing-bar-fill {
+  animation-delay: 0.62s;
+}
+
+.landing-page-root .landing-preview-badge {
+  opacity: 0;
+  animation: landing-reveal 0.4s var(--landing-ease-out) 0.32s both;
+}
+
+/* Steps: stagger on first paint */
+.landing-page-root .landing-steps > li {
+  opacity: 0;
+  animation: landing-reveal 0.5s var(--landing-ease-out) forwards;
+}
+
+.landing-page-root .landing-steps > li:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.landing-page-root .landing-steps > li:nth-child(2) {
+  animation-delay: 0.14s;
+}
+.landing-page-root .landing-steps > li:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Scroll sections */
+.landing-page-root .landing-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.5s var(--landing-ease-out),
+    transform 0.5s var(--landing-ease-out);
+}
+
+.landing-page-root .landing-reveal.landing-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-page-root .landing-visible .landing-bucket-enter {
+  opacity: 0;
+  animation: landing-reveal 0.45s var(--landing-ease-out) forwards;
+}
+
+.landing-page-root .landing-visible .landing-bucket-enter:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.landing-page-root .landing-visible .landing-bucket-enter:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.landing-page-root .landing-visible .landing-bucket-enter:nth-child(3) {
+  animation-delay: 0.16s;
+}
+.landing-page-root .landing-visible .landing-bucket-enter:nth-child(4) {
+  animation-delay: 0.22s;
+}
+
+.landing-page-root .landing-cta-inner {
+  opacity: 0;
+  transform: translateY(10px) scale(0.99);
+  transition:
+    opacity 0.55s var(--landing-ease-out),
+    transform 0.55s var(--landing-ease-out);
+}
+
+.landing-page-root .landing-reveal.landing-visible .landing-cta-inner {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Press + hover (transform/opacity only) */
+.landing-page-root .landing-pressable {
+  transition: transform 160ms var(--landing-ease-out), filter 200ms var(--landing-ease-out);
+}
+
+.landing-page-root .landing-pressable:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .landing-page-root .landing-card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .landing-page-root .landing-pressable:hover {
+    filter: brightness(1.05);
+  }
+
+  .landing-page-root .landing-pressable.landing-pressable-ghost:hover {
+    filter: none;
+  }
+}
+
+.landing-page-root .landing-card-lift {
+  transition: transform 220ms var(--landing-ease-out), background-color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page-root .landing-hero-enter,
+  .landing-page-root .landing-hero-copy > *,
+  .landing-page-root .landing-preview-enter,
+  .landing-page-root .landing-preview-enter .landing-bar-fill,
+  .landing-page-root .landing-preview-badge,
+  .landing-page-root .landing-steps > li,
+  .landing-page-root .landing-visible .landing-bucket-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .landing-page-root .landing-reveal,
+  .landing-page-root .landing-cta-inner {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .landing-page-root .landing-pressable:active {
+    transform: none;
+  }
+
+  .landing-page-root .landing-card-lift:hover {
+    transform: none;
+  }
+}
+
+/* Wealth Console (authenticated dashboard) */
+.console-focus-visible:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(78, 222, 163, 0.45),
+    0 0 0 4px #0b1326;
+}
+
+.console-budget-fill {
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-budget-fill {
+    transition: none;
   }
 }
 

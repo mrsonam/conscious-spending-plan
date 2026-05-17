@@ -37,6 +37,7 @@ import {
 } from "recharts"
 import { SummaryCardsSkeleton, ChartsSkeleton } from "@/components/skeletons/category-tracking-sections"
 import { useCategoryTrackingPage } from "@/hooks/use-category-tracking-page"
+import { useCategoryTrackingClassicAnalytics } from "@/hooks/use-category-tracking-classic-analytics"
 import { TRACKING_FUND_CATEGORIES, expenseTypeLabel } from "@/lib/category-tracking-shared"
 
 export { type CategoryTrackingRow } from "@/lib/category-tracking-shared"
@@ -69,10 +70,15 @@ export function CategoryTrackingClassic() {
     spendShare,
     expenseTypeRollup,
     momSpend,
-    chartRows,
-    lineRows,
-    insights,
   } = p
+
+  const { chartRows, lineRows, insights } = useCategoryTrackingClassicAnalytics(
+    tracking,
+    history,
+    selectedMonth,
+    selectedYear,
+    formatCurrency,
+  )
 
   const CATEGORIES = TRACKING_FUND_CATEGORIES
 

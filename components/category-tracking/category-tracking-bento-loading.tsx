@@ -6,49 +6,19 @@ import { AppSelect } from "@/components/ui/app-select"
 import { ScrambleCurrencyValue, ScramblePercentValue } from "@/components/ui/scramble-number"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
-import { TRACKING_FUND_CATEGORIES } from "@/lib/category-tracking-shared"
+import { TRACKING_FUND_CATEGORIES, type TrackingFundKey } from "@/lib/category-tracking-shared"
 import { BENTO } from "@/lib/app-routes"
 import { TrendingDown, Wallet, Calendar, Activity, History } from "lucide-react"
-
-const consoleField =
-  "w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
-
-/** Matches category-tracking-bento pillar strip */
-const PILLAR_SEGMENTS = [
-  { key: "fixedCosts", color: "rgba(248,113,113,0.92)" },
-  { key: "savings", color: "rgba(74,222,128,0.92)" },
-  { key: "investment", color: "rgba(137,206,255,0.95)" },
-  { key: "guiltFreeSpending", color: "rgba(196,181,253,0.92)" },
-] as const
-
-function SegmentedBlocks({
-  percent,
-  activeColor,
-}: {
-  percent: number
-  activeColor: string
-}) {
-  const blocks = 14
-  const filled = Math.max(0, Math.min(blocks, Math.round((percent / 100) * blocks)))
-  return (
-    <div className="mt-3 flex gap-1">
-      {Array.from({ length: blocks }).map((_, i) => (
-        <span
-          key={i}
-          className="h-2 w-3 rounded-[4px]"
-          style={{
-            background:
-              i < filled
-                ? activeColor
-                : `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 22%, ${TOKENS.surfaceLow})`,
-            boxShadow: i < filled ? CARD_INSET : undefined,
-            opacity: i < filled ? 1 : 0.55,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
+import {
+  CategoryTrackingSegmentedBlocks,
+  categoryTrackingConsoleField,
+  pillarSegmentColor,
+  CATEGORY_TRACKING_PERIOD_ID,
+} from "@/components/category-tracking/category-tracking-console-ui"
+import {
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
 
 export type CategoryTrackingBentoLoadingProps = {
   monthOptions: { value: string; label: string; month: number; year: number }[]
@@ -117,12 +87,12 @@ export function CategoryTrackingBentoLoading({
             >
               Deployable balance
             </p>
-            <div className="mt-2 text-4xl font-black leading-none tracking-tight sm:text-5xl lg:text-[3.5rem]">
+            <div className={cn("mt-2", consoleHeroFigureClass)}>
               <ScrambleCurrencyValue
                 variant="prosperity"
                 min={1200}
                 max={28000}
-                className="font-black!"
+                className={consoleHeroFigureInnerClass}
               />
             </div>
             <p className="mt-2 max-w-xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -160,7 +130,11 @@ export function CategoryTrackingBentoLoading({
                   />
                 </div>
               </div>
-              <SegmentedBlocks percent={52} activeColor={TOKENS.primary} />
+              <CategoryTrackingSegmentedBlocks
+                percent={52}
+                activeColor={TOKENS.primary}
+                label="Budget drawdown loading"
+              />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider">
                 <span style={{ color: TOKENS.onSurfaceMuted }}>Residual runway</span>
                 <span style={{ color: TOKENS.secondary }} className="tabular-nums">
@@ -250,7 +224,7 @@ export function CategoryTrackingBentoLoading({
                   setSelectedMonth(m)
                 }}
                 variant="console"
-                className={cn(consoleField, "mt-1 border-transparent")}
+                className={cn(categoryTrackingConsoleField, "mt-1 border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,
                   borderColor: TOKENS.outlineGhost,
@@ -293,18 +267,18 @@ export function CategoryTrackingBentoLoading({
               style={{ background: TOKENS.surfaceHigh }}
               aria-hidden
             >
-              {PILLAR_SEGMENTS.map((seg) => (
+              {TRACKING_FUND_CATEGORIES.map((cat) => (
                 <div
-                  key={seg.key}
+                  key={cat.key}
                   className="min-w-[2px] shrink-0"
-                  style={{ width: "25%", background: seg.color }}
+                  style={{ width: "25%", background: pillarSegmentColor(cat.key) }}
                 />
               ))}
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {TRACKING_FUND_CATEGORIES.map((cat) => {
-                const seg = PILLAR_SEGMENTS.find((s) => s.key === cat.key)
+                const pillarColor = pillarSegmentColor(cat.key)
                 return (
                   <div
                     key={cat.key}
@@ -340,7 +314,7 @@ export function CategoryTrackingBentoLoading({
                           style={{
                             background:
                               i < 7
-                                ? seg?.color ?? cat.colorHex
+                                ? pillarColor
                                 : `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 22%, ${TOKENS.surfaceLow})`,
                             opacity: i < 7 ? 1 : 0.55,
                             boxShadow: i < 7 ? CARD_INSET : undefined,
@@ -484,7 +458,11 @@ export function CategoryTrackingBentoLoading({
                 suffixClassName="text-2xl font-black"
               />
             </p>
-            <SegmentedBlocks percent={58} activeColor={TOKENS.secondary} />
+            <CategoryTrackingSegmentedBlocks
+              percent={58}
+              activeColor={TOKENS.secondary}
+              label="Envelope integrity loading"
+            />
             <div className="mt-4 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider">
               <span style={{ color: TOKENS.onSurfaceMuted }}>Target band</span>
               <span style={{ color: TOKENS.primary }}>Healthy buffer</span>
@@ -562,7 +540,11 @@ export function CategoryTrackingBentoLoading({
                       month
                     </span>
                   </p>
-                  <SegmentedBlocks percent={48} activeColor={TOKENS.primary} />
+                  <CategoryTrackingSegmentedBlocks
+                    percent={48}
+                    activeColor={TOKENS.primary}
+                    label="Pillar usage loading"
+                  />
                 </div>
               )
             })}
@@ -580,7 +562,7 @@ export function CategoryTrackingBentoLoading({
             Recent months
           </p>
           <p className="mb-3 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Actual spend by fund — loading history…
+            Actual spend by fund. Loading history…
           </p>
           <div
             className="overflow-x-auto rounded-xl border"

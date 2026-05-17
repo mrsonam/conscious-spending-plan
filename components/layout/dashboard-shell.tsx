@@ -8,12 +8,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <CommandPaletteProvider>
       <div
-        className="flex h-screen overflow-hidden"
+        data-dashboard-shell
+        className="flex h-dvh max-h-dvh overflow-hidden"
         style={{ background: TOKENS.surface }}
       >
         <Sidebar />
-        <main className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] lg:ml-0 w-full">
-          <div className="min-h-full">{children}</div>
+        <main className="flex min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto pb-[env(safe-area-inset-bottom)] lg:ml-0">
+          {children}
         </main>
       </div>
     </CommandPaletteProvider>

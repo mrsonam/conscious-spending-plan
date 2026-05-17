@@ -7,6 +7,8 @@ import { X, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useMemo } from "react"
 import { buildSidebarNavigation } from "@/lib/sidebar-nav"
+import { CLASSIC } from "@/lib/app-routes"
+import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 
 export function SidebarClassic() {
   const pathname = usePathname()
@@ -63,14 +65,13 @@ export function SidebarClassic() {
         )}
       >
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <img
-              src="/icon.svg"
-              alt=""
-              className="h-8 w-8 rounded-lg object-contain"
-            />
-            <span className="text-lg font-semibold text-gray-900">CSP</span>
-          </div>
+          <CspBrandMark
+            href={CLASSIC.dashboard}
+            size="sm"
+            wordmark="responsive"
+            variant="classic"
+            onClick={() => setIsMobileOpen(false)}
+          />
           <button
             onClick={() => setIsMobileOpen(false)}
             className="rounded-lg p-1 transition-colors hover:bg-gray-100 lg:hidden"

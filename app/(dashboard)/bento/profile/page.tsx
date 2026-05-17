@@ -20,7 +20,7 @@ export default function BentoProfilePage() {
           variant="console"
         />
         <div
-          className="mx-auto min-h-[calc(100dvh-5.5rem)] max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
+          className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
           style={{ background: TOKENS.surface }}
         >
           <ProfileSkeleton variant="console" />
@@ -39,7 +39,7 @@ export default function BentoProfilePage() {
         variant="console"
       />
       <div
-        className="mx-auto min-h-[calc(100dvh-5.5rem)] max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
+        className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
         style={{ background: TOKENS.surface }}
       >
         <ProfilePageBento />

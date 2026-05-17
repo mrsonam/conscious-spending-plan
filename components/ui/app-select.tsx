@@ -31,6 +31,9 @@ export interface AppSelectProps {
   style?: React.CSSProperties
   disabled?: boolean
   required?: boolean
+  "aria-labelledby"?: string
+  "aria-invalid"?: boolean
+  "aria-describedby"?: string
 }
 
 export function AppSelect({
@@ -46,6 +49,9 @@ export function AppSelect({
   style,
   disabled,
   required,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
 }: AppSelectProps) {
   const inner = toInner(value)
 
@@ -70,6 +76,9 @@ export function AppSelect({
         )}
         style={style}
         aria-required={required}
+        aria-labelledby={ariaLabelledBy}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
       >
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon asChild>

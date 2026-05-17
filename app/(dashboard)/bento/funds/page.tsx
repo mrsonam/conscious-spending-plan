@@ -17,7 +17,7 @@ export default function BentoFundsPage() {
           description="Income split, caps, and envelope behavior."
           variant="console"
         />
-        <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <div className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/5" />
           <div className="grid gap-4 sm:grid-cols-2">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -38,7 +38,7 @@ export default function BentoFundsPage() {
         description="Income split, caps, and envelope behavior."
         variant="console"
       />
-      <div className="mx-auto max-w-7xl min-h-[calc(100dvh-5.5rem)] space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <FundsPageBento />
       </div>
     </>

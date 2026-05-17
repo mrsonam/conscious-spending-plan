@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { Fraunces, DM_Sans } from "next/font/google"
 import type { DashboardTheme } from "@/lib/dashboard-theme"
+import { AppNavbar } from "@/components/layout/app-navbar"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
 
@@ -21,9 +22,16 @@ const body = DM_Sans({
 export function AuthPageFrame({
   theme,
   children,
+  navbarTrailing,
+  layout = "center",
+  aside,
 }: {
   theme: DashboardTheme
   children: ReactNode
+  navbarTrailing?: ReactNode
+  /** Split: optional left column (login marketing panel). */
+  layout?: "center" | "split"
+  aside?: ReactNode
 }) {
   const isConsole = theme === "console"
 
@@ -32,7 +40,7 @@ export function AuthPageFrame({
       className={cn(
         display.variable,
         body.variable,
-        "relative min-h-screen min-h-[100dvh] overflow-hidden font-[family-name:var(--font-login-body)]",
+        "relative flex min-h-[100dvh] flex-col overflow-hidden font-[family-name:var(--font-login-body)]",
       )}
       style={isConsole ? { backgroundColor: TOKENS.surface } : undefined}
     >
@@ -84,8 +92,30 @@ export function AuthPageFrame({
         </>
       )}
 
-      <div className="relative z-[1] flex min-h-screen items-center justify-center p-4 sm:p-6">
-        {children}
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+        <AppNavbar
+          variant={isConsole ? "console" : "classic"}
+          homeHref="/"
+          maxWidth="full"
+          trailing={navbarTrailing}
+        />
+        <div
+          className={cn(
+            "flex flex-1 p-4 sm:p-6 lg:p-8",
+            layout === "split"
+              ? "items-start justify-center"
+              : "items-center justify-center",
+          )}
+        >
+          {layout === "split" && aside ? (
+            <div className="mx-auto grid w-full max-w-6xl items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,28rem)]">
+              {aside}
+              <div className="flex w-full justify-center lg:justify-end">{children}</div>
+            </div>
+          ) : (
+            <div className="flex w-full items-center justify-center">{children}</div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -116,21 +146,6 @@ export function AuthCard({
           : undefined
       }
     >
-      {!isConsole ? (
-        <div
-          className="absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent"
-          aria-hidden
-        />
-      ) : (
-        <div
-          className="absolute left-0 right-0 top-0 h-[3px] rounded-t-2xl"
-          style={{
-            background: `linear-gradient(90deg, transparent, ${TOKENS.primary}, ${TOKENS.secondary}, transparent)`,
-            opacity: 0.95,
-          }}
-          aria-hidden
-        />
-      )}
       {children}
     </div>
   )

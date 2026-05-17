@@ -4,10 +4,20 @@ import { useState, useEffect } from "react"
 import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
+function isLandingPath(pathname: string) {
+  return pathname === "/" || pathname === ""
+}
+
 export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme }) {
   const [isVisible, setIsVisible] = useState(true)
   const [isFading, setIsFading] = useState(false)
-  const isConsole = initialTheme === "console"
+  const [onLanding, setOnLanding] = useState(false)
+
+  useEffect(() => {
+    setOnLanding(isLandingPath(window.location.pathname))
+  }, [])
+
+  const isConsole = initialTheme === "console" || onLanding
 
   useEffect(() => {
     const hideSplash = () => {
