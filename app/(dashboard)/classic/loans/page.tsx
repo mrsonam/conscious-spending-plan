@@ -151,7 +151,7 @@ export default function LoansPage() {
               <CardDescription>Deduct amount from an account without counting it as spending</CardDescription>
             </CardHeader>
             <CardContent>
-              <form
+              <form noValidate
                 onSubmit={async (e) => {
                   const ok = await handleSubmit(e)
                   if (ok) setShowAddForm(false)
@@ -168,7 +168,6 @@ export default function LoansPage() {
                       value={accountId}
                       onValueChange={setAccountId}
                       disabled={submitting}
-                      required
                       variant="classic"
                       className="mt-1 rounded-lg"
                       options={accounts.map((account) => ({
@@ -186,7 +185,6 @@ export default function LoansPage() {
                       onChange={(e) => setAmount(e.target.value)}
                       min="0"
                       step="0.01"
-                      required
                       disabled={submitting}
                       placeholder="0.00"
                       className="mt-1"
@@ -210,7 +208,6 @@ export default function LoansPage() {
                       id="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      required
                       disabled={submitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />
@@ -367,7 +364,7 @@ export default function LoansPage() {
               <CardDescription>Add borrowed amount to one of your accounts</CardDescription>
             </CardHeader>
             <CardContent>
-              <form
+              <form noValidate
                 onSubmit={async (e) => {
                   const ok = await handleSubmitBorrowed(e)
                   if (ok) setShowAddBorrowedForm(false)
@@ -384,7 +381,6 @@ export default function LoansPage() {
                       value={borrowedAccountId || accountId}
                       onValueChange={setBorrowedAccountId}
                       disabled={borrowedSubmitting}
-                      required
                       variant="classic"
                       className="mt-1 rounded-lg"
                       options={accounts.map((account) => ({
@@ -402,7 +398,6 @@ export default function LoansPage() {
                       onChange={(e) => setBorrowedAmount(e.target.value)}
                       min="0"
                       step="0.01"
-                      required
                       disabled={borrowedSubmitting}
                       placeholder="0.00"
                       className="mt-1"
@@ -426,7 +421,6 @@ export default function LoansPage() {
                       id="borrowedDate"
                       value={borrowedDate}
                       onChange={(e) => setBorrowedDate(e.target.value)}
-                      required
                       disabled={borrowedSubmitting}
                       className="mt-1 scheme-light dark:scheme-dark"
                     />

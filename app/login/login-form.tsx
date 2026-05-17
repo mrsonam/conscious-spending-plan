@@ -21,6 +21,15 @@ import {
 } from "@/lib/demo-credentials"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
+import {
+  buildFieldErrors,
+  formNoValidate,
+  hasFieldErrors,
+  requireEmail,
+  requireField,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
 
 
 export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
@@ -28,7 +37,9 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
   const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [formError, setFormError] = useState("")
+  const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
+    useFormFieldErrors<"email" | "password">()
   const [credentialsLoading, setCredentialsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const isConsole = initialTheme === "console"
@@ -37,14 +48,24 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
     searchParams.get(PORTFOLIO_DEMO_QUERY_KEY) === PORTFOLIO_DEMO_QUERY_VALUE
 
   const fillDemoCredentials = useCallback(() => {
-    setError("")
+    setFormError("")
+    clearFieldErrors()
     setEmail(DEMO_ACCOUNT.email)
     setPassword(DEMO_ACCOUNT.password)
   }, [])
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setFormError("")
+    const errs = buildFieldErrors([
+      ["email", requireEmail(email)],
+      ["password", requireField(password, "Password")],
+    ] as const)
+    if (hasFieldErrors(errs)) {
+      setFieldErrors(errs)
+      return
+    }
+    clearFieldErrors()
     setCredentialsLoading(true)
     try {
       const res = await signIn("credentials", {
@@ -53,25 +74,26 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
         redirect: false,
       })
       if (res?.error) {
-        setError("Invalid email or password.")
+        setFormError("Invalid email or password.")
         setCredentialsLoading(false)
         return
       }
       router.push("/dashboard")
       router.refresh()
     } catch {
-      setError("Something went wrong. Please try again.")
+      setFormError("Something went wrong. Please try again.")
       setCredentialsLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setError("")
+    setFormError("")
+    clearFieldErrors()
     setGoogleLoading(true)
     try {
       await signIn("google", { callbackUrl: "/dashboard" })
     } catch {
-      setError("Failed to sign in with Google. Please try again.")
+      setFormError("Failed to sign in with Google. Please try again.")
       setGoogleLoading(false)
     }
   }
@@ -124,7 +146,7 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
             Sign in to your Wealth Console. Income, spend, and pillar headroom in one place.
           </p>
 
-          {error ? (
+          {formError ? (
             <div
               className={cn(
                 "mt-6 rounded-xl border px-4 py-3 text-sm leading-snug",
@@ -141,7 +163,7 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
               }
               role="alert"
             >
-              {error}
+              {formError}
             </div>
           ) : null}
 
@@ -180,6 +202,7 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
           <AuthDivider theme={initialTheme} />
 
           <form
+            {...formNoValidate}
             onSubmit={(e) => void handleCredentials(e)}
             className="space-y-4"
             inert={credentialsLoading}
@@ -200,10 +223,18 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
                   name="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    clearFieldError("email")
+                  }}
                   disabled={busy}
                   placeholder="you@example.com"
+                  {...formFieldAria("login-email", fieldErrors.email)}
+                />
+                <FormFieldError
+                  controlId="login-email"
+                  message={fieldErrors.email}
+                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
               <div className="space-y-1.5 text-left">
@@ -221,10 +252,18 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
                   name="password"
                   autoComplete="current-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    clearFieldError("password")
+                  }}
                   disabled={busy}
                   placeholder="••••••••"
+                  {...formFieldAria("login-password", fieldErrors.password)}
+                />
+                <FormFieldError
+                  controlId="login-password"
+                  message={fieldErrors.password}
+                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
             </fieldset>

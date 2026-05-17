@@ -113,7 +113,7 @@ export function InvestmentLogDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <form className="mt-6 space-y-5" onSubmit={onSubmit} inert={submitting}>
+          <form noValidate className="mt-6 space-y-5" onSubmit={onSubmit} inert={submitting}>
             <div>
               <label
                 htmlFor="inv-log-account"
@@ -126,7 +126,6 @@ export function InvestmentLogDialog({
                 id="inv-log-account"
                 value={selectedInvestmentAccountId}
                 onValueChange={onAccountChange}
-                required
                 variant="console"
                 className={cn(investmentConsoleField, "border-transparent")}
                 style={{
@@ -187,7 +186,6 @@ export function InvestmentLogDialog({
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
                   }}
-                  required
                   {...investmentFieldAria("inv-log-price", fieldErrors.logPrice)}
                 />
                 <InvestmentFieldInlineError
@@ -216,7 +214,6 @@ export function InvestmentLogDialog({
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
                   }}
-                  required
                   {...investmentFieldAria("inv-log-shares", fieldErrors.logShares)}
                 />
                 <InvestmentFieldInlineError
@@ -268,7 +265,6 @@ export function InvestmentLogDialog({
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
                   }}
-                  required
                   {...investmentFieldAria("inv-log-date", fieldErrors.logDate)}
                 />
                 <InvestmentFieldInlineError

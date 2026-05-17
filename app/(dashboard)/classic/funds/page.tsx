@@ -256,7 +256,7 @@ export default function FundsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form noValidate onSubmit={handleSubmit} className="space-y-6">
               {message && (
                 <div
                   className={`p-3 rounded-lg ${

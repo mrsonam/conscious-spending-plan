@@ -87,7 +87,7 @@ export function InvestmentDividendDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <form className="mt-6 space-y-5" onSubmit={onSubmit} inert={submitting}>
+          <form noValidate className="mt-6 space-y-5" onSubmit={onSubmit} inert={submitting}>
             <div>
               <label
                 htmlFor="inv-div-account"
@@ -100,7 +100,6 @@ export function InvestmentDividendDialog({
                 id="inv-div-account"
                 value={dividendAccountId}
                 onValueChange={onAccountChange}
-                required
                 variant="console"
                 className={cn(investmentConsoleField, "border-transparent")}
                 style={{
@@ -145,7 +144,6 @@ export function InvestmentDividendDialog({
                 }}
                 list="dividend-symbol-suggestions"
                 autoComplete="off"
-                required
                 {...investmentFieldAria("inv-div-symbol", fieldErrors.divSymbol)}
               />
               <InvestmentFieldInlineError
@@ -180,7 +178,6 @@ export function InvestmentDividendDialog({
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
-                required
                 {...investmentFieldAria("inv-div-amount", fieldErrors.divAmount)}
               />
               <InvestmentFieldInlineError
@@ -207,7 +204,6 @@ export function InvestmentDividendDialog({
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
-                required
                 {...investmentFieldAria("inv-div-date", fieldErrors.divDate)}
               />
               <InvestmentFieldInlineError

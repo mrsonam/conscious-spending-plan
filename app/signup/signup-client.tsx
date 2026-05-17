@@ -18,6 +18,15 @@ import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { PASSWORD_MAX_LENGTH, passwordMeetsPolicy } from "@/lib/password-policy"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
+import {
+  buildFieldErrors,
+  formNoValidate,
+  hasFieldErrors,
+  requireEmail,
+  requireField,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
 
 export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme }) {
   const router = useRouter()
@@ -25,7 +34,9 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
-  const [error, setError] = useState("")
+  const [formError, setFormError] = useState("")
+  const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
+    useFormFieldErrors<"email" | "password" | "confirm">()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const isConsole = initialTheme === "console"
@@ -33,15 +44,23 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    if (password !== confirm) {
-      setError("Passwords do not match.")
+    setFormError("")
+    const errs = buildFieldErrors([
+      ["email", requireEmail(email)],
+      ["password", requireField(password, "Password")],
+      ["confirm", requireField(confirm, "Confirm password")],
+    ] as const)
+    if (password && confirm && password !== confirm) {
+      errs.confirm = "Passwords do not match."
+    }
+    if (password && !passwordMeetsPolicy(password)) {
+      errs.password = "Please meet all password requirements below."
+    }
+    if (hasFieldErrors(errs)) {
+      setFieldErrors(errs)
       return
     }
-    if (!passwordMeetsPolicy(password)) {
-      setError("Please meet all password requirements below.")
-      return
-    }
+    clearFieldErrors()
     setSubmitLoading(true)
     try {
       const res = await fetch("/api/auth/register", {
@@ -55,7 +74,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) {
-        setError(data.error ?? "Could not create account.")
+        setFormError(data.error ?? "Could not create account.")
         setSubmitLoading(false)
         return
       }
@@ -66,25 +85,26 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
         redirect: false,
       })
       if (sign?.error) {
-        setError("Account created but sign-in failed. Try logging in from the login page.")
+        setFormError("Account created but sign-in failed. Try logging in from the login page.")
         setSubmitLoading(false)
         return
       }
       router.push("/dashboard")
       router.refresh()
     } catch {
-      setError("Something went wrong. Please try again.")
+      setFormError("Something went wrong. Please try again.")
       setSubmitLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setError("")
+    setFormError("")
+    clearFieldErrors()
     setGoogleLoading(true)
     try {
       await signIn("google", { callbackUrl: "/dashboard" })
     } catch {
-      setError("Failed to sign in with Google. Please try again.")
+      setFormError("Failed to sign in with Google. Please try again.")
       setGoogleLoading(false)
     }
   }
@@ -135,7 +155,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
             Join the Wealth Console. Set up pillars and track spend in one calm workspace.
           </p>
 
-          {error ? (
+          {formError ? (
             <div
               className={cn(
                 "mt-6 rounded-xl border px-4 py-3 text-sm leading-snug",
@@ -152,7 +172,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
               }
               role="alert"
             >
-              {error}
+              {formError}
             </div>
           ) : null}
 
@@ -191,6 +211,7 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
           <AuthDivider theme={initialTheme} />
 
           <form
+            {...formNoValidate}
             onSubmit={(e) => void handleRegister(e)}
             className="space-y-4"
             inert={submitLoading}
@@ -237,10 +258,18 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                   name="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    clearFieldError("email")
+                  }}
                   disabled={busy}
                   placeholder="you@example.com"
+                  {...formFieldAria("signup-email", fieldErrors.email)}
+                />
+                <FormFieldError
+                  controlId="signup-email"
+                  message={fieldErrors.email}
+                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
               <div className="space-y-1.5 text-left">
@@ -258,11 +287,19 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                   name="password"
                   autoComplete="new-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    clearFieldError("password")
+                  }}
                   maxLength={PASSWORD_MAX_LENGTH}
                   disabled={busy}
                   placeholder="••••••••"
+                  {...formFieldAria("signup-password", fieldErrors.password)}
+                />
+                <FormFieldError
+                  controlId="signup-password"
+                  message={fieldErrors.password}
+                  variant={isConsole ? "console" : "classic"}
                 />
                 <PasswordRequirements password={password} theme={initialTheme} />
               </div>
@@ -281,11 +318,19 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                   name="confirm"
                   autoComplete="new-password"
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setConfirm(e.target.value)
+                    clearFieldError("confirm")
+                  }}
                   maxLength={PASSWORD_MAX_LENGTH}
                   disabled={busy}
                   placeholder="••••••••"
+                  {...formFieldAria("signup-confirm", fieldErrors.confirm)}
+                />
+                <FormFieldError
+                  controlId="signup-confirm"
+                  message={fieldErrors.confirm}
+                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
             </fieldset>

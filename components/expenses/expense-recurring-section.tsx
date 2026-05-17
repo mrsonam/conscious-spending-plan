@@ -131,7 +131,7 @@ export function ExpenseRecurringSection({
           style={{ borderColor: TOKENS.outlineGhost }}
         >
           {p.showRecurringForm && (
-            <form
+            <form noValidate
               onSubmit={p.handleAddRecurring}
               className="mt-4 flex flex-col gap-4 rounded-xl border p-4"
               style={{
@@ -153,7 +153,6 @@ export function ExpenseRecurringSection({
                     id="recurring-account"
                     value={p.recurringAccountId}
                     onValueChange={p.setRecurringAccountId}
-                    required
                     disabled={p.submittingRecurring}
                     variant="console"
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}

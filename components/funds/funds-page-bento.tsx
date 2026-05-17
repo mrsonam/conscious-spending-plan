@@ -454,7 +454,7 @@ export function FundsPageBento() {
         />
       </section>
 
-      <form onSubmit={handleSubmit} className="space-y-8 sm:space-y-10">
+      <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10">
         {message ? (
           <div
             className="flex items-start gap-3 rounded-2xl border px-4 py-3.5 sm:px-5"

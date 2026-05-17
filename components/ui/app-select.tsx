@@ -60,7 +60,6 @@ export function AppSelect({
       value={inner}
       onValueChange={(v) => onValueChange(toOuter(v))}
       disabled={disabled}
-      required={required}
       name={name}
     >
       <SelectPrimitive.Trigger

@@ -151,7 +151,7 @@ export default function AccountsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} inert={savingAccount}>
+              <form noValidate onSubmit={handleSubmit} inert={savingAccount}>
               <fieldset disabled={savingAccount} className="space-y-4 border-0 p-0 m-0 min-w-0">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -160,7 +160,6 @@ export default function AccountsPage() {
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      required
                       disabled={savingAccount}
                       placeholder="e.g., Main Checking"
                       className="mt-1"
@@ -172,7 +171,6 @@ export default function AccountsPage() {
                       id="bankName"
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      required
                       disabled={savingAccount}
                       placeholder="e.g., Chase Bank"
                       className="mt-1"
@@ -188,7 +186,6 @@ export default function AccountsPage() {
                       value={accountType}
                       onValueChange={setAccountType}
                       disabled={savingAccount}
-                      required
                       variant="classic"
                       className="mt-1"
                       options={[
@@ -253,7 +250,7 @@ export default function AccountsPage() {
               <CardDescription>Move money between your accounts</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
+              <form noValidate onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
                 <fieldset disabled={transferring} className="space-y-4 border-0 p-0 m-0 min-w-0">
                 <div>
                   <Label htmlFor="fromAccount">From Account *</Label>
@@ -262,7 +259,6 @@ export default function AccountsPage() {
                     value={fromAccountId}
                     onValueChange={setFromAccountId}
                     disabled={transferring}
-                    required
                     variant="classic"
                     className="mt-1 rounded-md border border-gray-300"
                     placeholder="Select account"
@@ -283,7 +279,6 @@ export default function AccountsPage() {
                     value={toAccountId}
                     onValueChange={setToAccountId}
                     disabled={transferring}
-                    required
                     variant="classic"
                     className="mt-1 rounded-md border border-gray-300"
                     placeholder="Select account"
@@ -305,7 +300,6 @@ export default function AccountsPage() {
                     id="transferDate"
                     value={transferDate}
                     onChange={(e) => setTransferDate(e.target.value)}
-                    required
                     disabled={transferring}
                     className="mt-1 scheme-light dark:scheme-dark"
                   />
@@ -320,7 +314,6 @@ export default function AccountsPage() {
                     onChange={(e) => setTransferAmount(e.target.value)}
                     min="0.01"
                     step="0.01"
-                    required
                     disabled={transferring}
                     placeholder="0.00"
                     className="mt-1"

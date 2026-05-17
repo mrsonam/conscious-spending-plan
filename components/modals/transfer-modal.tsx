@@ -8,6 +8,17 @@ import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireDifferent,
+  requireField,
+  requirePositiveNumber,
+  requireSelection,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
 
 interface Account {
   id: string
@@ -29,6 +40,12 @@ const FUND_CATEGORIES = [
   { value: "guiltFreeSpending", label: "Guilt-Free Spending" },
 ]
 
+type TransferFieldKey =
+  | "fromAccountId"
+  | "toAccountId"
+  | "transferAmount"
+  | "transferDate"
+
 export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalProps) {
   const { formatCurrency } = useFormatCurrency()
   const [fromAccountId, setFromAccountId] = useState("")
@@ -39,16 +56,18 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
   const [transferCategory, setTransferCategory] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
   const [transferring, setTransferring] = useState(false)
-  const [error, setError] = useState("")
+  const [formError, setFormError] = useState<string | null>(null)
+  const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
+    useFormFieldErrors<TransferFieldKey>()
 
   useEffect(() => {
     if (open) {
       const today = new Date()
       setTransferDate(today.toISOString().split("T")[0])
-      
-      fetch("/api/accounts").then(res => {
+
+      fetch("/api/accounts").then((res) => {
         if (res.ok) {
-          res.json().then(data => {
+          res.json().then((data) => {
             setAccounts(data.accounts || [])
           })
         }
@@ -58,23 +77,34 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setFormError(null)
 
-    if (!fromAccountId || !toAccountId || !transferAmount || !transferDate) {
-      setError("Please fill in all required fields")
+    const fromErr = requireSelection(fromAccountId, "a from account")
+    const toErr = requireSelection(toAccountId, "a to account")
+    const errs = buildFieldErrors<TransferFieldKey>([
+      ["fromAccountId", fromErr],
+      [
+        "toAccountId",
+        toErr ||
+          (!fromErr && !toErr
+            ? requireDifferent(
+                fromAccountId,
+                toAccountId,
+                "From account",
+                "To account",
+              )
+            : null),
+      ],
+      ["transferAmount", requirePositiveNumber(transferAmount, "Amount")],
+      ["transferDate", requireField(transferDate, "Transfer date")],
+    ])
+    if (hasFieldErrors(errs)) {
+      setFieldErrors(errs)
       return
     }
-
-    if (fromAccountId === toAccountId) {
-      setError("From and To accounts must be different")
-      return
-    }
+    clearFieldErrors()
 
     const amountNum = parseFloat(transferAmount)
-    if (amountNum <= 0) {
-      setError("Amount must be greater than 0")
-      return
-    }
 
     setTransferring(true)
 
@@ -103,10 +133,10 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
         onOpenChange(false)
         if (onSuccess) onSuccess()
       } else {
-        setError(data.error || "Failed to create transfer")
+        setFormError(data.error || "Failed to create transfer")
       }
-    } catch (error) {
-      setError("An error occurred")
+    } catch {
+      setFormError("An error occurred")
     } finally {
       setTransferring(false)
     }
@@ -120,12 +150,8 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
           <DialogTitle>Transfer Funds</DialogTitle>
           <DialogDescription>Move money between your accounts</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
-              {error}
-            </div>
-          )}
+        <form noValidate onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
+          <FormErrorAlert error={formError} variant="classic" />
 
           <fieldset disabled={transferring} className="min-w-0 space-y-4 border-0 p-0">
           <div>
@@ -133,12 +159,16 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
             <AppSelect
               id="fromAccount"
               value={fromAccountId}
-              onValueChange={setFromAccountId}
+              onValueChange={(v) => {
+                setFromAccountId(v)
+                clearFieldError("fromAccountId")
+              }}
               disabled={transferring}
-              required
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="Select account"
+              aria-invalid={!!fieldErrors.fromAccountId}
+              {...formFieldAria("fromAccount", fieldErrors.fromAccountId)}
               options={[
                 { value: "", label: "Select account" },
                 ...accounts.map((acc) => ({
@@ -147,6 +177,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 })),
               ]}
             />
+            <FormFieldError controlId="fromAccount" message={fieldErrors.fromAccountId} variant="classic" />
           </div>
 
           <div>
@@ -154,12 +185,16 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
             <AppSelect
               id="toAccount"
               value={toAccountId}
-              onValueChange={setToAccountId}
+              onValueChange={(v) => {
+                setToAccountId(v)
+                clearFieldError("toAccountId")
+              }}
               disabled={transferring}
-              required
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="Select account"
+              aria-invalid={!!fieldErrors.toAccountId}
+              {...formFieldAria("toAccount", fieldErrors.toAccountId)}
               options={[
                 { value: "", label: "Select account" },
                 ...accounts
@@ -170,6 +205,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                   })),
               ]}
             />
+            <FormFieldError controlId="toAccount" message={fieldErrors.toAccountId} variant="classic" />
           </div>
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -178,11 +214,16 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               <DateInput
                 id="transferDate"
                 value={transferDate}
-                onChange={(e) => setTransferDate(e.target.value)}
-                required
+                onChange={(e) => {
+                  setTransferDate(e.target.value)
+                  clearFieldError("transferDate")
+                }}
                 disabled={transferring}
                 className="mt-1"
+                aria-invalid={!!fieldErrors.transferDate}
+                {...formFieldAria("transferDate", fieldErrors.transferDate)}
               />
+              <FormFieldError controlId="transferDate" message={fieldErrors.transferDate} variant="classic" />
             </div>
             <div>
               <Label htmlFor="transferAmount">Amount *</Label>
@@ -190,14 +231,18 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 id="transferAmount"
                 type="number"
                 value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
+                onChange={(e) => {
+                  setTransferAmount(e.target.value)
+                  clearFieldError("transferAmount")
+                }}
                 min="0.01"
                 step="0.01"
-                required
                 disabled={transferring}
                 placeholder="0.00"
                 className="mt-1"
+                {...formFieldAria("transferAmount", fieldErrors.transferAmount)}
               />
+              <FormFieldError controlId="transferAmount" message={fieldErrors.transferAmount} variant="classic" />
             </div>
           </div>
 
@@ -210,7 +255,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               disabled={transferring}
               variant="classic"
               className="mt-1 rounded-lg border border-gray-300"
-              placeholder="None"
+              placeholder="Optional"
               options={[
                 { value: "", label: "None" },
                 ...FUND_CATEGORIES.map((cat) => ({
@@ -219,9 +264,6 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 })),
               ]}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Track this transfer for a specific fund category
-            </p>
           </div>
 
           <div>
@@ -232,18 +274,18 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               value={transferDescription}
               onChange={(e) => setTransferDescription(e.target.value)}
               disabled={transferring}
-              placeholder="e.g., Monthly savings transfer"
+              placeholder="Memo"
               className="mt-1"
             />
           </div>
           </fieldset>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" disabled={transferring} onClick={() => onOpenChange(false)}>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={transferring}>
               Cancel
             </Button>
-            <Button type="submit" loading={transferring}>
-              Transfer
+            <Button type="submit" disabled={transferring}>
+              {transferring ? "Transferring..." : "Transfer"}
             </Button>
           </div>
         </form>

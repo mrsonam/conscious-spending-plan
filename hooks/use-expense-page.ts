@@ -20,6 +20,21 @@ import type {
 } from "@/lib/expense-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireField,
+  requirePositiveNumber,
+  requireSelection,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+
+export type ExpenseLogFieldKey = "accountId" | "amount" | "date" | "fundCategory"
+export type ExpenseRecurringFieldKey =
+  | "recurringAccountId"
+  | "recurringAmount"
+  | "recurringFrequency"
+export type ExpenseFieldKey = ExpenseLogFieldKey | ExpenseRecurringFieldKey
 
 const EMPTY_EXPENSE_STATS: ExpensePageStats = {
   currentMonthTotal: 0,
@@ -57,6 +72,14 @@ export function useExpensePage(
   const [loadingExpenses, setLoadingExpenses] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [message, setMessage] = useState<ExpenseMessage>(null)
+  const [logFormError, setLogFormError] = useState<string | null>(null)
+  const [recurringFormError, setRecurringFormError] = useState<string | null>(null)
+  const {
+    fieldErrors,
+    setFieldErrors,
+    clearFieldError,
+    clearFieldErrors,
+  } = useFormFieldErrors<ExpenseFieldKey>()
 
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
@@ -352,20 +375,30 @@ export function useExpensePage(
 
   const handleAddRecurring = async (e: React.FormEvent) => {
     e.preventDefault()
-    setMessage(null)
-    const amountNum = parseFloat(recurringAmount)
-    if (
-      !recurringAccountId ||
-      !recurringAmount ||
-      isNaN(amountNum) ||
-      amountNum <= 0
-    ) {
-      setMessage({
-        type: "error",
-        text: "Account and a positive amount are required.",
+    setRecurringFormError(null)
+    const recurringErrors = buildFieldErrors<ExpenseRecurringFieldKey>([
+      ["recurringAccountId", requireSelection(recurringAccountId, "an account")],
+      ["recurringAmount", requirePositiveNumber(recurringAmount, "Amount")],
+      ["recurringFrequency", requireSelection(recurringFrequency, "a frequency")],
+    ])
+    if (hasFieldErrors(recurringErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.recurringAccountId
+        delete next.recurringAmount
+        delete next.recurringFrequency
+        return { ...next, ...recurringErrors }
       })
       return
     }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.recurringAccountId
+      delete next.recurringAmount
+      delete next.recurringFrequency
+      return next
+    })
+    const amountNum = parseFloat(recurringAmount)
     setSubmittingRecurring(true)
     try {
       const res = await fetch("/api/recurring-expenses", {
@@ -395,13 +428,12 @@ export function useExpensePage(
         setShowRecurringForm(false)
         void fetchRecurring()
       } else {
-        setMessage({
-          type: "error",
-          text: data.error || "Failed to add recurring expense.",
-        })
+        setRecurringFormError(
+          data.error || "Failed to add recurring expense.",
+        )
       }
     } catch {
-      setMessage({ type: "error", text: "An error occurred." })
+      setRecurringFormError("An error occurred.")
     } finally {
       setSubmittingRecurring(false)
     }
@@ -476,26 +508,43 @@ export function useExpensePage(
 
   const handleSubmit = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
-    setMessage(null)
-
-    if (!accountId || !amount || !date) {
-      setMessage({ type: "error", text: "Please fill in all required fields" })
-      return false
-    }
+    setLogFormError(null)
 
     const selectedAccount = accounts.find((acc) => acc.id === accountId)
     const isCashAccount = selectedAccount?.accountType === "cash"
 
-    if (!isCashAccount && !fundCategory) {
-      setMessage({ type: "error", text: "Please select a fund category" })
+    const logErrors = buildFieldErrors<ExpenseLogFieldKey>([
+      ["accountId", requireSelection(accountId, "an account")],
+      ["amount", requirePositiveNumber(amount, "Amount")],
+      ["date", requireField(date, "Date")],
+      [
+        "fundCategory",
+        !isCashAccount && !fundCategory
+          ? "Please select a fund category."
+          : null,
+      ],
+    ])
+    if (hasFieldErrors(logErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.accountId
+        delete next.amount
+        delete next.date
+        delete next.fundCategory
+        return { ...next, ...logErrors }
+      })
       return false
     }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.accountId
+      delete next.amount
+      delete next.date
+      delete next.fundCategory
+      return next
+    })
 
     const amountNum = parseFloat(amount)
-    if (amountNum <= 0) {
-      setMessage({ type: "error", text: "Amount must be greater than 0" })
-      return false
-    }
 
     setSubmitting(true)
 
@@ -517,6 +566,8 @@ export function useExpensePage(
 
       if (response.ok) {
         setMessage({ type: "success", text: "Expense logged successfully!" })
+        setLogFormError(null)
+        clearFieldErrors()
         setAmount("")
         setDescription("")
         setFundCategory("")
@@ -533,10 +584,10 @@ export function useExpensePage(
         }
         return true
       }
-      setMessage({ type: "error", text: data.error || "Failed to log expense" })
+      setLogFormError(data.error || "Failed to log expense")
       return false
     } catch {
-      setMessage({ type: "error", text: "An error occurred" })
+      setLogFormError("An error occurred")
       return false
     } finally {
       setSubmitting(false)
@@ -740,6 +791,13 @@ export function useExpensePage(
     setShowAddForm,
     message,
     setMessage,
+    logFormError,
+    setLogFormError,
+    recurringFormError,
+    setRecurringFormError,
+    fieldErrors,
+    clearFieldError,
+    clearFieldErrors,
     accountId,
     setAccountId,
     amount,

@@ -795,7 +795,7 @@ export function SubscriptionsPageBento() {
           <DialogHeader>
             <DialogTitle>{editId ? "Edit subscription" : "Add subscription"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form noValidate onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div>
               <Label>Account</Label>
               <AppSelect
@@ -826,7 +826,6 @@ export function SubscriptionsPageBento() {
                   onChange={(e) => setAmount(e.target.value)}
                   className={cn("mt-1", consoleFieldClass)}
                   style={consoleFieldStyle}
-                  required
                 />
               </div>
               <div>

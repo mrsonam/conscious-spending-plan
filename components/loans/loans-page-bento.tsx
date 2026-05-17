@@ -19,6 +19,11 @@ import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useLoansPage } from "@/hooks/use-loans-page"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import {
+  FormFieldError,
+  formFieldAria,
+} from "@/components/forms/form-field-error"
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -43,6 +48,10 @@ export function LoansPageBento() {
     loading,
     message,
     setMessage,
+    lentFormError,
+    borrowedFormError,
+    fieldErrors,
+    clearFieldError,
     accountId,
     setAccountId,
     amount,
@@ -563,16 +572,20 @@ export function LoansPageBento() {
                 Deducts from the selected account without counting as spending.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={onLentSubmit} inert={submitting}>
+            <form noValidate className="mt-6 space-y-5" onSubmit={onLentSubmit} inert={submitting}>
+              <FormErrorAlert error={lentFormError} variant="console" />
               <fieldset disabled={submitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
                 </Label>
                 <AppSelect
+                  id="loan-acct"
                   value={accountId}
-                  onValueChange={setAccountId}
-                  required
+                  onValueChange={(v) => {
+                    setAccountId(v)
+                    clearFieldError("accountId")
+                  }}
                   disabled={submitting}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
@@ -585,7 +598,10 @@ export function LoansPageBento() {
                     value: a.id,
                     label: `${a.name} (${a.bankName}) · ${formatCurrency(a.balance)}`,
                   }))}
+                  aria-invalid={!!fieldErrors.accountId}
+                  {...formFieldAria("loan-acct", fieldErrors.accountId)}
                 />
+                <FormFieldError controlId="loan-acct" message={fieldErrors.accountId} variant="console" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -593,16 +609,21 @@ export function LoansPageBento() {
                     Amount *
                   </Label>
                   <Input
+                    id="loan-amt"
                     type="number"
                     min="0.01"
                     step="0.01"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setAmount(e.target.value)
+                      clearFieldError("amount")
+                    }}
                     disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                    {...formFieldAria("loan-amt", fieldErrors.amount)}
                   />
+                  <FormFieldError controlId="loan-amt" message={fieldErrors.amount} variant="console" />
                 </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -624,13 +645,19 @@ export function LoansPageBento() {
                     Date *
                   </Label>
                   <DateInput
+                    id="loan-date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setDate(e.target.value)
+                      clearFieldError("date")
+                    }}
                     disabled={submitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                    aria-invalid={!!fieldErrors.date}
+                    {...formFieldAria("loan-date", fieldErrors.date)}
                   />
+                  <FormFieldError controlId="loan-date" message={fieldErrors.date} variant="console" />
                 </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -695,16 +722,20 @@ export function LoansPageBento() {
                 Credits the selected account without counting as income.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={onBorrowedSubmit} inert={borrowedSubmitting}>
+            <form noValidate className="mt-6 space-y-5" onSubmit={onBorrowedSubmit} inert={borrowedSubmitting}>
+              <FormErrorAlert error={borrowedFormError} variant="console" />
               <fieldset disabled={borrowedSubmitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Account *
                 </Label>
                 <AppSelect
+                  id="borrowed-acct"
                   value={borrowedAccountId}
-                  onValueChange={setBorrowedAccountId}
-                  required
+                  onValueChange={(v) => {
+                    setBorrowedAccountId(v)
+                    clearFieldError("borrowedAccountId")
+                  }}
                   disabled={borrowedSubmitting}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
@@ -730,7 +761,6 @@ export function LoansPageBento() {
                     step="0.01"
                     value={borrowedAmount}
                     onChange={(e) => setBorrowedAmount(e.target.value)}
-                    required
                     disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
@@ -758,7 +788,6 @@ export function LoansPageBento() {
                   <DateInput
                     value={borrowedDate}
                     onChange={(e) => setBorrowedDate(e.target.value)}
-                    required
                     disabled={borrowedSubmitting}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}

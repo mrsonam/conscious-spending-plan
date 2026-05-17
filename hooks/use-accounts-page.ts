@@ -9,6 +9,25 @@ import {
   peekCachedJson,
 } from "@/lib/client-fetch-cache"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireDifferent,
+  requireField,
+  requirePositiveNumber,
+  requireSelection,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+
+export type AccountFormFieldKey =
+  | "name"
+  | "bankName"
+  | "accountType"
+  | "startingFunds"
+  | "fromAccountId"
+  | "toAccountId"
+  | "transferAmount"
+  | "transferDate"
 
 export interface AccountRow {
   id: string
@@ -39,6 +58,14 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [editingAccount, setEditingAccount] = useState<AccountRow | null>(null)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [accountFormError, setAccountFormError] = useState<string | null>(null)
+  const [transferFormError, setTransferFormError] = useState<string | null>(null)
+  const {
+    fieldErrors,
+    setFieldErrors,
+    clearFieldError,
+    clearFieldErrors,
+  } = useFormFieldErrors<AccountFormFieldKey>()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null)
 
@@ -150,17 +177,45 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setMessage(null)
+    setAccountFormError(null)
+
+    const accountErrors = buildFieldErrors<AccountFormFieldKey>([
+      ["name", requireField(name, "Account name")],
+      ["bankName", requireField(bankName, "Institution")],
+      ["accountType", requireSelection(accountType, "an account type")],
+      [
+        "startingFunds",
+        editingAccount && startingFunds.trim() === ""
+          ? "Current balance is required."
+          : editingAccount &&
+              startingFunds.trim() !== "" &&
+              !Number.isFinite(parseFloat(startingFunds))
+            ? "Enter a valid current balance."
+            : null,
+      ],
+    ])
+    if (hasFieldErrors(accountErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.name
+        delete next.bankName
+        delete next.accountType
+        delete next.startingFunds
+        return { ...next, ...accountErrors }
+      })
+      return
+    }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.name
+      delete next.bankName
+      delete next.accountType
+      delete next.startingFunds
+      return next
+    })
 
     try {
       const method = editingAccount ? "PUT" : "POST"
-      if (editingAccount) {
-        const balance = parseFloat(startingFunds)
-        if (startingFunds.trim() === "" || Number.isNaN(balance) || !Number.isFinite(balance)) {
-          setMessage({ type: "error", text: "Please enter a valid balance" })
-          return
-        }
-      }
 
       const body = editingAccount
         ? {
@@ -193,10 +248,10 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         await refetchAccounts()
       } else {
         const data = (await response.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error || "Failed to save account" })
+        setAccountFormError(data.error || "Failed to save account")
       }
     } catch {
-      setMessage({ type: "error", text: "An error occurred" })
+      setAccountFormError("An error occurred")
     } finally {
       setSavingAccount(false)
     }
@@ -232,7 +287,47 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
-    setMessage(null)
+    setTransferFormError(null)
+
+    const fromAccountErr = requireSelection(fromAccountId, "a from account")
+    const toAccountErr = requireSelection(toAccountId, "a to account")
+    const transferErrors = buildFieldErrors<AccountFormFieldKey>([
+      ["fromAccountId", fromAccountErr],
+      [
+        "toAccountId",
+        toAccountErr ||
+          (!fromAccountErr && !toAccountErr
+            ? requireDifferent(
+                fromAccountId,
+                toAccountId,
+                "From account",
+                "To account",
+              )
+            : null),
+      ],
+      ["transferAmount", requirePositiveNumber(transferAmount, "Amount")],
+      ["transferDate", requireField(transferDate, "Date")],
+    ])
+    if (hasFieldErrors(transferErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.fromAccountId
+        delete next.toAccountId
+        delete next.transferAmount
+        delete next.transferDate
+        return { ...next, ...transferErrors }
+      })
+      return
+    }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.fromAccountId
+      delete next.toAccountId
+      delete next.transferAmount
+      delete next.transferDate
+      return next
+    })
+
     setTransferring(true)
 
     try {
@@ -263,10 +358,10 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         await refetchAccounts()
       } else {
         const data = (await response.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error || "Failed to transfer funds" })
+        setTransferFormError(data.error || "Failed to transfer funds")
       }
     } catch {
-      setMessage({ type: "error", text: "An error occurred" })
+      setTransferFormError("An error occurred")
     } finally {
       setTransferring(false)
     }
@@ -282,6 +377,13 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     editingAccount,
     message,
     setMessage,
+    accountFormError,
+    setAccountFormError,
+    transferFormError,
+    setTransferFormError,
+    fieldErrors,
+    clearFieldError,
+    clearFieldErrors,
     showDeleteConfirm,
     setShowDeleteConfirm,
     accountToDelete,

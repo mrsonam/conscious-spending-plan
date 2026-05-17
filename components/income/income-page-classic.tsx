@@ -42,7 +42,7 @@ export function IncomePageClassic(p: UseIncomePageResult) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={p.handleSubmit} className="space-y-4" inert={p.calculating}>
+            <form noValidate onSubmit={p.handleSubmit} className="space-y-4" inert={p.calculating}>
               {p.error && (
                 <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
                   {p.error}
@@ -58,7 +58,6 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                   onChange={(e) => p.setIncome(e.target.value)}
                   min="0"
                   step="0.01"
-                  required
                   disabled={p.calculating}
                   placeholder="0.00"
                   className="mt-1"
@@ -84,7 +83,6 @@ export function IncomePageClassic(p: UseIncomePageResult) {
                   id="date-classic"
                   value={p.date}
                   onChange={(e) => p.setDate(e.target.value)}
-                  required
                   disabled={p.calculating}
                   className="mt-1 scheme-light dark:scheme-dark"
                 />

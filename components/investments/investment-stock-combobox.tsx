@@ -168,7 +168,6 @@ export function InvestmentStockCombobox({
           borderColor: TOKENS.outlineGhost,
           color: TOKENS.onSurface,
         }}
-        required
         autoComplete="off"
         role="combobox"
         aria-haspopup="listbox"

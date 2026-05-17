@@ -3,6 +3,22 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireField,
+  requirePositiveNumber,
+  requireSelection,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+
+export type LoanFormFieldKey =
+  | "accountId"
+  | "amount"
+  | "date"
+  | "borrowedAccountId"
+  | "borrowedAmount"
+  | "borrowedDate"
 
 export interface LoanAccountRef {
   id: string
@@ -59,6 +75,14 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   const [loadingLoans, setLoadingLoans] = useState(true)
   const [loadingBorrowedLoans, setLoadingBorrowedLoans] = useState(true)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [lentFormError, setLentFormError] = useState<string | null>(null)
+  const [borrowedFormError, setBorrowedFormError] = useState<string | null>(null)
+  const {
+    fieldErrors,
+    setFieldErrors,
+    clearFieldError,
+    clearFieldErrors,
+  } = useFormFieldErrors<LoanFormFieldKey>()
 
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
@@ -140,19 +164,32 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
 
   const handleSubmit = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
-    setMessage(null)
+    setLentFormError(null)
 
-    if (!accountId || !amount) {
-      setMessage({ type: "error", text: "Please fill in all required fields" })
+    const lentErrors = buildFieldErrors<LoanFormFieldKey>([
+      ["accountId", requireSelection(accountId, "an account")],
+      ["amount", requirePositiveNumber(amount, "Amount")],
+      ["date", requireField(date, "Date")],
+    ])
+    if (hasFieldErrors(lentErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.accountId
+        delete next.amount
+        delete next.date
+        return { ...next, ...lentErrors }
+      })
       return false
     }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.accountId
+      delete next.amount
+      delete next.date
+      return next
+    })
 
     const amountNum = parseFloat(amount)
-    if (amountNum <= 0) {
-      setMessage({ type: "error", text: "Amount must be greater than 0" })
-      return false
-    }
-
     setSubmitting(true)
 
     try {
@@ -227,19 +264,32 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
 
   const handleSubmitBorrowed = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
-    setMessage(null)
+    setBorrowedFormError(null)
 
-    if (!borrowedAccountId || !borrowedAmount) {
-      setMessage({ type: "error", text: "Please fill in all required fields" })
+    const borrowedErrors = buildFieldErrors<LoanFormFieldKey>([
+      ["borrowedAccountId", requireSelection(borrowedAccountId, "an account")],
+      ["borrowedAmount", requirePositiveNumber(borrowedAmount, "Amount")],
+      ["borrowedDate", requireField(borrowedDate, "Date")],
+    ])
+    if (hasFieldErrors(borrowedErrors)) {
+      setFieldErrors((prev) => {
+        const next = { ...prev }
+        delete next.borrowedAccountId
+        delete next.borrowedAmount
+        delete next.borrowedDate
+        return { ...next, ...borrowedErrors }
+      })
       return false
     }
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.borrowedAccountId
+      delete next.borrowedAmount
+      delete next.borrowedDate
+      return next
+    })
 
     const amountNum = parseFloat(borrowedAmount)
-    if (amountNum <= 0) {
-      setMessage({ type: "error", text: "Amount must be greater than 0" })
-      return false
-    }
-
     setBorrowedSubmitting(true)
 
     try {
@@ -271,10 +321,10 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
         await fetchAccounts()
         return true
       }
-      setMessage({ type: "error", text: data.error || "Failed to record borrowed money" })
+      setBorrowedFormError(data.error || "Failed to record borrowed money")
       return false
     } catch {
-      setMessage({ type: "error", text: "An error occurred" })
+      setBorrowedFormError("An error occurred")
       return false
     } finally {
       setBorrowedSubmitting(false)
@@ -336,6 +386,13 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     loading,
     message,
     setMessage,
+    lentFormError,
+    setLentFormError,
+    borrowedFormError,
+    setBorrowedFormError,
+    fieldErrors,
+    clearFieldError,
+    clearFieldErrors,
     accountId,
     setAccountId,
     amount,

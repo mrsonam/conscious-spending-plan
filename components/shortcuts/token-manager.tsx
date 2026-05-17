@@ -58,7 +58,11 @@ export function TokenManager() {
 
   const onCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!name.trim() || creating) return
+    if (!name.trim()) {
+      setCreateError("Token label is required.")
+      return
+    }
+    if (creating) return
     setCreating(true)
     setCreateError(null)
     try {
@@ -156,7 +160,7 @@ export function TokenManager() {
         </div>
       </div>
 
-      <form onSubmit={onCreate} className="mt-5">
+      <form noValidate onSubmit={onCreate} className="mt-5">
         <label
           htmlFor="token-name"
           className="text-[10px] font-semibold uppercase tracking-wider"

@@ -28,6 +28,11 @@ import { ConsolePaginationBar } from "@/components/wealth-console/console-pagina
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import {
+  FormFieldError,
+  formFieldAria,
+} from "@/components/forms/form-field-error"
 import {
   Building2,
   Calculator,
@@ -623,19 +628,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 spending pillars.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={submitLog} className="mt-6 space-y-5" inert={p.calculating}>
-              {p.error && (
-                <div
-                  className="rounded-xl border px-4 py-3 text-sm"
-                  style={{
-                    background: `color-mix(in srgb, ${ERROR_SOFT} 12%, ${TOKENS.surfaceLow})`,
-                    borderColor: `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`,
-                    color: ERROR_SOFT,
-                  }}
-                >
-                  {p.error}
-                </div>
-              )}
+            <form noValidate onSubmit={submitLog} className="mt-6 space-y-5" inert={p.calculating}>
+              <FormErrorAlert error={p.error || null} variant="console" />
 
               <div>
                 <label
@@ -649,10 +643,12 @@ export function IncomePageBento(p: UseIncomePageResult) {
                   id="income-modal"
                   type="number"
                   value={p.income}
-                  onChange={(e) => p.setIncome(e.target.value)}
+                  onChange={(e) => {
+                    p.setIncome(e.target.value)
+                    p.clearFieldError("income")
+                  }}
                   min="0"
                   step="0.01"
-                  required
                   disabled={p.calculating}
                   placeholder="0.00"
                   className={cn(consoleField, "border-transparent")}
@@ -661,6 +657,12 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
                   }}
+                  {...formFieldAria("income-modal", p.fieldErrors.income)}
+                />
+                <FormFieldError
+                  controlId="income-modal"
+                  message={p.fieldErrors.income}
+                  variant="console"
                 />
               </div>
 
@@ -699,8 +701,10 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 <DateInput
                   id="date-modal"
                   value={p.date}
-                  onChange={(e) => p.setDate(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    p.setDate(e.target.value)
+                    p.clearFieldError("date")
+                  }}
                   disabled={p.calculating}
                   className={cn(consoleField, "border-transparent")}
                   style={{
@@ -708,6 +712,13 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurface,
                   }}
+                  aria-invalid={!!p.fieldErrors.date}
+                  {...formFieldAria("date-modal", p.fieldErrors.date)}
+                />
+                <FormFieldError
+                  controlId="date-modal"
+                  message={p.fieldErrors.date}
+                  variant="console"
                 />
               </div>
 

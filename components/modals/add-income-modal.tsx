@@ -15,6 +15,15 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { AppSelect } from "@/components/ui/app-select";
 import { Calculator } from "lucide-react";
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireField,
+  requirePositiveNumber,
+} from "@/lib/form-validation";
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors";
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert";
+import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error";
 
 interface Account {
   id: string;
@@ -42,7 +51,9 @@ export function AddIncomeModal({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [allocation, setAllocation] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
-  const [error, setError] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
+    useFormFieldErrors<"income" | "date">();
   const [allocateToBudget, setAllocateToBudget] = useState(true);
 
   useEffect(() => {
@@ -79,23 +90,24 @@ export function AddIncomeModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setFormError(null);
+    clearFieldErrors();
 
     if (!allocation) {
-      setError("Please configure your fund allocation settings first");
+      setFormError("Please configure your fund allocation settings first");
+      return;
+    }
+
+    const errs = buildFieldErrors([
+      ["income", requirePositiveNumber(income, "Income")],
+      ["date", requireField(date, "Income date")],
+    ] as const);
+    if (hasFieldErrors(errs)) {
+      setFieldErrors(errs);
       return;
     }
 
     const incomeAmount = parseFloat(income);
-    if (!incomeAmount || incomeAmount <= 0) {
-      setError("Please enter a valid income amount");
-      return;
-    }
-
-    if (!date) {
-      setError("Please select the income date");
-      return;
-    }
 
     const d = new Date(date + "T12:00:00");
     const periodStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
@@ -128,10 +140,10 @@ export function AddIncomeModal({
         onOpenChange(false);
         if (onSuccess) onSuccess();
       } else {
-        setError(data.error || "Failed to calculate breakdown");
+        setFormError(data.error || "Failed to calculate breakdown");
       }
-    } catch (error) {
-      setError("An error occurred. Please try again.");
+    } catch {
+      setFormError("An error occurred. Please try again.");
     } finally {
       setCalculating(false);
     }
@@ -147,12 +159,8 @@ export function AddIncomeModal({
             Enter your income to calculate allocation breakdown
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4" inert={calculating}>
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
-              {error}
-            </div>
-          )}
+        <form noValidate onSubmit={handleSubmit} className="space-y-4" inert={calculating}>
+          <FormErrorAlert error={formError} variant="classic" />
 
           <fieldset disabled={calculating} className="min-w-0 space-y-4 border-0 p-0">
           <div>
@@ -161,14 +169,18 @@ export function AddIncomeModal({
               id="income"
               type="number"
               value={income}
-              onChange={(e) => setIncome(e.target.value)}
+              onChange={(e) => {
+                setIncome(e.target.value);
+                clearFieldError("income");
+              }}
               min="0"
               step="0.01"
-              required
               disabled={calculating}
               placeholder="0.00"
               className="mt-1"
+              {...formFieldAria("income", fieldErrors.income)}
             />
+            <FormFieldError controlId="income" message={fieldErrors.income} variant="classic" />
           </div>
 
           <div>
@@ -189,11 +201,16 @@ export function AddIncomeModal({
             <DateInput
               id="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
+              onChange={(e) => {
+                setDate(e.target.value);
+                clearFieldError("date");
+              }}
               disabled={calculating}
               className="mt-1"
+              aria-invalid={!!fieldErrors.date}
+              {...formFieldAria("date", fieldErrors.date)}
             />
+            <FormFieldError controlId="date" message={fieldErrors.date} variant="classic" />
           </div>
 
           {accounts.length > 0 && (

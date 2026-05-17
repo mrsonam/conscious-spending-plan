@@ -63,7 +63,7 @@ export function ExpenseBulkDialog({ p }: ExpenseBulkDialogProps) {
               expense category (tab or comma).
             </DialogDescription>
           </DialogHeader>
-          <form
+          <form noValidate
             onSubmit={p.handleBulkSubmit}
             className="mt-6 space-y-5"
             inert={p.submittingBulk}

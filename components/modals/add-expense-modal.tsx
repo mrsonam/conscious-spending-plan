@@ -8,6 +8,18 @@ import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireField,
+  requirePositiveNumber,
+  requireSelection,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
+
+type ExpenseModalFieldKey = "accountId" | "amount" | "date" | "fundCategory"
 
 interface Account {
   id: string
@@ -65,7 +77,9 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
   const [date, setDate] = useState("")
   const [accounts, setAccounts] = useState<Account[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
+  const [formError, setFormError] = useState<string | null>(null)
+  const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
+    useFormFieldErrors<ExpenseModalFieldKey>()
 
   useEffect(() => {
     if (open) {
@@ -87,27 +101,27 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setFormError(null)
 
     const selectedAccount = accounts.find(acc => acc.id === accountId)
     const isCashAccount = selectedAccount?.accountType === "cash"
 
-    if (!accountId || !amount || !date) {
-      setError("Please fill in all required fields")
+    const errs = buildFieldErrors<ExpenseModalFieldKey>([
+      ["accountId", requireSelection(accountId, "an account")],
+      ["amount", requirePositiveNumber(amount, "Amount")],
+      ["date", requireField(date, "Date")],
+      [
+        "fundCategory",
+        !isCashAccount ? requireSelection(fundCategory, "a fund category") : null,
+      ],
+    ])
+    if (hasFieldErrors(errs)) {
+      setFieldErrors(errs)
       return
     }
-
-    // Fund category is only required for non-cash accounts
-    if (!isCashAccount && !fundCategory) {
-      setError("Please select a fund category")
-      return
-    }
+    clearFieldErrors()
 
     const amountNum = parseFloat(amount)
-    if (amountNum <= 0) {
-      setError("Amount must be greater than 0")
-      return
-    }
 
     setSubmitting(true)
 
@@ -135,10 +149,10 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
         onOpenChange(false)
         if (onSuccess) onSuccess()
       } else {
-        setError(data.error || "Failed to log expense")
+        setFormError(data.error || "Failed to log expense")
       }
-    } catch (error) {
-      setError("An error occurred")
+    } catch {
+      setFormError("An error occurred")
     } finally {
       setSubmitting(false)
     }
@@ -152,12 +166,8 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
           <DialogTitle>Add Expense</DialogTitle>
           <DialogDescription>Log a new expense and deduct from an account</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4" inert={submitting}>
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200">
-              {error}
-            </div>
-          )}
+        <form noValidate onSubmit={handleSubmit} className="space-y-4" inert={submitting}>
+          <FormErrorAlert error={formError} variant="classic" />
 
           <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -168,20 +178,23 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 value={accountId}
                 onValueChange={(v) => {
                   setAccountId(v)
+                  clearFieldError("accountId")
                   const selectedAccount = accounts.find((acc) => acc.id === v)
                   if (selectedAccount?.accountType === "cash") {
                     setFundCategory("")
                   }
                 }}
                 disabled={submitting}
-                required
                 variant="classic"
                 className="mt-1 rounded-lg"
                 options={accounts.map((account) => ({
                   value: account.id,
                   label: `${account.name} (${account.bankName}) - ${formatCurrency(account.balance)}`,
                 }))}
+                aria-invalid={!!fieldErrors.accountId}
+                {...formFieldAria("account", fieldErrors.accountId)}
               />
+              <FormFieldError controlId="account" message={fieldErrors.accountId} variant="classic" />
             </div>
             <div>
               <Label htmlFor="amount">Amount ($) *</Label>
@@ -189,25 +202,34 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 id="amount"
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  setAmount(e.target.value)
+                  clearFieldError("amount")
+                }}
                 min="0"
                 step="0.01"
-                required
                 disabled={submitting}
                 placeholder="0.00"
                 className="mt-1"
+                {...formFieldAria("amount", fieldErrors.amount)}
               />
+              <FormFieldError controlId="amount" message={fieldErrors.amount} variant="classic" />
             </div>
             <div>
               <Label htmlFor="date">Date *</Label>
               <DateInput
                 id="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
+                onChange={(e) => {
+                  setDate(e.target.value)
+                  clearFieldError("date")
+                }}
                 disabled={submitting}
                 className="mt-1"
+                aria-invalid={!!fieldErrors.date}
+                {...formFieldAria("date", fieldErrors.date)}
               />
+              <FormFieldError controlId="date" message={fieldErrors.date} variant="classic" />
             </div>
             {(() => {
               const selectedAccount = accounts.find(acc => acc.id === accountId)
@@ -223,12 +245,16 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                   <AppSelect
                     id="fundCategory"
                     value={fundCategory}
-                    onValueChange={setFundCategory}
+                    onValueChange={(v) => {
+                      setFundCategory(v)
+                      clearFieldError("fundCategory")
+                    }}
                     disabled={submitting}
-                    required
                     variant="classic"
                     className="mt-1 rounded-lg"
                     placeholder="Select a fund category"
+                    aria-invalid={!!fieldErrors.fundCategory}
+                    {...formFieldAria("fundCategory", fieldErrors.fundCategory)}
                     options={[
                       { value: "", label: "Select a fund category" },
                       ...FUND_CATEGORIES.map((cat) => ({
@@ -236,6 +262,11 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                         label: cat.label,
                       })),
                     ]}
+                  />
+                  <FormFieldError
+                    controlId="fundCategory"
+                    message={fieldErrors.fundCategory}
+                    variant="classic"
                   />
                 </div>
               )

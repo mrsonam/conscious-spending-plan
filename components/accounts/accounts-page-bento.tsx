@@ -29,6 +29,11 @@ import {
   ACCOUNT_FUND_CATEGORIES,
   type AccountRow,
 } from "@/hooks/use-accounts-page"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import {
+  FormFieldError,
+  formFieldAria,
+} from "@/components/forms/form-field-error"
 import { AccountsPageBentoLoading } from "@/components/accounts/accounts-page-bento-loading"
 import {
   ArrowRightLeft,
@@ -69,6 +74,10 @@ export function AccountsPageBento() {
     editingAccount,
     message,
     setMessage,
+    accountFormError,
+    transferFormError,
+    fieldErrors,
+    clearFieldError,
     showDeleteConfirm,
     setShowDeleteConfirm,
     name,
@@ -542,7 +551,8 @@ export function AccountsPageBento() {
                   : "Create a manual account to track balances and transfers."}
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={handleSubmit} inert={savingAccount}>
+            <form noValidate className="mt-6 space-y-5" onSubmit={handleSubmit} inert={savingAccount}>
+              <FormErrorAlert error={accountFormError} variant="console" />
               <fieldset disabled={savingAccount} className="min-w-0 space-y-5 border-0 p-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -550,26 +560,36 @@ export function AccountsPageBento() {
                     Account name *
                   </Label>
                   <Input
+                    id="acct-name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setName(e.target.value)
+                      clearFieldError("name")
+                    }}
                     disabled={savingAccount}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                    {...formFieldAria("acct-name", fieldErrors.name)}
                   />
+                  <FormFieldError controlId="acct-name" message={fieldErrors.name} variant="console" />
                 </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                     Institution *
                   </Label>
                   <Input
+                    id="acct-bank"
                     value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setBankName(e.target.value)
+                      clearFieldError("bankName")
+                    }}
                     disabled={savingAccount}
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                    {...formFieldAria("acct-bank", fieldErrors.bankName)}
                   />
+                  <FormFieldError controlId="acct-bank" message={fieldErrors.bankName} variant="console" />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -580,7 +600,6 @@ export function AccountsPageBento() {
                   <AppSelect
                     value={accountType}
                     onValueChange={setAccountType}
-                    required
                     disabled={savingAccount}
                     variant="console"
                     className={cn(consoleField, "mt-1 border-transparent")}
@@ -663,16 +682,20 @@ export function AccountsPageBento() {
                 Move money between linked accounts.
               </DialogDescription>
             </DialogHeader>
-            <form className="mt-6 space-y-5" onSubmit={handleTransfer} inert={transferring}>
+            <form noValidate className="mt-6 space-y-5" onSubmit={handleTransfer} inert={transferring}>
+              <FormErrorAlert error={transferFormError} variant="console" />
               <fieldset disabled={transferring} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   From *
                 </Label>
                 <AppSelect
+                  id="xfer-from"
                   value={fromAccountId}
-                  onValueChange={setFromAccountId}
-                  required
+                  onValueChange={(v) => {
+                    setFromAccountId(v)
+                    clearFieldError("fromAccountId")
+                  }}
                   disabled={transferring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
@@ -689,16 +712,22 @@ export function AccountsPageBento() {
                       label: `${acc.name} (${formatCurrency(acc.balance)})`,
                     })),
                   ]}
+                  aria-invalid={!!fieldErrors.fromAccountId}
+                  {...formFieldAria("xfer-from", fieldErrors.fromAccountId)}
                 />
+                <FormFieldError controlId="xfer-from" message={fieldErrors.fromAccountId} variant="console" />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   To *
                 </Label>
                 <AppSelect
+                  id="xfer-to"
                   value={toAccountId}
-                  onValueChange={setToAccountId}
-                  required
+                  onValueChange={(v) => {
+                    setToAccountId(v)
+                    clearFieldError("toAccountId")
+                  }}
                   disabled={transferring}
                   variant="console"
                   className={cn(consoleField, "mt-1 border-transparent")}
@@ -717,36 +746,50 @@ export function AccountsPageBento() {
                         label: `${acc.name} (${formatCurrency(acc.balance)})`,
                       })),
                   ]}
+                  aria-invalid={!!fieldErrors.toAccountId}
+                  {...formFieldAria("xfer-to", fieldErrors.toAccountId)}
                 />
+                <FormFieldError controlId="xfer-to" message={fieldErrors.toAccountId} variant="console" />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Date *
                 </Label>
                 <DateInput
+                  id="xfer-date"
                   value={transferDate}
-                  onChange={(e) => setTransferDate(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setTransferDate(e.target.value)
+                    clearFieldError("transferDate")
+                  }}
                   disabled={transferring}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                  aria-invalid={!!fieldErrors.transferDate}
+                  {...formFieldAria("xfer-date", fieldErrors.transferDate)}
                 />
+                <FormFieldError controlId="xfer-date" message={fieldErrors.transferDate} variant="console" />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
                   Amount *
                 </Label>
                 <Input
+                  id="xfer-amt"
                   type="number"
                   min="0.01"
                   step="0.01"
                   value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setTransferAmount(e.target.value)
+                    clearFieldError("transferAmount")
+                  }}
                   disabled={transferring}
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                  {...formFieldAria("xfer-amt", fieldErrors.transferAmount)}
                 />
+                <FormFieldError controlId="xfer-amt" message={fieldErrors.transferAmount} variant="console" />
               </div>
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>

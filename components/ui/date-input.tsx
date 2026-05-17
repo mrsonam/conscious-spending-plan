@@ -88,7 +88,6 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           value={value ?? ""}
           readOnly
           disabled={disabled}
-          required={required}
           aria-hidden
           tabIndex={-1}
         />

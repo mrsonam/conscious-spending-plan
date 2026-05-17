@@ -1184,7 +1184,7 @@ export default function InvestmentsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form noValidate onSubmit={handleSubmit} className="space-y-4">
                       {message && !(message.type === "success" && message.text.includes("fetched prices")) && (
                         <div
                           className={`p-3 rounded-lg text-sm ${
@@ -1210,7 +1210,6 @@ export default function InvestmentsPage() {
                               id="investmentAccount"
                               value={selectedInvestmentAccountId}
                               onValueChange={setSelectedInvestmentAccountId}
-                              required
                               variant="classic"
                               className="mt-1 rounded-lg border border-gray-300"
                               placeholder="Select investment account"
@@ -1259,7 +1258,6 @@ export default function InvestmentsPage() {
                           onFocus={() => investmentSearchQuery.trim() && setShowInvestmentDropdown(true)}
                           placeholder={investmentMarket === "AU" ? "e.g. BHP, CBA, Commonwealth Bank" : "Search or type e.g. AAPL, Apple, TSLA"}
                           className="mt-1"
-                          required
                           autoComplete="off"
                         />
                         {investmentSearchLoading && (
@@ -1318,7 +1316,6 @@ export default function InvestmentsPage() {
                             step="0.01"
                             placeholder="0.00"
                             className="mt-1"
-                            required
                           />
                         </div>
                         <div>
@@ -1342,7 +1339,6 @@ export default function InvestmentsPage() {
                             step="0.01"
                             placeholder="0.00"
                             className="mt-1"
-                            required
                           />
                         </div>
                       </div>
@@ -1396,7 +1392,6 @@ export default function InvestmentsPage() {
                           id="date"
                           value={date}
                           onChange={(e) => setDate(e.target.value)}
-                          required
                           className="mt-1 scheme-light dark:scheme-dark"
                         />
                       </div>

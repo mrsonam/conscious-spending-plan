@@ -10,6 +10,15 @@ import type {
 } from "@/lib/income-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 import {
+  buildFieldErrors,
+  hasFieldErrors,
+  requireField,
+  requirePositiveNumber,
+} from "@/lib/form-validation"
+import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+
+export type IncomeFormFieldKey = "income" | "date"
+import {
   fetchJsonAndCache,
   invalidateCachedJson,
   invalidateCategoryTrackingAndDashboardCaches,
@@ -40,6 +49,12 @@ export function useIncomePage(
   const [date, setDate] = useState("")
   const [calculating, setCalculating] = useState(false)
   const [error, setError] = useState("")
+  const {
+    fieldErrors,
+    setFieldErrors,
+    clearFieldError,
+    clearFieldErrors,
+  } = useFormFieldErrors<IncomeFormFieldKey>()
   const [loadingForm, setLoadingForm] = useState(true)
   const [loadingSummary, setLoadingSummary] = useState(true)
   const [loadingSource, setLoadingSource] = useState(true)
@@ -222,22 +237,23 @@ export function useIncomePage(
   const handleSubmit = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
     setError("")
+    clearFieldErrors()
 
     if (!allocation) {
-      setError("Please configure your fund allocation settings first")
+      setError("Please configure your fund allocation settings first.")
+      return false
+    }
+
+    const incomeErrors = buildFieldErrors<IncomeFormFieldKey>([
+      ["income", requirePositiveNumber(income, "Income")],
+      ["date", requireField(date, "Date")],
+    ])
+    if (hasFieldErrors(incomeErrors)) {
+      setFieldErrors(incomeErrors)
       return false
     }
 
     const incomeAmount = parseFloat(income)
-    if (!incomeAmount || incomeAmount <= 0) {
-      setError("Please enter a valid income amount")
-      return false
-    }
-
-    if (!date) {
-      setError("Please select the income date")
-      return false
-    }
 
     const d = new Date(date + "T12:00:00")
     const periodStart = new Date(d.getFullYear(), d.getMonth(), 1)
@@ -383,6 +399,10 @@ export function useIncomePage(
     setDate,
     calculating,
     error,
+    setError,
+    fieldErrors,
+    clearFieldError,
+    clearFieldErrors,
     loadingForm,
     loadingSummary,
     loadingSource,

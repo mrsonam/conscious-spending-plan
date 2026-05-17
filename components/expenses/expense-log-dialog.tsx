@@ -23,6 +23,11 @@ import {
 } from "@/components/expenses/expense-console-ui"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
+import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import {
+  FormFieldError,
+  formFieldAria,
+} from "@/components/forms/form-field-error"
 
 type ExpenseLogDialogProps = {
   open: boolean
@@ -37,6 +42,8 @@ export function ExpenseLogDialog({
   p,
   onSubmit,
 }: ExpenseLogDialogProps) {
+  const fe = p.fieldErrors
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -64,7 +71,8 @@ export function ExpenseLogDialog({
               Deduct from an account. Non-cash accounts require a fund pillar.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="mt-6 space-y-5" inert={p.submitting}>
+          <form noValidate onSubmit={onSubmit} className="mt-6 space-y-5" inert={p.submitting}>
+            <FormErrorAlert error={p.logFormError} variant="console" />
             <div>
               <label
                 htmlFor="exp-account"
@@ -78,11 +86,11 @@ export function ExpenseLogDialog({
                 value={p.accountId}
                 onValueChange={(v) => {
                   p.setAccountId(v)
+                  p.clearFieldError("accountId")
                   const a = p.accounts.find((acc) => acc.id === v)
                   if (a?.accountType === "cash") p.setFundCategory("")
                 }}
                 disabled={p.submitting}
-                required
                 variant="console"
                 className={cn(expenseConsoleField, "mt-1 border-transparent")}
                 style={{
@@ -90,11 +98,14 @@ export function ExpenseLogDialog({
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
+                aria-invalid={!!fe.accountId}
+                {...formFieldAria("exp-account", fe.accountId)}
                 options={p.accounts.map((account) => ({
                   value: account.id,
                   label: `${account.name} (${account.bankName}) — ${p.formatCurrency(account.balance)}`,
                 }))}
               />
+              <FormFieldError controlId="exp-account" message={fe.accountId} variant="console" />
             </div>
             <div>
               <label
@@ -110,8 +121,10 @@ export function ExpenseLogDialog({
                 min="0"
                 step="0.01"
                 value={p.amount}
-                onChange={(e) => p.setAmount(e.target.value)}
-                required
+                onChange={(e) => {
+                  p.setAmount(e.target.value)
+                  p.clearFieldError("amount")
+                }}
                 disabled={p.submitting}
                 className={cn(expenseConsoleField, "border-transparent")}
                 style={{
@@ -119,7 +132,9 @@ export function ExpenseLogDialog({
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
+                {...formFieldAria("exp-amt", fe.amount)}
               />
+              <FormFieldError controlId="exp-amt" message={fe.amount} variant="console" />
             </div>
             <div>
               <label
@@ -132,8 +147,10 @@ export function ExpenseLogDialog({
               <DateInput
                 id="exp-date"
                 value={p.date}
-                onChange={(e) => p.setDate(e.target.value)}
-                required
+                onChange={(e) => {
+                  p.setDate(e.target.value)
+                  p.clearFieldError("date")
+                }}
                 disabled={p.submitting}
                 className={cn(expenseConsoleField, "border-transparent")}
                 style={{
@@ -141,7 +158,10 @@ export function ExpenseLogDialog({
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
+                aria-invalid={!!fe.date}
+                {...formFieldAria("exp-date", fe.date)}
               />
+              <FormFieldError controlId="exp-date" message={fe.date} variant="console" />
             </div>
             {(() => {
               const sel = p.accounts.find((a) => a.id === p.accountId)
@@ -159,9 +179,11 @@ export function ExpenseLogDialog({
                   <AppSelect
                     id="exp-fund"
                     value={p.fundCategory}
-                    onValueChange={p.setFundCategory}
+                    onValueChange={(v) => {
+                      p.setFundCategory(v)
+                      p.clearFieldError("fundCategory")
+                    }}
                     disabled={p.submitting}
-                    required
                     variant="console"
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
@@ -170,6 +192,8 @@ export function ExpenseLogDialog({
                       color: TOKENS.onSurface,
                     }}
                     placeholder="Select fund"
+                    aria-invalid={!!fe.fundCategory}
+                    {...formFieldAria("exp-fund", fe.fundCategory)}
                     options={[
                       { value: "", label: "Select fund" },
                       ...FUND_CATEGORIES.map((c) => ({
@@ -178,6 +202,7 @@ export function ExpenseLogDialog({
                       })),
                     ]}
                   />
+                  <FormFieldError controlId="exp-fund" message={fe.fundCategory} variant="console" />
                 </div>
               )
             })()}
