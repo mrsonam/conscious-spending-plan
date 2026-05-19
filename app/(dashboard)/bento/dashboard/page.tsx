@@ -7,7 +7,6 @@ import {
   fetchJsonAndCache,
   peekCachedJson,
 } from "@/lib/client-fetch-cache"
-import { WealthConsoleLoadingShell } from "@/components/wealth-console/wealth-console-loading-shell"
 import {
   WealthConsoleView,
   type Account,
@@ -356,8 +355,8 @@ export default function ConsoleV2Page() {
     return ((breakdown.income - lastMonthIncome) / lastMonthIncome) * 100
   }, [breakdown, lastMonthIncome])
 
-  if (status === "loading") {
-    return <WealthConsoleLoadingShell />
+  if (status === "unauthenticated") {
+    return null
   }
 
   return (
@@ -376,7 +375,7 @@ export default function ConsoleV2Page() {
       marketPrices={marketPrices}
       loanSummary={loanSummary}
       subscriptionDash={subscriptionDash}
-      loading={loading}
+      loading={loading || status === "loading"}
     />
   )
 }
