@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { prismaSubscription } from "@/lib/prisma-subscription"
@@ -9,9 +10,60 @@ import {
 } from "@/lib/subscription-utils"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExchangeRate } from "@/lib/fx-rate"
+import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
+import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
+import { dollarsToMinor } from "@/lib/money"
 
 const VALID_FREQ = ["weekly", "monthly", "yearly"] as const
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
+
+type SubscriptionRow = {
+  id: string
+  label: string | null
+  provider: string | null
+  status: string
+  trialEndsAt: Date | null
+  nextRenewalAt: Date | null
+  reminderDaysBefore: number
+  foreignCurrency: string | null
+  foreignAmount: bigint | null
+  recurringExpense: {
+    amount: bigint
+    frequency: string
+    startDate: Date
+    isActive: boolean
+    description: string | null
+    account?: { id: string; name: string; bankName: string }
+  }
+}
+
+function subscriptionToApi(sub: SubscriptionRow, currency: string) {
+  const rec = mapMoneyFieldsToApi(
+    { ...sub.recurringExpense } as Record<string, unknown>,
+    currency,
+    AMOUNT_ONLY_FIELDS,
+  )
+  return {
+    ...sub,
+    foreignAmount:
+      sub.foreignAmount != null
+        ? serializeMoneyForApi(
+            sub.foreignAmount,
+            sub.foreignCurrency ?? currency,
+          )
+        : null,
+    recurringExpense: {
+      ...rec,
+      amount: serializeMoneyForApi(sub.recurringExpense.amount, currency),
+      frequency: sub.recurringExpense.frequency,
+      startDate: sub.recurringExpense.startDate,
+      isActive: sub.recurringExpense.isActive,
+      description: sub.recurringExpense.description,
+      account: sub.recurringExpense.account,
+    },
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,6 +72,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get("status")
     const upcomingDays = Math.min(
@@ -46,38 +99,36 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     })
 
-    // --- FX Processing ---
     const currencies = new Set<string>()
     for (const s of rawSubscriptions) {
-      const fc = (s as any).foreignCurrency
-      if (fc && typeof fc === 'string') currencies.add(fc.toUpperCase())
+      if (s.foreignCurrency) currencies.add(s.foreignCurrency.toUpperCase())
     }
 
     const fxMap: Record<string, number> = {}
     if (currencies.size > 0) {
       await Promise.all(
         Array.from(currencies).map(async (curr) => {
-          fxMap[curr] = await getExchangeRate(curr, "AUD")
+          fxMap[curr] = await getExchangeRate(curr, currency)
         })
       )
     }
 
     const subscriptions = rawSubscriptions.map((s) => {
-      const sub = s as any
-      if (sub.foreignCurrency && sub.foreignAmount) {
-        const rate = fxMap[sub.foreignCurrency.toUpperCase()] || 1
-        return {
-          ...sub,
-          recurringExpense: {
-            ...sub.recurringExpense,
-            // Dynamically evaluate local amount based on FX rate
-            amount: sub.foreignAmount * rate
-          }
-        }
+      let amountMinor = s.recurringExpense.amount
+      if (s.foreignCurrency && s.foreignAmount != null) {
+        const rate = fxMap[s.foreignCurrency.toUpperCase()] || 1
+        const foreignDollars = serializeMoneyForApi(
+          s.foreignAmount,
+          s.foreignCurrency,
+        )
+        amountMinor = dollarsToMinor(foreignDollars * rate, currency)
       }
-      return sub
+      const withAmount = {
+        ...s,
+        recurringExpense: { ...s.recurringExpense, amount: amountMinor },
+      }
+      return subscriptionToApi(withAmount as SubscriptionRow, currency)
     })
-    // -----------------------
 
     const activeForTotals = subscriptions.filter(
       (s) => s.status === "active" && s.recurringExpense.isActive
@@ -85,8 +136,9 @@ export async function GET(request: Request) {
     let monthlyActiveTotal = 0
     for (const s of activeForTotals) {
       const f = s.recurringExpense.frequency as SubscriptionFrequency
+      const amountDollars = s.recurringExpense.amount
       if (["weekly", "monthly", "yearly"].includes(f)) {
-        monthlyActiveTotal += monthlyEquivalent(s.recurringExpense.amount, f)
+        monthlyActiveTotal += monthlyEquivalent(amountDollars, f)
       }
     }
 
@@ -100,7 +152,7 @@ export async function GET(request: Request) {
         nextRenewalAt: s.nextRenewalAt,
         reminderDaysBefore: s.reminderDaysBefore,
         recurringExpense: {
-          amount: s.recurringExpense.amount, // Now reflects local FX rate
+          amount: s.recurringExpense.amount,
           frequency: s.recurringExpense.frequency,
           startDate: s.recurringExpense.startDate,
           isActive: s.recurringExpense.isActive,
@@ -110,13 +162,14 @@ export async function GET(request: Request) {
       upcomingDays
     )
 
-    return NextResponse.json(
+    return moneyJsonResponse(
       {
         subscriptions,
         monthlyActiveTotal,
         upcoming,
         upcomingDays,
       },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
@@ -138,6 +191,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = await request.json()
     const {
       accountId,
@@ -158,7 +212,23 @@ export async function POST(request: Request) {
       foreignAmount,
     } = body
 
-    if (!accountId || !amount || Number(amount) <= 0 || !frequency) {
+    if (!accountId || amount == null || !frequency) {
+      return NextResponse.json(
+        { error: "Account, amount, and frequency are required" },
+        { status: 400 }
+      )
+    }
+
+    let amountMinor: bigint
+    try {
+      amountMinor = parseMoneyFromApi(amount, currency)
+    } catch {
+      return NextResponse.json(
+        { error: "Account, amount, and frequency are required" },
+        { status: 400 }
+      )
+    }
+    if (amountMinor <= 0n) {
       return NextResponse.json(
         { error: "Account, amount, and frequency are required" },
         { status: 400 }
@@ -188,12 +258,24 @@ export async function POST(request: Request) {
         ? Math.floor(reminderDaysBefore)
         : 7
 
+    let foreignAmountMinor: bigint | null = null
+    if (foreignAmount != null && foreignCurrency) {
+      try {
+        foreignAmountMinor = parseMoneyFromApi(
+          foreignAmount,
+          String(foreignCurrency).toUpperCase(),
+        )
+      } catch {
+        foreignAmountMinor = null
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const recurring = await tx.recurringExpense.create({
         data: {
           userId: session.user.id,
           accountId,
-          amount: Number(amount), // Local projected amount Fallback
+          amount: amountMinor,
           description: description || null,
           category: category || null,
           expenseCategory: expenseCategory || null,
@@ -207,7 +289,7 @@ export async function POST(request: Request) {
         },
       })
 
-      const subscription = await (tx as any).subscription.create({
+      const subscription = await (tx as { subscription: { create: (args: object) => Promise<unknown> } }).subscription.create({
         data: {
           userId: session.user.id,
           recurringExpenseId: recurring.id,
@@ -217,8 +299,11 @@ export async function POST(request: Request) {
           trialEndsAt: trialEndsAt ? new Date(trialEndsAt) : null,
           nextRenewalAt: nextRenewalAt ? new Date(nextRenewalAt) : null,
           reminderDaysBefore: rb,
-          foreignCurrency: typeof foreignCurrency === "string" && foreignCurrency ? foreignCurrency.toUpperCase() : null,
-          foreignAmount: typeof foreignAmount === "number" ? foreignAmount : null,
+          foreignCurrency:
+            typeof foreignCurrency === "string" && foreignCurrency
+              ? foreignCurrency.toUpperCase()
+              : null,
+          foreignAmount: foreignAmountMinor,
         },
         include: {
           recurringExpense: {
@@ -232,7 +317,16 @@ export async function POST(request: Request) {
       return subscription
     })
 
-    return NextResponse.json({ subscription: result }, { status: 201 })
+    return moneyJsonResponse(
+      {
+        subscription: subscriptionToApi(
+          result as unknown as SubscriptionRow,
+          currency,
+        ),
+      },
+      currency,
+      { status: 201 }
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { Coins, Mail, Shield, User } from "lucide-react"
+import { Coins, Compass, Mail, Shield, User } from "lucide-react"
+import { useProductTour } from "@/components/product-tour/product-tour-provider"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ function getInitials(email: string) {
 
 export function ProfilePageBento() {
   const { data: session, update } = useSession()
+  const { startTour } = useProductTour()
   const [displayCurrency, setDisplayCurrency] = useState(
     DEFAULT_DISPLAY_CURRENCY,
   )
@@ -224,6 +226,26 @@ export function ProfilePageBento() {
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-12 lg:gap-5">
+        <section
+          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <h2 className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
+            App tour
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+            Replay the spotlight walkthrough of sidebar tabs and core features.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => startTour()}
+            className="mt-4 gap-2 border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd] hover:bg-white/10"
+          >
+            <Compass className="h-4 w-4" />
+            Replay tour
+          </Button>
+        </section>
         <section
           className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}

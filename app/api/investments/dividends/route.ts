@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
+import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
 
 /** Record a dividend payment credited to an investment account (cash in). */
 export async function POST(request: Request) {
@@ -10,6 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = await request.json()
     const { investmentAccountId, name, amount, date } = body
 
@@ -20,8 +25,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const numericAmount = Number(amount)
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    let amountMinor: bigint
+    try {
+      amountMinor = parseMoneyFromApi(amount, currency)
+    } catch {
+      return NextResponse.json({ error: "Amount must be greater than 0" }, { status: 400 })
+    }
+    if (amountMinor <= 0n) {
       return NextResponse.json({ error: "Amount must be greater than 0" }, { status: 400 })
     }
 
@@ -55,7 +65,7 @@ export async function POST(request: Request) {
       const incomeEntry = await tx.incomeEntry.create({
         data: {
           userId: session.user.id,
-          amount: numericAmount,
+          amount: amountMinor,
           description: `Dividend: ${trimmedName}`,
           date: dividendDate,
           periodStart,
@@ -67,7 +77,7 @@ export async function POST(request: Request) {
 
       await tx.account.update({
         where: { id: investmentAccount.id },
-        data: { balance: { increment: numericAmount } },
+        data: { balance: { increment: amountMinor } },
       })
 
       const dividend = await tx.investmentDividend.create({
@@ -75,7 +85,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
           accountId: investmentAccount.id,
           name: trimmedName,
-          amount: numericAmount,
+          amount: amountMinor,
           date: dividendDate,
           incomeEntryId: incomeEntry.id,
         },
@@ -84,8 +94,16 @@ export async function POST(request: Request) {
       return { dividend, incomeEntryId: incomeEntry.id }
     })
 
-    return NextResponse.json(
-      { dividend: row.dividend, incomeEntryId: row.incomeEntryId },
+    return moneyJsonResponse(
+      {
+        dividend: mapMoneyFieldsToApi(
+          row.dividend as unknown as Record<string, unknown>,
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        ),
+        incomeEntryId: row.incomeEntryId,
+      },
+      currency,
       { status: 201 },
     )
   } catch (error: unknown) {

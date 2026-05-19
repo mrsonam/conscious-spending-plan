@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { parseMoneyFromApi } from "@/lib/money-api"
+import {
+  mapMoneyFieldsToApi,
+  mapMoneyListToApi,
+  ACCOUNT_MONEY_FIELDS,
+} from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET() {
   try {
@@ -19,8 +27,16 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     })
 
-    return NextResponse.json(
-      { accounts },
+    const currency = currencyFromSession(session.user.displayCurrency)
+    return moneyJsonResponse(
+      {
+        accounts: mapMoneyListToApi(
+          accounts as Record<string, unknown>[],
+          currency,
+          ACCOUNT_MONEY_FIELDS
+        ),
+      },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
@@ -49,7 +65,20 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, bankName, accountType, startingFunds, isDefault } = await request.json()
+    const { name, bankName, accountType, startingFunds, isDefault } =
+      await request.json()
+    const currency = currencyFromSession(session.user.displayCurrency)
+    let startingMinor = 0n
+    if (startingFunds != null && startingFunds !== "") {
+      try {
+        startingMinor = parseMoneyFromApi(startingFunds, currency)
+      } catch {
+        return NextResponse.json(
+          { error: "Starting balance must be a valid amount" },
+          { status: 400 }
+        )
+      }
+    }
 
     if (!name || !bankName || !accountType) {
       return NextResponse.json(
@@ -72,13 +101,23 @@ export async function POST(request: Request) {
         name,
         bankName,
         accountType,
-        startingFunds: startingFunds || 0,
-        balance: startingFunds || 0,
+        startingFunds: startingMinor,
+        balance: startingMinor,
         isDefault: isDefault || false,
       },
     })
 
-    return NextResponse.json({ account }, { status: 201 })
+    return moneyJsonResponse(
+      {
+        account: mapMoneyFieldsToApi(
+          account as unknown as Record<string, unknown>,
+          currency,
+          ACCOUNT_MONEY_FIELDS
+        ),
+      },
+      currency,
+      { status: 201 }
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
@@ -137,16 +176,17 @@ export async function PUT(request: Request) {
       })
     }
 
-    let balanceNum: number | undefined
+    const currency = currencyFromSession(session.user.displayCurrency)
+    let balanceMinor: bigint | undefined
     if (balance !== undefined && balance !== null) {
-      const n = typeof balance === "number" ? balance : Number(balance)
-      if (!Number.isFinite(n)) {
+      try {
+        balanceMinor = parseMoneyFromApi(balance, currency)
+      } catch {
         return NextResponse.json(
           { error: "Balance must be a valid number" },
-          { status: 400 },
+          { status: 400 }
         )
       }
-      balanceNum = n
     }
 
     const account = await prisma.account.update({
@@ -156,11 +196,20 @@ export async function PUT(request: Request) {
         ...(bankName && { bankName }),
         ...(accountType && { accountType }),
         ...(isDefault !== undefined && { isDefault }),
-        ...(balanceNum !== undefined && { balance: balanceNum }),
+        ...(balanceMinor !== undefined && { balance: balanceMinor }),
       },
     })
 
-    return NextResponse.json({ account })
+    return moneyJsonResponse(
+      {
+        account: mapMoneyFieldsToApi(
+          account as unknown as Record<string, unknown>,
+          currency,
+          ACCOUNT_MONEY_FIELDS
+        ),
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error updating account:", error)
     return NextResponse.json(

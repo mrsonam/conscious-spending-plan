@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear } from "@/lib/monthly-tracking"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { currencyFromSession } from "@/lib/user-currency"
+import { coerceMinor } from "@/lib/money"
 
 /**
  * Get historical spending data for the last 6 months for trend analysis
@@ -17,9 +21,12 @@ export async function GET() {
       )
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const toD = (minor: bigint | null | undefined) =>
+      serializeMoneyForApi(coerceMinor(minor ?? 0n), currency)
+
     const { month: currentMonth, year: currentYear } = getCurrentMonthYear()
     
-    // Get expenses for the last 6 months
     const months: Array<{ month: number; year: number; label: string }> = []
     for (let i = 0; i < 6; i++) {
       const date = new Date(currentYear, currentMonth - 1 - i, 1)
@@ -28,9 +35,8 @@ export async function GET() {
       const label = date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
       months.push({ month, year, label })
     }
-    months.reverse() // Oldest to newest
+    months.reverse()
 
-    // Date range for the 6 months
     const oldestMonth = months[0]
     const newestMonth = months[months.length - 1]
     const overallStart = new Date(oldestMonth.year, oldestMonth.month - 1, 1)
@@ -43,10 +49,8 @@ export async function GET() {
       guiltFreeSpending: [],
     }
 
-    // Build list of (month, year) for the 6 months
     const monthKeys = months.map(m => ({ month: m.month, year: m.year }))
 
-    // Fetch stored CategoryBalances for all 6 months (and previous month of oldest for carryover)
     const oldest = monthKeys[0]
     const prevOfOldest = oldest.month === 1 ? { month: 12, year: oldest.year - 1 } : { month: oldest.month - 1, year: oldest.year }
     const allMonthKeys = [prevOfOldest, ...monthKeys]
@@ -79,7 +83,7 @@ export async function GET() {
       const map: Record<string, number> = { fixedCosts: 0, investment: 0, savings: 0, guiltFreeSpending: 0 }
       for (const b of allCategoryBalances) {
         if (b.month === month && b.year === year && map[b.category] !== undefined) {
-          map[b.category] = b.balance ?? 0
+          map[b.category] = toD(b.balance)
         }
       }
       return map
@@ -90,12 +94,12 @@ export async function GET() {
       for (const e of allExpenses) {
         const d = new Date(e.date)
         if (d >= startOfMonth && d <= endOfMonth && e.category && e.category !== "investment") {
-          spent[e.category] += e.amount
+          spent[e.category] += toD(e.amount)
         }
       }
       for (const inv of allInvestments) {
         const d = new Date(inv.date)
-        if (d >= startOfMonth && d <= endOfMonth) spent.investment += inv.amount
+        if (d >= startOfMonth && d <= endOfMonth) spent.investment += toD(inv.amount)
       }
       return spent
     }
@@ -116,7 +120,6 @@ export async function GET() {
       const categories = ["fixedCosts", "investment", "guiltFreeSpending", "savings"] as const
       const allocatedFromIncome: Record<string, number> = {}
       for (const cat of categories) {
-        // Carryover = remaining from the single previous month only (prevBalances/prevSpent from prior iteration)
         const carryover = Math.max(0, prevBalances[cat] - prevSpent[cat])
         allocatedFromIncome[cat] = Math.max(0, balances[cat] - carryover)
       }
@@ -150,7 +153,7 @@ export async function GET() {
       })
     }
 
-    return NextResponse.json({ history })
+    return moneyJsonResponse({ history }, currency)
   } catch (error) {
     console.error("Error fetching category history:", error)
     return NextResponse.json(

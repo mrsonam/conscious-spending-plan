@@ -17,6 +17,7 @@ import {
   useFundSettingsPage,
   type FundAllocation,
 } from "@/hooks/use-fund-settings-page"
+import { parsePercentOrMoneyInput, tryParseMoneyInput } from "@/lib/money-input"
 
 const fieldClass =
   "w-full rounded-xl border px-3 py-2.5 text-sm tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]"
@@ -34,6 +35,7 @@ const FundFieldBento = React.memo(
     allocation,
     getBalance,
     formatCurrency,
+    currencyCode,
     updateField,
   }: {
     label: string
@@ -47,6 +49,7 @@ const FundFieldBento = React.memo(
     allocation: FundAllocation
     getBalance: (category: string) => number
     formatCurrency: (amount: number) => string
+    currencyCode: string
     updateField: (field: keyof FundAllocation, value: string | number | null) => void
   }) => {
     const type = allocation[typeField] as string
@@ -152,14 +155,22 @@ const FundFieldBento = React.memo(
                   onChange={(e) => {
                     const val = e.target.value
                     setValueInput(val)
-                    const numVal = parseFloat(val)
-                    if (!Number.isNaN(numVal) || val === "" || val === ".") {
-                      updateField(valueField, val === "" || val === "." ? 0 : numVal)
+                    const numVal = parsePercentOrMoneyInput(
+                      val,
+                      type === "percentage" ? "percentage" : "fixed",
+                      currencyCode
+                    )
+                    if (numVal !== null || val === "" || val === ".") {
+                      updateField(valueField, numVal ?? 0)
                     }
                   }}
                   onBlur={(e) => {
-                    const numVal = parseFloat(e.target.value)
-                    if (Number.isNaN(numVal) || numVal < 0) {
+                    const numVal = parsePercentOrMoneyInput(
+                      e.target.value,
+                      type === "percentage" ? "percentage" : "fixed",
+                      currencyCode
+                    )
+                    if (numVal === null || numVal < 0) {
                       setValueInput(value.toString())
                       updateField(valueField, value)
                     } else {
@@ -206,8 +217,8 @@ const FundFieldBento = React.memo(
                     if (val === "") {
                       updateField(capField, null)
                     } else {
-                      const numVal = parseFloat(val)
-                      if (!Number.isNaN(numVal)) {
+                      const numVal = tryParseMoneyInput(val, currencyCode)
+                      if (numVal !== null) {
                         updateField(capField, numVal)
                       }
                     }
@@ -218,8 +229,8 @@ const FundFieldBento = React.memo(
                       setCapInput("")
                       updateField(capField, null)
                     } else {
-                      const numVal = parseFloat(val)
-                      if (Number.isNaN(numVal) || numVal < 0) {
+                      const numVal = tryParseMoneyInput(val, currencyCode)
+                      if (numVal === null || numVal < 0) {
                         setCapInput(cap?.toString() ?? "")
                         updateField(capField, cap)
                       } else {
@@ -372,6 +383,7 @@ export function FundsPageBento() {
     updateField,
     getBalance,
     formatCurrency,
+    currencyCode,
   } = useFundSettingsPage()
 
   if (status === "loading" || loading) {
@@ -499,6 +511,7 @@ export function FundsPageBento() {
               allocation={allocation}
               getBalance={getBalance}
               formatCurrency={formatCurrency}
+              currencyCode={currencyCode}
               updateField={updateField}
             />
           ))}

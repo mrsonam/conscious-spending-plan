@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { coerceMinor } from "@/lib/money"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 function startOfDay(date: Date): Date {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   return d
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
 }
 
 function isWithinRange(date: Date, start: Date, end?: Date | null): boolean {
@@ -41,7 +36,6 @@ function isDueToday(recurring: { frequency: string; startDate: Date; endDate: Da
       return diffDays >= 0 && diffDays % 7 === 0
     }
     case "monthly": {
-      // Run on the same day-of-month as the start date
       return t.getDate() === start.getDate()
     }
     case "yearly": {
@@ -61,12 +55,14 @@ export async function POST(request: Request) {
     const isCron = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
 
     let sessionUserId: string | null = null
+    let currency = "USD"
     if (!isCron) {
       const session = await auth()
       if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
       sessionUserId = session.user.id
+      currency = await getUserDisplayCurrency(session.user.id)
     }
 
     const url = new URL(request.url)
@@ -91,12 +87,13 @@ export async function POST(request: Request) {
         continue
       }
 
-      // Check if an expense that looks like this recurring has already been logged for today
+      const amountMinor = coerceMinor(recurring.amount)
+
       const existing = await prisma.expense.findFirst({
         where: {
           userId: recurring.userId,
           accountId: recurring.accountId,
-          amount: recurring.amount,
+          amount: amountMinor,
           description: recurring.description,
           category: recurring.category,
           expenseCategory: recurring.expenseCategory,
@@ -117,7 +114,7 @@ export async function POST(request: Request) {
       if (!account) {
         continue
       }
-      if (account.balance < recurring.amount) {
+      if (coerceMinor(account.balance) < amountMinor) {
         skippedInsufficient.push(recurring.id)
         continue
       }
@@ -127,7 +124,7 @@ export async function POST(request: Request) {
           data: {
             userId: recurring.userId,
             accountId: recurring.accountId,
-            amount: recurring.amount,
+            amount: amountMinor,
             description: recurring.description,
             category: recurring.category,
             expenseCategory: recurring.expenseCategory,
@@ -139,7 +136,7 @@ export async function POST(request: Request) {
         })
         await tx.account.update({
           where: { id: recurring.accountId },
-          data: { balance: { decrement: recurring.amount } },
+          data: { balance: { decrement: amountMinor } },
         })
         return created
       })
@@ -149,11 +146,14 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
-      processedCount: processedIds.length,
-      processedIds,
-      skippedInsufficient,
-    })
+    return moneyJsonResponse(
+      {
+        processedCount: processedIds.length,
+        processedIds,
+        skippedInsufficient,
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error processing due recurring expenses:", error)
     return NextResponse.json(
@@ -162,4 +162,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
+import { mapMoneyListToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
+import { addMinor, coerceMinor } from "@/lib/money"
 
 type BulkRow = {
-  amount: number
+  amount: unknown
   description?: string | null
   category?: string | null
   expenseCategory?: string | null
@@ -19,6 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = await request.json()
     const { accountId: bodyAccountId, expenses: rawExpenses } = body as {
       accountId?: string
@@ -32,7 +38,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Resolve account: use provided id or user's default (Smart Access) or first account
     let accountId = bodyAccountId
     if (!accountId) {
       const defaultAccount = await prisma.account.findFirst({
@@ -63,27 +68,39 @@ export async function POST(request: Request) {
     }
 
     const today = new Date().toISOString().slice(0, 10)
-    const rows: BulkRow[] = rawExpenses.map((r) => ({
-      amount: Number(r.amount),
-      description: r.description ?? null,
-      category: r.category ?? null,
-      expenseCategory: r.expenseCategory ?? null,
-      date: r.date ?? today,
-    }))
+    const rows: { amountMinor: bigint; description: string | null; category: string | null; expenseCategory: string | null; date: string }[] = []
 
-    const invalid = rows.filter((r) => !Number.isFinite(r.amount) || r.amount <= 0)
-    if (invalid.length > 0) {
-      return NextResponse.json(
-        { error: "Every row must have a valid positive amount" },
-        { status: 400 }
-      )
+    for (const r of rawExpenses) {
+      let amountMinor: bigint
+      try {
+        amountMinor = parseMoneyFromApi(r.amount, currency)
+      } catch {
+        return NextResponse.json(
+          { error: "Every row must have a valid positive amount" },
+          { status: 400 }
+        )
+      }
+      if (amountMinor <= 0n) {
+        return NextResponse.json(
+          { error: "Every row must have a valid positive amount" },
+          { status: 400 }
+        )
+      }
+      rows.push({
+        amountMinor,
+        description: r.description ?? null,
+        category: r.category ?? null,
+        expenseCategory: r.expenseCategory ?? null,
+        date: r.date ?? today,
+      })
     }
 
-    const total = rows.reduce((sum, r) => sum + r.amount, 0)
-    if (account.balance < total) {
+    const totalMinor = rows.reduce((sum, r) => addMinor(sum, r.amountMinor), 0n)
+    const accountBalance = coerceMinor(account.balance)
+    if (accountBalance < totalMinor) {
       return NextResponse.json(
         {
-          error: `Insufficient funds. Total is ${total.toFixed(2)} but account balance is ${account.balance.toFixed(2)}.`,
+          error: `Insufficient funds. Total is ${serializeMoneyForApi(totalMinor, currency).toFixed(2)} but account balance is ${serializeMoneyForApi(accountBalance, currency).toFixed(2)}.`,
         },
         { status: 400 }
       )
@@ -97,11 +114,11 @@ export async function POST(request: Request) {
               data: {
                 userId: session.user.id,
                 accountId,
-                amount: r.amount,
+                amount: r.amountMinor,
                 description: r.description,
                 category: r.category,
                 expenseCategory: r.expenseCategory,
-                date: new Date(r.date!),
+                date: new Date(r.date),
               },
               select: {
                 id: true,
@@ -117,16 +134,25 @@ export async function POST(request: Request) {
 
         await tx.account.update({
           where: { id: accountId },
-          data: { balance: { decrement: total } },
+          data: { balance: { decrement: totalMinor } },
         })
 
-        return { created, total }
+        return { created, totalMinor }
       },
       { timeout: 60000 }
     )
 
-    return NextResponse.json(
-      { created: result.created.length, total: result.total, expenses: result.created },
+    return moneyJsonResponse(
+      {
+        created: result.created.length,
+        total: serializeMoneyForApi(result.totalMinor, currency),
+        expenses: mapMoneyListToApi(
+          result.created as unknown as Record<string, unknown>[],
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        ),
+      },
+      currency,
       { status: 201 }
     )
   } catch (error) {

@@ -22,15 +22,15 @@ export function WealthConsoleLoadingShell() {
         <div className="grid gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="space-y-2">
-              <Skeleton className="h-3 w-24 rounded-md" />
-              <Skeleton className="h-10 w-40 max-w-full rounded-md" />
+              <Skeleton variant="console" className="h-3 w-24 rounded-md" />
+              <Skeleton variant="console" className="h-10 w-40 max-w-full rounded-md" />
             </div>
           ))}
         </div>
-        <Skeleton className="h-[280px] w-full rounded-xl" />
+        <Skeleton variant="console" className="h-[280px] w-full rounded-xl" />
         <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-48 w-full rounded-xl" />
-          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton variant="console" className="h-48 w-full rounded-xl" />
+          <Skeleton variant="console" className="h-48 w-full rounded-xl" />
         </div>
       </div>
     </div>

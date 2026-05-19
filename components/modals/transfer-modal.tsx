@@ -8,6 +8,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -47,7 +48,7 @@ type TransferFieldKey =
   | "transferDate"
 
 export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalProps) {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const [fromAccountId, setFromAccountId] = useState("")
   const [toAccountId, setToAccountId] = useState("")
   const [transferAmount, setTransferAmount] = useState("")
@@ -104,7 +105,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
     }
     clearFieldErrors()
 
-    const amountNum = parseFloat(transferAmount)
+    const amountNum = parseMoneyInput(transferAmount, currencyCode)
 
     setTransferring(true)
 

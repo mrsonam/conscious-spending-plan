@@ -35,9 +35,15 @@ model User {
   apiTokens        ApiToken[]
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
-  dashboardTheme   String   @default("classic")
-  /// ISO 4217 code for display (amounts in DB remain in the user's primary unit)
+  dashboardTheme   String   @default("console")
+  /// ISO 4217 code — ledger amounts are stored in minor units of this currency
   displayCurrency  String   @default("AUD")
+  /// Set when the user finishes first-time setup (accounts + bucket splits).
+  onboardingCompletedAt DateTime?
+  /// Set when the user saves bucket splits during onboarding (even if still default %).
+  onboardingBucketsSavedAt DateTime?
+  /// Set when the user finishes the in-app spotlight product tour.
+  productTourCompletedAt DateTime?
 }
 
 /// Personal access token for external integrations (e.g. Apple Shortcuts).
@@ -64,21 +70,25 @@ model FundAllocation {
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Allocation types: 'percentage' or 'fixed'
-  fixedCostsType        String   @default("percentage") // 'percentage' or 'fixed'
-  fixedCostsValue       Float    @default(50) // percentage or fixed amount
-  fixedCostsCap         Float?   // Optional cap amount (null = no cap)
+  fixedCostsType        String   @default("percentage")
+  fixedCostsPercentBps  Int      @default(5000) // 10000 = 100%, 5000 = 50%
+  fixedCostsFixedMinor  BigInt?  // Used when fixedCostsType = 'fixed'
+  fixedCostsCap         BigInt?  // Optional cap in minor units (null = no cap)
   
-  savingsType           String   @default("percentage") // 'percentage' or 'fixed'
-  savingsValue          Float    @default(20) // percentage or fixed amount
-  savingsCap            Float?   // Optional cap amount (null = no cap)
+  savingsType           String   @default("percentage")
+  savingsPercentBps     Int      @default(2000)
+  savingsFixedMinor     BigInt?
+  savingsCap            BigInt?
   
-  investmentType        String   @default("percentage") // 'percentage' or 'fixed'
-  investmentValue       Float    @default(10) // percentage or fixed amount
-  investmentCap         Float?   // Optional cap amount (null = no cap)
+  investmentType        String   @default("percentage")
+  investmentPercentBps  Int      @default(1000)
+  investmentFixedMinor  BigInt?
+  investmentCap         BigInt?
   
-  guiltFreeSpendingType String   @default("percentage") // 'percentage' or 'fixed'
-  guiltFreeSpendingValue Float   @default(20) // percentage or fixed amount
-  guiltFreeSpendingCap  Float?   // Optional cap amount (null = no cap)
+  guiltFreeSpendingType String   @default("percentage")
+  guiltFreeSpendingPercentBps Int @default(2000)
+  guiltFreeSpendingFixedMinor BigInt?
+  guiltFreeSpendingCap  BigInt?
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -88,7 +98,7 @@ model IncomeEntry {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount        Float
+  amount        BigInt
   description   String?  // Optional description for the income entry
   date          DateTime @default(now()) // Date when income was received
   periodStart   DateTime
@@ -99,10 +109,10 @@ model IncomeEntry {
   excludeFromAllocation Boolean @default(false) // If true, this income is not used for fund allocation / budgets
 
   // Amount allocated to each category when this entry was added (used to reverse on delete)
-  allocationFixedCosts       Float?
-  allocationSavings          Float?
-  allocationInvestment       Float?
-  allocationGuiltFreeSpending Float?
+  allocationFixedCosts       BigInt?
+  allocationSavings          BigInt?
+  allocationInvestment       BigInt?
+  allocationGuiltFreeSpending BigInt?
 
   /// When set, this row was created for an investment dividend (one-to-one).
   investmentDividend InvestmentDividend?
@@ -118,8 +128,8 @@ model Account {
   name          String
   bankName      String
   accountType   String   // e.g., "checking", "savings", "investment", "credit"
-  balance       Float    @default(0)
-  startingFunds Float   @default(0)
+  balance       BigInt   @default(0)
+  startingFunds BigInt   @default(0)
   isDefault     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -144,7 +154,7 @@ model Transfer {
   fromAccount   Account  @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Cascade)
   toAccountId   String
   toAccount     Account  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Cascade)
-  amount        Float
+  amount        BigInt
   description   String?
   category      String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
   date          DateTime @default(now()) // Date when transfer occurred
@@ -161,7 +171,7 @@ model CategoryBalance {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
-  balance       Float    @default(0) // Accumulated amount for this category for the current month
+  balance       BigInt   @default(0) // Accumulated amount in minor units for this category for the current month
   month         Int      // Month (1-12)
   year          Int      // Year
   updatedAt     DateTime @updatedAt
@@ -178,8 +188,8 @@ model CategoryMonthClosing {
   category   String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
   month      Int      // Month (1-12)
   year       Int
-  remaining  Float    @default(0) // Carryover to next month (>= 0)
-  overspent  Float    @default(0) // Amount to deduct from next month (>= 0)
+  remaining  BigInt   @default(0) // Carryover to next month in minor units (>= 0)
+  overspent  BigInt   @default(0) // Amount to deduct from next month in minor units (>= 0)
   updatedAt  DateTime @updatedAt
 
   @@unique([userId, category, month, year])
@@ -193,7 +203,7 @@ model Expense {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId       String
   account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount          Float
+  amount          BigInt
   description     String?
   category        String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
   expenseCategory String?  // Expense category: 'food', 'transport', 'bills', 'entertainment', etc.
@@ -212,7 +222,7 @@ model RecurringExpense {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId       String
   account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount          Float
+  amount          BigInt
   description     String?
   category        String?
   expenseCategory String?
@@ -242,7 +252,7 @@ model Subscription {
   nextRenewalAt      DateTime?
   reminderDaysBefore Int      @default(7)
   foreignCurrency    String?  // null if local currency, e.g. "USD" if foreign
-  foreignAmount      Float?   // original amount in the foreign currency
+  foreignAmount      BigInt?  // original amount in foreign currency minor units
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -256,7 +266,7 @@ model CategoryTransaction {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
   type          String   // 'expense' or 'income'
-  amount        Float
+  amount        BigInt
   description   String?
   date          DateTime
   month         Int      // Month (1-12) for tracking
@@ -275,10 +285,10 @@ model InvestmentHolding {
   accountId     String
   account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   name          String   // Name of the share / fund / asset
-  amount        Float    // Total amount invested including brokerage fees
-  pricePerUnit  Float?   // Price per share/unit (optional for backward compatibility)
-  numberOfShares Float?  // Number of shares/units bought (optional for backward compatibility)
-  brokerageFee  Float?   // Optional brokerage / transaction fee for this purchase
+  amount        BigInt   // Total invested in minor units including brokerage fees
+  pricePerUnit  BigInt?  // Price per share/unit in minor units
+  numberOfShares Decimal? @db.Decimal(24, 8) // Share count as exact decimal (not float)
+  brokerageFee  BigInt?  // Optional brokerage fee in minor units
   date          DateTime @default(now())
   createdAt     DateTime @default(now())
 
@@ -295,7 +305,7 @@ model InvestmentDividend {
   accountId String
   account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   name      String   // Symbol / ticker (matches InvestmentHolding.name for the same line)
-  amount    Float
+  amount    BigInt
   date      DateTime @default(now())
   createdAt DateTime @default(now())
   /// Mirrors this dividend on the income ledger (statement); cascades when income row is deleted.
@@ -313,13 +323,13 @@ model Loan {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId     String
   account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount        Float
+  amount        BigInt
   description   String?
   borrowerName  String?
   date          DateTime @default(now())
   dueDate       DateTime?
   status        String   @default("active") // 'active', 'repaid', 'defaulted'
-  repaidAmount  Float    @default(0)
+  repaidAmount  BigInt   @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -334,13 +344,13 @@ model BorrowedLoan {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId     String
   account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount        Float
+  amount        BigInt
   description   String?
   lenderName    String?
   date          DateTime @default(now())
   dueDate       DateTime?
   status        String   @default("active") // 'active', 'repaid', 'defaulted'
-  repaidAmount  Float    @default(0)
+  repaidAmount  BigInt   @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

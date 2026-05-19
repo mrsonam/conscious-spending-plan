@@ -1,163 +1,159 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useSyncExternalStore } from "react"
+import Image from "next/image"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { TOKENS } from "@/lib/wealth-console-tokens"
+import { SplashMarquee } from "./SplashMarquee"
+
+const SPLASH_EASE = [0.32, 0.72, 0, 1] as const
 
 function isLandingPath(pathname: string) {
   return pathname === "/" || pathname === ""
 }
 
-export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme }) {
-  const [isVisible, setIsVisible] = useState(true)
-  const [isFading, setIsFading] = useState(false)
-  const [onLanding, setOnLanding] = useState(false)
+function getLandingSnapshot() {
+  return isLandingPath(window.location.pathname)
+}
 
-  useEffect(() => {
-    setOnLanding(isLandingPath(window.location.pathname))
-  }, [])
+function getServerLandingSnapshot() {
+  return false
+}
+
+function subscribeNoop() {
+  return () => {}
+}
+
+export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme }) {
+  const reduceMotion = useReducedMotion()
+  const [show, setShow] = useState(true)
+  const onLanding = useSyncExternalStore(
+    subscribeNoop,
+    getLandingSnapshot,
+    getServerLandingSnapshot,
+  )
 
   const isConsole = initialTheme === "console" || onLanding
 
   useEffect(() => {
-    const hideSplash = () => {
-      setIsFading(true)
-      setTimeout(() => {
-        setIsVisible(false)
-      }, 300)
-    }
+    const dismiss = () => setShow(false)
 
     if (document.readyState === "complete") {
-      setTimeout(hideSplash, 800)
-    } else {
-      window.addEventListener("load", () => {
-        setTimeout(hideSplash, 800)
-      })
-      const maxTimer = setTimeout(hideSplash, 2000)
-      return () => {
-        clearTimeout(maxTimer)
-        window.removeEventListener("load", hideSplash)
-      }
+      const t = setTimeout(dismiss, 1100)
+      return () => clearTimeout(t)
+    }
+
+    const onLoad = () => setTimeout(dismiss, 1100)
+    window.addEventListener("load", onLoad)
+    const maxTimer = setTimeout(dismiss, 2400)
+    return () => {
+      clearTimeout(maxTimer)
+      window.removeEventListener("load", onLoad)
     }
   }, [])
 
-  if (!isVisible) {
-    return null
-  }
-
   return (
-    <div
-      className={`fixed inset-0 z-[9999] flex items-center justify-center safe-area-splash transition-opacity duration-300 ${
-        isFading ? "opacity-0" : "opacity-100"
-      }`}
-      style={
-        isConsole
-          ? {
-              background: `radial-gradient(ellipse 80% 60% at 50% 0%, rgba(78, 222, 163, 0.12), transparent 50%), ${TOKENS.surface}`,
-            }
-          : {
-              background:
-                "linear-gradient(165deg, #f8fafc 0%, #eef2ff 45%, #e0e7ff 100%)",
-            }
-      }
-    >
-      {isConsole ? (
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.3]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(218,226,253,0.05) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(218,226,253,0.05) 1px, transparent 1px)`,
-            backgroundSize: "40px 40px",
-          }}
-          aria-hidden
-        />
-      ) : (
-        <div
-          className="pointer-events-none absolute -left-16 top-1/4 h-64 w-64 rounded-full bg-indigo-400/30 blur-[72px]"
-          aria-hidden
-        />
-      )}
-
-      <div className="relative z-[1] flex flex-col items-center justify-center space-y-5 px-6">
-        <div
-          className="relative flex h-28 w-28 items-center justify-center sm:h-36 sm:w-36"
-          style={
-            isConsole
-              ? {
-                  filter: `drop-shadow(0 0 28px rgba(78, 222, 163, 0.25))`,
-                }
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="csp-splash"
+          className={`splash-root safe-area-splash ${isConsole ? "splash-root--console" : "splash-root--classic"}`}
+          aria-busy="true"
+          aria-label="Loading Conscious Spending Plan"
+          initial={false}
+          exit={
+            reduceMotion
+              ? { opacity: 0, transition: { duration: 0.22 } }
               : {
-                  filter: "drop-shadow(0 12px 32px rgba(79, 70, 229, 0.15))",
+                  clipPath: "circle(0% at 50% 38%)",
+                  transition: { duration: 0.68, ease: SPLASH_EASE, delay: 0.1 },
                 }
           }
+          style={reduceMotion ? undefined : { clipPath: "circle(150% at 50% 38%)" }}
         >
-          {isConsole ? (
-            <div
-              className="absolute inset-0 rounded-3xl"
-              style={{
-                background: `linear-gradient(145deg, rgba(78,222,163,0.12), transparent 55%)`,
-                border: `1px solid ${TOKENS.outlineGhost}`,
-              }}
+          <SplashMarquee isConsole={isConsole} paused={!!reduceMotion} />
+
+          {isConsole ? <div className="splash-grid" aria-hidden /> : null}
+
+          <div className="splash-content">
+            <motion.div
+              className="splash-hero"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0.2 }
+                  : { type: "spring", duration: 0.55, bounce: 0.18, delay: 0.05 }
+              }
+              exit={
+                reduceMotion
+                  ? { opacity: 0, transition: { duration: 0.18 } }
+                  : {
+                      scale: 1.2,
+                      opacity: 0,
+                      filter: "blur(10px)",
+                      transition: { duration: 0.44, ease: SPLASH_EASE, delay: 0.08 },
+                    }
+              }
+            >
+              <Image
+                src="/icon.svg"
+                alt=""
+                width={128}
+                height={128}
+                className="splash-logo-img"
+                priority
+              />
+            </motion.div>
+
+            <motion.div
+              className="splash-copy"
+              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: SPLASH_EASE, delay: 0.22 }}
+              exit={
+                reduceMotion
+                  ? { opacity: 0, transition: { duration: 0.15 } }
+                  : { opacity: 0, y: -16, transition: { duration: 0.28, ease: SPLASH_EASE } }
+              }
+            >
+              <p
+                className={`splash-eyebrow ${isConsole ? "" : "text-indigo-600/90"}`}
+                style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+              >
+                Conscious spending
+              </p>
+            </motion.div>
+
+            <motion.div
+              className="splash-loader"
               aria-hidden
-            />
-          ) : null}
-          <img
-            src="/icon.svg"
-            alt=""
-            className="relative z-[1] h-full w-full object-contain"
-          />
-        </div>
-
-        <div className="text-center">
-          <p
-            className={`text-[10px] font-semibold uppercase tracking-[0.28em] ${
-              isConsole ? "" : "text-indigo-600/90"
-            }`}
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
-          >
-            Conscious spending
-          </p>
-          <h1
-            className={`mt-2 text-xl font-semibold tracking-tight sm:text-2xl ${
-              isConsole ? "" : "text-slate-900"
-            }`}
-            style={isConsole ? { color: TOKENS.onSurface } : undefined}
-          >
-            Conscious Spending Plan
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-1.5 pt-2" aria-hidden>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-2 w-2 rounded-full animate-bounce"
-              style={{
-                animationDelay: `${i * 150}ms`,
-                backgroundColor: isConsole ? TOKENS.primary : "#6366f1",
-              }}
-            />
-          ))}
-        </div>
-
-        <div className="pt-2" aria-hidden>
-          <div
-            className="h-1 w-24 overflow-hidden rounded-full"
-            style={{
-              backgroundColor: isConsole ? "rgba(218,226,253,0.1)" : "rgba(99,102,241,0.15)",
-            }}
-          >
-            <div
-              className="splash-bar-inner h-full w-1/2"
-              style={{
-                background: isConsole
-                  ? `linear-gradient(90deg, transparent, ${TOKENS.primary}, transparent)`
-                  : "linear-gradient(90deg, transparent, #6366f1, transparent)",
-              }}
-            />
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: SPLASH_EASE, delay: 0.32 }}
+              exit={
+                reduceMotion
+                  ? { opacity: 0, transition: { duration: 0.12 } }
+                  : { opacity: 0, y: 10, scale: 0.96, transition: { duration: 0.22 } }
+              }
+            >
+              <div className="splash-loader-dots">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="splash-loader-dot"
+                    style={{
+                      backgroundColor: isConsole ? TOKENS.primary : "#6366f1",
+                      animationDelay: `${i * 120}ms`,
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

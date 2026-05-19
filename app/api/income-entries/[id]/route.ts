@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { coerceMinor, subtractMinor } from "@/lib/money"
 
 export async function DELETE(
   _request: Request,
@@ -39,19 +40,20 @@ export async function DELETE(
     const incomeDate = entry.date
     const targetMonth = incomeDate.getMonth() + 1
     const targetYear = incomeDate.getFullYear()
+    const entryAmount = coerceMinor(entry.amount)
 
     await prisma.$transaction(
       async (tx) => {
-        // Reverse category balances for this income's allocation (so category tracking matches)
         if (hadAllocation) {
           const categories = [
-            { key: "fixedCosts" as const, amount: entry.allocationFixedCosts ?? 0 },
-            { key: "savings" as const, amount: entry.allocationSavings ?? 0 },
-            { key: "investment" as const, amount: entry.allocationInvestment ?? 0 },
-            { key: "guiltFreeSpending" as const, amount: entry.allocationGuiltFreeSpending ?? 0 },
+            { key: "fixedCosts" as const, amount: entry.allocationFixedCosts ?? 0n },
+            { key: "savings" as const, amount: entry.allocationSavings ?? 0n },
+            { key: "investment" as const, amount: entry.allocationInvestment ?? 0n },
+            { key: "guiltFreeSpending" as const, amount: entry.allocationGuiltFreeSpending ?? 0n },
           ]
           for (const { key, amount } of categories) {
-            if (amount <= 0) continue
+            const allocMinor = coerceMinor(amount)
+            if (allocMinor <= 0n) continue
             const row = await tx.categoryBalance.findFirst({
               where: {
                 userId: session.user.id,
@@ -61,24 +63,24 @@ export async function DELETE(
               },
             })
             if (row) {
-              const newBalance = Math.max(0, (row.balance ?? 0) - amount)
+              const current = coerceMinor(row.balance ?? 0n)
+              const newBalance = subtractMinor(current, allocMinor)
               await tx.categoryBalance.update({
                 where: { id: row.id },
-                data: { balance: newBalance },
+                data: { balance: newBalance < 0n ? 0n : newBalance },
               })
             }
           }
         }
 
-        // Deduct the income amount from the account it was deposited into
-        if (entry.accountId && entry.amount > 0) {
+        if (entry.accountId && entryAmount > 0n) {
           const account = await tx.account.findFirst({
             where: { id: entry.accountId, userId: session.user.id },
           })
           if (account) {
             await tx.account.update({
               where: { id: account.id },
-              data: { balance: { decrement: entry.amount } },
+              data: { balance: { decrement: entryAmount } },
             })
           }
         }

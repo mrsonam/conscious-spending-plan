@@ -1,41 +1,35 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { defaultFundAllocationCreate } from "@/lib/fund-allocation-fields"
+import {
+  fundAllocationFromApi,
+  fundAllocationToApi,
+} from "@/lib/fund-allocation-money"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET() {
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const fundAllocation = await prisma.fundAllocation.findUnique({
-      where: { userId: session.user.id }
+    const currency = currencyFromSession(session.user.displayCurrency)
+
+    let fundAllocation = await prisma.fundAllocation.findUnique({
+      where: { userId: session.user.id },
     })
 
     if (!fundAllocation) {
-      // Create default allocation if it doesn't exist
-      const newAllocation = await prisma.fundAllocation.create({
-        data: {
-          userId: session.user.id,
-          fixedCostsType: "percentage",
-          fixedCostsValue: 50,
-          savingsType: "percentage",
-          savingsValue: 20,
-          investmentType: "percentage",
-          investmentValue: 10,
-          guiltFreeSpendingType: "percentage",
-          guiltFreeSpendingValue: 20,
-        }
+      fundAllocation = await prisma.fundAllocation.create({
+        data: defaultFundAllocationCreate(session.user.id),
       })
-      return NextResponse.json(newAllocation)
     }
 
-    return NextResponse.json(fundAllocation)
+    return moneyJsonResponse(fundAllocationToApi(fundAllocation, currency), currency)
   } catch (error) {
     console.error("Error fetching fund allocation:", error)
     return NextResponse.json(
@@ -48,26 +42,27 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const session = await auth()
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const data = await request.json()
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const data = fundAllocationFromApi(
+      (await request.json()) as Record<string, unknown>,
+      currency
+    )
 
     const fundAllocation = await prisma.fundAllocation.upsert({
       where: { userId: session.user.id },
       update: data,
       create: {
         userId: session.user.id,
-        ...data
-      }
+        ...data,
+      },
     })
 
-    return NextResponse.json(fundAllocation)
+    return moneyJsonResponse(fundAllocationToApi(fundAllocation, currency), currency)
   } catch (error) {
     console.error("Error updating fund allocation:", error)
     return NextResponse.json(

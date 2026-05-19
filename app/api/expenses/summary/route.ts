@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExpenseSummary } from "@/lib/expense-summary"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET() {
   try {
@@ -11,9 +13,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const summary = await getExpenseSummary(session.user.id)
 
-    return NextResponse.json(summary, {
+    return moneyJsonResponse(summary, currency, {
       headers: {
         "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
       },

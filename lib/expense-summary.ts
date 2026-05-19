@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma"
 import { EXPENSE_CATEGORIES } from "@/lib/expense-page-constants"
+import { minorSumToDollars } from "@/lib/money-aggregates"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function getExpenseSummary(userId: string) {
+  const currency = await getUserDisplayCurrency(userId)
+  const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const endOfMonth = new Date(
@@ -82,9 +86,9 @@ export async function getExpenseSummary(userId: string) {
     }),
   ])
 
-  const currentMonthTotal = monthAgg._sum.amount ?? 0
-  const ytdTotal = ytdAgg._sum.amount ?? 0
-  const lastMonthExpenses = prevAgg._sum.amount ?? 0
+  const currentMonthTotal = toD(monthAgg._sum.amount)
+  const ytdTotal = toD(ytdAgg._sum.amount)
+  const lastMonthExpenses = toD(prevAgg._sum.amount)
   const monthOverMonthPct =
     lastMonthExpenses > 0
       ? ((currentMonthTotal - lastMonthExpenses) / lastMonthExpenses) * 100
@@ -102,7 +106,7 @@ export async function getExpenseSummary(userId: string) {
     if (!key) continue
     if (key in fundBreakdownCurrentMonth) {
       fundBreakdownCurrentMonth[key as keyof typeof fundBreakdownCurrentMonth] =
-        row._sum.amount ?? 0
+        toD(row._sum.amount)
     }
   }
 
@@ -112,7 +116,7 @@ export async function getExpenseSummary(userId: string) {
   const prevCategoryAmounts = new Map(
     prevMonthByExpenseCategory.map((row) => [
       row.expenseCategory,
-      row._sum.amount ?? 0,
+      toD(row._sum.amount),
     ]),
   )
 
@@ -120,7 +124,7 @@ export async function getExpenseSummary(userId: string) {
     .filter((row) => row.expenseCategory != null)
     .map((row) => {
       const category = row.expenseCategory as string
-      const amount = row._sum.amount ?? 0
+      const amount = toD(row._sum.amount)
       const previousAmount = prevCategoryAmounts.get(category) ?? 0
       const count = row._count._all
       const momentumPct =

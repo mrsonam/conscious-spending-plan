@@ -8,6 +8,7 @@ import { X, Menu, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useMemo } from "react"
 import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
+import { CSP_OPEN_SIDEBAR_EVENT, NAV_ITEM_TOUR_IDS } from "@/lib/product-tour"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
@@ -20,16 +21,19 @@ function NavRow({
   label,
   active,
   collapsed,
+  tourId,
 }: {
   href: string
   icon: LucideIcon
   label: string
   active: boolean
   collapsed: boolean
+  tourId?: string
 }) {
   return (
     <Link
       href={href}
+      data-tour={tourId}
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
       className={cn(
@@ -134,6 +138,12 @@ export function SidebarBento() {
   useEffect(() => {
     setIsMobileOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const open = () => setIsMobileOpen(true)
+    window.addEventListener(CSP_OPEN_SIDEBAR_EVENT, open)
+    return () => window.removeEventListener(CSP_OPEN_SIDEBAR_EVENT, open)
+  }, [])
 
   useEffect(() => {
     if (isMobileOpen) {
@@ -287,6 +297,7 @@ export function SidebarBento() {
                         label={item.name}
                         active={pathname === item.href}
                         collapsed={railCollapsed}
+                        tourId={NAV_ITEM_TOUR_IDS[item.name]}
                       />
                     ))}
                   </div>

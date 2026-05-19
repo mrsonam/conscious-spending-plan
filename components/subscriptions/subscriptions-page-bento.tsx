@@ -24,6 +24,8 @@ import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { monthlyEquivalent, type SubscriptionFrequency } from "@/lib/subscription-utils"
 import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 
 const CACHE_KEY = "subscriptions:list"
 
@@ -114,6 +116,7 @@ function formatShort(iso: string) {
 }
 
 export function SubscriptionsPageBento() {
+  const { currencyCode } = useFormatCurrency()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([])
   const [monthlyActiveTotal, setMonthlyActiveTotal] = useState(0)
@@ -261,7 +264,12 @@ export function SubscriptionsPageBento() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const amt = parseFloat(amount)
+    let amt: number
+    try {
+      amt = parseMoneyInput(amount, currencyCode)
+    } catch {
+      amt = NaN
+    }
     if (!accountId || !Number.isFinite(amt) || amt <= 0) {
       setMessage({ type: "error", text: "Choose an account and a valid amount." })
       return
@@ -281,7 +289,10 @@ export function SubscriptionsPageBento() {
             nextRenewalAt: nextRenewalAt || null,
             reminderDaysBefore: parseInt(reminderDays, 10) || 7,
             foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
-            foreignAmount: isInternational && foreignAmount ? parseFloat(foreignAmount) : null,
+            foreignAmount:
+              isInternational && foreignAmount && foreignCurrency.trim()
+                ? parseMoneyInput(foreignAmount, foreignCurrency.trim())
+                : null,
             recurring: {
               accountId,
               amount: amt,
@@ -318,7 +329,10 @@ export function SubscriptionsPageBento() {
             reminderDaysBefore: parseInt(reminderDays, 10) || 7,
             status,
             foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
-            foreignAmount: isInternational && foreignAmount ? parseFloat(foreignAmount) : null,
+            foreignAmount:
+              isInternational && foreignAmount && foreignCurrency.trim()
+                ? parseMoneyInput(foreignAmount, foreignCurrency.trim())
+                : null,
           }),
         })
         const data = (await res.json()) as { error?: string }

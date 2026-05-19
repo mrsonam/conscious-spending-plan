@@ -1,12 +1,14 @@
 "use client"
 
 import { useSession } from "next-auth/react"
+import { usePathname } from "next/navigation"
 import { useLayoutEffect } from "react"
 import {
   PWA_STATUS_CHROME_CLASSIC,
   PWA_THEME_COLOR_CONSOLE,
 } from "@/lib/pwa-branding"
 import { getDashboardThemeClient } from "@/lib/dashboard-theme-cookie"
+import { resolveDocumentDashboardTheme } from "@/lib/dashboard-shell-theme"
 
 const META_ID = "csp-theme-color"
 const STATUS_ID = "csp-apple-status-bar"
@@ -24,14 +26,18 @@ function removeAlienThemeColorMetas(): void {
  */
 export function PwaThemeSync() {
   const { data: session, status } = useSession()
+  const pathname = usePathname()
 
   useLayoutEffect(() => {
     if (typeof document === "undefined") return
 
-    const isConsole =
-      status === "authenticated"
-        ? session?.user?.dashboardTheme === "console"
-        : getDashboardThemeClient() === "console"
+    const theme = resolveDocumentDashboardTheme(
+      pathname,
+      session?.user?.dashboardTheme,
+      status === "authenticated",
+      getDashboardThemeClient(),
+    )
+    const isConsole = theme === "console"
     const color = isConsole ? PWA_THEME_COLOR_CONSOLE : PWA_STATUS_CHROME_CLASSIC
 
     removeAlienThemeColorMetas()
@@ -62,11 +68,8 @@ export function PwaThemeSync() {
     document.head.appendChild(statusMeta)
 
     /** Shell background: `globals.css` targets `[data-csp-dashboard-theme="console"]`. */
-    document.documentElement.setAttribute(
-      "data-csp-dashboard-theme",
-      isConsole ? "console" : "classic",
-    )
-  }, [session?.user?.dashboardTheme, status])
+    document.documentElement.setAttribute("data-csp-dashboard-theme", theme)
+  }, [pathname, session?.user?.dashboardTheme, status])
 
   return null
 }

@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { parseMoneyFromApi } from "@/lib/money-api"
+import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
+
+function serializeRecurring(
+  recurring: Record<string, unknown>,
+  currency: string
+) {
+  const out = mapMoneyFieldsToApi(recurring, currency, AMOUNT_ONLY_FIELDS)
+  const account = recurring.account as Record<string, unknown> | undefined
+  if (account) {
+    out.account = account
+  }
+  return out
+}
 
 export async function GET() {
   try {
@@ -10,6 +26,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const recurring = await prisma.recurringExpense.findMany({
       where: { userId: session.user.id },
       include: {
@@ -18,8 +35,13 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json(
-      { recurring },
+    return moneyJsonResponse(
+      {
+        recurring: recurring.map((r) =>
+          serializeRecurring(r as unknown as Record<string, unknown>, currency)
+        ),
+      },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
@@ -41,6 +63,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = await request.json()
     const {
       accountId,
@@ -53,7 +76,23 @@ export async function POST(request: Request) {
       endDate,
     } = body
 
-    if (!accountId || !amount || amount <= 0 || !frequency) {
+    if (!accountId || amount == null || !frequency) {
+      return NextResponse.json(
+        { error: "Account, amount (positive), and frequency are required" },
+        { status: 400 }
+      )
+    }
+
+    let amountMinor: bigint
+    try {
+      amountMinor = parseMoneyFromApi(amount, currency)
+    } catch {
+      return NextResponse.json(
+        { error: "Account, amount (positive), and frequency are required" },
+        { status: 400 }
+      )
+    }
+    if (amountMinor <= 0n) {
       return NextResponse.json(
         { error: "Account, amount (positive), and frequency are required" },
         { status: 400 }
@@ -79,7 +118,7 @@ export async function POST(request: Request) {
       data: {
         userId: session.user.id,
         accountId,
-        amount: Number(amount),
+        amount: amountMinor,
         description: description || null,
         category: category || null,
         expenseCategory: expenseCategory || null,
@@ -93,7 +132,16 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ recurring }, { status: 201 })
+    return moneyJsonResponse(
+      {
+        recurring: serializeRecurring(
+          recurring as unknown as Record<string, unknown>,
+          currency
+        ),
+      },
+      currency,
+      { status: 201 }
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

@@ -1,11 +1,15 @@
 "use client"
 
+import { Suspense } from "react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { CommandPaletteProvider } from "@/components/command-palette"
+import { ProductTourProvider } from "@/components/product-tour/product-tour-provider"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
+    <Suspense fallback={null}>
+      <ProductTourProvider>
     <CommandPaletteProvider>
       <div
         data-dashboard-shell
@@ -18,5 +22,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </CommandPaletteProvider>
+      </ProductTourProvider>
+    </Suspense>
   )
 }

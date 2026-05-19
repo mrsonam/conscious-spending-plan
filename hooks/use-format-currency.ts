@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useCallback, useMemo } from "react"
 import { formatCurrencyAmount } from "@/lib/format-currency"
+import { formatMinor } from "@/lib/money"
 import {
   normalizeDisplayCurrency,
   DEFAULT_DISPLAY_CURRENCY,
@@ -20,8 +21,14 @@ export function useFormatCurrency() {
     [currencyCode]
   )
 
+  const formatCurrencyMinor = useCallback(
+    (minor: bigint) => formatMinor(minor, currencyCode),
+    [currencyCode]
+  )
+
   return {
     formatCurrency,
+    formatCurrencyMinor,
     currencyCode,
     /** When session is not loaded yet, formatting still uses a sensible default. */
     defaultCurrencyCode: DEFAULT_DISPLAY_CURRENCY,

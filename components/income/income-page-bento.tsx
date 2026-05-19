@@ -37,7 +37,6 @@ import {
   Building2,
   Calculator,
   Download,
-  ChevronDown,
   Plus,
   Trash2,
   TrendingDown,
@@ -288,7 +287,6 @@ export function IncomePageBento(p: UseIncomePageResult) {
   const { formatCurrency } = useFormatCurrency()
   const [logOpen, setLogOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
   const showMetricSkeleton =
     p.loadingSummary &&
     p.incomeStats.currentMonthTotal === 0 &&
@@ -296,10 +294,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
   const showSourceSkeleton = p.loadingSource && p.sourceEntries.length === 0
 
   useEffect(() => {
-    if (historyOpen) {
-      void p.ensureHistoryLoaded()
-    }
-  }, [historyOpen, p])
+    void p.ensureHistoryLoaded()
+  }, [p.ensureHistoryLoaded])
 
   const submitLog = async (e: React.FormEvent) => {
     const ok = await p.handleSubmit(e)
@@ -839,44 +835,23 @@ export function IncomePageBento(p: UseIncomePageResult) {
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            {historyOpen ? (
-              <button
-                type="button"
-                disabled={exporting || p.loadingHistory}
-                onClick={exportCsv}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
-                aria-label="Download"
-                title="Export CSV"
-              >
-                <Download className="h-4 w-4" />
-              </button>
-            ) : null}
             <button
               type="button"
-              onClick={() => setHistoryOpen((current) => !current)}
-              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em]"
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.onSurfaceMuted,
-                background: TOKENS.surfaceContainer,
-              }}
+              disabled={exporting || p.loadingHistory}
+              onClick={exportCsv}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50"
+              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+              aria-label="Download"
+              title="Export CSV"
             >
-              {historyOpen ? "Hide history" : "View history"}
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  historyOpen && "rotate-180",
-                )}
-              />
+              <Download className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {historyOpen ? (
-          p.loadingHistory && p.incomeEntries.length === 0 ? (
+        {p.loadingHistory && p.incomeEntries.length === 0 ? (
             <div className="mt-6">
-              <IncomeHistorySkeleton variant="console" />
+              <IncomeHistorySkeleton variant="console" layout="rows" rowCount={5} />
             </div>
           ) : (
             <>
@@ -1000,8 +975,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 onPageChange={p.fetchIncomeEntries}
               />
             </>
-          )
-        ) : null}
+          )}
 
         <ConfirmDialog
           open={p.deleteEntryId !== null}

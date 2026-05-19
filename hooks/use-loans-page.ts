@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -66,7 +67,7 @@ export interface LoansPageAccount {
 }
 
 export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
   const [accounts, setAccounts] = useState<LoansPageAccount[]>([])
   const [loans, setLoans] = useState<LoanRow[]>([])
@@ -189,7 +190,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
       return next
     })
 
-    const amountNum = parseFloat(amount)
+    const amountNum = parseMoneyInput(amount, currencyCode)
     setSubmitting(true)
 
     try {
@@ -289,7 +290,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
       return next
     })
 
-    const amountNum = parseFloat(borrowedAmount)
+    const amountNum = parseMoneyInput(borrowedAmount, currencyCode)
     setBorrowedSubmitting(true)
 
     try {

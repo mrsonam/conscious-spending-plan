@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear, getCurrentMonthIncomeEntries } from "@/lib/monthly-tracking"
+import { getCurrentMonthYear, getIncomeEntriesForMonthByDate } from "@/lib/monthly-tracking"
+import {
+  computeIncomeAllocationsMinor,
+  type CategoryKey,
+  type IncomeAllocationMinor,
+} from "@/lib/income-allocation"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { currencyFromSession } from "@/lib/user-currency"
+import { addMinor, coerceMinor } from "@/lib/money"
 
 /**
  * Recalculate and sync CategoryBalance with actual allocations from income entries
- * This ensures the displayed balances match the actual calculated allocations
  */
 export async function POST() {
   try {
@@ -17,6 +25,8 @@ export async function POST() {
         { status: 401 }
       )
     }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
 
     const fundAllocation = await prisma.fundAllocation.findUnique({
       where: { userId: session.user.id }
@@ -30,105 +40,55 @@ export async function POST() {
     }
 
     const { month: currentMonth, year: currentYear } = getCurrentMonthYear()
-    const existingMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
+    const existingMonthEntries = await getIncomeEntriesForMonthByDate(session.user.id)
+    const monthEntries = existingMonthEntries.filter(
+      (entry) => entry.excludeFromAllocation !== true,
+    )
 
-    // Helper function to calculate allocations for a given income amount
-    const calculateAllocations = (incomeAmount: number) => {
-      let fc = 0
-      let inv = 0
-      let gfs = 0
-      let sav = 0
-
-      if (fundAllocation.fixedCostsType === "fixed") {
-        fc = fundAllocation.fixedCostsValue
-      } else {
-        fc = (incomeAmount * fundAllocation.fixedCostsValue) / 100
-      }
-
-      if (fundAllocation.investmentType === "fixed") {
-        inv = fundAllocation.investmentValue
-      } else {
-        inv = (incomeAmount * fundAllocation.investmentValue) / 100
-      }
-
-      if (fundAllocation.guiltFreeSpendingType === "fixed") {
-        gfs = fundAllocation.guiltFreeSpendingValue
-      } else {
-        gfs = (incomeAmount * fundAllocation.guiltFreeSpendingValue) / 100
-      }
-
-      if (fundAllocation.savingsType === "fixed") {
-        sav = fundAllocation.savingsValue
-      } else {
-        sav = (incomeAmount * fundAllocation.savingsValue) / 100
-      }
-
-      return { fixedCosts: fc, investment: inv, guiltFreeSpending: gfs, savings: sav }
+    let totals: IncomeAllocationMinor = {
+      fixedCosts: 0n,
+      savings: 0n,
+      investment: 0n,
+      guiltFreeSpending: 0n,
+    }
+    const allocatedSoFar: Record<CategoryKey, bigint> = {
+      fixedCosts: 0n,
+      savings: 0n,
+      investment: 0n,
+      guiltFreeSpending: 0n,
     }
 
-    // Calculate total allocations for each category from all income entries
-    let totalFixedCosts = 0
-    let totalInvestment = 0
-    let totalGuiltFreeSpending = 0
-    let totalSavings = 0
-
-    for (const entry of existingMonthEntries) {
-      const allocations = calculateAllocations(entry.amount)
-      totalFixedCosts += allocations.fixedCosts
-      totalInvestment += allocations.investment
-      totalGuiltFreeSpending += allocations.guiltFreeSpending
-      totalSavings += allocations.savings
+    for (const entry of monthEntries) {
+      const incomeMinor = coerceMinor(entry.amount)
+      const alloc = computeIncomeAllocationsMinor(
+        incomeMinor,
+        fundAllocation,
+        currency,
+        (cat) => allocatedSoFar[cat],
+      )
+      totals.fixedCosts = addMinor(totals.fixedCosts, alloc.fixedCosts)
+      totals.savings = addMinor(totals.savings, alloc.savings)
+      totals.investment = addMinor(totals.investment, alloc.investment)
+      totals.guiltFreeSpending = addMinor(
+        totals.guiltFreeSpending,
+        alloc.guiltFreeSpending,
+      )
+      allocatedSoFar.fixedCosts = addMinor(allocatedSoFar.fixedCosts, alloc.fixedCosts)
+      allocatedSoFar.savings = addMinor(allocatedSoFar.savings, alloc.savings)
+      allocatedSoFar.investment = addMinor(allocatedSoFar.investment, alloc.investment)
+      allocatedSoFar.guiltFreeSpending = addMinor(
+        allocatedSoFar.guiltFreeSpending,
+        alloc.guiltFreeSpending,
+      )
     }
 
-    // Apply caps
-    let excessToSavings = 0
-
-    if (fundAllocation.fixedCostsCap !== null && fundAllocation.fixedCostsCap !== undefined) {
-      if (totalFixedCosts > fundAllocation.fixedCostsCap) {
-        const excess = totalFixedCosts - fundAllocation.fixedCostsCap
-        totalFixedCosts = fundAllocation.fixedCostsCap
-        excessToSavings += excess
-      }
-    }
-
-    if (fundAllocation.investmentCap !== null && fundAllocation.investmentCap !== undefined) {
-      if (totalInvestment > fundAllocation.investmentCap) {
-        const excess = totalInvestment - fundAllocation.investmentCap
-        totalInvestment = fundAllocation.investmentCap
-        excessToSavings += excess
-      }
-    }
-
-    if (fundAllocation.guiltFreeSpendingCap !== null && fundAllocation.guiltFreeSpendingCap !== undefined) {
-      if (totalGuiltFreeSpending > fundAllocation.guiltFreeSpendingCap) {
-        const excess = totalGuiltFreeSpending - fundAllocation.guiltFreeSpendingCap
-        totalGuiltFreeSpending = fundAllocation.guiltFreeSpendingCap
-        excessToSavings += excess
-      }
-    }
-
-    if (fundAllocation.savingsCap !== null && fundAllocation.savingsCap !== undefined) {
-      if (totalSavings + excessToSavings > fundAllocation.savingsCap) {
-        const excess = (totalSavings + excessToSavings) - fundAllocation.savingsCap
-        totalSavings = fundAllocation.savingsCap
-        excessToSavings = excess
-      } else {
-        totalSavings += excessToSavings
-      }
-    } else {
-      totalSavings += excessToSavings
-    }
-
-    // Update or create CategoryBalance records with the recalculated values
-    // Use batch operations for better performance
     const categories = [
-      { name: "fixedCosts", balance: totalFixedCosts },
-      { name: "investment", balance: totalInvestment },
-      { name: "guiltFreeSpending", balance: totalGuiltFreeSpending },
-      { name: "savings", balance: totalSavings },
+      { name: "fixedCosts", balance: totals.fixedCosts },
+      { name: "investment", balance: totals.investment },
+      { name: "guiltFreeSpending", balance: totals.guiltFreeSpending },
+      { name: "savings", balance: totals.savings },
     ]
 
-    // Fetch all existing balances in one query
     const existingBalances = await prisma.categoryBalance.findMany({
       where: {
         userId: session.user.id,
@@ -139,7 +99,6 @@ export async function POST() {
 
     const existingMap = new Map(existingBalances.map(b => [b.category, b]))
 
-    // Batch all operations
     const operations = categories.map(cat => {
       const existing = existingMap.get(cat.name)
       if (existing) {
@@ -162,10 +121,16 @@ export async function POST() {
 
     await Promise.all(operations)
 
-    return NextResponse.json({ 
-      message: "Category balances synced successfully",
-      balances: categories
-    })
+    return moneyJsonResponse(
+      {
+        message: "Category balances synced successfully",
+        balances: categories.map((c) => ({
+          name: c.name,
+          balance: serializeMoneyForApi(c.balance, currency),
+        })),
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error syncing category balances:", error)
     return NextResponse.json(

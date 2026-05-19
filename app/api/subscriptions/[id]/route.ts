@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { prismaSubscription } from "@/lib/prisma-subscription"
 import { getDbErrorResponse } from "@/lib/db-error"
+import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
+import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
 
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
 const VALID_FREQ = ["weekly", "monthly", "yearly"] as const
@@ -17,6 +21,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { id } = await params
     const existing = await prismaSubscription.findFirst({
       where: { id, userId: session.user.id },
@@ -62,14 +67,42 @@ export async function PATCH(
       }
     }
 
+    let amountMinor: bigint | undefined
+    if (recurring?.amount != null) {
+      try {
+        amountMinor = parseMoneyFromApi(recurring.amount, currency)
+      } catch {
+        return NextResponse.json({ error: "Amount must be positive" }, { status: 400 })
+      }
+      if (amountMinor <= 0n) {
+        return NextResponse.json({ error: "Amount must be positive" }, { status: 400 })
+      }
+    }
+
+    let foreignAmountMinor: bigint | null | undefined
+    if (foreignAmount !== undefined) {
+      if (foreignAmount == null) {
+        foreignAmountMinor = null
+      } else {
+        const fc =
+          typeof foreignCurrency === "string" && foreignCurrency
+            ? foreignCurrency.toUpperCase()
+            : existing.foreignCurrency ?? currency
+        try {
+          foreignAmountMinor = parseMoneyFromApi(foreignAmount, fc)
+        } catch {
+          return NextResponse.json({ error: "Invalid foreign amount" }, { status: 400 })
+        }
+      }
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       if (recurring && typeof recurring === "object") {
         await tx.recurringExpense.update({
           where: { id: existing.recurringExpenseId },
           data: {
             ...(recurring.accountId != null && { accountId: recurring.accountId }),
-            ...(recurring.amount != null &&
-              Number(recurring.amount) > 0 && { amount: Number(recurring.amount) }),
+            ...(amountMinor != null && { amount: amountMinor }),
             ...(recurring.description !== undefined && {
               description: recurring.description || null,
             }),
@@ -93,7 +126,7 @@ export async function PATCH(
         })
       }
 
-      return (tx as any).subscription.update({
+      return (tx as { subscription: { update: (args: object) => Promise<Record<string, unknown>> } }).subscription.update({
         where: { id },
         data: {
           ...(provider !== undefined && {
@@ -113,11 +146,12 @@ export async function PATCH(
             reminderDaysBefore >= 0 &&
             reminderDaysBefore <= 90 && { reminderDaysBefore: Math.floor(reminderDaysBefore) }),
           ...(foreignCurrency !== undefined && {
-            foreignCurrency: typeof foreignCurrency === "string" && foreignCurrency ? foreignCurrency.toUpperCase() : null,
+            foreignCurrency:
+              typeof foreignCurrency === "string" && foreignCurrency
+                ? foreignCurrency.toUpperCase()
+                : null,
           }),
-          ...(foreignAmount !== undefined && {
-            foreignAmount: typeof foreignAmount === "number" ? foreignAmount : null,
-          }),
+          ...(foreignAmountMinor !== undefined && { foreignAmount: foreignAmountMinor }),
         },
         include: {
           recurringExpense: {
@@ -129,7 +163,29 @@ export async function PATCH(
       })
     })
 
-    return NextResponse.json({ subscription: updated })
+    const sub = updated as {
+      recurringExpense: Record<string, unknown>
+      foreignAmount: bigint | null
+      foreignCurrency: string | null
+    }
+
+    return moneyJsonResponse(
+      {
+        subscription: {
+          ...sub,
+          foreignAmount:
+            sub.foreignAmount != null
+              ? serializeMoneyForApi(sub.foreignAmount, sub.foreignCurrency ?? currency)
+              : null,
+          recurringExpense: mapMoneyFieldsToApi(
+            sub.recurringExpense,
+            currency,
+            AMOUNT_ONLY_FIELDS,
+          ),
+        },
+      },
+      currency
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

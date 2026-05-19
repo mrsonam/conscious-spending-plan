@@ -20,6 +20,7 @@ import { FundsSkeleton } from "@/components/skeletons/funds-skeleton";
 import React from "react";
 import { useFundSettingsPage, type FundAllocation } from "@/hooks/use-fund-settings-page";
 import { BENTO } from "@/lib/app-routes";
+import { parsePercentOrMoneyInput, tryParseMoneyInput } from "@/lib/money-input";
 
 const FundField = React.memo(({
   label,
@@ -30,6 +31,7 @@ const FundField = React.memo(({
   allocation,
   getBalance,
   formatCurrency,
+  currencyCode,
   updateField,
 }: {
   label: string;
@@ -40,6 +42,7 @@ const FundField = React.memo(({
   allocation: FundAllocation;
   getBalance: (category: string) => number;
   formatCurrency: (amount: number) => string;
+  currencyCode: string;
   updateField: (field: keyof FundAllocation, value: string | number | null) => void;
 }) => {
   const type = allocation[typeField] as string;
@@ -86,14 +89,22 @@ const FundField = React.memo(({
               onChange={(e) => {
                 const val = e.target.value;
                 setValueInput(val);
-                const numVal = parseFloat(val);
-                if (!isNaN(numVal) || val === "" || val === ".") {
-                  updateField(valueField, val === "" || val === "." ? 0 : numVal);
+                const numVal = parsePercentOrMoneyInput(
+                  val,
+                  type === "percentage" ? "percentage" : "fixed",
+                  currencyCode
+                );
+                if (numVal !== null || val === "" || val === ".") {
+                  updateField(valueField, numVal ?? 0);
                 }
               }}
               onBlur={(e) => {
-                const numVal = parseFloat(e.target.value);
-                if (isNaN(numVal) || numVal < 0) {
+                const numVal = parsePercentOrMoneyInput(
+                  e.target.value,
+                  type === "percentage" ? "percentage" : "fixed",
+                  currencyCode
+                );
+                if (numVal === null || numVal < 0) {
                   setValueInput(value.toString());
                   updateField(valueField, value);
                 } else {
@@ -123,8 +134,8 @@ const FundField = React.memo(({
                   if (val === "") {
                     updateField(capField, null);
                   } else {
-                    const numVal = parseFloat(val);
-                    if (!isNaN(numVal)) {
+                    const numVal = tryParseMoneyInput(val, currencyCode);
+                    if (numVal !== null) {
                       updateField(capField, numVal);
                     }
                   }
@@ -135,8 +146,8 @@ const FundField = React.memo(({
                     setCapInput("");
                     updateField(capField, null);
                   } else {
-                    const numVal = parseFloat(val);
-                    if (isNaN(numVal) || numVal < 0) {
+                    const numVal = tryParseMoneyInput(val, currencyCode);
+                    if (numVal === null || numVal < 0) {
                       setCapInput(cap?.toString() ?? "");
                       updateField(capField, cap);
                     } else {
@@ -215,6 +226,7 @@ export default function FundsPage() {
     updateField,
     getBalance,
     formatCurrency,
+    currencyCode,
   } = useFundSettingsPage();
 
   useEffect(() => {
@@ -279,6 +291,7 @@ export default function FundsPage() {
                   allocation={allocation}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
+                  currencyCode={currencyCode}
                   updateField={updateField}
                 />
                 <FundField
@@ -290,6 +303,7 @@ export default function FundsPage() {
                   allocation={allocation}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
+                  currencyCode={currencyCode}
                   updateField={updateField}
                 />
                 <FundField
@@ -301,6 +315,7 @@ export default function FundsPage() {
                   allocation={allocation}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
+                  currencyCode={currencyCode}
                   updateField={updateField}
                 />
                 <FundField
@@ -312,6 +327,7 @@ export default function FundsPage() {
                   allocation={allocation}
                   getBalance={getBalance}
                   formatCurrency={formatCurrency}
+                  currencyCode={currencyCode}
                   updateField={updateField}
                 />
               </div>

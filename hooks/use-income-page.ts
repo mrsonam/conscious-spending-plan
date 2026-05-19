@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type {
   FundAllocation,
   IncomeBreakdown,
@@ -16,14 +16,37 @@ import {
   requirePositiveNumber,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
-
-export type IncomeFormFieldKey = "income" | "date"
+import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
+import {
+  applyOptimisticIncomeSummaryDelta,
+  buildOptimisticIncomeEntry,
+  computeOptimisticBreakdown,
+  createOptimisticIncomeId,
+  incomeEntryFromCalculateResponse,
+  isInCurrentMonth,
+} from "@/lib/income-optimistic"
 import {
   fetchJsonAndCache,
-  invalidateCachedJson,
-  invalidateCategoryTrackingAndDashboardCaches,
+  invalidateIncomeDataCaches,
   peekCachedJson,
+  withCacheBust,
 } from "@/lib/client-fetch-cache"
+
+export type IncomeFormFieldKey = "income" | "date"
+
+type FetchOptions = { silent?: boolean }
+
+type IncomeLogSnapshot = {
+  allocation: FundAllocation | null
+  accounts: IncomePageAccount[]
+  breakdown: IncomeBreakdown | null
+  incomeStats: IncomePageStats
+  sourceEntries: IncomeEntry[]
+  incomeEntries: IncomeEntry[]
+  incomeTotal: number
+  incomePage: number
+}
 
 const EMPTY_INCOME_STATS: IncomePageStats = {
   currentMonthTotal: 0,
@@ -36,6 +59,7 @@ export function useIncomePage(
   status: string,
   router: { push: (path: string) => void },
 ) {
+  const { currencyCode } = useFormatCurrency()
   const [allocation, setAllocation] = useState<FundAllocation | null>(null)
   const [accounts, setAccounts] = useState<IncomePageAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState("")
@@ -63,6 +87,11 @@ export function useIncomePage(
   const [allocateToBudget, setAllocateToBudget] = useState(true)
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null)
   const [incomeStats, setIncomeStats] = useState<IncomePageStats>(EMPTY_INCOME_STATS)
+
+  const summaryFetchGenRef = useRef(0)
+  const sourceFetchGenRef = useRef(0)
+  const historyFetchGenRef = useRef(0)
+  const incomeLogInFlightRef = useRef(false)
 
   const applyIncomeListPayload = useCallback((data: Record<string, unknown>) => {
     setIncomeEntries((data.entries as IncomeEntry[]) || [])
@@ -98,6 +127,125 @@ export function useIncomePage(
       setSelectedAccountId(accountsList[0].id)
     }
   }, [])
+
+  const fetchIncomeSummary = useCallback(
+    async (force = false, options?: FetchOptions) => {
+      const silent = options?.silent === true
+      const requestGen = ++summaryFetchGenRef.current
+      const cacheKey = "income:summary"
+
+      if (!force && !silent) {
+        const cached = peekCachedJson<IncomePageStats>(cacheKey, 30_000)
+        if (cached) {
+          applyIncomeStats(cached)
+          setLoadingSummary(false)
+        } else {
+          setLoadingSummary(true)
+        }
+      } else if (!silent) {
+        setLoadingSummary(true)
+      }
+
+      try {
+        const path = "/api/income-entries/summary"
+        const data = await fetchJsonAndCache<IncomePageStats>(
+          cacheKey,
+          force || silent ? withCacheBust(path) : path,
+          undefined,
+          { force: force || silent },
+        )
+        if (requestGen !== summaryFetchGenRef.current) return
+        applyIncomeStats(data)
+      } catch {
+        /* ignore */
+      } finally {
+        if (!silent && requestGen === summaryFetchGenRef.current) {
+          setLoadingSummary(false)
+        }
+      }
+    },
+    [applyIncomeStats],
+  )
+
+  const fetchIncomeSource = useCallback(
+    async (force = false, options?: FetchOptions) => {
+      const silent = options?.silent === true
+      const requestGen = ++sourceFetchGenRef.current
+      const cacheKey = "income:source"
+
+      if (!force && !silent) {
+        const cached = peekCachedJson<{ entries?: IncomeEntry[] }>(cacheKey, 30_000)
+        if (cached) {
+          applySourceEntriesPayload(cached)
+          setLoadingSource(false)
+        } else {
+          setLoadingSource(true)
+        }
+      } else if (!silent) {
+        setLoadingSource(true)
+      }
+
+      try {
+        const path = "/api/income-entries?currentMonth=true"
+        const data = await fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
+          cacheKey,
+          force || silent ? withCacheBust(path) : path,
+          undefined,
+          { force: force || silent },
+        )
+        if (requestGen !== sourceFetchGenRef.current) return
+        applySourceEntriesPayload(data)
+      } catch {
+        /* ignore */
+      } finally {
+        if (!silent && requestGen === sourceFetchGenRef.current) {
+          setLoadingSource(false)
+        }
+      }
+    },
+    [applySourceEntriesPayload],
+  )
+
+  const fetchIncomeEntries = useCallback(
+    async (page: number = 1, force = false, options?: FetchOptions) => {
+      const silent = options?.silent === true
+      const requestGen = ++historyFetchGenRef.current
+      const cacheKey = `income:list:page:${page}`
+
+      if (!force && !silent) {
+        const cached = peekCachedJson<Record<string, unknown>>(cacheKey, 30_000)
+        if (cached) {
+          applyIncomeListPayload(cached)
+          setHasLoadedHistory(true)
+          setLoadingHistory(false)
+        } else {
+          setLoadingHistory(true)
+        }
+      } else if (!silent) {
+        setLoadingHistory(true)
+      }
+
+      try {
+        const path = `/api/income-entries?page=${page}&limit=${CONSOLE_TABLE_PAGE_SIZE}&includeStats=false`
+        const data = await fetchJsonAndCache<Record<string, unknown>>(
+          cacheKey,
+          force || silent ? withCacheBust(path) : `${path}&t=${Date.now()}`,
+          undefined,
+          { force: force || silent },
+        )
+        if (requestGen !== historyFetchGenRef.current) return
+        applyIncomeListPayload(data)
+        setHasLoadedHistory(true)
+      } catch {
+        /* ignore */
+      } finally {
+        if (!silent && requestGen === historyFetchGenRef.current) {
+          setLoadingHistory(false)
+        }
+      }
+    },
+    [applyIncomeListPayload],
+  )
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -174,27 +322,8 @@ export function useIncomePage(
         setLoadingForm(false)
       })
 
-      fetchJsonAndCache<IncomePageStats>(
-        "income:summary",
-        `/api/income-entries/summary?t=${t}`,
-      )
-        .then((data) => {
-          applyIncomeStats(data)
-        })
-        .finally(() => {
-          setLoadingSummary(false)
-        })
-
-      fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
-        "income:source",
-        `/api/income-entries?currentMonth=true&t=${t}`,
-      )
-        .then((data) => {
-          applySourceEntriesPayload(data)
-        })
-        .finally(() => {
-          setLoadingSource(false)
-        })
+      void fetchIncomeSummary(false)
+      void fetchIncomeSource(false)
     }
   }, [
     status,
@@ -203,31 +332,94 @@ export function useIncomePage(
     applyIncomeListPayload,
     applyIncomeStats,
     applySourceEntriesPayload,
+    fetchIncomeSummary,
+    fetchIncomeSource,
   ])
 
-  const fetchIncomeEntries = useCallback(async (page: number = 1) => {
-    const cacheKey = `income:list:page:${page}`
-    const cached = peekCachedJson<Record<string, unknown>>(cacheKey, 30_000)
-    if (cached) {
-      applyIncomeListPayload(cached)
-      setLoadingHistory(false)
-    } else {
-      setLoadingHistory(true)
-    }
-
-    try {
-      const data = await fetchJsonAndCache<Record<string, unknown>>(
-        cacheKey,
-        `/api/income-entries?page=${page}&limit=${CONSOLE_TABLE_PAGE_SIZE}&includeStats=false&t=${Date.now()}`,
+  const applyOptimisticIncome = useCallback(
+    (
+      entry: IncomeEntry,
+      breakdown: IncomeBreakdown,
+      depositAmount: number,
+      account: IncomePageAccount | null,
+    ) => {
+      setBreakdown(breakdown)
+      setIncomeStats((prev) =>
+        applyOptimisticIncomeSummaryDelta(prev, depositAmount, entry.date),
       )
-      applyIncomeListPayload(data)
+
+      if (isInCurrentMonth(entry.date)) {
+        setSourceEntries((prev) => {
+          if (prev.some((row) => row.id === entry.id)) return prev
+          return [entry, ...prev]
+        })
+      }
+
       setHasLoadedHistory(true)
-    } catch {
-      /* ignore */
-    } finally {
-      setLoadingHistory(false)
-    }
-  }, [applyIncomeListPayload])
+      setIncomePage(1)
+      setIncomeEntries((prev) => {
+        if (prev.some((row) => row.id === entry.id)) return prev
+        return [entry, ...prev]
+      })
+      setIncomeTotal((total) => total + 1)
+
+      if (account) {
+        setAccounts((prev) =>
+          prev.map((row) =>
+            row.id === account.id
+              ? { ...row, balance: row.balance + depositAmount }
+              : row,
+          ),
+        )
+      }
+    },
+    [],
+  )
+
+  const rollbackIncomeLog = useCallback((snapshot: IncomeLogSnapshot) => {
+    setAllocation(snapshot.allocation)
+    setAccounts(snapshot.accounts)
+    setBreakdown(snapshot.breakdown)
+    setIncomeStats(snapshot.incomeStats)
+    setSourceEntries(snapshot.sourceEntries)
+    setIncomeEntries(snapshot.incomeEntries)
+    setIncomeTotal(snapshot.incomeTotal)
+    setIncomePage(snapshot.incomePage)
+  }, [])
+
+  const reconcileIncomeData = useCallback(
+    async (opts?: { historyPage?: number; silent?: boolean }) => {
+      invalidateIncomeDataCaches()
+      const page = opts?.historyPage ?? incomePage
+      if (page !== incomePage) {
+        setIncomePage(page)
+      }
+      const fetchOpts = { silent: opts?.silent }
+      await Promise.all([
+        fetchIncomeSummary(true, fetchOpts),
+        fetchIncomeSource(true, fetchOpts),
+        hasLoadedHistory ? fetchIncomeEntries(page, true, fetchOpts) : Promise.resolve(),
+      ])
+    },
+    [
+      incomePage,
+      hasLoadedHistory,
+      fetchIncomeSummary,
+      fetchIncomeSource,
+      fetchIncomeEntries,
+    ],
+  )
+
+  const replaceOptimisticIncomeEntry = useCallback(
+    (optimisticId: string, entry: IncomeEntry) => {
+      const patch = (rows: IncomeEntry[]) =>
+        rows.map((row) => (row.id === optimisticId ? entry : row))
+
+      setSourceEntries(patch)
+      setIncomeEntries(patch)
+    },
+    [],
+  )
 
   const ensureHistoryLoaded = useCallback(async () => {
     if (hasLoadedHistory) return
@@ -253,73 +445,118 @@ export function useIncomePage(
       return false
     }
 
-    const incomeAmount = parseFloat(income)
+    const incomeAmount = parseMoneyInput(income, currencyCode)
+    if (incomeLogInFlightRef.current) return false
 
     const d = new Date(date + "T12:00:00")
     const periodStart = new Date(d.getFullYear(), d.getMonth(), 1)
       .toISOString()
-      .split("T")[0]
+      .split("T")[0]!
     const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0)
       .toISOString()
-      .split("T")[0]
+      .split("T")[0]!
 
-    setCalculating(true)
+    const selectedAccount =
+      accounts.find((acc) => acc.id === selectedAccountId) ?? null
+    const optimisticId = createOptimisticIncomeId()
+    const trimmedDescription = description.trim() || null
+    const optimisticEntry = buildOptimisticIncomeEntry({
+      id: optimisticId,
+      amount: incomeAmount,
+      description: trimmedDescription,
+      date,
+      periodStart,
+      periodEnd,
+      excludeFromAllocation: !allocateToBudget,
+      account: selectedAccount
+        ? {
+            id: selectedAccount.id,
+            name: selectedAccount.name,
+            bankName: selectedAccount.bankName,
+            accountType: selectedAccount.accountType,
+          }
+        : null,
+    })
+    const optimisticBreakdown = computeOptimisticBreakdown(
+      incomeAmount,
+      allocation,
+      { allocateToBudget, account: selectedAccount },
+    )
 
-    try {
-      const response = await fetch("/api/calculate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          income: incomeAmount,
-          description: description.trim() || null,
+    const snapshot: IncomeLogSnapshot = {
+      allocation,
+      accounts,
+      breakdown,
+      incomeStats,
+      sourceEntries,
+      incomeEntries,
+      incomeTotal,
+      incomePage,
+    }
+
+    const payload = {
+      income: incomeAmount,
+      description: trimmedDescription,
+      date,
+      periodStart,
+      periodEnd,
+      accountId: selectedAccountId || null,
+      allocateToBudget,
+    }
+
+    incomeLogInFlightRef.current = true
+    applyOptimisticIncome(
+      optimisticEntry,
+      optimisticBreakdown,
+      incomeAmount,
+      selectedAccount,
+    )
+
+    setIncome("")
+    setDescription("")
+    const today = new Date()
+    setDate(today.toISOString().split("T")[0])
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = (await response.json()) as IncomeBreakdown & {
+          incomeEntryId?: string
+          error?: string
+        }
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to calculate breakdown")
+        }
+
+        setBreakdown(data)
+
+        const serverEntry = incomeEntryFromCalculateResponse(data, {
+          description: trimmedDescription,
           date,
           periodStart,
           periodEnd,
-          accountId: selectedAccountId || null,
-          allocateToBudget,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setBreakdown(data)
-        setIncome("")
-        setDescription("")
-        const today = new Date()
-        setDate(today.toISOString().split("T")[0])
-        invalidateCachedJson(/^income:(summary|source|list:page:|accounts)/)
-        invalidateCategoryTrackingAndDashboardCaches()
-        setLoadingSummary(true)
-        setLoadingSource(true)
-        try {
-          const [summary, source] = await Promise.all([
-            fetchJsonAndCache<IncomePageStats>(
-              "income:summary",
-              `/api/income-entries/summary?t=${Date.now()}`,
-            ),
-            fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
-              "income:source",
-              `/api/income-entries?currentMonth=true&t=${Date.now()}`,
-            ),
-            hasLoadedHistory ? fetchIncomeEntries(incomePage) : Promise.resolve(),
-          ])
-          applyIncomeStats(summary)
-          applySourceEntriesPayload(source)
-        } finally {
-          setLoadingSummary(false)
-          setLoadingSource(false)
+          account: selectedAccount,
+        })
+        if (serverEntry) {
+          replaceOptimisticIncomeEntry(optimisticId, serverEntry)
         }
-        return true
+
+        await reconcileIncomeData({ silent: true })
+      } catch (err) {
+        rollbackIncomeLog(snapshot)
+        setError(
+          err instanceof Error ? err.message : "An error occurred. Please try again.",
+        )
+      } finally {
+        incomeLogInFlightRef.current = false
       }
-      setError(data.error || "Failed to calculate breakdown")
-      return false
-    } catch {
-      setError("An error occurred. Please try again.")
-      return false
-    } finally {
-      setCalculating(false)
-    }
+    })()
+
+    return true
   }
 
   const formatDate = (dateString: string) => {
@@ -332,46 +569,76 @@ export function useIncomePage(
 
   const handleDeleteEntry = async () => {
     if (!deleteEntryId) return
-    try {
-      const response = await fetch(`/api/income-entries/${deleteEntryId}`, {
-        method: "DELETE",
-      })
-      if (response.ok) {
-        setDeleteEntryId(null)
-        invalidateCachedJson(/^income:(summary|source|list:page:)/)
-        invalidateCategoryTrackingAndDashboardCaches()
-        const newTotal = incomeTotal - 1
-        setIncomeTotal(newTotal)
-        const totalPages = Math.max(1, Math.ceil(newTotal / CONSOLE_TABLE_PAGE_SIZE))
-        const nextPage = incomePage > totalPages ? totalPages : incomePage
-        setLoadingSummary(true)
-        setLoadingSource(true)
-        await Promise.all([
-          fetchJsonAndCache<IncomePageStats>(
-            "income:summary",
-            `/api/income-entries/summary?t=${Date.now()}`,
-          ).then((summary) => {
-            applyIncomeStats(summary)
-          }),
-          fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
-            "income:source",
-            `/api/income-entries?currentMonth=true&t=${Date.now()}`,
-          ).then((source) => {
-            applySourceEntriesPayload(source)
-          }),
-          fetchIncomeEntries(
-          incomeEntries.length <= 1 && incomePage > 1
-            ? incomePage - 1
-            : nextPage,
-          ),
-        ]).finally(() => {
-          setLoadingSummary(false)
-          setLoadingSource(false)
-        })
-      }
-    } catch {
-      /* ignore */
+
+    const deletedId = deleteEntryId
+    const deletedEntry =
+      incomeEntries.find((entry) => entry.id === deletedId) ??
+      sourceEntries.find((entry) => entry.id === deletedId)
+
+    const snapshot: IncomeLogSnapshot = {
+      allocation,
+      accounts,
+      breakdown,
+      incomeStats,
+      sourceEntries,
+      incomeEntries,
+      incomeTotal,
+      incomePage,
     }
+
+    const newTotal = Math.max(0, incomeTotal - 1)
+    const totalPages = Math.max(1, Math.ceil(newTotal / CONSOLE_TABLE_PAGE_SIZE))
+    const nextPage =
+      incomeEntries.length <= 1 && incomePage > 1 ? incomePage - 1 : incomePage
+    const resolvedPage = incomePage > totalPages ? totalPages : nextPage
+
+    setDeleteEntryId(null)
+    setIncomeEntries((prev) => prev.filter((entry) => entry.id !== deletedId))
+    setSourceEntries((prev) => prev.filter((entry) => entry.id !== deletedId))
+    setIncomeTotal(newTotal)
+    if (resolvedPage !== incomePage) {
+      setIncomePage(resolvedPage)
+    }
+
+    if (deletedEntry) {
+      setIncomeStats((prev) => {
+        let next = { ...prev }
+        if (isInCurrentMonth(deletedEntry.date)) {
+          next = {
+            ...next,
+            currentMonthTotal: Math.max(
+              0,
+              next.currentMonthTotal - deletedEntry.amount,
+            ),
+          }
+        }
+        return next
+      })
+      if (deletedEntry.account) {
+        setAccounts((prev) =>
+          prev.map((row) =>
+            row.id === deletedEntry.account!.id
+              ? { ...row, balance: row.balance - deletedEntry.amount }
+              : row,
+          ),
+        )
+      }
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/income-entries/${deletedId}`, {
+          method: "DELETE",
+        })
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "Failed to delete income entry")
+        }
+        await reconcileIncomeData({ historyPage: resolvedPage, silent: true })
+      } catch {
+        rollbackIncomeLog(snapshot)
+      }
+    })()
   }
 
   const clearBreakdown = useCallback(() => {

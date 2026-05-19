@@ -16,10 +16,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const code =
-    body && typeof body === "object" && "displayCurrency" in body
-      ? (body as { displayCurrency: unknown }).displayCurrency
-      : undefined
+  const record = body && typeof body === "object" ? (body as Record<string, unknown>) : null
+  const code = record?.displayCurrency
+  const rawName = record?.name
 
   if (!isValidDisplayCurrency(code)) {
     return NextResponse.json(
@@ -28,10 +27,25 @@ export async function PATCH(request: Request) {
     )
   }
 
+  const data: { displayCurrency: string; name?: string | null } = {
+    displayCurrency: code,
+  }
+
+  if (rawName !== undefined) {
+    if (typeof rawName !== "string") {
+      return NextResponse.json({ error: "name must be a string" }, { status: 400 })
+    }
+    const trimmed = rawName.trim()
+    if (trimmed.length > 120) {
+      return NextResponse.json({ error: "name is too long" }, { status: 400 })
+    }
+    data.name = trimmed.length > 0 ? trimmed : null
+  }
+
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { displayCurrency: code },
+    data,
   })
 
-  return NextResponse.json({ displayCurrency: code })
+  return NextResponse.json({ displayCurrency: code, name: data.name ?? undefined })
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   EXPENSE_CATEGORIES,
   FUND_CATEGORIES,
@@ -8,8 +8,9 @@ import {
 import {
   fetchJsonAndCache,
   invalidateCachedJson,
-  invalidateCategoryTrackingAndDashboardCaches,
+  invalidateExpenseDataCaches,
   peekCachedJson,
+  withCacheBust,
 } from "@/lib/client-fetch-cache"
 import type {
   ExpenseEntry,
@@ -20,6 +21,7 @@ import type {
 } from "@/lib/expense-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -28,6 +30,23 @@ import {
   requireSelection,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import {
+  applyOptimisticSummaryDelta,
+  buildOptimisticExpenseEntry,
+  createOptimisticExpenseId,
+  expenseMatchesListFilters,
+  normalizeExpenseFromApi,
+} from "@/lib/expense-optimistic"
+
+type FetchOptions = { silent?: boolean }
+
+type ExpenseLogSnapshot = {
+  accounts: ExpensePageAccount[]
+  expenses: ExpenseEntry[]
+  expensesTotal: number
+  expensesPage: number
+  expenseStats: ExpensePageStats
+}
 
 export type ExpenseLogFieldKey = "accountId" | "amount" | "date" | "fundCategory"
 export type ExpenseRecurringFieldKey =
@@ -61,7 +80,7 @@ export function useExpensePage(
   status: string,
   router: { push: (path: string) => void },
 ) {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const [accounts, setAccounts] = useState<ExpensePageAccount[]>([])
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([])
   const [expensesTotal, setExpensesTotal] = useState(0)
@@ -130,6 +149,11 @@ export function useExpensePage(
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null)
 
+  const accountsFetchGenRef = useRef(0)
+  const summaryFetchGenRef = useRef(0)
+  const expensesFetchGenRef = useRef(0)
+  const expenseLogInFlightRef = useRef(false)
+
   const applyExpenseListPayload = useCallback((data: Record<string, unknown>) => {
     setExpenses((data.expenses as ExpenseEntry[]) || [])
     setExpensesTotal((data.total as number) ?? 0)
@@ -166,7 +190,9 @@ export function useExpensePage(
     }
   }, [])
 
-  const fetchAccounts = useCallback(async (force = false) => {
+  const fetchAccounts = useCallback(async (force = false, options?: FetchOptions) => {
+    const silent = options?.silent === true
+    const requestGen = ++accountsFetchGenRef.current
     const cacheKey = "accounts"
     const cached = !force
       ? peekCachedJson<{ accounts: ExpensePageAccount[] }>(cacheKey, 60_000)
@@ -179,16 +205,19 @@ export function useExpensePage(
         const defaultAccount = list.find((acc) => acc.isDefault)
         setAccountId((prev) => prev || defaultAccount?.id || list[0].id)
       }
-      setLoadingAccounts(false)
-    } else {
+      if (!silent) setLoadingAccounts(false)
+    } else if (!silent) {
       setLoadingAccounts(true)
     }
 
     try {
       const data = await fetchJsonAndCache<{ accounts: ExpensePageAccount[] }>(
         cacheKey,
-        "/api/accounts",
+        force ? withCacheBust("/api/accounts") : "/api/accounts",
+        undefined,
+        { force },
       )
+      if (requestGen !== accountsFetchGenRef.current) return
       const list = (data.accounts || []) as ExpensePageAccount[]
       setAccounts(list)
       if (list.length > 0) {
@@ -198,11 +227,15 @@ export function useExpensePage(
     } catch (error) {
       console.error("Error fetching accounts:", error)
     } finally {
-      setLoadingAccounts(false)
+      if (!silent && requestGen === accountsFetchGenRef.current) {
+        setLoadingAccounts(false)
+      }
     }
   }, [])
 
-  const fetchExpenseSummary = useCallback(async (force = false) => {
+  const fetchExpenseSummary = useCallback(async (force = false, options?: FetchOptions) => {
+    const silent = options?.silent === true
+    const requestGen = ++summaryFetchGenRef.current
     const cacheKey = "expenses-summary"
     const cached = !force
       ? peekCachedJson<ExpensePageStats>(cacheKey, 45_000)
@@ -210,26 +243,33 @@ export function useExpensePage(
 
     if (cached) {
       setExpenseStats(cached)
-      setLoadingSummary(false)
-    } else {
+      if (!silent) setLoadingSummary(false)
+    } else if (!silent) {
       setLoadingSummary(true)
     }
 
     try {
       const data = await fetchJsonAndCache<ExpensePageStats>(
         cacheKey,
-        "/api/expenses/summary",
+        force ? withCacheBust("/api/expenses/summary") : "/api/expenses/summary",
+        undefined,
+        { force },
       )
+      if (requestGen !== summaryFetchGenRef.current) return
       setExpenseStats(data)
     } catch (error) {
       console.error("Error fetching expense summary:", error)
     } finally {
-      setLoadingSummary(false)
+      if (!silent && requestGen === summaryFetchGenRef.current) {
+        setLoadingSummary(false)
+      }
     }
   }, [])
 
   const fetchExpenses = useCallback(
-    async (page: number = 1, force = false) => {
+    async (page: number = 1, force = false, options?: FetchOptions) => {
+      const silent = options?.silent === true
+      const requestGen = ++expensesFetchGenRef.current
       try {
         const params = new URLSearchParams()
         if (filterStartDate) params.append("startDate", filterStartDate)
@@ -250,21 +290,27 @@ export function useExpensePage(
         if (cached) {
           applyExpenseListPayload(cached)
           setHasLoadedExpenses(true)
-          setLoadingExpenses(false)
-        } else {
+          if (!silent) setLoadingExpenses(false)
+        } else if (!silent) {
           setLoadingExpenses(true)
         }
 
+        const listPath = `/api/expenses?${params.toString()}`
         const data = await fetchJsonAndCache<Record<string, unknown>>(
           cacheKey,
-          `/api/expenses?${params.toString()}`,
+          force ? withCacheBust(listPath) : listPath,
+          undefined,
+          { force },
         )
+        if (requestGen !== expensesFetchGenRef.current) return
         applyExpenseListPayload(data)
         setHasLoadedExpenses(true)
       } catch (error) {
         console.error("Error fetching expenses:", error)
       } finally {
-        setLoadingExpenses(false)
+        if (!silent && requestGen === expensesFetchGenRef.current) {
+          setLoadingExpenses(false)
+        }
       }
     },
     [
@@ -275,6 +321,79 @@ export function useExpensePage(
       filterAccountId,
       applyExpenseListPayload,
     ],
+  )
+
+  const listFilters = useCallback(
+    (): {
+      startDate: string
+      endDate: string
+      fundCategory: string
+      expenseCategory: string
+      accountId: string
+    } => ({
+      startDate: filterStartDate,
+      endDate: filterEndDate,
+      fundCategory: filterFundCategory,
+      expenseCategory: filterExpenseCategory,
+      accountId: filterAccountId,
+    }),
+    [
+      filterStartDate,
+      filterEndDate,
+      filterFundCategory,
+      filterExpenseCategory,
+      filterAccountId,
+    ],
+  )
+
+  const applyOptimisticExpense = useCallback(
+    (entry: ExpenseEntry, amountDeducted: number) => {
+      setAccounts((prev) =>
+        prev.map((account) =>
+          account.id === entry.accountId
+            ? { ...account, balance: account.balance - amountDeducted }
+            : account,
+        ),
+      )
+
+      if (expenseMatchesListFilters(entry, listFilters())) {
+        setHasLoadedExpenses(true)
+        setExpensesPage(1)
+        setExpenses((prev) => {
+          if (prev.some((row) => row.id === entry.id)) return prev
+          return [entry, ...prev]
+        })
+        setExpensesTotal((total) => total + 1)
+      }
+
+      setExpenseStats((prev) => applyOptimisticSummaryDelta(prev, entry))
+    },
+    [listFilters],
+  )
+
+  const rollbackExpenseLog = useCallback((snapshot: ExpenseLogSnapshot) => {
+    setAccounts(snapshot.accounts)
+    setExpenses(snapshot.expenses)
+    setExpensesTotal(snapshot.expensesTotal)
+    setExpensesPage(snapshot.expensesPage)
+    setExpenseStats(snapshot.expenseStats)
+  }, [])
+
+  const reconcileExpenseData = useCallback(
+    async (opts?: { page?: number; silent?: boolean }) => {
+      invalidateExpenseDataCaches()
+      const page = opts?.page ?? 1
+      if (page !== expensesPage) {
+        setExpensesPage(page)
+      }
+      const fetchOpts = { silent: opts?.silent }
+      await Promise.all([
+        fetchExpenseSummary(true, fetchOpts),
+        fetchAccounts(true, fetchOpts),
+        fetchExpenses(page, true, fetchOpts),
+      ])
+    },
+    [expensesPage, fetchExpenseSummary, fetchAccounts, fetchExpenses],
   )
 
   const fetchRecurring = useCallback(async (force = false) => {
@@ -317,18 +436,10 @@ export function useExpensePage(
           await fetch("/api/recurring-expenses/process-due", {
             method: "POST",
           })
-          invalidateCachedJson("accounts")
-          invalidateCachedJson("expenses-summary")
-          invalidateCachedJson("expenses:")
           invalidateCachedJson("recurring-expenses")
-          invalidateCategoryTrackingAndDashboardCaches()
-          void fetchAccounts(true)
-          void fetchExpenseSummary(true)
-          if (hasLoadedExpenses) {
-            void fetchExpenses(1, true)
-          }
+          await reconcileExpenseData({ silent: true })
           if (hasLoadedRecurring) {
-            void fetchRecurring(true)
+            await fetchRecurring(true)
           }
         } catch (error) {
           console.error("Error auto-logging recurring expenses:", error)
@@ -341,9 +452,8 @@ export function useExpensePage(
     router,
     fetchAccounts,
     fetchExpenseSummary,
-    fetchExpenses,
+    reconcileExpenseData,
     fetchRecurring,
-    hasLoadedExpenses,
     hasLoadedRecurring,
   ])
 
@@ -398,7 +508,7 @@ export function useExpensePage(
       delete next.recurringFrequency
       return next
     })
-    const amountNum = parseFloat(recurringAmount)
+    const amountNum = parseMoneyInput(recurringAmount, currencyCode)
     setSubmittingRecurring(true)
     try {
       const res = await fetch("/api/recurring-expenses", {
@@ -440,41 +550,67 @@ export function useExpensePage(
   }
 
   const handleLogRecurring = async (id: string) => {
+    const source = recurring.find((item) => item.id === id)
+    if (!source) return
+
+    const logDate = new Date().toISOString().split("T")[0]!
+    const optimisticId = createOptimisticExpenseId()
+    const optimisticEntry = buildOptimisticExpenseEntry({
+      id: optimisticId,
+      accountId: source.accountId,
+      amount: source.amount,
+      description: source.description,
+      category: source.category,
+      expenseCategory: source.expenseCategory,
+      date: logDate,
+      account: source.account,
+    })
+
+    const snapshot: ExpenseLogSnapshot = {
+      accounts,
+      expenses,
+      expensesTotal,
+      expensesPage,
+      expenseStats,
+    }
+
+    applyOptimisticExpense(optimisticEntry, source.amount)
+    setMessage({ type: "success", text: "Expense logged for today." })
     setLoggingRecurringId(id)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/recurring-expenses/${id}/log`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: new Date().toISOString().split("T")[0] }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setMessage({ type: "success", text: "Expense logged for today." })
-        invalidateCachedJson("accounts")
-        invalidateCachedJson("expenses-summary")
-        invalidateCachedJson("expenses:")
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/recurring-expenses/${id}/log`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: logDate }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to log expense.")
+        }
+
+        const created = normalizeExpenseFromApi(data.expense as ExpenseEntry)
+        setExpenses((prev) =>
+          prev.map((row) => (row.id === optimisticId ? created : row)),
+        )
+
         invalidateCachedJson("recurring-expenses")
-        invalidateCategoryTrackingAndDashboardCaches()
-        void fetchAccounts(true)
-        void fetchExpenseSummary(true)
-        if (hasLoadedExpenses) {
-          void fetchExpenses(1, true)
-        }
         if (hasLoadedRecurring) {
-          void fetchRecurring(true)
+          await fetchRecurring(true)
         }
-      } else {
+        await reconcileExpenseData({ silent: true })
+      } catch (error) {
+        rollbackExpenseLog(snapshot)
         setMessage({
           type: "error",
-          text: data.error || "Failed to log expense.",
+          text:
+            error instanceof Error ? error.message : "Failed to log expense.",
         })
+      } finally {
+        setLoggingRecurringId(null)
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred." })
-    } finally {
-      setLoggingRecurringId(null)
-    }
+    })()
   }
 
   const handleDeleteRecurring = (id: string) => {
@@ -492,8 +628,8 @@ export function useExpensePage(
         setMessage({ type: "success", text: "Recurring expense removed." })
         setRecurring((prev) => prev.filter((r) => r.id !== recurringDeleteId))
         invalidateCachedJson("recurring-expenses")
-        invalidateCachedJson("expenses-summary")
-        invalidateCategoryTrackingAndDashboardCaches()
+        invalidateExpenseDataCaches()
+        await fetchExpenseSummary(true)
       } else {
         const data = await res.json()
         setMessage({ type: "error", text: data.error || "Failed to delete." })
@@ -544,54 +680,89 @@ export function useExpensePage(
       return next
     })
 
-    const amountNum = parseFloat(amount)
+    const amountNum = parseMoneyInput(amount, currencyCode)
+    if (!selectedAccount) return false
+    if (expenseLogInFlightRef.current) return false
 
-    setSubmitting(true)
+    const optimisticId = createOptimisticExpenseId()
+    const optimisticEntry = buildOptimisticExpenseEntry({
+      id: optimisticId,
+      accountId,
+      amount: amountNum,
+      description: description || null,
+      category: fundCategory || null,
+      expenseCategory: expenseCategory || null,
+      date,
+      account: {
+        id: selectedAccount.id,
+        name: selectedAccount.name,
+        bankName: selectedAccount.bankName,
+      },
+    })
 
-    try {
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId,
-          amount: amountNum,
-          description: description || null,
-          category: fundCategory || null,
-          expenseCategory: expenseCategory || null,
-          date,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setMessage({ type: "success", text: "Expense logged successfully!" })
-        setLogFormError(null)
-        clearFieldErrors()
-        setAmount("")
-        setDescription("")
-        setFundCategory("")
-        setExpenseCategory("")
-        setShowAddForm(false)
-        invalidateCachedJson("accounts")
-        invalidateCachedJson("expenses-summary")
-        invalidateCachedJson("expenses:")
-        invalidateCategoryTrackingAndDashboardCaches()
-        void fetchExpenseSummary(true)
-        void fetchAccounts(true)
-        if (hasLoadedExpenses) {
-          void fetchExpenses(1, true)
-        }
-        return true
-      }
-      setLogFormError(data.error || "Failed to log expense")
-      return false
-    } catch {
-      setLogFormError("An error occurred")
-      return false
-    } finally {
-      setSubmitting(false)
+    const snapshot: ExpenseLogSnapshot = {
+      accounts,
+      expenses,
+      expensesTotal,
+      expensesPage,
+      expenseStats,
     }
+
+    const payload = {
+      accountId,
+      amount: amountNum,
+      description: description || null,
+      category: fundCategory || null,
+      expenseCategory: expenseCategory || null,
+      date,
+    }
+
+    expenseLogInFlightRef.current = true
+    applyOptimisticExpense(optimisticEntry, amountNum)
+
+    setMessage({ type: "success", text: "Expense logged successfully!" })
+    setLogFormError(null)
+    clearFieldErrors()
+    setAmount("")
+    setDescription("")
+    setFundCategory("")
+    setExpenseCategory("")
+    setShowAddForm(false)
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to log expense")
+        }
+
+        const created = normalizeExpenseFromApi(data.expense as ExpenseEntry)
+        setExpenses((prev) =>
+          prev.map((row) => (row.id === optimisticId ? created : row)),
+        )
+
+        await reconcileExpenseData({ silent: true })
+      } catch (error) {
+        rollbackExpenseLog(snapshot)
+        setMessage({
+          type: "error",
+          text:
+            error instanceof Error ? error.message : "Failed to log expense",
+        })
+        setLogFormError(
+          error instanceof Error ? error.message : "Failed to log expense",
+        )
+      } finally {
+        expenseLogInFlightRef.current = false
+      }
+    })()
+
+    return true
   }
 
   const resolveFundCategory = (raw: string | undefined): string | null => {
@@ -652,7 +823,7 @@ export function useExpensePage(
     const rows = lines.map((line) => {
       const parts = line.split(/[\t,]/).map((p) => p.trim())
       const dateRaw = parts[0]
-      const amt = parseFloat(parts[1])
+      const amt = parseMoneyInput(parts[1], currencyCode)
       const desc = parts[2] || null
       const part3 = parts[3]
       const part4 = parts[4]
@@ -690,41 +861,46 @@ export function useExpensePage(
       }
     }
 
-    setSubmittingBulk(true)
-    try {
-      const response = await fetch("/api/expenses/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: bulkAccountId || undefined,
-          expenses: rows,
-        }),
-      })
-      const data = await response.json()
-      if (response.ok) {
+    const bulkPayload = {
+      accountId: bulkAccountId || undefined,
+      expenses: rows,
+    }
+    const rowCount = rows.length
+
+    setMessage({
+      type: "success",
+      text: `Adding ${rowCount} expense(s)…`,
+    })
+    setBulkText("")
+    setShowBulkForm(false)
+
+    void (async () => {
+      setSubmittingBulk(true)
+      try {
+        const response = await fetch("/api/expenses/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bulkPayload),
+        })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Bulk add failed")
+        }
         setMessage({
           type: "success",
           text: `${data.created} expense(s) added. Total: $${(data.total ?? 0).toFixed(2)}`,
         })
-        setBulkText("")
-        setShowBulkForm(false)
-        invalidateCachedJson("accounts")
-        invalidateCachedJson("expenses-summary")
-        invalidateCachedJson("expenses:")
-        invalidateCategoryTrackingAndDashboardCaches()
-        void fetchExpenseSummary(true)
-        void fetchAccounts(true)
-        if (hasLoadedExpenses) {
-          void fetchExpenses(1, true)
-        }
-      } else {
-        setMessage({ type: "error", text: data.error || "Bulk add failed" })
+        await reconcileExpenseData({ silent: true })
+      } catch (error) {
+        setMessage({
+          type: "error",
+          text: error instanceof Error ? error.message : "An error occurred",
+        })
+        await reconcileExpenseData({ silent: true })
+      } finally {
+        setSubmittingBulk(false)
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    } finally {
-      setSubmittingBulk(false)
-    }
+    })()
   }
 
   const handleDelete = async (expenseId: string) => {
@@ -735,39 +911,43 @@ export function useExpensePage(
   const confirmDelete = async () => {
     if (!expenseToDelete) return
 
-    try {
-      const response = await fetch(`/api/expenses?id=${expenseToDelete}`, {
-        method: "DELETE",
-      })
+    const deletedId = expenseToDelete
+    const snapshot: ExpenseLogSnapshot = {
+      accounts,
+      expenses,
+      expensesTotal,
+      expensesPage,
+      expenseStats,
+    }
+    const nextPage =
+      expenses.length <= 1 && expensesPage > 1 ? expensesPage - 1 : expensesPage
 
-      if (response.ok) {
-        setMessage({ type: "success", text: "Expense deleted successfully" })
-        invalidateCachedJson("accounts")
-        invalidateCachedJson("expenses-summary")
-        invalidateCachedJson("expenses:")
-        invalidateCategoryTrackingAndDashboardCaches()
-        const nextPage =
-          expenses.length <= 1 && expensesPage > 1
-            ? expensesPage - 1
-            : expensesPage
-        void fetchExpenseSummary(true)
-        void fetchAccounts(true)
-        if (hasLoadedExpenses) {
-          void fetchExpenses(nextPage, true)
+    setExpenses((prev) => prev.filter((entry) => entry.id !== deletedId))
+    setExpensesTotal((total) => Math.max(0, total - 1))
+    setMessage({ type: "success", text: "Expense deleted successfully" })
+    setExpenseToDelete(null)
+    setShowDeleteConfirm(false)
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/expenses?id=${deletedId}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || "Failed to delete expense")
         }
-      } else {
-        const data = await response.json()
+
+        await reconcileExpenseData({ page: nextPage, silent: true })
+      } catch (error) {
+        rollbackExpenseLog(snapshot)
         setMessage({
           type: "error",
-          text: data.error || "Failed to delete expense",
+          text: error instanceof Error ? error.message : "An error occurred",
         })
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    } finally {
-      setExpenseToDelete(null)
-      setShowDeleteConfirm(false)
-    }
+    })()
   }
 
   const formatDate = (dateString: string) =>

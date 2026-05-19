@@ -65,11 +65,16 @@ export function AppSelect({
       <SelectPrimitive.Trigger
         id={id}
         className={cn(
-          "flex h-10 w-full shrink-0 items-center justify-between gap-2 rounded-md border-0 bg-gray-50 px-3 py-2 text-left text-base outline-none sm:text-sm",
-          "focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-0",
+          "flex h-10 w-full shrink-0 items-center justify-between gap-2 px-3 py-2 text-left text-base outline-none sm:text-sm",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          variant === "console" &&
-            "rounded-xl border font-medium tabular-nums transition-[box-shadow] focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 [color-scheme:dark]",
+          variant === "classic" && [
+            "rounded-md border-0 bg-gray-50",
+            "focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-0",
+          ],
+          variant === "console" && [
+            "rounded-xl border font-medium tabular-nums transition-[box-shadow] [color-scheme:dark]",
+            "focus:outline-none focus:ring-2 focus:ring-[#4edea3]/45 focus-visible:ring-2 focus-visible:ring-[#4edea3]/45",
+          ],
           triggerClassName,
           className
         )}
@@ -81,7 +86,13 @@ export function AppSelect({
       >
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon asChild>
-          <ChevronDown className="app-select-chevron h-4 w-4 shrink-0 opacity-70" />
+          <ChevronDown
+            className={cn(
+              "app-select-chevron h-4 w-4 shrink-0",
+              variant === "classic" && "opacity-70",
+              variant === "console" && "text-[#dae2fd] opacity-100"
+            )}
+          />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
@@ -90,7 +101,8 @@ export function AppSelect({
           position="popper"
           sideOffset={4}
           className={cn(
-            "z-[310] max-h-[min(320px,70dvh)] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 text-gray-900 shadow-lg",
+            "z-[310] max-h-[min(320px,70dvh)] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-xl border py-1 shadow-lg",
+            variant === "classic" && "border-gray-200 bg-white text-gray-900",
             variant === "console" &&
               "border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd]"
           )}

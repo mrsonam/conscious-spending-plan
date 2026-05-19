@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { addMinor } from "@/lib/money"
+import { computeHoldingAmountMinor } from "@/lib/investment-money"
+import { currencyFromSession } from "@/lib/user-currency"
+import { toApiMoney, sumAmountMinor } from "@/lib/investments-api-map"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { addShares, compareShares, sharesToApiString } from "@/lib/shares"
+import { Decimal } from "@prisma/client/runtime/library"
 
-// Create a new investment: record an investment holding and deduct from investment account balance.
-// Money should already be in the investment account (transferred separately).
 export async function POST(request: Request) {
   try {
     const session = await auth()
@@ -12,6 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = await request.json()
     const {
       investmentAccountId,
@@ -30,43 +37,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate amount from numberOfShares × pricePerUnit (+ optional brokerageFee) if provided,
-    // otherwise use amount directly
-    let numericAmount: number
-    const numericBrokerageFee = brokerageFee ? Number(brokerageFee) : 0
-
-    if (numberOfShares && pricePerUnit) {
-      const numShares = Number(numberOfShares)
-      const pricePerUnitNum = Number(pricePerUnit)
-      
-      if (numShares <= 0 || pricePerUnitNum <= 0) {
-        return NextResponse.json(
-          { error: "Number of shares and price per unit must be greater than 0" },
-          { status: 400 }
-        )
-      }
-      
-      numericAmount = numShares * pricePerUnitNum + Math.max(0, numericBrokerageFee)
-    } else if (amount) {
-      numericAmount = Number(amount)
-      if (!numericAmount || numericAmount <= 0) {
-        return NextResponse.json(
-          { error: "Amount must be greater than 0" },
-          { status: 400 }
-        )
-      }
-    } else {
-      return NextResponse.json(
-        { error: "Either provide amount, or both number of shares and price per unit" },
-        { status: 400 }
+    let computed
+    try {
+      computed = computeHoldingAmountMinor(
+        { amount, numberOfShares, pricePerUnit, brokerageFee },
+        currency
       )
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Invalid investment data"
+      return NextResponse.json({ error: message }, { status: 400 })
     }
 
-    const numericPricePerUnit = pricePerUnit ? Number(pricePerUnit) : 0
-    const numericNumberOfShares = numberOfShares ? Number(numberOfShares) : 0
-
     const result = await prisma.$transaction(async (tx) => {
-      // Verify investment account
       const investmentAccount = await tx.account.findFirst({
         where: {
           id: investmentAccountId,
@@ -79,57 +61,75 @@ export async function POST(request: Request) {
         throw new Error("Investment account not found")
       }
 
-      if (investmentAccount.balance < numericAmount) {
-        throw new Error("Insufficient funds in investment account. Transfer money to this account first using the Transfer functionality.")
+      if (investmentAccount.balance < computed.amountMinor) {
+        throw new Error(
+          "Insufficient funds in investment account. Transfer money to this account first using the Transfer functionality."
+        )
       }
 
-      // Deduct from investment account balance
       await tx.account.update({
         where: { id: investmentAccount.id },
-        data: { balance: { decrement: numericAmount } },
+        data: { balance: { decrement: computed.amountMinor } },
       })
 
-      const investmentDate = date ? new Date(date) : new Date()
-
-      // Record investment holding
       const holding = await tx.investmentHolding.create({
         data: {
           userId: session.user.id,
           accountId: investmentAccount.id,
           name: investmentName,
-          amount: numericAmount,
-          pricePerUnit: numericPricePerUnit,
-          numberOfShares: numericNumberOfShares,
-          // Cast to any to avoid Prisma type mismatch until client is regenerated
-          brokerageFee: Math.max(0, numericBrokerageFee),
-          date: investmentDate,
-        } as any,
+          amount: computed.amountMinor,
+          pricePerUnit: computed.pricePerUnitMinor,
+          numberOfShares: computed.numberOfShares,
+          brokerageFee: computed.brokerageFeeMinor,
+          date: date ? new Date(date) : new Date(),
+        },
       })
 
-      // Investment holdings are treated as assets, not expenses
-      // They will appear in Statement as "investment" type transactions
-      // and contribute to net worth calculation
-
-      return {
-        investmentAccount,
-        holding,
-      }
+      return { investmentAccount, holding }
     })
 
-    return NextResponse.json(result, { status: 201 })
-  } catch (error: any) {
+    const mapHolding = (h: typeof result.holding) => ({
+      ...h,
+      amount: serializeMoneyForApi(h.amount, currency),
+      pricePerUnit:
+        h.pricePerUnit != null
+          ? serializeMoneyForApi(h.pricePerUnit, currency)
+          : null,
+      brokerageFee:
+        h.brokerageFee != null
+          ? serializeMoneyForApi(h.brokerageFee, currency)
+          : null,
+      numberOfShares: sharesToApiString(h.numberOfShares),
+    })
+
+    return moneyJsonResponse(
+      {
+        investmentAccount: {
+          ...result.investmentAccount,
+          balance: serializeMoneyForApi(
+            result.investmentAccount.balance,
+            currency
+          ),
+        },
+        holding: mapHolding(result.holding),
+      },
+      currency,
+      { status: 201 }
+    )
+  } catch (error: unknown) {
     console.error("Error creating investment:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    const status = message === "Investment account not found"
-      ? 404
-      : message === "Insufficient funds in investment account. Transfer money to this account first using the Transfer functionality."
-      ? 400
-      : 500
+    const message =
+      error instanceof Error ? error.message : "Internal server error"
+    const status =
+      message === "Investment account not found"
+        ? 404
+        : message.startsWith("Insufficient funds")
+          ? 400
+          : 500
     return NextResponse.json({ error: message }, { status })
   }
 }
 
-// Get summary of investment accounts and their holdings
 export async function GET() {
   try {
     const session = await auth()
@@ -138,6 +138,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const toD = (m: bigint) => toApiMoney(m, currency)
+
     const [accounts, dividends] = await Promise.all([
       prisma.account.findMany({
         where: {
@@ -145,9 +148,7 @@ export async function GET() {
           accountType: "investment",
         },
         include: {
-          investmentHoldings: {
-            orderBy: { date: "desc" },
-          },
+          investmentHoldings: { orderBy: { date: "desc" } },
         },
         orderBy: { createdAt: "asc" },
       }),
@@ -158,79 +159,67 @@ export async function GET() {
 
     const now = new Date()
     const yearStart = new Date(now.getFullYear(), 0, 1)
-    const dividendAllTime = dividends.reduce((s, d) => s + d.amount, 0)
-    const dividendYtd = dividends
-      .filter((d) => d.date >= yearStart)
-      .reduce((s, d) => s + d.amount, 0)
+    const dividendAllTimeMinor = sumAmountMinor(dividends)
+    const dividendYtdMinor = sumAmountMinor(
+      dividends.filter((d) => d.date >= yearStart)
+    )
 
     const result = accounts.map((account) => {
-      const investedAmount = account.investmentHoldings.reduce(
-        (sum, h) => sum + h.amount,
-        0
-      )
+      const investedMinor = sumAmountMinor(account.investmentHoldings)
 
-      // Group holdings by name to merge same shares
-      const holdingsByName: Record<string, typeof account.investmentHoldings> = {}
+      const holdingsByName: Record<string, typeof account.investmentHoldings> =
+        {}
       account.investmentHoldings.forEach((h) => {
         const key = h.name.toLowerCase().trim()
-        if (!holdingsByName[key]) {
-          holdingsByName[key] = []
-        }
+        if (!holdingsByName[key]) holdingsByName[key] = []
         holdingsByName[key].push(h)
       })
 
-      // Create merged holdings with individual purchase details
-      const mergedHoldings = Object.entries(holdingsByName).map(([key, holdings]) => {
-        // Calculate totals
-        const totalShares = holdings.reduce(
-          (sum, h) => sum + (h.numberOfShares || 0),
-          0
+      const mergedHoldings = Object.entries(holdingsByName).map(([, holdings]) => {
+        const totalSharesStr = holdings.reduce(
+          (sum, h) => addShares(sum, h.numberOfShares),
+          "0",
         )
-        const totalAmount = holdings.reduce((sum, h) => sum + h.amount, 0)
-        
-        // Calculate weighted average price
-        let averagePrice = 0
-        if (totalShares > 0) {
-          const totalCost = holdings.reduce((sum, h) => {
-            if (h.numberOfShares && h.pricePerUnit) {
-              return sum + h.numberOfShares * h.pricePerUnit
-            }
-            return sum + h.amount
-          }, 0)
-          averagePrice = totalCost / totalShares
-        } else if (totalAmount > 0) {
-          // Fallback: if no shares info, use amount-based average
-          averagePrice = totalAmount / holdings.length
-        }
+        const totalShares = Number(totalSharesStr)
+        const totalAmountMinor = sumAmountMinor(holdings)
 
-        // Get individual purchases (sorted by date, newest first)
+        const averagePrice =
+          compareShares(totalSharesStr, "0") > 0
+            ? toD(totalAmountMinor) / totalShares
+            : totalAmountMinor > 0n
+              ? toD(totalAmountMinor) / holdings.length
+              : 0
+
         const purchases = holdings
           .map((h) => ({
             id: h.id,
-            pricePerUnit: h.pricePerUnit,
-            numberOfShares: h.numberOfShares,
-            amount: h.amount,
-            brokerageFee: h.brokerageFee || 0,
+            pricePerUnit:
+              h.pricePerUnit != null ? toD(h.pricePerUnit) : null,
+            numberOfShares: sharesToApiString(h.numberOfShares),
+            amount: toD(h.amount),
+            brokerageFee: h.brokerageFee != null ? toD(h.brokerageFee) : 0,
             date: h.date,
           }))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
 
         const nameKey = holdings[0].name.trim().toLowerCase()
-        const dividendIncome = dividends
-          .filter(
+        const dividendIncomeMinor = sumAmountMinor(
+          dividends.filter(
             (d) =>
               d.accountId === account.id &&
-              d.name.trim().toLowerCase() === nameKey,
+              d.name.trim().toLowerCase() === nameKey
           )
-          .reduce((s, d) => s + d.amount, 0)
+        )
 
         return {
-          name: holdings[0].name, // Use the original name (preserving case)
+          name: holdings[0].name,
           totalShares,
-          totalAmount,
+          totalAmount: toD(totalAmountMinor),
           averagePrice,
-          purchases, // Individual purchase details
-          dividendIncome,
+          purchases,
+          dividendIncome: toD(dividendIncomeMinor),
           firstPurchaseDate: holdings.reduce(
             (earliest, h) => (h.date < earliest ? h.date : earliest),
             holdings[0].date
@@ -242,18 +231,18 @@ export async function GET() {
         }
       })
 
-      const accountDividendTotal = dividends
-        .filter((d) => d.accountId === account.id)
-        .reduce((s, d) => s + d.amount, 0)
+      const accountDividendMinor = sumAmountMinor(
+        dividends.filter((d) => d.accountId === account.id)
+      )
 
       return {
         id: account.id,
         name: account.name,
         bankName: account.bankName,
-        balance: account.balance,
-        investedAmount,
-        totalValue: investedAmount + account.balance,
-        dividendIncomeTotal: accountDividendTotal,
+        balance: toD(account.balance),
+        investedAmount: toD(investedMinor),
+        totalValue: toD(addMinor(investedMinor, account.balance)),
+        dividendIncomeTotal: toD(accountDividendMinor),
         holdings: mergedHoldings,
       }
     })
@@ -264,17 +253,20 @@ export async function GET() {
       .map((d) => ({
         id: d.id,
         date: d.date.toISOString(),
-        amount: d.amount,
+        amount: toD(d.amount),
         name: d.name,
         accountId: d.accountId,
       }))
 
-    return NextResponse.json({
-      accounts: result,
-      dividendYtd,
-      dividendAllTime,
-      recentDividends,
-    })
+    return moneyJsonResponse(
+      {
+        accounts: result,
+        dividendYtd: toD(dividendYtdMinor),
+        dividendAllTime: toD(dividendAllTimeMinor),
+        recentDividends,
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error fetching investments:", error)
     return NextResponse.json(
@@ -283,4 +275,3 @@ export async function GET() {
     )
   }
 }
-

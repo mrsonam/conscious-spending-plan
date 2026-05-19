@@ -9,6 +9,7 @@ import {
   normalizeDisplayCurrency,
 } from "./display-currency"
 import { normalizeEmail } from "./password-policy"
+import { defaultFundAllocationNestedCreate } from "@/lib/fund-allocation-fields"
 
 // Validate required environment variables
 if (!process.env.NEXTAUTH_SECRET) {
@@ -104,16 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               password: randomPassword, // Not used for OAuth users, but required by schema
               name: user.name || null,
               fundAllocation: {
-                create: {
-                  fixedCostsType: "percentage",
-                  fixedCostsValue: 50,
-                  savingsType: "percentage",
-                  savingsValue: 20,
-                  investmentType: "percentage",
-                  investmentValue: 10,
-                  guiltFreeSpendingType: "percentage",
-                  guiltFreeSpendingValue: 20,
-                }
+                create: defaultFundAllocationNestedCreate(),
               }
             }
           })

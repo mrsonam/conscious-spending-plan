@@ -4,6 +4,11 @@ export const DEMO_ACCOUNT = {
   password: "DemoTour2026!",
 } as const
 
+export function isDemoAccountEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  return email.trim().toLowerCase() === DEMO_ACCOUNT.email.toLowerCase()
+}
+
 /**
  * When this exact query pair is present on `/login`, the “Use demo account”
  * control is visually emphasized (e.g. link from your portfolio site).

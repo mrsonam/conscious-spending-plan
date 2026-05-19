@@ -29,7 +29,7 @@ export interface CategoryBalance {
 
 export function useFundSettingsPage() {
   const { data: session, status } = useSession()
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
   const [allocation, setAllocation] = useState<FundAllocation | null>(null)
   const [balances, setBalances] = useState<CategoryBalance[]>([])
@@ -131,5 +131,6 @@ export function useFundSettingsPage() {
     updateField,
     getBalance,
     formatCurrency,
+    currencyCode,
   }
 }

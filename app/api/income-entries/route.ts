@@ -6,6 +6,67 @@ import {
   getCurrentMonthIncomeEntries,
   getIncomeEntriesForMonthByDate,
 } from "@/lib/monthly-tracking"
+import {
+  computeIncomeAllocationsMinor,
+  incomeAllocationToApi,
+  type CategoryKey,
+  type IncomeAllocationMinor,
+} from "@/lib/income-allocation"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import {
+  mapIncomeEntryListToApi,
+  mapIncomeEntryToApi,
+} from "@/lib/money-serialize"
+import { moneyJsonResponse } from "@/lib/api-money-response"
+import { currencyFromSession } from "@/lib/user-currency"
+import { addMinor, coerceMinor } from "@/lib/money"
+
+function sumAllocationsForMonth(
+  monthEntries: { amount: bigint }[],
+  fundAllocation: NonNullable<Awaited<ReturnType<typeof prisma.fundAllocation.findUnique>>>,
+  currency: string
+): { totals: IncomeAllocationMinor; totalIncome: bigint } {
+  let totals: IncomeAllocationMinor = {
+    fixedCosts: 0n,
+    savings: 0n,
+    investment: 0n,
+    guiltFreeSpending: 0n,
+  }
+  const allocatedSoFar: Record<CategoryKey, bigint> = {
+    fixedCosts: 0n,
+    savings: 0n,
+    investment: 0n,
+    guiltFreeSpending: 0n,
+  }
+  let totalIncome = 0n
+
+  for (const entry of monthEntries) {
+    const incomeMinor = coerceMinor(entry.amount)
+    totalIncome = addMinor(totalIncome, incomeMinor)
+    const alloc = computeIncomeAllocationsMinor(
+      incomeMinor,
+      fundAllocation,
+      currency,
+      (cat) => allocatedSoFar[cat],
+    )
+    totals.fixedCosts = addMinor(totals.fixedCosts, alloc.fixedCosts)
+    totals.savings = addMinor(totals.savings, alloc.savings)
+    totals.investment = addMinor(totals.investment, alloc.investment)
+    totals.guiltFreeSpending = addMinor(
+      totals.guiltFreeSpending,
+      alloc.guiltFreeSpending,
+    )
+    allocatedSoFar.fixedCosts = addMinor(allocatedSoFar.fixedCosts, alloc.fixedCosts)
+    allocatedSoFar.savings = addMinor(allocatedSoFar.savings, alloc.savings)
+    allocatedSoFar.investment = addMinor(allocatedSoFar.investment, alloc.investment)
+    allocatedSoFar.guiltFreeSpending = addMinor(
+      allocatedSoFar.guiltFreeSpending,
+      alloc.guiltFreeSpending,
+    )
+  }
+
+  return { totals, totalIncome }
+}
 
 export async function GET(request: Request) {
   try {
@@ -18,6 +79,7 @@ export async function GET(request: Request) {
       )
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { searchParams } = new URL(request.url)
     const latest = searchParams.get("latest") === "true"
     const currentMonth = searchParams.get("currentMonth") === "true"
@@ -27,177 +89,80 @@ export async function GET(request: Request) {
     const includeStats = searchParams.get("includeStats") !== "false"
 
     if (currentMonth) {
-      // Get income entries whose *date* falls in the current month (not createdAt)
-      // so "Monthly Income" matches category-tracking and allocation.
       const allMonthEntries = await getIncomeEntriesForMonthByDate(session.user.id)
-      
-      // Split entries into those included in allocation and those explicitly excluded
       const monthEntries = allMonthEntries.filter(
         (entry) => entry.excludeFromAllocation !== true,
       )
-      
-      // Calculate total income including entries that are excluded from allocation (for display)
-      const totalIncomeIncludingAll = allMonthEntries.reduce((sum, entry) => sum + entry.amount, 0)
+
+      const totalIncomeIncludingAll = allMonthEntries.reduce(
+        (sum, entry) => addMinor(sum, coerceMinor(entry.amount)),
+        0n,
+      )
 
       if (monthEntries.length === 0) {
-        // If no allocatable entries, return breakdown with total income but no allocation
-        return NextResponse.json({ 
-          breakdown: {
-            income: totalIncomeIncludingAll,
-            fixedCosts: 0,
-            savings: 0,
-            investment: 0,
-            guiltFreeSpending: 0,
-            total: 0, // No allocation (all income is excluded)
-          }, 
-          entries: allMonthEntries 
-        })
+        return moneyJsonResponse(
+          {
+            breakdown: {
+              income: serializeMoneyForApi(totalIncomeIncludingAll, currency),
+              fixedCosts: 0,
+              savings: 0,
+              investment: 0,
+              guiltFreeSpending: 0,
+              total: 0,
+            },
+            entries: mapIncomeEntryListToApi(
+              allMonthEntries as unknown as Record<string, unknown>[],
+              currency,
+            ),
+          },
+          currency
+        )
       }
 
-      // Sum all income entries for the month (excluding cash accounts) for budget allocation
-      const totalIncome = monthEntries.reduce((sum, entry) => sum + entry.amount, 0)
-
-      // Get fund allocation to calculate breakdown
       const fundAllocation = await prisma.fundAllocation.findUnique({
         where: { userId: session.user.id }
       })
 
       if (!fundAllocation) {
-        return NextResponse.json({ breakdown: null, entries: monthEntries })
+        return moneyJsonResponse(
+          {
+            breakdown: null,
+            entries: mapIncomeEntryListToApi(
+              monthEntries as unknown as Record<string, unknown>[],
+              currency,
+            ),
+          },
+          currency
+        )
       }
 
-      // Helper function to calculate allocations for a given income amount
-      const calculateAllocations = (incomeAmount: number) => {
-        let fc = 0
-        let inv = 0
-        let gfs = 0
-
-        if (fundAllocation.fixedCostsType === "fixed") {
-          fc = Math.min(fundAllocation.fixedCostsValue, incomeAmount)
-        } else {
-          fc = (incomeAmount * fundAllocation.fixedCostsValue) / 100
-        }
-
-        if (fundAllocation.investmentType === "fixed") {
-          inv = Math.min(fundAllocation.investmentValue, incomeAmount)
-        } else {
-          inv = (incomeAmount * fundAllocation.investmentValue) / 100
-        }
-
-        if (fundAllocation.guiltFreeSpendingType === "fixed") {
-          gfs = Math.min(fundAllocation.guiltFreeSpendingValue, incomeAmount)
-        } else {
-          gfs = (incomeAmount * fundAllocation.guiltFreeSpendingValue) / 100
-        }
-
-        return { fixedCosts: fc, investment: inv, guiltFreeSpending: gfs }
-      }
-
-      // Calculate allocations for each entry and sum them up
-      let totalFixedCosts = 0
-      let totalInvestment = 0
-      let totalGuiltFreeSpending = 0
-
-      for (const entry of monthEntries) {
-        const allocations = calculateAllocations(entry.amount)
-        totalFixedCosts += allocations.fixedCosts
-        totalInvestment += allocations.investment
-        totalGuiltFreeSpending += allocations.guiltFreeSpending
-      }
-
-      // Apply caps to the totals
-      let excessToSavings = 0
-      let fixedCosts = totalFixedCosts
-      let investment = totalInvestment
-      let guiltFreeSpending = totalGuiltFreeSpending
-
-      // Check fixed costs cap
-      if (fundAllocation.fixedCostsCap !== null && fundAllocation.fixedCostsCap !== undefined) {
-        if (fixedCosts > fundAllocation.fixedCostsCap) {
-          const excess = fixedCosts - fundAllocation.fixedCostsCap
-          fixedCosts = fundAllocation.fixedCostsCap
-          excessToSavings += excess
-        }
-      }
-
-      // Check investment cap
-      if (fundAllocation.investmentCap !== null && fundAllocation.investmentCap !== undefined) {
-        if (investment > fundAllocation.investmentCap) {
-          const excess = investment - fundAllocation.investmentCap
-          investment = fundAllocation.investmentCap
-          excessToSavings += excess
-        }
-      }
-
-      // Check guilt-free spending cap
-      if (fundAllocation.guiltFreeSpendingCap !== null && fundAllocation.guiltFreeSpendingCap !== undefined) {
-        if (guiltFreeSpending > fundAllocation.guiltFreeSpendingCap) {
-          const excess = guiltFreeSpending - fundAllocation.guiltFreeSpendingCap
-          guiltFreeSpending = fundAllocation.guiltFreeSpendingCap
-          excessToSavings += excess
-        }
-      }
-
-      // Calculate savings based on fund settings
-      let savings = 0
-      if (fundAllocation.savingsType === "fixed") {
-        savings = fundAllocation.savingsValue
-      } else {
-        savings = (totalIncome * fundAllocation.savingsValue) / 100
-      }
-
-      // Check savings cap
-      const existingSavings = monthEntries.reduce((sum, entry) => {
-        if (fundAllocation.savingsType === "fixed") {
-          return sum + fundAllocation.savingsValue
-        } else {
-          return sum + (entry.amount * fundAllocation.savingsValue) / 100
-        }
-      }, 0)
-      
-      if (fundAllocation.savingsCap !== null && fundAllocation.savingsCap !== undefined) {
-        const currentMonthTotal = existingSavings + savings
-        if (currentMonthTotal > fundAllocation.savingsCap) {
-          const excess = savings - Math.max(0, fundAllocation.savingsCap - existingSavings)
-          savings = Math.max(0, fundAllocation.savingsCap - existingSavings)
-          excessToSavings += excess
-        }
-      }
-
-      // Add excess from capped categories to savings
-      savings += excessToSavings
-
-      // Calculate total allocated
-      const allocated = fixedCosts + investment + guiltFreeSpending + savings
-      const unallocated = totalIncome - allocated
-
-      // Ensure all money is allocated - add any unallocated amount to savings
-      // This ensures total always equals income exactly (no more, no less)
-      if (unallocated !== 0) {
-        savings += unallocated
-      }
-
-      // Ensure total exactly equals income (handle any rounding differences)
-      const totalCalculated = fixedCosts + savings + investment + guiltFreeSpending
-      const roundingDifference = totalIncome - totalCalculated
-      savings += roundingDifference
+      const { totals, totalIncome } = sumAllocationsForMonth(
+        monthEntries,
+        fundAllocation,
+        currency,
+      )
 
       const breakdown = {
-        income: totalIncomeIncludingAll, // Include all income in total for display
-        fixedCosts: Math.round(fixedCosts * 100) / 100,
-        savings: Math.round(savings * 100) / 100,
-        investment: Math.round(investment * 100) / 100,
-        guiltFreeSpending: Math.round(guiltFreeSpending * 100) / 100,
-        total: totalIncome, // Total allocated (excludes cash income - cash is not allocated)
+        ...incomeAllocationToApi(totalIncome, totals, currency),
+        income: serializeMoneyForApi(totalIncomeIncludingAll, currency),
+        total: serializeMoneyForApi(totalIncome, currency),
       }
 
-      return NextResponse.json(
-        { breakdown, entries: monthEntries, period: "currentMonth" },
+      return moneyJsonResponse(
+        {
+          breakdown,
+          entries: mapIncomeEntryListToApi(
+            allMonthEntries as unknown as Record<string, unknown>[],
+            currency,
+          ),
+          period: "currentMonth",
+        },
+        currency,
         {
           headers: {
             "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
           },
-        },
+        }
       )
     }
 
@@ -208,87 +173,48 @@ export async function GET(request: Request) {
       })
 
       if (!latestEntry) {
-        return NextResponse.json({ breakdown: null })
+        return moneyJsonResponse({ breakdown: null }, currency)
       }
 
-      // Get fund allocation to recalculate breakdown
       const fundAllocation = await prisma.fundAllocation.findUnique({
         where: { userId: session.user.id }
       })
 
       if (!fundAllocation) {
-        return NextResponse.json({ breakdown: null })
+        return moneyJsonResponse({ breakdown: null }, currency)
       }
 
-      // Recalculate breakdown (same logic as calculate route)
-      const income = latestEntry.amount
-      let fixedCosts = 0
-      let savings = 0
-      let investment = 0
-      let guiltFreeSpending = 0
+      const incomeMinor = coerceMinor(latestEntry.amount)
+      const alloc = computeIncomeAllocationsMinor(
+        incomeMinor,
+        fundAllocation,
+        currency,
+        () => 0n,
+      )
+      const breakdown = incomeAllocationToApi(incomeMinor, alloc, currency)
 
-      if (fundAllocation.fixedCostsType === "fixed") {
-        fixedCosts = Math.min(fundAllocation.fixedCostsValue, income)
-      } else {
-        fixedCosts = (income * fundAllocation.fixedCostsValue) / 100
-      }
-
-      if (fundAllocation.investmentType === "fixed") {
-        investment = Math.min(fundAllocation.investmentValue, income)
-      } else {
-        investment = (income * fundAllocation.investmentValue) / 100
-      }
-
-      if (fundAllocation.guiltFreeSpendingType === "fixed") {
-        guiltFreeSpending = Math.min(fundAllocation.guiltFreeSpendingValue, income)
-      } else {
-        guiltFreeSpending = (income * fundAllocation.guiltFreeSpendingValue) / 100
-      }
-
-      // Calculate savings based on fund settings
-      if (fundAllocation.savingsType === "fixed") {
-        savings = fundAllocation.savingsValue
-      } else {
-        savings = (income * fundAllocation.savingsValue) / 100
-      }
-
-      // Calculate total and ensure all money is allocated
-      const allocated = fixedCosts + investment + guiltFreeSpending + savings
-      const unallocated = income - allocated
-
-      // Ensure all money is allocated - add any unallocated amount to savings
-      // This ensures total always equals income exactly (no more, no less)
-      if (unallocated !== 0) {
-        savings += unallocated
-      }
-
-      // Handle any rounding differences to ensure total exactly equals income
-      const totalCalculated = fixedCosts + savings + investment + guiltFreeSpending
-      const roundingDifference = income - totalCalculated
-      savings += roundingDifference
-
-      const breakdown = {
-        income,
-        fixedCosts: Math.round(fixedCosts * 100) / 100,
-        savings: Math.round(savings * 100) / 100,
-        investment: Math.round(investment * 100) / 100,
-        guiltFreeSpending: Math.round(guiltFreeSpending * 100) / 100,
-        total: income, // Total always equals income exactly
-      }
-
-      // Get all month entries for the response
       const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
-      return NextResponse.json(
-        { breakdown, entry: latestEntry, entries: allMonthEntries },
+      return moneyJsonResponse(
+        {
+          breakdown,
+          entry: mapIncomeEntryToApi(
+            latestEntry as unknown as Record<string, unknown>,
+            currency,
+          ),
+          entries: mapIncomeEntryListToApi(
+            allMonthEntries as unknown as Record<string, unknown>[],
+            currency,
+          ),
+        },
+        currency,
         {
           headers: {
             "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
           },
-        },
+        }
       )
     }
 
-    // Statement (or any caller) can request all entries in a date range or all entries
     const hasDateRange = startDateParam && endDateParam
     if (hasDateRange || forStatement) {
       const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId: session.user.id }
@@ -304,13 +230,19 @@ export async function GET(request: Request) {
         orderBy: { date: "desc" },
         take: 10000,
       })
-      return NextResponse.json(
-        { entries },
+      return moneyJsonResponse(
+        {
+          entries: mapIncomeEntryListToApi(
+            entries as unknown as Record<string, unknown>[],
+            currency,
+          ),
+        },
+        currency,
         {
           headers: {
             "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
           },
-        },
+        }
       )
     }
 
@@ -332,19 +264,23 @@ export async function GET(request: Request) {
         : Promise.resolve(null),
     ])
 
-    return NextResponse.json(
+    return moneyJsonResponse(
       {
-        entries,
+        entries: mapIncomeEntryListToApi(
+          entries as unknown as Record<string, unknown>[],
+          currency,
+        ),
         total,
         page,
         limit,
         ...(stats ?? {}),
       },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
         },
-      },
+      }
     )
   } catch (error) {
     console.error("Error fetching income entries:", error)
@@ -366,7 +302,6 @@ export async function DELETE() {
       )
     }
 
-    // Delete all income entries and reset category balances for the user
     const [incomeResult, balanceResult] = await Promise.all([
       prisma.incomeEntry.deleteMany({
         where: { userId: session.user.id }

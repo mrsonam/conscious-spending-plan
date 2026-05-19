@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { minorSumToDollars } from "@/lib/money-aggregates"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET() {
   try {
@@ -9,6 +12,9 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
 
     const year = new Date().getFullYear()
     const startOfYear = new Date(year, 0, 1)
@@ -38,17 +44,14 @@ export async function GET() {
       }),
     ])
 
-    const totalIncome = incomeAgg._sum.amount ?? 0
-    const totalExpenses = expenseAgg._sum.amount ?? 0
-    const totalInvested = investedAgg._sum.amount ?? 0
-
-    return NextResponse.json(
+    return moneyJsonResponse(
       {
         year,
-        totalIncome,
-        totalExpenses,
-        totalInvested,
+        totalIncome: toD(incomeAgg._sum.amount),
+        totalExpenses: toD(expenseAgg._sum.amount),
+        totalInvested: toD(investedAgg._sum.amount),
       },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",

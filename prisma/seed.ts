@@ -8,8 +8,15 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { DEMO_ACCOUNT } from "../lib/demo-credentials"
+import { dollarsToMinor } from "../lib/money"
+import { defaultFundAllocationNestedCreate } from "../lib/fund-allocation-fields"
+import { Decimal } from "@prisma/client/runtime/library"
 
 const prisma = new PrismaClient()
+const SEED_CURRENCY = "AUD"
+/** Dollar amounts in seed data → DB minor units */
+const m = (amount: number | string, currency = SEED_CURRENCY) =>
+  dollarsToMinor(amount, currency)
 
 function utc(y: number, month: number, day: number, hh = 12, mm = 0) {
   return new Date(Date.UTC(y, month - 1, day, hh, mm, 0, 0))
@@ -28,10 +35,10 @@ const SALARY = 8500
 /** 50% FC, 20% savings, 10% inv, 20% GFS — matches default fund split for demos. */
 function salaryAllocations(amount: number) {
   return {
-    allocationFixedCosts: Math.round(amount * 0.5 * 100) / 100,
-    allocationSavings: Math.round(amount * 0.2 * 100) / 100,
-    allocationInvestment: Math.round(amount * 0.1 * 100) / 100,
-    allocationGuiltFreeSpending: Math.round(amount * 0.2 * 100) / 100,
+    allocationFixedCosts: m(amount * 0.5),
+    allocationSavings: m(amount * 0.2),
+    allocationInvestment: m(amount * 0.1),
+    allocationGuiltFreeSpending: m(amount * 0.2),
   }
 }
 
@@ -48,17 +55,12 @@ async function main() {
       password: passwordHash,
       name: "Demo Explorer",
       dashboardTheme: "console",
+      onboardingCompletedAt: new Date(),
+      onboardingBucketsSavedAt: new Date(),
       fundAllocation: {
         create: {
-          fixedCostsType: "percentage",
-          fixedCostsValue: 50,
-          savingsType: "percentage",
-          savingsValue: 20,
-          investmentType: "percentage",
-          investmentValue: 10,
-          guiltFreeSpendingType: "percentage",
-          guiltFreeSpendingValue: 20,
-          fixedCostsCap: 6000,
+          ...defaultFundAllocationNestedCreate(),
+          fixedCostsCap: m(6000),
           savingsCap: null,
         },
       },
@@ -71,8 +73,8 @@ async function main() {
       name: "Primary Checking",
       bankName: "Demo National Bank",
       accountType: "checking",
-      balance: 0,
-      startingFunds: 12000,
+      balance: 0n,
+      startingFunds: m(12000),
       isDefault: true,
     },
   })
@@ -83,8 +85,8 @@ async function main() {
       name: "Emergency Savings",
       bankName: "High-Yield Savings Co.",
       accountType: "savings",
-      balance: 0,
-      startingFunds: 18000,
+      balance: 0n,
+      startingFunds: m(18000),
     },
   })
 
@@ -94,8 +96,8 @@ async function main() {
       name: "Brokerage — long term",
       bankName: "Fidelity Demo",
       accountType: "investment",
-      balance: 0,
-      startingFunds: 42000,
+      balance: 0n,
+      startingFunds: m(42000),
     },
   })
 
@@ -105,8 +107,8 @@ async function main() {
       name: "Rewards Visa",
       bankName: "Demo National Bank",
       accountType: "credit",
-      balance: -2840,
-      startingFunds: 0,
+      balance: m(-2840),
+      startingFunds: 0n,
     },
   })
 
@@ -131,7 +133,7 @@ async function main() {
     await prisma.incomeEntry.create({
       data: {
         userId: user.id,
-        amount: SALARY,
+        amount: m(SALARY),
         description: `Salary — ${pm.y}-${String(pm.m).padStart(2, "0")}`,
         date: utc(pm.y, pm.m, pm.day),
         periodStart: ps,
@@ -146,17 +148,17 @@ async function main() {
   await prisma.incomeEntry.create({
     data: {
       userId: user.id,
-      amount: 3200,
+      amount: m(3200),
       description: "Annual performance bonus (net)",
       date: utc(2026, 3, 15),
       periodStart: monthStart(2026, 3),
       periodEnd: monthEnd(2026, 3),
       accountId: checking.id,
       excludeFromAllocation: false,
-      allocationFixedCosts: 1600,
-      allocationSavings: 640,
-      allocationInvestment: 320,
-      allocationGuiltFreeSpending: 640,
+      allocationFixedCosts: m(1600),
+      allocationSavings: m(640),
+      allocationInvestment: m(320),
+      allocationGuiltFreeSpending: m(640),
     },
   })
 
@@ -196,7 +198,7 @@ async function main() {
       data: {
         userId: user.id,
         accountId: e.accountId,
-        amount: e.amount,
+        amount: m(e.amount),
         description: e.description,
         category: e.category,
         expenseCategory: e.expenseCategory,
@@ -210,7 +212,7 @@ async function main() {
       userId: user.id,
       fromAccountId: checking.id,
       toAccountId: savings.id,
-      amount: 1500,
+      amount: m(1500),
       description: "Monthly savings sweep",
       category: "savings",
       date: utc(2026, 4, 3, 8),
@@ -222,7 +224,7 @@ async function main() {
       userId: user.id,
       fromAccountId: checking.id,
       toAccountId: brokerage.id,
-      amount: 1200,
+      amount: m(1200),
       description: "Brokerage contribution",
       category: "investment",
       date: utc(2026, 4, 5, 10),
@@ -234,7 +236,7 @@ async function main() {
       userId: user.id,
       fromAccountId: savings.id,
       toAccountId: checking.id,
-      amount: 400,
+      amount: m(400),
       description: "Rebalance — liquidity",
       category: "savings",
       date: utc(2026, 4, 12, 14),
@@ -245,7 +247,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 1850,
+      amount: m(1850),
       description: "Apartment rent (recurring)",
       category: "fixedCosts",
       expenseCategory: "rent",
@@ -271,7 +273,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: credit.id,
-      amount: 15.99,
+      amount: m(15.99),
       description: "Netflix Premium",
       category: "guiltFreeSpending",
       expenseCategory: "subscriptions",
@@ -298,7 +300,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: credit.id,
-      amount: 11.99,
+      amount: m(11.99),
       description: "Music streaming",
       category: "guiltFreeSpending",
       expenseCategory: "subscriptions",
@@ -324,7 +326,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: credit.id,
-      amount: 29,
+      amount: m(29),
       description: "Cloud IDE & AI tokens",
       category: "fixedCosts",
       expenseCategory: "technology",
@@ -344,7 +346,7 @@ async function main() {
       nextRenewalAt: utc(2026, 4, 18),
       reminderDaysBefore: 7,
       foreignCurrency: "EUR",
-      foreignAmount: 26.5,
+      foreignAmount: m(26.5, "EUR"),
     },
   })
 
@@ -352,7 +354,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 139,
+      amount: m(139),
       description: "Creative suite — annual",
       category: "fixedCosts",
       expenseCategory: "subscriptions",
@@ -378,7 +380,7 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 49,
+      amount: m(49),
       description: "Local gym (paused)",
       category: "guiltFreeSpending",
       expenseCategory: "fitness",
@@ -405,10 +407,10 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       name: "VTI",
-      amount: 18000,
-      pricePerUnit: 242.5,
-      numberOfShares: 74.2,
-      brokerageFee: 0,
+      amount: m(18000),
+      pricePerUnit: m(242.5),
+      numberOfShares: new Decimal("74.2"),
+      brokerageFee: m(0),
       date: utc(2025, 8, 12),
     },
   })
@@ -418,10 +420,10 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       name: "AAPL",
-      amount: 6200,
-      pricePerUnit: 198.4,
-      numberOfShares: 31.25,
-      brokerageFee: 4.99,
+      amount: m(6200),
+      pricePerUnit: m(198.4),
+      numberOfShares: new Decimal("31.25"),
+      brokerageFee: m(4.99),
       date: utc(2026, 1, 8),
     },
   })
@@ -431,10 +433,10 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       name: "VXUS",
-      amount: 9500,
-      pricePerUnit: 65.2,
-      numberOfShares: 145.7,
-      brokerageFee: 0,
+      amount: m(9500),
+      pricePerUnit: m(65.2),
+      numberOfShares: new Decimal("145.7"),
+      brokerageFee: m(0),
       date: utc(2025, 11, 20),
     },
   })
@@ -444,7 +446,7 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       name: "VTI",
-      amount: 112.44,
+      amount: m(112.44),
       date: utc(2026, 3, 28),
     },
   })
@@ -454,7 +456,7 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       name: "AAPL",
-      amount: 24.5,
+      amount: m(24.5),
       date: utc(2026, 2, 14),
     },
   })
@@ -463,13 +465,13 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 2500,
+      amount: m(2500),
       description: "Covered friend’s move-in deposit",
       borrowerName: "Alex M.",
       date: utc(2025, 10, 5),
       dueDate: utc(2026, 10, 5),
       status: "active",
-      repaidAmount: 500,
+      repaidAmount: m(500),
     },
   })
 
@@ -477,12 +479,12 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 600,
+      amount: m(600),
       description: "Short bridge — family",
       borrowerName: "Sam K.",
       date: utc(2026, 2, 1),
       status: "repaid",
-      repaidAmount: 600,
+      repaidAmount: m(600),
     },
   })
 
@@ -490,13 +492,13 @@ async function main() {
     data: {
       userId: user.id,
       accountId: checking.id,
-      amount: 18500,
+      amount: m(18500),
       description: "Consolidation note — variable rate",
       lenderName: "Metro Credit Union",
       date: utc(2024, 6, 1),
       dueDate: utc(2029, 6, 1),
       status: "active",
-      repaidAmount: 4200,
+      repaidAmount: m(4200),
     },
   })
 
@@ -504,12 +506,12 @@ async function main() {
     data: {
       userId: user.id,
       accountId: brokerage.id,
-      amount: 4000,
+      amount: m(4000),
       description: "Margin line — promotional",
       lenderName: "Fidelity Demo",
       date: utc(2025, 3, 10),
       status: "active",
-      repaidAmount: 800,
+      repaidAmount: m(800),
     },
   })
 
@@ -519,61 +521,61 @@ async function main() {
 
   await prisma.categoryBalance.createMany({
     data: [
-      { userId: user.id, category: "fixedCosts", balance: 2180, month: april, year: y2026 },
-      { userId: user.id, category: "savings", balance: 9240, month: april, year: y2026 },
-      { userId: user.id, category: "investment", balance: 3850, month: april, year: y2026 },
-      { userId: user.id, category: "guiltFreeSpending", balance: 1640, month: april, year: y2026 },
+      { userId: user.id, category: "fixedCosts", balance: m(2180), month: april, year: y2026 },
+      { userId: user.id, category: "savings", balance: m(9240), month: april, year: y2026 },
+      { userId: user.id, category: "investment", balance: m(3850), month: april, year: y2026 },
+      { userId: user.id, category: "guiltFreeSpending", balance: m(1640), month: april, year: y2026 },
     ],
   })
 
   await prisma.categoryTransaction.createMany({
     data: [
-      { userId: user.id, category: "fixedCosts", type: "income", amount: 4250, description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
-      { userId: user.id, category: "fixedCosts", type: "expense", amount: 400, description: "Utilities blend", date: utc(2026, 4, 5), month: april, year: y2026 },
-      { userId: user.id, category: "savings", type: "income", amount: 1700, description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
-      { userId: user.id, category: "savings", type: "expense", amount: 300, description: "Planned sweep", date: utc(2026, 4, 8), month: april, year: y2026 },
-      { userId: user.id, category: "investment", type: "income", amount: 850, description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
-      { userId: user.id, category: "investment", type: "expense", amount: 150, description: "Reinvest fee", date: utc(2026, 4, 6), month: april, year: y2026 },
-      { userId: user.id, category: "guiltFreeSpending", type: "income", amount: 1700, description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
-      { userId: user.id, category: "guiltFreeSpending", type: "expense", amount: 420, description: "Weekend & dining", date: utc(2026, 4, 10), month: april, year: y2026 },
+      { userId: user.id, category: "fixedCosts", type: "income", amount: m(4250), description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
+      { userId: user.id, category: "fixedCosts", type: "expense", amount: m(400), description: "Utilities blend", date: utc(2026, 4, 5), month: april, year: y2026 },
+      { userId: user.id, category: "savings", type: "income", amount: m(1700), description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
+      { userId: user.id, category: "savings", type: "expense", amount: m(300), description: "Planned sweep", date: utc(2026, 4, 8), month: april, year: y2026 },
+      { userId: user.id, category: "investment", type: "income", amount: m(850), description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
+      { userId: user.id, category: "investment", type: "expense", amount: m(150), description: "Reinvest fee", date: utc(2026, 4, 6), month: april, year: y2026 },
+      { userId: user.id, category: "guiltFreeSpending", type: "income", amount: m(1700), description: "Salary allocation", date: utc(2026, 4, 1), month: april, year: y2026 },
+      { userId: user.id, category: "guiltFreeSpending", type: "expense", amount: m(420), description: "Weekend & dining", date: utc(2026, 4, 10), month: april, year: y2026 },
     ],
   })
 
   await prisma.categoryMonthClosing.createMany({
     data: [
-      { userId: user.id, category: "fixedCosts", month: march, year: y2026, remaining: 120, overspent: 0 },
-      { userId: user.id, category: "savings", month: march, year: y2026, remaining: 400, overspent: 0 },
-      { userId: user.id, category: "investment", month: march, year: y2026, remaining: 0, overspent: 0 },
-      { userId: user.id, category: "guiltFreeSpending", month: march, year: y2026, remaining: 80, overspent: 40 },
+      { userId: user.id, category: "fixedCosts", month: march, year: y2026, remaining: m(120), overspent: 0n },
+      { userId: user.id, category: "savings", month: march, year: y2026, remaining: m(400), overspent: 0n },
+      { userId: user.id, category: "investment", month: march, year: y2026, remaining: 0n, overspent: 0n },
+      { userId: user.id, category: "guiltFreeSpending", month: march, year: y2026, remaining: m(80), overspent: m(40) },
     ],
   })
 
   await prisma.account.update({
     where: { id: checking.id },
     data: {
-      balance: 19650,
-      startingFunds: 12000,
+      balance: m(19650),
+      startingFunds: m(12000),
     },
   })
   await prisma.account.update({
     where: { id: savings.id },
     data: {
-      balance: 26840,
-      startingFunds: 18000,
+      balance: m(26840),
+      startingFunds: m(18000),
     },
   })
   await prisma.account.update({
     where: { id: brokerage.id },
     data: {
-      balance: 54380,
-      startingFunds: 42000,
+      balance: m(54380),
+      startingFunds: m(42000),
     },
   })
 
   await prisma.account.update({
     where: { id: credit.id },
     data: {
-      balance: -4185,
+      balance: m(-4185),
     },
   })
 

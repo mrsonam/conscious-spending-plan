@@ -15,6 +15,8 @@ import {
   type ChartRange,
 } from "@/components/investments/investment-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { tryParseMoneyInput } from "@/lib/money-input"
+import { parseSharesInput } from "@/lib/shares"
 
 /** Same cache key as dashboard secondary load — warm cache when navigating between pages. */
 const INVESTMENTS_CACHE_KEY = "dashboard:investments"
@@ -42,7 +44,7 @@ export type InvestmentFieldErrors = Partial<
 >
 
 export function useInvestmentsPage(status: string) {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const investmentSearchRef = useRef<HTMLDivElement | null>(null)
   const [accounts, setAccounts] = useState<InvestmentAccountSummary[]>([])
   const [dividendYtd, setDividendYtd] = useState(0)
@@ -237,8 +239,8 @@ export function useInvestmentsPage(status: string) {
       nextErrors.divSymbol =
         "Enter the stock or fund name (same as your holding)."
     }
-    const amt = parseFloat(dividendAmount)
-    if (!Number.isFinite(amt) || amt <= 0) {
+    const amt = tryParseMoneyInput(dividendAmount, currencyCode)
+    if (amt === null || amt <= 0) {
       nextErrors.divAmount = "Enter a valid dividend amount."
     }
     if (!dividendDate) {
@@ -537,14 +539,14 @@ export function useInvestmentsPage(status: string) {
   }, [allHoldings])
 
   const calculatedTotal = useMemo(() => {
-    const price = parseFloat(pricePerUnit)
+    const price = tryParseMoneyInput(pricePerUnit, currencyCode)
     const shares = parseFloat(numberOfShares)
-    const fee = parseFloat(brokerageFee)
-    if (Number.isNaN(price) || Number.isNaN(shares) || price <= 0 || shares <= 0)
+    const fee = brokerageFee ? tryParseMoneyInput(brokerageFee, currencyCode) : 0
+    if (price === null || Number.isNaN(shares) || price <= 0 || shares <= 0)
       return ""
-    const total = price * shares + (Number.isNaN(fee) || fee < 0 ? 0 : fee)
+    const total = price * shares + (fee === null || fee < 0 ? 0 : fee)
     return total.toFixed(2)
-  }, [pricePerUnit, numberOfShares, brokerageFee])
+  }, [pricePerUnit, numberOfShares, brokerageFee, currencyCode])
 
   const fetchMarketPrices = useCallback(async () => {
     if (loadingMarketPrices) return
@@ -609,16 +611,16 @@ export function useInvestmentsPage(status: string) {
     if (!investmentName.trim()) {
       nextErrors.logInvestment = "Enter an investment name or ticker."
     }
-    const numPrice = parseFloat(pricePerUnit)
-    const numShares = parseFloat(numberOfShares)
-    const numFee = brokerageFee ? parseFloat(brokerageFee) : 0
-    if (!numPrice || numPrice <= 0 || !numShares || numShares <= 0) {
-      if (!numPrice || numPrice <= 0) {
-        nextErrors.logPrice = "Enter a valid price per unit."
-      }
-      if (!numShares || numShares <= 0) {
-        nextErrors.logShares = "Enter a valid share count."
-      }
+    const numPrice = tryParseMoneyInput(pricePerUnit, currencyCode)
+    let sharesStr = ""
+    try {
+      sharesStr = parseSharesInput(numberOfShares)
+    } catch {
+      nextErrors.logShares = "Enter a valid share count."
+    }
+    const numFee = brokerageFee ? tryParseMoneyInput(brokerageFee, currencyCode) ?? 0 : 0
+    if (numPrice === null || numPrice <= 0) {
+      nextErrors.logPrice = "Enter a valid price per unit."
     }
     if (!date) {
       nextErrors.logDate = "Select the investment date."
@@ -637,7 +639,7 @@ export function useInvestmentsPage(status: string) {
           investmentAccountId: selectedInvestmentAccountId,
           investmentName: investmentName.trim(),
           pricePerUnit: numPrice,
-          numberOfShares: numShares,
+          numberOfShares: sharesStr,
           brokerageFee: numFee > 0 ? numFee : 0,
           date,
         }),

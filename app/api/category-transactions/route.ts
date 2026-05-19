@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear } from "@/lib/monthly-tracking"
+import { parseMoneyFromApi } from "@/lib/money-api"
+import { mapMoneyListToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET(request: Request) {
   try {
@@ -14,12 +17,18 @@ export async function GET(request: Request) {
       )
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
     const month = searchParams.get("month")
     const year = searchParams.get("year")
 
-    const where: any = {
+    const where: {
+      userId: string
+      category?: string
+      month?: number
+      year?: number
+    } = {
       userId: session.user.id,
     }
 
@@ -38,7 +47,16 @@ export async function GET(request: Request) {
       take: 200,
     })
 
-    return NextResponse.json({ transactions })
+    return moneyJsonResponse(
+      {
+        transactions: mapMoneyListToApi(
+          transactions as unknown as Record<string, unknown>[],
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        ),
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error fetching category transactions:", error)
     return NextResponse.json(
@@ -59,11 +77,28 @@ export async function POST(request: Request) {
       )
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { category, type, amount, description, date } = await request.json()
 
-    if (!category || !type || !amount || amount <= 0 || !date) {
+    if (!category || !type || amount == null || !date) {
       return NextResponse.json(
         { error: "Category, type, amount, and date are required" },
+        { status: 400 }
+      )
+    }
+
+    let amountMinor: bigint
+    try {
+      amountMinor = parseMoneyFromApi(amount, currency)
+    } catch {
+      return NextResponse.json(
+        { error: "Category, type, amount, and date are required" },
+        { status: 400 }
+      )
+    }
+    if (amountMinor <= 0n) {
+      return NextResponse.json(
+        { error: "Amount must be greater than 0" },
         { status: 400 }
       )
     }
@@ -92,7 +127,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         category,
         type,
-        amount,
+        amount: amountMinor,
         description,
         date: transactionDate,
         month,
@@ -100,7 +135,17 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ transaction }, { status: 201 })
+    return moneyJsonResponse(
+      {
+        transaction: mapMoneyListToApi(
+          [transaction as unknown as Record<string, unknown>],
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        )[0],
+      },
+      currency,
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Error creating category transaction:", error)
     return NextResponse.json(

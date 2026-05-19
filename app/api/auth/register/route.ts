@@ -6,6 +6,7 @@ import {
   validateEmailField,
   validatePasswordForCreate,
 } from "@/lib/password-policy"
+import { defaultFundAllocationNestedCreate } from "@/lib/fund-allocation-fields"
 
 export async function POST(req: Request) {
   let body: unknown
@@ -72,17 +73,9 @@ export async function POST(req: Request) {
       email: normalizedEmail,
       password: hashed,
       name: trimmedName,
+      dashboardTheme: "console",
       fundAllocation: {
-        create: {
-          fixedCostsType: "percentage",
-          fixedCostsValue: 50,
-          savingsType: "percentage",
-          savingsValue: 20,
-          investmentType: "percentage",
-          investmentValue: 10,
-          guiltFreeSpendingType: "percentage",
-          guiltFreeSpendingValue: 20,
-        },
+        create: defaultFundAllocationNestedCreate(),
       },
     },
   })

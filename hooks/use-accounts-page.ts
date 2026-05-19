@@ -9,12 +9,13 @@ import {
   peekCachedJson,
 } from "@/lib/client-fetch-cache"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 import {
   buildFieldErrors,
   hasFieldErrors,
   requireDifferent,
   requireField,
-  requirePositiveNumber,
+  requirePositiveMoney,
   requireSelection,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
@@ -50,7 +51,7 @@ export const ACCOUNT_FUND_CATEGORIES = [
 export const ACCOUNTS_LIST_CACHE_KEY = "dashboard:accounts"
 
 export function useAccountsPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
   const [accounts, setAccounts] = useState<AccountRow[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -185,13 +186,11 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       ["accountType", requireSelection(accountType, "an account type")],
       [
         "startingFunds",
-        editingAccount && startingFunds.trim() === ""
-          ? "Current balance is required."
-          : editingAccount &&
-              startingFunds.trim() !== "" &&
-              !Number.isFinite(parseFloat(startingFunds))
-            ? "Enter a valid current balance."
-            : null,
+        editingAccount
+          ? requirePositiveMoney(startingFunds, "Current balance", currencyCode)
+          : startingFunds.trim() === ""
+            ? null
+            : requirePositiveMoney(startingFunds, "Starting balance", currencyCode),
       ],
     ])
     if (hasFieldErrors(accountErrors)) {
@@ -224,13 +223,13 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
             bankName,
             accountType,
             isDefault,
-            balance: parseFloat(startingFunds),
+            balance: parseMoneyInput(startingFunds, currencyCode),
           }
         : {
             name,
             bankName,
             accountType,
-            startingFunds: parseFloat(startingFunds) || 0,
+            startingFunds: parseMoneyInput(startingFunds, currencyCode) || 0,
             isDefault,
           }
 
@@ -305,7 +304,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
               )
             : null),
       ],
-      ["transferAmount", requirePositiveNumber(transferAmount, "Amount")],
+      ["transferAmount", requirePositiveMoney(transferAmount, "Amount", currencyCode)],
       ["transferDate", requireField(transferDate, "Date")],
     ])
     if (hasFieldErrors(transferErrors)) {
@@ -337,7 +336,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         body: JSON.stringify({
           fromAccountId,
           toAccountId,
-          amount: parseFloat(transferAmount),
+          amount: parseMoneyInput(transferAmount, currencyCode),
           description: transferDescription || null,
           date: transferDate,
           category: transferCategory || null,

@@ -1,7 +1,7 @@
 export interface InvestmentPurchase {
   id: string
   pricePerUnit: number | null
-  numberOfShares: number | null
+  numberOfShares: string | null
   amount: number
   date: string
 }

@@ -5,6 +5,11 @@ type CacheEntry<T> = {
 }
 
 const clientFetchCache = new Map<string, CacheEntry<unknown>>()
+const cacheGeneration = new Map<string, number>()
+
+function bumpCacheGeneration(key: string) {
+  cacheGeneration.set(key, (cacheGeneration.get(key) ?? 0) + 1)
+}
 
 function normalizeError(response: Response, bodyText: string) {
   return new Error(
@@ -27,6 +32,9 @@ export function invalidateCachedJson(
 ) {
   if (!matcher) {
     clientFetchCache.clear()
+    for (const key of [...cacheGeneration.keys()]) {
+      bumpCacheGeneration(key)
+    }
     return
   }
 
@@ -40,6 +48,19 @@ export function invalidateCachedJson(
 
     if (matched) {
       clientFetchCache.delete(key)
+      bumpCacheGeneration(key)
+    }
+  }
+
+  for (const key of cacheGeneration.keys()) {
+    const matched =
+      typeof matcher === "string"
+        ? key.includes(matcher)
+        : matcher instanceof RegExp
+          ? matcher.test(key)
+          : matcher(key)
+    if (matched) {
+      bumpCacheGeneration(key)
     }
   }
 }
@@ -51,17 +72,58 @@ export function invalidateCategoryTrackingAndDashboardCaches() {
   invalidateCachedJson("dashboard:history")
 }
 
+/** Clears caches touched by logging, editing, or deleting income. */
+export function invalidateIncomeDataCaches() {
+  invalidateCachedJson(/^income:/)
+  invalidateCachedJson("accounts")
+  invalidateCachedJson("dashboard:income-month")
+  invalidateCachedJson("dashboard:income-meta")
+  invalidateCachedJson("dashboard:accounts")
+  invalidateCachedJson("dashboard:ytd")
+  invalidateCategoryTrackingAndDashboardCaches()
+}
+
+/** Clears caches touched by logging, editing, or deleting expenses. */
+export function invalidateExpenseDataCaches() {
+  invalidateCachedJson("accounts")
+  invalidateCachedJson("expenses-summary")
+  invalidateCachedJson("expenses:")
+  invalidateCachedJson("dashboard:expenses-current")
+  invalidateCachedJson("dashboard:expenses-last-month")
+  invalidateCachedJson("dashboard:accounts")
+  invalidateCachedJson("dashboard:income-month")
+  invalidateCachedJson("dashboard:income-meta")
+  invalidateCachedJson("dashboard:ytd")
+  invalidateCategoryTrackingAndDashboardCaches()
+}
+
+export type FetchJsonAndCacheOptions = {
+  /** Drop in-memory cache and bypass browser HTTP cache for this request. */
+  force?: boolean
+}
+
 export async function fetchJsonAndCache<T>(
   key: string,
   input: string,
   init?: RequestInit,
+  options?: FetchJsonAndCacheOptions,
 ) {
+  const force = options?.force === true
+
+  if (force) {
+    clientFetchCache.delete(key)
+    bumpCacheGeneration(key)
+  }
+
   const existing = clientFetchCache.get(key) as CacheEntry<T> | undefined
-  if (existing?.promise) return existing.promise
+  if (existing?.promise && !force) return existing.promise
+
+  const generationAtStart = cacheGeneration.get(key) ?? 0
 
   const promise = (async () => {
     const response = await fetch(input, {
       credentials: "same-origin",
+      cache: force ? "no-store" : "default",
       ...init,
     })
 
@@ -70,21 +132,21 @@ export async function fetchJsonAndCache<T>(
     }
 
     const data = (await response.json()) as T
-    clientFetchCache.set(key, {
-      data,
-      updatedAt: Date.now(),
-    })
+    if ((cacheGeneration.get(key) ?? 0) === generationAtStart) {
+      clientFetchCache.set(key, {
+        data,
+        updatedAt: Date.now(),
+      })
+    }
     return data
   })()
 
   clientFetchCache.set(key, {
-    data: existing?.data,
+    data: force ? undefined : existing?.data,
     updatedAt: existing?.updatedAt ?? 0,
     promise,
   })
 
-  // Drop the in-flight handle once settled so callers never reuse a rejected
-  // promise after navigation/abort (dedupe only applies while still pending).
   promise.finally(() => {
     const entry = clientFetchCache.get(key) as CacheEntry<T> | undefined
     if (!entry || entry.promise !== promise) return
@@ -97,7 +159,7 @@ export async function fetchJsonAndCache<T>(
   try {
     return await promise
   } catch (error) {
-    if (existing?.data !== undefined) {
+    if (existing?.data !== undefined && !force) {
       clientFetchCache.set(key, {
         data: existing.data,
         updatedAt: existing.updatedAt,
@@ -107,4 +169,10 @@ export async function fetchJsonAndCache<T>(
     }
     throw error
   }
+}
+
+/** Append a cache-busting query param so browser/CDN caches return fresh JSON. */
+export function withCacheBust(path: string): string {
+  const separator = path.includes("?") ? "&" : "?"
+  return `${path}${separator}t=${Date.now()}`
 }

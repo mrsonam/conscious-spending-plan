@@ -18,6 +18,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Ba
 import { cn } from "@/lib/utils"
 import { BENTO } from "@/lib/app-routes"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { tryParseMoneyInput } from "@/lib/money-input"
+import { parseSharesInput } from "@/lib/shares"
 
 interface Account {
   id: string
@@ -30,7 +32,7 @@ interface Account {
 interface InvestmentPurchase {
   id: string
   pricePerUnit: number | null
-  numberOfShares: number | null
+  numberOfShares: string | null
   amount: number
   date: string
 }
@@ -57,7 +59,7 @@ interface InvestmentAccountSummary {
 
 export default function InvestmentsPage() {
   const { data: session, status } = useSession()
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
 
   const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccountSummary[]>([])
@@ -421,22 +423,26 @@ export default function InvestmentsPage() {
       return
     }
 
-    const numPricePerUnit = parseFloat(pricePerUnit)
-    const numNumberOfShares = parseFloat(numberOfShares)
-    const numBrokerageFee = brokerageFee ? parseFloat(brokerageFee) : 0
-    
-    if (!numPricePerUnit || numPricePerUnit <= 0) {
+    const numPricePerUnit = tryParseMoneyInput(pricePerUnit, currencyCode)
+    let sharesStr = ""
+    try {
+      sharesStr = parseSharesInput(numberOfShares)
+    } catch {
+      setMessage({ type: "error", text: "Please enter a valid number of shares" })
+      return
+    }
+    const numBrokerageFee = brokerageFee
+      ? tryParseMoneyInput(brokerageFee, currencyCode) ?? 0
+      : 0
+
+    if (numPricePerUnit === null || numPricePerUnit <= 0) {
       setMessage({ type: "error", text: "Please enter a valid price per unit" })
       return
     }
 
-    if (!numNumberOfShares || numNumberOfShares <= 0) {
-      setMessage({ type: "error", text: "Please enter a valid number of shares" })
-      return
-    }
-
-    // Calculate total amount (including optional brokerage fee)
-    const numericAmount = numPricePerUnit * numNumberOfShares + (numBrokerageFee > 0 ? numBrokerageFee : 0)
+    const shareCount = Number(sharesStr)
+    const numericAmount =
+      numPricePerUnit * shareCount + (numBrokerageFee > 0 ? numBrokerageFee : 0)
 
     if (!date) {
       setMessage({ type: "error", text: "Please select a date for this investment" })
@@ -454,7 +460,7 @@ export default function InvestmentsPage() {
           amount: numericAmount,
           investmentName,
           pricePerUnit: numPricePerUnit,
-          numberOfShares: numNumberOfShares,
+          numberOfShares: sharesStr,
           brokerageFee: numBrokerageFee > 0 ? numBrokerageFee : 0,
           date,
         }),
@@ -923,10 +929,10 @@ export default function InvestmentsPage() {
                                             {h.purchases.map((purchase) => (
                                               <div key={purchase.id} className="flex items-center justify-between text-sm bg-white rounded p-2">
                                                 <div className="flex-1">
-                                                  {purchase.numberOfShares && purchase.numberOfShares > 0 && purchase.pricePerUnit && purchase.pricePerUnit > 0 ? (
+                                                  {purchase.numberOfShares && Number(purchase.numberOfShares) > 0 && purchase.pricePerUnit && purchase.pricePerUnit > 0 ? (
                                                     <div>
                                                       <span className="font-medium">
-                                                        {purchase.numberOfShares.toFixed(2)} shares
+                                                        {purchase.numberOfShares} shares
                                                       </span>
                                                       <span className="text-gray-500 mx-2">@</span>
                                                       <span className="font-medium text-indigo-600">
@@ -1305,9 +1311,9 @@ export default function InvestmentsPage() {
                               setPricePerUnit(e.target.value)
                               // Auto-calculate total if both fields are filled
                               if (e.target.value && numberOfShares) {
-                                const price = parseFloat(e.target.value)
+                                const price = tryParseMoneyInput(e.target.value, currencyCode)
                                 const shares = parseFloat(numberOfShares)
-                                if (!isNaN(price) && !isNaN(shares) && price > 0 && shares > 0) {
+                                if (price !== null && !isNaN(shares) && price > 0 && shares > 0) {
                                   setAmount((price * shares).toFixed(2))
                                 }
                               }
@@ -1329,8 +1335,8 @@ export default function InvestmentsPage() {
                               // Auto-calculate total if both fields are filled
                               if (e.target.value && pricePerUnit) {
                                 const shares = parseFloat(e.target.value)
-                                const price = parseFloat(pricePerUnit)
-                                if (!isNaN(shares) && !isNaN(price) && shares > 0 && price > 0) {
+                                const price = tryParseMoneyInput(pricePerUnit, currencyCode)
+                                if (!isNaN(shares) && price !== null && shares > 0 && price > 0) {
                                   setAmount((shares * price).toFixed(2))
                                 }
                               }
@@ -1352,12 +1358,12 @@ export default function InvestmentsPage() {
                             value={brokerageFee}
                             onChange={(e) => {
                               setBrokerageFee(e.target.value)
-                              const price = parseFloat(pricePerUnit)
+                              const price = tryParseMoneyInput(pricePerUnit, currencyCode)
                               const shares = parseFloat(numberOfShares)
-                              const fee = parseFloat(e.target.value)
-                              if (!isNaN(price) && !isNaN(shares) && price > 0 && shares > 0) {
+                              const fee = tryParseMoneyInput(e.target.value, currencyCode)
+                              if (price !== null && !isNaN(shares) && price > 0 && shares > 0) {
                                 const base = price * shares
-                                const total = base + (isNaN(fee) || fee < 0 ? 0 : fee)
+                                const total = base + (fee === null || fee < 0 ? 0 : fee)
                                 setAmount(total.toFixed(2))
                               }
                             }}

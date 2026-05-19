@@ -16,6 +16,7 @@ import { consoleFocus } from "@/components/wealth-console/console-ui"
 import type { DashboardTheme } from "@/lib/dashboard-theme"
 import {
   DEMO_ACCOUNT,
+  isDemoAccountEmail,
   PORTFOLIO_DEMO_QUERY_KEY,
   PORTFOLIO_DEMO_QUERY_VALUE,
 } from "@/lib/demo-credentials"
@@ -78,7 +79,10 @@ export function LoginForm({ initialTheme }: { initialTheme: DashboardTheme }) {
         setCredentialsLoading(false)
         return
       }
-      router.push("/dashboard")
+      const destination = isDemoAccountEmail(email)
+        ? "/dashboard?tour=1"
+        : "/dashboard"
+      router.push(destination)
       router.refresh()
     } catch {
       setFormError("Something went wrong. Please try again.")

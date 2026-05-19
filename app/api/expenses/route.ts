@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import type { Prisma } from "@prisma/client"
 import { auth } from "@/lib/auth"
 import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExpenseSummary } from "@/lib/expense-summary"
+import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
+import {
+  mapMoneyFieldsToApi,
+  mapMoneyListToApi,
+  AMOUNT_ONLY_FIELDS,
+} from "@/lib/money-serialize"
+import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
+import { minorSumToDollars } from "@/lib/money-aggregates"
 
 export async function GET(request: Request) {
   try {
@@ -101,24 +110,27 @@ export async function GET(request: Request) {
           : Promise.resolve(null),
       ])
 
-    const totalAmount = sumResult?._sum?.amount ?? null
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const expensesOut = mapMoneyListToApi(
+      expenses as Record<string, unknown>[],
+      currency,
+      AMOUNT_ONLY_FIELDS
+    )
+    const totalAmountDollars =
+      sumResult?._sum?.amount != null
+        ? minorSumToDollars(sumResult._sum.amount, currency)
+        : null
 
     if (usePagination) {
-      return NextResponse.json({
-        expenses,
-        total,
-        page,
-        limit,
-        ...(summary ?? {}),
-      }, {
-        headers: {
-          "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+      return moneyJsonResponse(
+        {
+          expenses: expensesOut,
+          total,
+          page,
+          limit,
+          ...(summary ?? {}),
         },
-      })
-    }
-    if (hasDateRange && totalAmount !== null) {
-      return NextResponse.json(
-        { expenses, total: totalAmount },
+        currency,
         {
           headers: {
             "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
@@ -126,8 +138,20 @@ export async function GET(request: Request) {
         },
       )
     }
-    return NextResponse.json(
-      { expenses },
+    if (hasDateRange && totalAmountDollars !== null) {
+      return moneyJsonResponse(
+        { expenses: expensesOut, total: totalAmountDollars },
+        currency,
+        {
+          headers: {
+            "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
+          },
+        },
+      )
+    }
+    return moneyJsonResponse(
+      { expenses: expensesOut },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",
@@ -173,7 +197,17 @@ export async function POST(request: Request) {
     } = body
     let accountId: string | undefined = body.accountId
 
-    if (!amount || amount <= 0) {
+    const currency = await getUserDisplayCurrency(userId)
+    let amountMinor: bigint
+    try {
+      amountMinor = parseMoneyFromApi(amount, currency)
+    } catch {
+      return NextResponse.json(
+        { error: "Amount is required and must be greater than 0" },
+        { status: 400 }
+      )
+    }
+    if (amountMinor <= 0n) {
       return NextResponse.json(
         { error: "Amount is required and must be greater than 0" },
         { status: 400 }
@@ -224,7 +258,7 @@ export async function POST(request: Request) {
     }
 
     // Check if account has sufficient balance
-    if (account.balance < amount) {
+    if (account.balance < amountMinor) {
       return NextResponse.json(
         { error: "Insufficient funds in the account" },
         { status: 400 }
@@ -237,7 +271,7 @@ export async function POST(request: Request) {
         data: {
           userId,
           accountId,
-          amount,
+          amount: amountMinor,
           description,
           category,
           expenseCategory,
@@ -257,14 +291,24 @@ export async function POST(request: Request) {
       await tx.account.update({
         where: { id: accountId },
         data: {
-          balance: { decrement: amount },
+          balance: { decrement: amountMinor },
         },
       })
 
       return expense
     })
 
-    return NextResponse.json({ expense: result }, { status: 201 })
+    return moneyJsonResponse(
+      {
+        expense: mapMoneyFieldsToApi(
+          result as unknown as Record<string, unknown>,
+          currency,
+          AMOUNT_ONLY_FIELDS
+        ),
+      },
+      currency,
+      { status: 201 }
+    )
   } catch (error) {
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })

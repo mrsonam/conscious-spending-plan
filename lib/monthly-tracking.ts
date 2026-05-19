@@ -1,5 +1,8 @@
 import { prisma } from "./prisma"
 import { TRACKING_CATEGORIES, calculateMonthClosing } from "./category-tracking-calculation"
+import { dollarsToMinor } from "@/lib/money"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 /**
  * Get current month and year
@@ -61,12 +64,15 @@ export async function ensureMonthClosing(
 
   // Previous month's overspent: use stored closing so this month's remaining/overspent is after carryover/overspent.
   // If previous month not yet stored, use 0 (no recursion).
+  const currency = await getUserDisplayCurrency(userId)
+  const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
+
   const prevOverspentByCat: Record<string, number> = {}
   const prevClosings = await prisma.categoryMonthClosing.findMany({
     where: { userId, month: prevMonth, year: prevYear },
   })
   for (const row of prevClosings) {
-    prevOverspentByCat[row.category] = row.overspent ?? 0
+    prevOverspentByCat[row.category] = toD(row.overspent ?? 0n)
   }
 
   const [balances, expenses, transfers, investments] = await Promise.all([
@@ -99,16 +105,25 @@ export async function ensureMonthClosing(
   ])
 
   const { remaining, overspent } = calculateMonthClosing({
-    categoryBalances: balances,
-    expenses,
-    transfers,
-    investments,
+    categoryBalances: balances.map((b) => ({
+      category: b.category,
+      balance: toD(b.balance),
+    })),
+    expenses: expenses.map((e) => ({
+      amount: toD(e.amount),
+      category: e.category,
+    })),
+    transfers: transfers.map((t) => ({
+      amount: toD(t.amount),
+      category: t.category,
+    })),
+    investments: investments.map((i) => ({ amount: toD(i.amount) })),
     previousOverspentByCategory: prevOverspentByCat,
   })
 
   for (const cat of TRACKING_CATEGORIES) {
-    const rem = remaining[cat]
-    const over = overspent[cat]
+    const rem = dollarsToMinor(remaining[cat], currency)
+    const over = dollarsToMinor(overspent[cat], currency)
 
     await prisma.categoryMonthClosing.upsert({
       where: {
@@ -191,12 +206,13 @@ export async function ensureMonthlyCategoryBalances(userId: string, month?: numb
   const missingCategories = categories.filter(cat => !existingMap.has(cat))
 
   if (missingCategories.length > 0) {
+    const currency = await getUserDisplayCurrency(userId)
     const carryover = await getPreviousMonthRemainingByCategory(userId, m, y)
     await prisma.categoryBalance.createMany({
-      data: missingCategories.map(category => ({
+      data: missingCategories.map((category) => ({
         userId,
         category,
-        balance: carryover[category] ?? 0,
+        balance: dollarsToMinor(carryover[category] ?? 0, currency),
         month: m,
         year: y,
       })),

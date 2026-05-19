@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parseMoneyFromApi } from "@/lib/money-api"
+import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function PATCH(
   request: Request,
@@ -12,6 +16,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const currency = currencyFromSession(session.user.displayCurrency)
     const { id } = await params
     const existing = await prisma.recurringExpense.findFirst({
       where: { id, userId: session.user.id },
@@ -50,11 +55,23 @@ export async function PATCH(
       }
     }
 
+    let amountMinor: bigint | undefined
+    if (amount != null) {
+      try {
+        amountMinor = parseMoneyFromApi(amount, currency)
+      } catch {
+        return NextResponse.json({ error: "Amount must be positive" }, { status: 400 })
+      }
+      if (amountMinor <= 0n) {
+        return NextResponse.json({ error: "Amount must be positive" }, { status: 400 })
+      }
+    }
+
     const recurring = await prisma.recurringExpense.update({
       where: { id },
       data: {
         ...(accountId != null && { accountId }),
-        ...(amount != null && amount > 0 && { amount: Number(amount) }),
+        ...(amountMinor != null && { amount: amountMinor }),
         ...(description !== undefined && { description: description || null }),
         ...(category !== undefined && { category: category || null }),
         ...(expenseCategory !== undefined && { expenseCategory: expenseCategory || null }),
@@ -68,7 +85,16 @@ export async function PATCH(
       },
     })
 
-    return NextResponse.json({ recurring })
+    return moneyJsonResponse(
+      {
+        recurring: mapMoneyFieldsToApi(
+          recurring as unknown as Record<string, unknown>,
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        ),
+      },
+      currency
+    )
   } catch (error) {
     console.error("Error updating recurring expense:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

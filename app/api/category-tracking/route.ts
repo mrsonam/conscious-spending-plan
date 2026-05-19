@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { minorSumToDollars } from "@/lib/money-aggregates"
+import { currencyFromSession } from "@/lib/user-currency"
+import { addMinor, coerceMinor } from "@/lib/money"
 
 /**
  * Get category tracking summary including:
@@ -22,6 +27,9 @@ export async function GET(request: Request) {
         { status: 401 }
       )
     }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
 
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get("month")
@@ -55,11 +63,6 @@ export async function GET(request: Request) {
       endOfMonth = def.endOfMonth
     }
     
-    // Parallelize all data fetching.
-    // IMPORTANT: We treat CategoryBalance as the canonical source of how much
-    // has been allocated per category. This means changing fund settings
-    // will NOT retroactively change past allocations – only new income entries
-    // (handled in /api/calculate) update these balances.
     const [
       currentMonthCategoryBalances,
       currentMonthExpenses,
@@ -67,7 +70,6 @@ export async function GET(request: Request) {
       currentMonthInvestments,
       incomeEntriesForMonth,
     ] = await Promise.all([
-      // Current month category balances (allocated amounts per category)
       prisma.categoryBalance.findMany({
         where: {
           userId: session.user.id,
@@ -75,7 +77,6 @@ export async function GET(request: Request) {
           year: currentYear,
         },
       }),
-      // Get current month expenses (only amount and category needed)
       prisma.expense.findMany({
         where: {
           userId: session.user.id,
@@ -92,7 +93,6 @@ export async function GET(request: Request) {
           category: true,
         },
       }),
-      // Get current month transfers (only amount and category needed)
       prisma.transfer.findMany({
         where: {
           userId: session.user.id,
@@ -109,7 +109,6 @@ export async function GET(request: Request) {
           category: true,
         },
       }),
-      // Get current month investment holdings
       prisma.investmentHolding.findMany({
         where: {
           userId: session.user.id,
@@ -122,7 +121,6 @@ export async function GET(request: Request) {
           amount: true,
         },
       }),
-      // Income for this month (by income date, allocated to budget) – must match sum of allocated from income
       prisma.incomeEntry.findMany({
         where: {
           userId: session.user.id,
@@ -133,8 +131,6 @@ export async function GET(request: Request) {
       }),
     ])
 
-    // Single source of truth: previous month remaining (carryover) and overspent from one formula:
-    // net = prevAllocated - prevSpent; remaining = max(0, net); overspent = max(0, -net)
     const { remaining: carryoverByCategory, overspent: overspentByCategory } =
       await getPreviousMonthRemainingAndOverspentByCategory(
         session.user.id,
@@ -142,36 +138,49 @@ export async function GET(request: Request) {
         currentYear
       )
 
-    const categories = TRACKING_CATEGORIES
     const tracking = calculateCategoryTracking({
-      categoryBalances: currentMonthCategoryBalances,
-      expenses: currentMonthExpenses,
-      transfers: currentMonthTransfers,
-      investments: currentMonthInvestments,
+      categoryBalances: currentMonthCategoryBalances.map((b) => ({
+        category: b.category,
+        balance: toD(b.balance ?? 0n),
+      })),
+      expenses: currentMonthExpenses.map((e) => ({
+        category: e.category,
+        amount: toD(e.amount),
+      })),
+      transfers: currentMonthTransfers.map((t) => ({
+        category: t.category,
+        amount: toD(t.amount),
+      })),
+      investments: currentMonthInvestments.map((i) => ({
+        amount: toD(i.amount),
+      })),
       carryoverByCategory,
       overspentByCategory,
     })
 
-    const totalIncomeForMonth = incomeEntriesForMonth.reduce((sum, e) => sum + e.amount, 0)
+    const totalIncomeMinor = incomeEntriesForMonth.reduce(
+      (sum, e) => addMinor(sum, coerceMinor(e.amount)),
+      0n,
+    )
+    const totalIncomeForMonth = minorSumToDollars(totalIncomeMinor, currency)
 
-    // Ensure sum(allocated) equals totalIncomeForMonth (fix rounding drift by adding difference to savings)
     let sumAllocated = 0
-    for (const cat of categories) {
-      const t = tracking[cat]
-      sumAllocated += t.allocated
+    for (const cat of TRACKING_CATEGORIES) {
+      sumAllocated += tracking[cat].allocated
     }
     const roundingDiff = Math.round((totalIncomeForMonth - sumAllocated) * 100) / 100
     if (Math.abs(roundingDiff) > 0 && Math.abs(roundingDiff) < 0.05 && tracking.savings) {
       tracking.savings.allocated = Math.round((tracking.savings.allocated + roundingDiff) * 100) / 100
     }
 
-    return NextResponse.json(
+    return moneyJsonResponse(
       {
         tracking,
         month: currentMonth,
         year: currentYear,
         totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
       },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",

@@ -1,4 +1,5 @@
 import { validateEmailField } from "@/lib/password-policy"
+import { parseMoneyInput } from "@/lib/money-input"
 
 /** Use on `<form>` so the browser does not show native validation tooltips. */
 export const formNoValidate = { noValidate: true as const }
@@ -47,6 +48,25 @@ export function requirePositiveNumber(
   }
   if (n <= 0) {
     return `${label} must be greater than 0.`
+  }
+  return null
+}
+
+/** Positive money amount (rounded via minor units). */
+export function requirePositiveMoney(
+  value: string,
+  label: string,
+  currencyCode: string
+): string | null {
+  const empty = requireField(value, label)
+  if (empty) return empty
+  try {
+    const dollars = parseMoneyInput(value, currencyCode)
+    if (!Number.isFinite(dollars) || dollars <= 0) {
+      return `${label} must be greater than 0.`
+    }
+  } catch {
+    return `Enter a valid ${label.toLowerCase()}.`
   }
   return null
 }

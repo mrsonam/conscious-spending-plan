@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
+import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { minorSumToDollars } from "@/lib/money-aggregates"
+import { subtractMinor, coerceMinor } from "@/lib/money"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function GET(request: Request) {
   try {
@@ -9,6 +13,9 @@ export async function GET(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
 
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get("startDate")
@@ -93,21 +100,20 @@ export async function GET(request: Request) {
       prisma.investmentHolding.count({ where: investmentWhere }),
     ])
 
-    const income = incomeAgg._sum.amount ?? 0
-    const expenses = expenseAgg._sum.amount ?? 0
-    const transfers = transferAgg._sum.amount ?? 0
-    const investments = investmentAgg._sum.amount ?? 0
+    const incomeMinor = coerceMinor(incomeAgg._sum.amount ?? 0n)
+    const expensesMinor = coerceMinor(expenseAgg._sum.amount ?? 0n)
 
-    return NextResponse.json(
+    return moneyJsonResponse(
       {
-        income,
-        expenses,
-        transfers,
-        investments,
-        net: income - expenses,
+        income: toD(incomeMinor),
+        expenses: toD(expensesMinor),
+        transfers: toD(transferAgg._sum.amount),
+        investments: toD(investmentAgg._sum.amount),
+        net: toD(subtractMinor(incomeMinor, expensesMinor)),
         totalRows:
           incomeCount + expenseCount + transferCount + investmentCount,
       },
+      currency,
       {
         headers: {
           "Cache-Control": "private, max-age=20, stale-while-revalidate=60",

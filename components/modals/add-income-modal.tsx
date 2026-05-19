@@ -24,6 +24,9 @@ import {
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors";
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert";
 import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import { parseMoneyInput } from "@/lib/money-input";
+import { invalidateIncomeDataCaches } from "@/lib/client-fetch-cache";
 
 interface Account {
   id: string;
@@ -36,7 +39,7 @@ interface Account {
 interface AddIncomeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }
 
 export function AddIncomeModal({
@@ -55,6 +58,7 @@ export function AddIncomeModal({
   const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
     useFormFieldErrors<"income" | "date">();
   const [allocateToBudget, setAllocateToBudget] = useState(true);
+  const { currencyCode } = useFormatCurrency();
 
   useEffect(() => {
     if (open) {
@@ -107,46 +111,53 @@ export function AddIncomeModal({
       return;
     }
 
-    const incomeAmount = parseFloat(income);
+    const incomeAmount = parseMoneyInput(income, currencyCode);
 
     const d = new Date(date + "T12:00:00");
     const periodStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
     const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
 
-    setCalculating(true);
+    const payload = {
+      income: incomeAmount,
+      description: description.trim() || null,
+      date,
+      periodStart,
+      periodEnd,
+      accountId: selectedAccountId || null,
+      allocateToBudget,
+    };
 
-    try {
-      const response = await fetch("/api/calculate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          income: incomeAmount,
-          description: description.trim() || null,
-          date,
-          periodStart,
-          periodEnd,
-          accountId: selectedAccountId || null,
-          allocateToBudget,
-        }),
-      });
+    setIncome("");
+    setDescription("");
+    const today = new Date();
+    setDate(today.toISOString().split("T")[0]);
+    onOpenChange(false);
+    invalidateIncomeDataCaches();
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setIncome("");
-        setDescription("");
-        const today = new Date();
-        setDate(today.toISOString().split("T")[0]);
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
-      } else {
-        setFormError(data.error || "Failed to calculate breakdown");
+    void (async () => {
+      setCalculating(true);
+      try {
+        const response = await fetch("/api/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to calculate breakdown");
+        }
+        await onSuccess?.();
+      } catch (error) {
+        setFormError(
+          error instanceof Error
+            ? error.message
+            : "An error occurred. Please try again.",
+        );
+        onOpenChange(true);
+      } finally {
+        setCalculating(false);
       }
-    } catch {
-      setFormError("An error occurred. Please try again.");
-    } finally {
-      setCalculating(false);
-    }
+    })();
   };
 
   return (

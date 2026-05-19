@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma"
 import type { IncomePageStats } from "@/lib/income-page-types"
+import { minorSumToDollars } from "@/lib/money-aggregates"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function getIncomePageStats(userId: string): Promise<IncomePageStats> {
+  const currency = await getUserDisplayCurrency(userId)
+  const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
   const now = new Date()
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const lastMonthEnd = new Date(
@@ -50,9 +54,9 @@ export async function getIncomePageStats(userId: string): Promise<IncomePageStat
     }),
   ])
 
-  const lastMonthIncome = lastMonthAgg._sum.amount ?? 0
-  const currentMonthTotal = currentMonthAgg._sum.amount ?? 0
-  const ytdTotal = ytdAgg._sum.amount ?? 0
+  const lastMonthIncome = toD(lastMonthAgg._sum.amount)
+  const currentMonthTotal = toD(currentMonthAgg._sum.amount)
+  const ytdTotal = toD(ytdAgg._sum.amount)
 
   let monthOverMonthPct: number | null = null
   if (lastMonthIncome > 0) {

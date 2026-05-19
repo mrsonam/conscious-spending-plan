@@ -8,6 +8,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { parseMoneyInput } from "@/lib/money-input"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -18,6 +19,7 @@ import {
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
+import { invalidateExpenseDataCaches } from "@/lib/client-fetch-cache"
 
 type ExpenseModalFieldKey = "accountId" | "amount" | "date" | "fundCategory"
 
@@ -32,7 +34,7 @@ interface Account {
 interface AddExpenseModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
 const FUND_CATEGORIES = [
@@ -68,7 +70,7 @@ const EXPENSE_CATEGORIES = [
 ]
 
 export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseModalProps) {
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
@@ -121,41 +123,46 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
     }
     clearFieldErrors()
 
-    const amountNum = parseFloat(amount)
+    const amountNum = parseMoneyInput(amount, currencyCode)
 
-    setSubmitting(true)
-
-    try {
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId,
-          amount: amountNum,
-          description: description || null,
-          category: fundCategory || null,
-          expenseCategory: expenseCategory || null,
-          date,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setAmount("")
-        setDescription("")
-        setFundCategory("")
-        setExpenseCategory("")
-        onOpenChange(false)
-        if (onSuccess) onSuccess()
-      } else {
-        setFormError(data.error || "Failed to log expense")
-      }
-    } catch {
-      setFormError("An error occurred")
-    } finally {
-      setSubmitting(false)
+    const payload = {
+      accountId,
+      amount: amountNum,
+      description: description || null,
+      category: fundCategory || null,
+      expenseCategory: expenseCategory || null,
+      date,
     }
+
+    setAmount("")
+    setDescription("")
+    setFundCategory("")
+    setExpenseCategory("")
+    onOpenChange(false)
+    invalidateExpenseDataCaches()
+
+    void (async () => {
+      setSubmitting(true)
+      try {
+        const response = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to log expense")
+        }
+        await onSuccess?.()
+      } catch (error) {
+        setFormError(
+          error instanceof Error ? error.message : "Failed to log expense",
+        )
+        onOpenChange(true)
+      } finally {
+        setSubmitting(false)
+      }
+    })()
   }
 
   return (
