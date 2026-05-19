@@ -31,16 +31,28 @@ function formatScaledShares(scaled: bigint, scale: number): ShareCount {
   return fracPart ? `${intPart}.${fracPart}` : intPart
 }
 
+/** Normalize stored/API share values; allows zero (unlike user input validation). */
 function sharesFromUnknown(value: unknown): ShareCount | null {
-  if (value == null) return null
-  if (typeof value === "string") return parseSharesOptional(value)
-  if (typeof value === "object" && value !== null) {
+  if (value == null || value === "") return null
+
+  let raw: string
+  if (typeof value === "string") {
+    raw = value.trim()
+  } else if (typeof value === "object" && value !== null) {
     const maybe = value as { toFixed?: (dp?: number) => string }
-    if (typeof maybe.toFixed === "function") {
-      return parseSharesOptional(maybe.toFixed())
-    }
+    raw =
+      typeof maybe.toFixed === "function"
+        ? maybe.toFixed().trim()
+        : String(value).trim()
+  } else {
+    raw = String(value).trim()
   }
-  return parseSharesOptional(String(value))
+
+  if (!raw) return null
+  if (!SHARES_PATTERN.test(raw)) return null
+
+  const { scaled, scale } = parseSharesScaled(raw, { allowZero: true })
+  return formatScaledShares(scaled, scale)
 }
 
 /** Validate and canonicalize a share count string for storage. */
