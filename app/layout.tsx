@@ -29,12 +29,17 @@ export const metadata: Metadata = {
   description: "Manage your finances with Ramit Sethi's Conscious Spending Plan",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    shortcut: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
-    title: "Finance",
+    title: "CSP",
   },
 };
 
@@ -63,14 +68,14 @@ export default async function RootLayout({
       data-csp-dashboard-theme={splashTheme}
     >
       <head>
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="apple-touch-icon" href="/icon-192.png" sizes="192x192" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
           id="csp-apple-status-bar"
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="Finance" />
+        <meta name="apple-mobile-web-app-title" content="CSP" />
         <meta
           id="csp-theme-color"
           name="theme-color"
