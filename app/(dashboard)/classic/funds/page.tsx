@@ -30,6 +30,7 @@ const FundField = React.memo(({
   categoryName,
   allocation,
   getBalance,
+  getAllocatedFromIncome,
   formatCurrency,
   currencyCode,
   updateField,
@@ -41,6 +42,7 @@ const FundField = React.memo(({
   categoryName: string;
   allocation: FundAllocation;
   getBalance: (category: string) => number;
+  getAllocatedFromIncome: (category: string) => number;
   formatCurrency: (amount: number) => string;
   currencyCode: string;
   updateField: (field: keyof FundAllocation, value: string | number | null) => void;
@@ -49,10 +51,11 @@ const FundField = React.memo(({
   const value = allocation[valueField] as number;
   const cap = allocation[capField] as number | null;
   const currentBalance = getBalance(categoryName);
+  const allocatedFromIncome = getAllocatedFromIncome(categoryName);
   const isCapped = cap !== null && cap !== undefined;
-  const remaining = isCapped ? Math.max(0, cap - currentBalance) : null;
+  const remaining = isCapped ? Math.max(0, cap - allocatedFromIncome) : null;
   const percentageUsed =
-    isCapped && cap > 0 ? (currentBalance / cap) * 100 : 0;
+    isCapped && cap > 0 ? (allocatedFromIncome / cap) * 100 : 0;
 
   // Use local state for input values to prevent focus loss
   const [valueInput, setValueInput] = useState(value.toString());
@@ -164,15 +167,21 @@ const FundField = React.memo(({
               <span className="text-sm text-gray-500 w-8">$</span>
             </div>
             <p className="text-xs text-gray-500">
-              Once this category reaches the cap, excess funds go to savings
+              Caps apply to this month&apos;s income allocations only, not carryover.
             </p>
           </div>
           {isCapped && (
             <div className="mt-3 p-2 bg-gray-50 rounded-lg shadow-sm">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-600">Current Balance:</span>
+                <span className="text-gray-600">Envelope balance:</span>
                 <span className="font-medium">
                   {formatCurrency(currentBalance)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-600">Allocated from income:</span>
+                <span className="font-medium">
+                  {formatCurrency(allocatedFromIncome)}
                 </span>
               </div>
               <div className="flex justify-between text-xs mb-2">
@@ -225,6 +234,7 @@ export default function FundsPage() {
     handleSubmit,
     updateField,
     getBalance,
+    getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
   } = useFundSettingsPage();
@@ -290,6 +300,7 @@ export default function FundsPage() {
                   categoryName="fixedCosts"
                   allocation={allocation}
                   getBalance={getBalance}
+                  getAllocatedFromIncome={getAllocatedFromIncome}
                   formatCurrency={formatCurrency}
                   currencyCode={currencyCode}
                   updateField={updateField}
@@ -302,6 +313,7 @@ export default function FundsPage() {
                   categoryName="savings"
                   allocation={allocation}
                   getBalance={getBalance}
+                  getAllocatedFromIncome={getAllocatedFromIncome}
                   formatCurrency={formatCurrency}
                   currencyCode={currencyCode}
                   updateField={updateField}
@@ -314,6 +326,7 @@ export default function FundsPage() {
                   categoryName="investment"
                   allocation={allocation}
                   getBalance={getBalance}
+                  getAllocatedFromIncome={getAllocatedFromIncome}
                   formatCurrency={formatCurrency}
                   currencyCode={currencyCode}
                   updateField={updateField}
@@ -326,6 +339,7 @@ export default function FundsPage() {
                   categoryName="guiltFreeSpending"
                   allocation={allocation}
                   getBalance={getBalance}
+                  getAllocatedFromIncome={getAllocatedFromIncome}
                   formatCurrency={formatCurrency}
                   currencyCode={currencyCode}
                   updateField={updateField}

@@ -24,6 +24,20 @@ assert.equal(tracking.investment.transferred, 1_000)
 assert.equal(tracking.investment.remaining, 0)
 assert.equal(tracking.investment.overspent, 0)
 
+const trackingWithIncomeAlloc = calculateCategoryTracking({
+  categoryBalances: [{ category: "investment", balance: 1_500 }],
+  expenses: [],
+  transfers: [],
+  investments: [],
+  carryoverByCategory: { ...emptyPrevious(), investment: 500 },
+  overspentByCategory: emptyPrevious(),
+  incomeAllocatedByCategory: { ...emptyPrevious(), investment: 1_000 },
+})
+
+assert.equal(trackingWithIncomeAlloc.investment.allocated, 1_000)
+assert.equal(trackingWithIncomeAlloc.investment.carryover, 500)
+assert.equal(trackingWithIncomeAlloc.investment.available, 1_500)
+
 const closing = calculateMonthClosing({
   categoryBalances: [{ category: "investment", balance: 1_000 }],
   expenses: [],

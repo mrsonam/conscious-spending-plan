@@ -93,7 +93,7 @@ export const FUND_CAP_FIELDS = [
   "investmentCap",
   "guiltFreeSpendingCap",
 ] as const
-export const CATEGORY_BALANCE_FIELDS = ["balance"] as const
+export const CATEGORY_BALANCE_FIELDS = ["balance", "allocatedFromIncome"] as const
 export const MONTH_CLOSING_FIELDS = ["remaining", "overspent"] as const
 
 export function mapAccountToApi<T extends RecordLike>(

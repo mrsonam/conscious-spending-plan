@@ -78,6 +78,7 @@ interface CategoryBalance {
   id: string
   category: string
   balance: number
+  allocatedFromIncome?: number
 }
 
 interface Expense {
@@ -399,10 +400,18 @@ export default function DashboardPage() {
 
   const getCapInfo = (category: string, cap: number | null) => {
     if (!cap) return null
-    const currentBalance = getBalance(category)
-    const remaining = Math.max(0, cap - currentBalance)
-    const percentageUsed = cap > 0 ? (currentBalance / cap) * 100 : 0
-    return { currentBalance, remaining, percentageUsed, cap }
+    const allocatedFromIncome =
+      categoryTracking[category]?.allocated ??
+      (balances.find((b) => b.category === category)?.allocatedFromIncome ?? 0)
+    const remaining = Math.max(0, cap - allocatedFromIncome)
+    const percentageUsed = cap > 0 ? (allocatedFromIncome / cap) * 100 : 0
+    return {
+      currentBalance: getBalance(category),
+      allocatedFromIncome,
+      remaining,
+      percentageUsed,
+      cap,
+    }
   }
 
   const categoryInfo = [

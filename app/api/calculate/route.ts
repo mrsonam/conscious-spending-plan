@@ -4,11 +4,11 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import {
   ensureMonthlyCategoryBalances,
-  getPreviousMonthRemainingByCategory,
+  getIncomeEntriesForMonthByDate,
 } from "@/lib/monthly-tracking"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
-import { coerceMinor } from "@/lib/money"
 import {
+  buildAllocatedSoFarFromEntries,
   computeIncomeAllocationsMinor,
   incomeAllocationToApi,
   type CategoryKey,
@@ -72,30 +72,18 @@ export async function POST(request: Request) {
       targetYear
     )
 
-    const [currentBalances, carryover] = await Promise.all([
-      prisma.categoryBalance.findMany({
-        where: {
-          userId: session.user.id,
-          month: targetMonth,
-          year: targetYear,
-        },
-      }),
-      getPreviousMonthRemainingByCategory(
-        session.user.id,
-        targetMonth,
-        targetYear
-      ),
-    ])
-    const getCurrentBalance = (cat: string) =>
-      coerceMinor(
-        currentBalances.find((b) => b.category === cat)?.balance ?? 0n
-      )
-    const getCarryover = (cat: string) => coerceMinor(carryover[cat] ?? 0n)
-    const getAllocatedFromIncomeSoFar = (cat: CategoryKey) => {
-      const balance = getCurrentBalance(cat)
-      const carry = getCarryover(cat)
-      return balance > carry ? balance - carry : 0n
-    }
+    const priorMonthEntries = await getIncomeEntriesForMonthByDate(
+      session.user.id,
+      targetMonth,
+      targetYear
+    )
+    const allocatedSoFar = buildAllocatedSoFarFromEntries(
+      priorMonthEntries,
+      fundAllocation,
+      currency
+    )
+    const getAllocatedFromIncomeSoFar = (cat: CategoryKey) =>
+      allocatedSoFar[cat]
 
     let alloc: IncomeAllocationMinor = {
       fixedCosts: 0n,

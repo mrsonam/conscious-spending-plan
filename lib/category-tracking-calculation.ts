@@ -41,6 +41,7 @@ export function calculateCategoryTracking({
   transfers,
   carryoverByCategory,
   overspentByCategory,
+  incomeAllocatedByCategory,
 }: {
   categoryBalances: CategoryBalanceInput[]
   expenses: CategorizedAmountInput[]
@@ -48,6 +49,8 @@ export function calculateCategoryTracking({
   investments: InvestmentAmountInput[]
   carryoverByCategory: Record<string, number>
   overspentByCategory: Record<string, number>
+  /** When set, used for `allocated` (this month's income splits). Caps ignore carryover. */
+  incomeAllocatedByCategory?: Record<string, number>
 }): Record<TrackingCategory, CategoryTrackingValue> {
   const categoryStats = createCategoryStats()
 
@@ -80,7 +83,9 @@ export function calculateCategoryTracking({
     const overspending = overspentByCategory[category] ?? 0
     const current = categoryStats[category]
     const available = current.allocated - overspending
-    const allocatedFromIncome = Math.max(0, current.allocated - carryover)
+    const allocatedFromIncome =
+      incomeAllocatedByCategory?.[category] ??
+      Math.max(0, current.allocated - carryover)
     const remaining =
       category === "investment"
         ? available - current.spent

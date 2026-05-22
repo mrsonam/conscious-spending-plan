@@ -25,6 +25,7 @@ export interface CategoryBalance {
   id: string
   category: string
   balance: number
+  allocatedFromIncome: number
 }
 
 export function useFundSettingsPage() {
@@ -117,6 +118,14 @@ export function useFundSettingsPage() {
     [balances],
   )
 
+  const getAllocatedFromIncome = useCallback(
+    (category: string) => {
+      const balance = balances.find((b) => b.category === category)
+      return balance?.allocatedFromIncome ?? 0
+    },
+    [balances],
+  )
+
   return {
     session,
     status,
@@ -130,6 +139,7 @@ export function useFundSettingsPage() {
     handleSubmit,
     updateField,
     getBalance,
+    getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
   }

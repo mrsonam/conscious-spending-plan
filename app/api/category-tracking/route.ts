@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
+import { getCurrentMonthYear, getIncomeEntriesForMonthByDate, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
+import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { currencyFromSession } from "@/lib/user-currency"
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
       currentMonthTransfers,
       currentMonthInvestments,
       incomeEntriesForMonth,
+      fundAllocation,
     ] = await Promise.all([
       prisma.categoryBalance.findMany({
         where: {
@@ -127,7 +129,17 @@ export async function GET(request: Request) {
           date: { gte: startOfMonth, lte: endOfMonth },
           excludeFromAllocation: false,
         },
-        select: { amount: true },
+        select: {
+          amount: true,
+          excludeFromAllocation: true,
+          allocationFixedCosts: true,
+          allocationSavings: true,
+          allocationInvestment: true,
+          allocationGuiltFreeSpending: true,
+        },
+      }),
+      prisma.fundAllocation.findUnique({
+        where: { userId: session.user.id },
       }),
     ])
 
@@ -137,6 +149,20 @@ export async function GET(request: Request) {
         currentMonth,
         currentYear
       )
+
+    const incomeAllocatedMinor = fundAllocation
+      ? buildAllocatedSoFarFromEntries(
+          incomeEntriesForMonth,
+          fundAllocation,
+          currency,
+        )
+      : null
+    const incomeAllocatedByCategory: Record<string, number> = {}
+    if (incomeAllocatedMinor) {
+      for (const cat of TRACKING_CATEGORIES) {
+        incomeAllocatedByCategory[cat] = toD(incomeAllocatedMinor[cat])
+      }
+    }
 
     const tracking = calculateCategoryTracking({
       categoryBalances: currentMonthCategoryBalances.map((b) => ({
@@ -156,6 +182,9 @@ export async function GET(request: Request) {
       })),
       carryoverByCategory,
       overspentByCategory,
+      incomeAllocatedByCategory: incomeAllocatedMinor
+        ? incomeAllocatedByCategory
+        : undefined,
     })
 
     const totalIncomeMinor = incomeEntriesForMonth.reduce(

@@ -34,6 +34,7 @@ const FundFieldBento = React.memo(
     Icon,
     allocation,
     getBalance,
+    getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
     updateField,
@@ -48,6 +49,7 @@ const FundFieldBento = React.memo(
     Icon: LucideIcon
     allocation: FundAllocation
     getBalance: (category: string) => number
+    getAllocatedFromIncome: (category: string) => number
     formatCurrency: (amount: number) => string
     currencyCode: string
     updateField: (field: keyof FundAllocation, value: string | number | null) => void
@@ -56,9 +58,11 @@ const FundFieldBento = React.memo(
     const value = allocation[valueField] as number
     const cap = allocation[capField] as number | null
     const currentBalance = getBalance(categoryName)
+    const allocatedFromIncome = getAllocatedFromIncome(categoryName)
     const isCapped = cap !== null && cap !== undefined
-    const remaining = isCapped ? Math.max(0, cap - currentBalance) : null
-    const percentageUsed = isCapped && cap > 0 ? (currentBalance / cap) * 100 : 0
+    const remaining = isCapped ? Math.max(0, cap - allocatedFromIncome) : null
+    const percentageUsed =
+      isCapped && cap > 0 ? (allocatedFromIncome / cap) * 100 : 0
 
     const [valueInput, setValueInput] = useState(value.toString())
     const [capInput, setCapInput] = useState(cap?.toString() ?? "")
@@ -261,7 +265,7 @@ const FundFieldBento = React.memo(
                 </span>
               </div>
               <p className="mt-2 text-[11px] leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-                At cap, excess rolls to savings.
+                Caps apply to this month&apos;s income allocations only, not carryover.
               </p>
             </div>
 
@@ -278,6 +282,12 @@ const FundFieldBento = React.memo(
                   <span>Envelope balance</span>
                   <span className="font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
                     {formatCurrency(currentBalance)}
+                  </span>
+                </div>
+                <div className="mt-1 flex justify-between text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                  <span>Allocated from income</span>
+                  <span className="font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                    {formatCurrency(allocatedFromIncome)}
                   </span>
                 </div>
                 <div className="mt-1 flex justify-between text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -382,6 +392,7 @@ export function FundsPageBento() {
     handleSubmit,
     updateField,
     getBalance,
+    getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
   } = useFundSettingsPage()
@@ -510,6 +521,7 @@ export function FundsPageBento() {
               Icon={p.Icon}
               allocation={allocation}
               getBalance={getBalance}
+              getAllocatedFromIncome={getAllocatedFromIncome}
               formatCurrency={formatCurrency}
               currencyCode={currencyCode}
               updateField={updateField}
