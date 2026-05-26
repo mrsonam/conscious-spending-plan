@@ -331,7 +331,7 @@ export function OnboardingWizard({ initialName, initialCurrency, initialAllocati
                 id="onboarding-currency"
                 value={currency}
                 onValueChange={setCurrency}
-                variant="console"
+               
                 className={fieldClass}
                 style={selectFieldStyle}
                 options={DISPLAY_CURRENCY_OPTIONS.map((o) => ({
@@ -401,7 +401,7 @@ export function OnboardingWizard({ initialName, initialCurrency, initialAllocati
                   <AppSelect
                     value={accountType}
                     onValueChange={setAccountType}
-                    variant="console"
+                   
                     className={fieldClass}
                     style={selectFieldStyle}
                     options={[

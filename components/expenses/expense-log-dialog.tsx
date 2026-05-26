@@ -72,7 +72,7 @@ export function ExpenseLogDialog({
             </DialogDescription>
           </DialogHeader>
           <form noValidate onSubmit={onSubmit} className="mt-6 space-y-5" inert={p.submitting}>
-            <FormErrorAlert error={p.logFormError} variant="console" />
+            <FormErrorAlert error={p.logFormError} />
             <div>
               <label
                 htmlFor="exp-account"
@@ -91,7 +91,7 @@ export function ExpenseLogDialog({
                   if (a?.accountType === "cash") p.setFundCategory("")
                 }}
                 disabled={p.submitting}
-                variant="console"
+               
                 className={cn(expenseConsoleField, "mt-1 border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,
@@ -105,7 +105,7 @@ export function ExpenseLogDialog({
                   label: `${account.name} (${account.bankName}) — ${p.formatCurrency(account.balance)}`,
                 }))}
               />
-              <FormFieldError controlId="exp-account" message={fe.accountId} variant="console" />
+              <FormFieldError controlId="exp-account" message={fe.accountId} />
             </div>
             <div>
               <label
@@ -134,7 +134,7 @@ export function ExpenseLogDialog({
                 }}
                 {...formFieldAria("exp-amt", fe.amount)}
               />
-              <FormFieldError controlId="exp-amt" message={fe.amount} variant="console" />
+              <FormFieldError controlId="exp-amt" message={fe.amount} />
             </div>
             <div>
               <label
@@ -161,7 +161,7 @@ export function ExpenseLogDialog({
                 aria-invalid={!!fe.date}
                 {...formFieldAria("exp-date", fe.date)}
               />
-              <FormFieldError controlId="exp-date" message={fe.date} variant="console" />
+              <FormFieldError controlId="exp-date" message={fe.date} />
             </div>
             {(() => {
               const sel = p.accounts.find((a) => a.id === p.accountId)
@@ -184,7 +184,7 @@ export function ExpenseLogDialog({
                       p.clearFieldError("fundCategory")
                     }}
                     disabled={p.submitting}
-                    variant="console"
+                   
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
@@ -202,7 +202,7 @@ export function ExpenseLogDialog({
                       })),
                     ]}
                   />
-                  <FormFieldError controlId="exp-fund" message={fe.fundCategory} variant="console" />
+                  <FormFieldError controlId="exp-fund" message={fe.fundCategory} />
                 </div>
               )
             })()}
@@ -219,7 +219,7 @@ export function ExpenseLogDialog({
                 value={p.expenseCategory}
                 onValueChange={p.setExpenseCategory}
                 disabled={p.submitting}
-                variant="console"
+               
                 className={cn(expenseConsoleField, "mt-1 border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,

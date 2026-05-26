@@ -484,7 +484,7 @@ export function StatementPageBento({
                 <AppSelect
                   value={filterAccountId}
                   onValueChange={setFilterAccountId}
-                  variant="console"
+                 
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceContainer,

@@ -22,7 +22,6 @@ export type CspBrandMarkProps = {
   eyebrow?: string
   /** full = Conscious Spending Plan, short = CSP, responsive = CSP on xs / full on sm+ */
   wordmark?: "none" | "short" | "full" | "responsive"
-  variant?: "console" | "classic"
   titleClassName?: string
   onClick?: () => void
 }
@@ -33,12 +32,9 @@ export function CspBrandMark({
   className,
   eyebrow,
   wordmark = "responsive",
-  variant = "console",
   titleClassName,
   onClick,
 }: CspBrandMarkProps) {
-  const isClassic = variant === "classic"
-
   const logo = (
     <img
       src={LOGO_SRC}
@@ -55,11 +51,8 @@ export function CspBrandMark({
       <div className="min-w-0 pt-0.5">
         {eyebrow ? (
           <p
-            className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.28em]",
-              isClassic ? "text-gray-500" : undefined,
-            )}
-            style={!isClassic ? { color: TOKENS.onSurfaceMuted } : undefined}
+            className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+            style={{ color: TOKENS.onSurfaceMuted }}
           >
             {eyebrow}
           </p>
@@ -68,10 +61,9 @@ export function CspBrandMark({
           <p
             className={cn(
               "text-lg font-semibold leading-none tracking-tight",
-              isClassic ? "text-gray-900" : undefined,
               titleClassName,
             )}
-            style={!isClassic ? { color: TOKENS.onSurface } : undefined}
+            style={{ color: TOKENS.onSurface }}
           >
             CSP
           </p>
@@ -79,10 +71,9 @@ export function CspBrandMark({
           <p
             className={cn(
               "text-sm font-semibold leading-tight tracking-tight sm:text-base",
-              isClassic ? "text-gray-900" : undefined,
               titleClassName,
             )}
-            style={!isClassic ? { color: TOKENS.onSurface } : undefined}
+            style={{ color: TOKENS.onSurface }}
           >
             Conscious Spending Plan
           </p>
@@ -91,20 +82,18 @@ export function CspBrandMark({
             <p
               className={cn(
                 "text-sm font-semibold leading-tight tracking-tight sm:hidden",
-                isClassic ? "text-gray-900" : undefined,
                 titleClassName,
               )}
-              style={!isClassic ? { color: TOKENS.onSurface } : undefined}
+              style={{ color: TOKENS.onSurface }}
             >
               CSP
             </p>
             <p
               className={cn(
                 "hidden text-sm font-semibold leading-tight tracking-tight sm:block",
-                isClassic ? "text-gray-900" : undefined,
                 titleClassName,
               )}
-              style={!isClassic ? { color: TOKENS.onSurface } : undefined}
+              style={{ color: TOKENS.onSurface }}
             >
               Conscious Spending Plan
             </p>

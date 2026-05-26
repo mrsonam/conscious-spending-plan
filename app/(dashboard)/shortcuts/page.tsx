@@ -19,7 +19,7 @@ export default async function ShortcutsPage() {
       <Header
         title="Shortcuts"
         description="Generate API tokens and wire up Apple Shortcuts to log expenses automatically."
-        variant="console"
+       
       />
       <div
         className="mx-auto max-w-5xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"

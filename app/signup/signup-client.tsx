@@ -14,7 +14,6 @@ import { GoogleMark } from "@/components/auth/google-mark"
 import { PasswordRequirements } from "@/components/auth/password-requirements"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
-import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { PASSWORD_MAX_LENGTH, passwordMeetsPolicy } from "@/lib/password-policy"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
@@ -28,7 +27,7 @@ import {
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
 
-export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme }) {
+export function SignupClient() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -39,7 +38,6 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
     useFormFieldErrors<"email" | "password" | "confirm">()
   const [submitLoading, setSubmitLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const isConsole = initialTheme === "console"
   const busy = submitLoading || googleLoading
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -111,65 +109,41 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
 
   return (
     <AuthPageFrame
-      theme={initialTheme}
       layout="split"
-      aside={<SignupAuthAside theme={initialTheme} />}
+      aside={<SignupAuthAside />}
       navbarTrailing={
-        <AppNavbarLink href="/login" variant={isConsole ? "console" : "classic"}>
+        <AppNavbarLink href="/login" variant="console">
           Log in
         </AppNavbarLink>
       }
     >
-      <div
-        className={cn(
-          "w-full max-w-[26rem]",
-          !isConsole && "login-animate-enter motion-reduce:animate-none",
-        )}
-      >
+      <div className="w-full max-w-[26rem]">
         <div className="mb-6 flex justify-center lg:hidden">
-          <CspBrandMark
-            href="/"
-            size="md"
-            wordmark="responsive"
-            variant={isConsole ? "console" : "classic"}
-          />
+          <CspBrandMark href="/" size="md" wordmark="responsive" />
         </div>
 
-        <AuthCard theme={initialTheme}>
+        <AuthCard>
           <h1
-            className={cn(
-              "font-[family-name:var(--font-login-display)] text-center text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[1.9rem]",
-              !isConsole && "text-slate-900",
-            )}
-            style={isConsole ? { color: TOKENS.onSurface } : undefined}
+            className="font-[family-name:var(--font-login-display)] text-center text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[1.9rem]"
+            style={{ color: TOKENS.onSurface }}
           >
             Create your account
           </h1>
           <p
-            className={cn(
-              "mx-auto mt-2 max-w-[18rem] text-center text-sm leading-relaxed",
-              !isConsole && "text-slate-600",
-            )}
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+            className="mx-auto mt-2 max-w-[18rem] text-center text-sm leading-relaxed"
+            style={{ color: TOKENS.onSurfaceMuted }}
           >
             Join the Wealth Console. Set up pillars and track spend in one calm workspace.
           </p>
 
           {formError ? (
             <div
-              className={cn(
-                "mt-6 rounded-xl border px-4 py-3 text-sm leading-snug",
-                !isConsole && "border-red-200/80 bg-red-50 text-red-800",
-              )}
-              style={
-                isConsole
-                  ? {
-                      borderColor: "rgba(239,68,68,0.35)",
-                      background: "rgba(239,68,68,0.1)",
-                      color: "#fecaca",
-                    }
-                  : undefined
-              }
+              className="mt-6 rounded-xl border px-4 py-3 text-sm leading-snug"
+              style={{
+                borderColor: "rgba(239,68,68,0.35)",
+                background: "rgba(239,68,68,0.1)",
+                color: "#fecaca",
+              }}
               role="alert"
             >
               {formError}
@@ -183,32 +157,26 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
             className={cn(
               "mt-8 flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl py-3.5 pl-4 pr-5 text-[15px] font-semibold transition-colors duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-55",
               consoleFocus,
-              !isConsole &&
-                "border border-slate-200/90 bg-white text-slate-800 shadow-sm hover:border-indigo-200 hover:bg-slate-50",
             )}
-            style={
-              isConsole
-                ? {
-                    background: TOKENS.surfaceHigh,
-                    color: TOKENS.onSurface,
-                    border: `1px solid ${TOKENS.outlineGhost}`,
-                    boxShadow: CARD_INSET,
-                  }
-                : undefined
-            }
+            style={{
+              background: TOKENS.surfaceHigh,
+              color: TOKENS.onSurface,
+              border: `1px solid ${TOKENS.outlineGhost}`,
+              boxShadow: CARD_INSET,
+            }}
           >
             {googleLoading ? (
               <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
             ) : (
               <GoogleMark
-                className={cn("h-5 w-5 shrink-0", !isConsole && "text-slate-700")}
-                style={isConsole ? { color: TOKENS.onSurface } : undefined}
+                className="h-5 w-5 shrink-0"
+                style={{ color: TOKENS.onSurface }}
               />
             )}
             <span>{googleLoading ? "Continuing…" : "Continue with Google"}</span>
           </button>
 
-          <AuthDivider theme={initialTheme} />
+          <AuthDivider />
 
           <form
             {...formNoValidate}
@@ -220,20 +188,16 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
               <div className="space-y-1.5 text-left">
                 <label
                   htmlFor="signup-name"
-                  className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
-                  style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                  className="text-xs font-semibold"
+                  style={{ color: TOKENS.onSurfaceMuted }}
                 >
                   Name{" "}
-                  <span
-                    className={cn("font-normal", !isConsole && "text-slate-500")}
-                    style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
-                  >
+                  <span className="font-normal" style={{ color: TOKENS.onSurfaceMuted }}>
                     (optional)
                   </span>
                 </label>
                 <AuthTextInput
                   id="signup-name"
-                  theme={initialTheme}
                   type="text"
                   name="name"
                   autoComplete="name"
@@ -246,14 +210,13 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
               <div className="space-y-1.5 text-left">
                 <label
                   htmlFor="signup-email"
-                  className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
-                  style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                  className="text-xs font-semibold"
+                  style={{ color: TOKENS.onSurfaceMuted }}
                 >
                   Email
                 </label>
                 <AuthTextInput
                   id="signup-email"
-                  theme={initialTheme}
                   type="email"
                   name="email"
                   autoComplete="email"
@@ -269,20 +232,18 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 <FormFieldError
                   controlId="signup-email"
                   message={fieldErrors.email}
-                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
               <div className="space-y-1.5 text-left">
                 <label
                   htmlFor="signup-password"
-                  className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
-                  style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                  className="text-xs font-semibold"
+                  style={{ color: TOKENS.onSurfaceMuted }}
                 >
                   Password
                 </label>
                 <AuthTextInput
                   id="signup-password"
-                  theme={initialTheme}
                   type="password"
                   name="password"
                   autoComplete="new-password"
@@ -299,21 +260,19 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 <FormFieldError
                   controlId="signup-password"
                   message={fieldErrors.password}
-                  variant={isConsole ? "console" : "classic"}
                 />
-                <PasswordRequirements password={password} theme={initialTheme} />
+                <PasswordRequirements password={password} />
               </div>
               <div className="space-y-1.5 text-left">
                 <label
                   htmlFor="signup-confirm"
-                  className={cn("text-xs font-semibold", !isConsole && "text-slate-700")}
-                  style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                  className="text-xs font-semibold"
+                  style={{ color: TOKENS.onSurfaceMuted }}
                 >
                   Confirm password
                 </label>
                 <AuthTextInput
                   id="signup-confirm"
-                  theme={initialTheme}
                   type="password"
                   name="confirm"
                   autoComplete="new-password"
@@ -330,7 +289,6 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
                 <FormFieldError
                   controlId="signup-confirm"
                   message={fieldErrors.confirm}
-                  variant={isConsole ? "console" : "classic"}
                 />
               </div>
             </fieldset>
@@ -341,17 +299,12 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
               className={cn(
                 "inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-semibold transition-opacity duration-200 focus:outline-none disabled:cursor-not-allowed disabled:opacity-55",
                 consoleFocus,
-                !isConsole && "bg-indigo-600 text-white shadow-md hover:bg-indigo-700",
               )}
-              style={
-                isConsole
-                  ? {
-                      background: TOKENS.primary,
-                      color: TOKENS.surface,
-                      boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-                    }
-                  : undefined
-              }
+              style={{
+                background: TOKENS.primary,
+                color: TOKENS.surface,
+                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+              }}
             >
               {submitLoading ? (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
@@ -361,42 +314,30 @@ export function SignupClient({ initialTheme }: { initialTheme: DashboardTheme })
           </form>
 
           <p
-            className={cn(
-              "mt-8 text-center text-sm",
-              !isConsole && "text-slate-600",
-            )}
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+            className="mt-8 text-center text-sm"
+            style={{ color: TOKENS.onSurfaceMuted }}
           >
             Already have an account?{" "}
             <Link
               href="/login"
-              className={cn(
-                "cursor-pointer font-semibold underline-offset-4 hover:underline",
-                !isConsole && "text-indigo-600",
-              )}
-              style={isConsole ? { color: TOKENS.primary } : undefined}
+              className="cursor-pointer font-semibold underline-offset-4 hover:underline"
+              style={{ color: TOKENS.primary }}
             >
               Sign in
             </Link>
           </p>
 
           <p
-            className={cn(
-              "mt-4 text-center text-xs leading-relaxed",
-              !isConsole && "text-slate-500",
-            )}
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+            className="mt-4 text-center text-xs leading-relaxed"
+            style={{ color: TOKENS.onSurfaceMuted }}
           >
             By continuing, you agree to use this app under your own account.
           </p>
         </AuthCard>
 
         <p
-          className={cn(
-            "mt-6 text-center text-[11px] font-medium tracking-wide lg:hidden",
-            !isConsole && "text-slate-500/90",
-          )}
-          style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+          className="mt-6 text-center text-[11px] font-medium tracking-wide lg:hidden"
+          style={{ color: TOKENS.onSurfaceMuted }}
         >
           Conscious Spending Plan · Private by default
         </p>

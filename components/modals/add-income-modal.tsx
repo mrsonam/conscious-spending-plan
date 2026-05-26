@@ -171,7 +171,7 @@ export function AddIncomeModal({
           </DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={handleSubmit} className="space-y-4" inert={calculating}>
-          <FormErrorAlert error={formError} variant="classic" />
+          <FormErrorAlert error={formError} />
 
           <fieldset disabled={calculating} className="min-w-0 space-y-4 border-0 p-0">
           <div>
@@ -191,7 +191,7 @@ export function AddIncomeModal({
               className="mt-1"
               {...formFieldAria("income", fieldErrors.income)}
             />
-            <FormFieldError controlId="income" message={fieldErrors.income} variant="classic" />
+            <FormFieldError controlId="income" message={fieldErrors.income} />
           </div>
 
           <div>
@@ -221,7 +221,7 @@ export function AddIncomeModal({
               aria-invalid={!!fieldErrors.date}
               {...formFieldAria("date", fieldErrors.date)}
             />
-            <FormFieldError controlId="date" message={fieldErrors.date} variant="classic" />
+            <FormFieldError controlId="date" message={fieldErrors.date} />
           </div>
 
           {accounts.length > 0 && (
@@ -232,7 +232,7 @@ export function AddIncomeModal({
                 value={selectedAccountId}
                 onValueChange={setSelectedAccountId}
                 disabled={calculating}
-                variant="classic"
+               
                 className="mt-1 rounded-lg border border-gray-300"
                 options={accounts.map((account) => ({
                   value: account.id,

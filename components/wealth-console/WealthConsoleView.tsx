@@ -50,7 +50,7 @@ export function WealthConsoleView(props: WealthConsoleViewProps) {
       <Header
         title="Wealth Console"
         description="Monthly flow, allocation, and balances in one view."
-        variant="console"
+       
       />
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
         {!hasBreakdown && !loading ? (

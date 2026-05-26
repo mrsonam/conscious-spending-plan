@@ -625,7 +625,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               </DialogDescription>
             </DialogHeader>
             <form noValidate onSubmit={submitLog} className="mt-6 space-y-5" inert={p.calculating}>
-              <FormErrorAlert error={p.error || null} variant="console" />
+              <FormErrorAlert error={p.error || null} />
 
               <div>
                 <label
@@ -658,7 +658,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 <FormFieldError
                   controlId="income-modal"
                   message={p.fieldErrors.income}
-                  variant="console"
+                 
                 />
               </div>
 
@@ -714,7 +714,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 <FormFieldError
                   controlId="date-modal"
                   message={p.fieldErrors.date}
-                  variant="console"
+                 
                 />
               </div>
 
@@ -732,7 +732,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     value={p.selectedAccountId}
                     onValueChange={p.setSelectedAccountId}
                     disabled={p.calculating}
-                    variant="console"
+                   
                     className={cn(consoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
@@ -851,7 +851,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
         {p.loadingHistory && p.incomeEntries.length === 0 ? (
             <div className="mt-6">
-              <IncomeHistorySkeleton variant="console" layout="rows" rowCount={5} />
+              <IncomeHistorySkeleton layout="rows" rowCount={5} />
             </div>
           ) : (
             <>
@@ -985,7 +985,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
           confirmText="Delete"
           cancelText="Cancel"
           variant="destructive"
-          theme="console"
+         
           onConfirm={p.handleDeleteEntry}
         />
       </section>

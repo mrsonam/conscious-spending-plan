@@ -230,7 +230,7 @@ export function SidebarBento() {
                 size={railCollapsed ? "md" : "lg"}
                 wordmark={railCollapsed ? "none" : "short"}
                 eyebrow={railCollapsed ? undefined : "Wealth Console"}
-                variant="console"
+               
                 className={cn(
                   "min-w-0 flex-1 items-start",
                   railCollapsed && "lg:mx-auto lg:flex-none lg:justify-center",

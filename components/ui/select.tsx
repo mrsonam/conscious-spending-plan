@@ -1,6 +1,6 @@
 /**
  * Styled native `<select>` kept for rare cases. Prefer `AppSelect` for themed
- * Radix dropdowns that match classic / console UI.
+ * Radix dropdowns for the Wealth Console UI.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"

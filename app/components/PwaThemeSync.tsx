@@ -1,14 +1,7 @@
 "use client"
 
-import { useSession } from "next-auth/react"
-import { usePathname } from "next/navigation"
 import { useLayoutEffect } from "react"
-import {
-  PWA_STATUS_CHROME_CLASSIC,
-  PWA_THEME_COLOR_CONSOLE,
-} from "@/lib/pwa-branding"
-import { getDashboardThemeClient } from "@/lib/dashboard-theme-cookie"
-import { resolveDocumentDashboardTheme } from "@/lib/dashboard-shell-theme"
+import { PWA_THEME_COLOR_CONSOLE } from "@/lib/pwa-branding"
 
 const META_ID = "csp-theme-color"
 const STATUS_ID = "csp-apple-status-bar"
@@ -21,24 +14,11 @@ function removeAlienThemeColorMetas(): void {
 
 /**
  * iOS standalone PWA: `theme-color` must be the **last** such meta, and Safari
- * only blends it reliably with `black-translucent`. We strip framework-injected
- * duplicates and re-append ours after every auth / theme change.
+ * only blends it reliably with `black-translucent`.
  */
 export function PwaThemeSync() {
-  const { data: session, status } = useSession()
-  const pathname = usePathname()
-
   useLayoutEffect(() => {
     if (typeof document === "undefined") return
-
-    const theme = resolveDocumentDashboardTheme(
-      pathname,
-      session?.user?.dashboardTheme,
-      status === "authenticated",
-      getDashboardThemeClient(),
-    )
-    const isConsole = theme === "console"
-    const color = isConsole ? PWA_THEME_COLOR_CONSOLE : PWA_STATUS_CHROME_CLASSIC
 
     removeAlienThemeColorMetas()
 
@@ -48,7 +28,7 @@ export function PwaThemeSync() {
       meta.id = META_ID
       meta.name = "theme-color"
     }
-    meta.setAttribute("content", color)
+    meta.setAttribute("content", PWA_THEME_COLOR_CONSOLE)
     document.head.appendChild(meta)
 
     let statusMeta = document.getElementById(STATUS_ID) as HTMLMetaElement | null
@@ -63,13 +43,11 @@ export function PwaThemeSync() {
       document.head.appendChild(statusMeta)
     }
     statusMeta.id = STATUS_ID
-    /** Required for `theme-color` to paint the status / Island area on iOS. */
     statusMeta.setAttribute("content", "black-translucent")
     document.head.appendChild(statusMeta)
 
-    /** Shell background: `globals.css` targets `[data-csp-dashboard-theme="console"]`. */
-    document.documentElement.setAttribute("data-csp-dashboard-theme", theme)
-  }, [pathname, session?.user?.dashboardTheme, status])
+    document.documentElement.setAttribute("data-csp-dashboard-theme", "console")
+  }, [])
 
   return null
 }

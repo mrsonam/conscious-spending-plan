@@ -573,7 +573,7 @@ export function LoansPageBento() {
               </DialogDescription>
             </DialogHeader>
             <form noValidate className="mt-6 space-y-5" onSubmit={onLentSubmit} inert={submitting}>
-              <FormErrorAlert error={lentFormError} variant="console" />
+              <FormErrorAlert error={lentFormError} />
               <fieldset disabled={submitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -587,7 +587,7 @@ export function LoansPageBento() {
                     clearFieldError("accountId")
                   }}
                   disabled={submitting}
-                  variant="console"
+                 
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
@@ -601,7 +601,7 @@ export function LoansPageBento() {
                   aria-invalid={!!fieldErrors.accountId}
                   {...formFieldAria("loan-acct", fieldErrors.accountId)}
                 />
-                <FormFieldError controlId="loan-acct" message={fieldErrors.accountId} variant="console" />
+                <FormFieldError controlId="loan-acct" message={fieldErrors.accountId} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -623,7 +623,7 @@ export function LoansPageBento() {
                     style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                     {...formFieldAria("loan-amt", fieldErrors.amount)}
                   />
-                  <FormFieldError controlId="loan-amt" message={fieldErrors.amount} variant="console" />
+                  <FormFieldError controlId="loan-amt" message={fieldErrors.amount} />
                 </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -657,7 +657,7 @@ export function LoansPageBento() {
                     aria-invalid={!!fieldErrors.date}
                     {...formFieldAria("loan-date", fieldErrors.date)}
                   />
-                  <FormFieldError controlId="loan-date" message={fieldErrors.date} variant="console" />
+                  <FormFieldError controlId="loan-date" message={fieldErrors.date} />
                 </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -723,7 +723,7 @@ export function LoansPageBento() {
               </DialogDescription>
             </DialogHeader>
             <form noValidate className="mt-6 space-y-5" onSubmit={onBorrowedSubmit} inert={borrowedSubmitting}>
-              <FormErrorAlert error={borrowedFormError} variant="console" />
+              <FormErrorAlert error={borrowedFormError} />
               <fieldset disabled={borrowedSubmitting} className="min-w-0 space-y-5 border-0 p-0">
               <div>
                 <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -737,7 +737,7 @@ export function LoansPageBento() {
                     clearFieldError("borrowedAccountId")
                   }}
                   disabled={borrowedSubmitting}
-                  variant="console"
+                 
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
@@ -874,7 +874,7 @@ export function LoansPageBento() {
                     setLentRepayDialog((d) => (d ? { ...d, toAccountId: value } : d))
                   }
                   disabled={repaySubmitting}
-                  variant="console"
+                 
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
@@ -957,7 +957,7 @@ export function LoansPageBento() {
                     setBorrowedRepayDialog((d) => (d ? { ...d, fromAccountId: value } : d))
                   }
                   disabled={repaySubmitting}
-                  variant="console"
+                 
                   className={cn(consoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,

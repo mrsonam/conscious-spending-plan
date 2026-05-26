@@ -119,7 +119,7 @@ export function ExpenseHistoryFilters({ p }: ExpenseHistoryFiltersProps) {
             id="expense-filter-fund"
             value={p.filterFundCategory}
             onValueChange={p.setFilterFundCategory}
-            variant="console"
+           
             className={cn(expenseConsoleField, "mt-1 border-transparent")}
             style={{
               backgroundColor: TOKENS.surfaceContainer,
@@ -148,7 +148,7 @@ export function ExpenseHistoryFilters({ p }: ExpenseHistoryFiltersProps) {
             id="expense-filter-type"
             value={p.filterExpenseCategory}
             onValueChange={p.setFilterExpenseCategory}
-            variant="console"
+           
             className={cn(expenseConsoleField, "mt-1 border-transparent")}
             style={{
               backgroundColor: TOKENS.surfaceContainer,
@@ -177,7 +177,7 @@ export function ExpenseHistoryFilters({ p }: ExpenseHistoryFiltersProps) {
             id="expense-filter-account"
             value={p.filterAccountId}
             onValueChange={p.setFilterAccountId}
-            variant="console"
+           
             className={cn(expenseConsoleField, "mt-1 border-transparent")}
             style={{
               backgroundColor: TOKENS.surfaceContainer,

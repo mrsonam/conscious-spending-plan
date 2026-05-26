@@ -81,7 +81,7 @@ export function CategoryTrackingCommandSection({
               setSelectedYear(y)
               setSelectedMonth(m)
             }}
-            variant="console"
+           
             className={cn(categoryTrackingConsoleField, "mt-1 border-transparent")}
             style={{
               backgroundColor: TOKENS.surfaceLow,

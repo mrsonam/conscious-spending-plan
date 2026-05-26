@@ -196,7 +196,7 @@ export function ProfilePageBento() {
                 id="display-currency"
                 value={displayCurrency}
                 onValueChange={setDisplayCurrency}
-                variant="console"
+               
                 options={buildCurrencySelectOptions()}
                 placeholder="Select currency"
                 className="mt-1.5"
@@ -250,7 +250,7 @@ export function ProfilePageBento() {
           className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
-          <AppCacheResetSection variant="console" />
+          <AppCacheResetSection />
         </section>
       </div>
     </div>

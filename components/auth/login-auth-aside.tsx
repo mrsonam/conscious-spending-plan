@@ -1,10 +1,8 @@
 "use client"
 
 import { ShieldCheck, Home, PiggyBank, TrendingUp, PartyPopper } from "lucide-react"
-import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { cn } from "@/lib/utils"
 
 const PILLARS = [
   { label: "Fixed costs", color: TOKENS.loss, icon: Home },
@@ -13,41 +11,29 @@ const PILLARS = [
   { label: "Guilt-free", color: TOKENS.tertiary, icon: PartyPopper },
 ] as const
 
-export function LoginAuthAside({ theme }: { theme: DashboardTheme }) {
-  const isConsole = theme === "console"
-
+export function LoginAuthAside() {
   return (
     <aside
-      className={cn(
-        "hidden flex-col justify-start lg:flex lg:pt-0 lg:pb-8",
-        !isConsole && "text-slate-900",
-      )}
+      className="hidden flex-col justify-start lg:flex lg:pt-0 lg:pb-8"
       aria-label="About Conscious Spending Plan"
     >
       <CspBrandMark
         href="/"
         size="lg"
         wordmark="full"
-        variant={isConsole ? "console" : "classic"}
         eyebrow="Wealth Console"
         className="pointer-events-auto"
       />
 
       <h2
-        className={cn(
-          "mt-10 font-[family-name:var(--font-login-display)] text-[2rem] font-semibold leading-[1.12] tracking-tight sm:text-[2.35rem]",
-          !isConsole && "text-slate-900",
-        )}
-        style={isConsole ? { color: TOKENS.onSurface } : undefined}
+        className="mt-10 font-[family-name:var(--font-login-display)] text-[2rem] font-semibold leading-[1.12] tracking-tight sm:text-[2.35rem]"
+        style={{ color: TOKENS.onSurface }}
       >
         Your pay, split on purpose.
       </h2>
       <p
-        className={cn(
-          "mt-4 max-w-md text-base leading-relaxed",
-          !isConsole && "text-slate-600",
-        )}
-        style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+        className="mt-4 max-w-md text-base leading-relaxed"
+        style={{ color: TOKENS.onSurfaceMuted }}
       >
         Route each deposit into fixed costs, savings, investment, and guilt-free spending.
         See what is left before you spend it.
@@ -57,33 +43,26 @@ export function LoginAuthAside({ theme }: { theme: DashboardTheme }) {
         {PILLARS.map(({ label, color, icon: Icon }) => (
           <li
             key={label}
-            className={cn(
-              "flex items-center gap-3 rounded-xl border px-4 py-3",
-              !isConsole && "border-slate-200/80 bg-white/60",
-            )}
-            style={
-              isConsole
-                ? {
-                    borderColor: TOKENS.outlineGhost,
-                    background: TOKENS.surfaceContainer,
-                    boxShadow: CARD_INSET,
-                  }
-                : undefined
-            }
+            className="flex items-center gap-3 rounded-xl border px-4 py-3"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              background: TOKENS.surfaceContainer,
+              boxShadow: CARD_INSET,
+            }}
           >
             <span
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
               style={{
-                background: `color-mix(in srgb, ${color} 14%, ${isConsole ? TOKENS.surfaceLow : "rgb(248 250 252)"})`,
+                background: `color-mix(in srgb, ${color} 14%, ${TOKENS.surfaceLow})`,
                 color,
-                boxShadow: isConsole ? CARD_INSET : undefined,
+                boxShadow: CARD_INSET,
               }}
             >
               <Icon className="h-4 w-4" strokeWidth={2.25} aria-hidden />
             </span>
             <span
               className="text-sm font-semibold tracking-tight"
-              style={isConsole ? { color: TOKENS.onSurface } : undefined}
+              style={{ color: TOKENS.onSurface }}
             >
               {label}
             </span>
@@ -92,15 +71,12 @@ export function LoginAuthAside({ theme }: { theme: DashboardTheme }) {
       </ul>
 
       <p
-        className={cn(
-          "mt-8 flex items-start gap-2 text-sm leading-relaxed",
-          !isConsole && "text-slate-500",
-        )}
-        style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+        className="mt-8 flex items-start gap-2 text-sm leading-relaxed"
+        style={{ color: TOKENS.onSurfaceMuted }}
       >
         <ShieldCheck
           className="mt-0.5 h-4 w-4 shrink-0"
-          style={{ color: isConsole ? TOKENS.primary : undefined }}
+          style={{ color: TOKENS.primary }}
           strokeWidth={2}
           aria-hidden
         />

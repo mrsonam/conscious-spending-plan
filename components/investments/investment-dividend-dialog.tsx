@@ -100,7 +100,7 @@ export function InvestmentDividendDialog({
                 id="inv-div-account"
                 value={dividendAccountId}
                 onValueChange={onAccountChange}
-                variant="console"
+               
                 className={cn(investmentConsoleField, "border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,

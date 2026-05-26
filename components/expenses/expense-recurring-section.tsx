@@ -154,7 +154,7 @@ export function ExpenseRecurringSection({
                     value={p.recurringAccountId}
                     onValueChange={p.setRecurringAccountId}
                     disabled={p.submittingRecurring}
-                    variant="console"
+                   
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
@@ -204,7 +204,7 @@ export function ExpenseRecurringSection({
                     value={p.recurringFrequency}
                     onValueChange={p.setRecurringFrequency}
                     disabled={p.submittingRecurring}
-                    variant="console"
+                   
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
@@ -272,7 +272,7 @@ export function ExpenseRecurringSection({
                     value={p.recurringFundCategory}
                     onValueChange={p.setRecurringFundCategory}
                     disabled={p.submittingRecurring}
-                    variant="console"
+                   
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,
@@ -302,7 +302,7 @@ export function ExpenseRecurringSection({
                     value={p.recurringExpenseCategory}
                     onValueChange={p.setRecurringExpenseCategory}
                     disabled={p.submittingRecurring}
-                    variant="console"
+                   
                     className={cn(expenseConsoleField, "mt-1 border-transparent")}
                     style={{
                       backgroundColor: TOKENS.surfaceLow,

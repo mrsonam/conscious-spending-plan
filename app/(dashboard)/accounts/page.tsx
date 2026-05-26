@@ -27,7 +27,7 @@ export default function BentoAccountsPage() {
       <Header
         title="Accounts"
         description="Link institutions, view balances, and move liquidity."
-        variant="console"
+       
       />
       <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <AccountsPageBento />

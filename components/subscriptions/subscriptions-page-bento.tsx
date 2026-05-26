@@ -814,7 +814,7 @@ export function SubscriptionsPageBento() {
               <Label>Account</Label>
               <AppSelect
                 className="mt-1"
-                variant="console"
+               
                 style={{
                   background: TOKENS.surfaceLow,
                   borderColor: TOKENS.outlineGhost,
@@ -846,7 +846,7 @@ export function SubscriptionsPageBento() {
                 <Label>Frequency</Label>
                 <AppSelect
                   className="mt-1"
-                  variant="console"
+                 
                   style={{
                     background: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
@@ -934,7 +934,7 @@ export function SubscriptionsPageBento() {
                 <Label>Fund category</Label>
                 <AppSelect
                   className="mt-1"
-                  variant="console"
+                 
                   style={{
                     background: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
@@ -949,7 +949,7 @@ export function SubscriptionsPageBento() {
                 <Label>Expense category</Label>
                 <AppSelect
                   className="mt-1"
-                  variant="console"
+                 
                   style={{
                     background: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,
@@ -1028,7 +1028,7 @@ export function SubscriptionsPageBento() {
                 <Label>Status</Label>
                 <AppSelect
                   className="mt-1"
-                  variant="console"
+                 
                   style={{
                     background: TOKENS.surfaceLow,
                     borderColor: TOKENS.outlineGhost,

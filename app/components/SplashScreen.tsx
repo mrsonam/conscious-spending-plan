@@ -3,7 +3,6 @@
 import { useState, useEffect, useSyncExternalStore } from "react"
 import Image from "next/image"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import type { DashboardTheme } from "@/lib/dashboard-theme"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { SplashMarquee } from "./SplashMarquee"
 
@@ -25,7 +24,7 @@ function subscribeNoop() {
   return () => {}
 }
 
-export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme }) {
+export function SplashScreen() {
   const reduceMotion = useReducedMotion()
   const [show, setShow] = useState(true)
   const onLanding = useSyncExternalStore(
@@ -34,7 +33,7 @@ export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme })
     getServerLandingSnapshot,
   )
 
-  const isConsole = initialTheme === "console" || onLanding
+  const isConsoleMarquee = true || onLanding
 
   useEffect(() => {
     const dismiss = () => setShow(false)
@@ -58,7 +57,7 @@ export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme })
       {show && (
         <motion.div
           key="csp-splash"
-          className={`splash-root safe-area-splash ${isConsole ? "splash-root--console" : "splash-root--classic"}`}
+          className="splash-root splash-root--console safe-area-splash"
           aria-busy="true"
           aria-label="Loading Conscious Spending Plan"
           initial={false}
@@ -72,9 +71,9 @@ export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme })
           }
           style={reduceMotion ? undefined : { clipPath: "circle(150% at 50% 38%)" }}
         >
-          <SplashMarquee isConsole={isConsole} paused={!!reduceMotion} />
+          <SplashMarquee isConsole={isConsoleMarquee} paused={!!reduceMotion} />
 
-          {isConsole ? <div className="splash-grid" aria-hidden /> : null}
+          <div className="splash-grid" aria-hidden />
 
           <div className="splash-content">
             <motion.div
@@ -119,8 +118,8 @@ export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme })
               }
             >
               <p
-                className={`splash-eyebrow ${isConsole ? "" : "text-indigo-600/90"}`}
-                style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+                className="splash-eyebrow"
+                style={{ color: TOKENS.onSurfaceMuted }}
               >
                 Conscious spending
               </p>
@@ -144,7 +143,7 @@ export function SplashScreen({ initialTheme }: { initialTheme: DashboardTheme })
                     key={i}
                     className="splash-loader-dot"
                     style={{
-                      backgroundColor: isConsole ? TOKENS.primary : "#6366f1",
+                      backgroundColor: TOKENS.primary,
                       animationDelay: `${i * 120}ms`,
                     }}
                   />

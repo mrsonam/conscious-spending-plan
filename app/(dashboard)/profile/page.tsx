@@ -17,13 +17,13 @@ export default function BentoProfilePage() {
         <Header
           title="Profile"
           description="Account and preferences."
-          variant="console"
+         
         />
         <div
           className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"
           style={{ background: TOKENS.surface }}
         >
-          <ProfileSkeleton variant="console" />
+          <ProfileSkeleton />
         </div>
       </>
     )
@@ -36,7 +36,7 @@ export default function BentoProfilePage() {
       <Header
         title="Profile"
         description="Account and preferences."
-        variant="console"
+       
       />
       <div
         className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8"

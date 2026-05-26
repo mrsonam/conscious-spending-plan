@@ -137,7 +137,7 @@ export function InvestmentStockCombobox({
             onOpenChange(false)
             setActiveIndex(-1)
           }}
-          variant="console"
+         
           className="!h-auto min-h-11 w-auto shrink-0 rounded border px-2 py-2 text-[10px] font-semibold uppercase tracking-wide"
           style={{
             borderColor: TOKENS.outlineGhost,

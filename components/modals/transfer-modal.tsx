@@ -152,7 +152,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
           <DialogDescription>Move money between your accounts</DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={handleTransfer} className="space-y-4" inert={transferring}>
-          <FormErrorAlert error={formError} variant="classic" />
+          <FormErrorAlert error={formError} />
 
           <fieldset disabled={transferring} className="min-w-0 space-y-4 border-0 p-0">
           <div>
@@ -165,7 +165,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 clearFieldError("fromAccountId")
               }}
               disabled={transferring}
-              variant="classic"
+             
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="Select account"
               aria-invalid={!!fieldErrors.fromAccountId}
@@ -178,7 +178,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 })),
               ]}
             />
-            <FormFieldError controlId="fromAccount" message={fieldErrors.fromAccountId} variant="classic" />
+            <FormFieldError controlId="fromAccount" message={fieldErrors.fromAccountId} />
           </div>
 
           <div>
@@ -191,7 +191,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 clearFieldError("toAccountId")
               }}
               disabled={transferring}
-              variant="classic"
+             
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="Select account"
               aria-invalid={!!fieldErrors.toAccountId}
@@ -206,7 +206,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                   })),
               ]}
             />
-            <FormFieldError controlId="toAccount" message={fieldErrors.toAccountId} variant="classic" />
+            <FormFieldError controlId="toAccount" message={fieldErrors.toAccountId} />
           </div>
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -224,7 +224,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 aria-invalid={!!fieldErrors.transferDate}
                 {...formFieldAria("transferDate", fieldErrors.transferDate)}
               />
-              <FormFieldError controlId="transferDate" message={fieldErrors.transferDate} variant="classic" />
+              <FormFieldError controlId="transferDate" message={fieldErrors.transferDate} />
             </div>
             <div>
               <Label htmlFor="transferAmount">Amount *</Label>
@@ -243,7 +243,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
                 className="mt-1"
                 {...formFieldAria("transferAmount", fieldErrors.transferAmount)}
               />
-              <FormFieldError controlId="transferAmount" message={fieldErrors.transferAmount} variant="classic" />
+              <FormFieldError controlId="transferAmount" message={fieldErrors.transferAmount} />
             </div>
           </div>
 
@@ -254,7 +254,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
               value={transferCategory}
               onValueChange={setTransferCategory}
               disabled={transferring}
-              variant="classic"
+             
               className="mt-1 rounded-lg border border-gray-300"
               placeholder="Optional"
               options={[

@@ -7,7 +7,7 @@ import { TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
 import { landingFocus } from "@/components/landing/landing-ui"
 
-export type AppNavbarVariant = "console" | "classic" | "landing"
+export type AppNavbarVariant = "console" | "landing"
 
 export function AppNavbar({
   variant = "console",
@@ -24,7 +24,6 @@ export function AppNavbar({
   brandWordmark?: "none" | "short" | "full" | "responsive"
   maxWidth?: "6xl" | "7xl" | "full"
 }) {
-  const isClassic = variant === "classic"
   const isLanding = variant === "landing"
 
   return (
@@ -33,19 +32,12 @@ export function AppNavbar({
         "sticky top-0 z-50 shrink-0 border-b px-4 py-3 sm:px-6",
         className,
       )}
-      style={
-        isClassic
-          ? {
-              borderColor: "rgb(229 231 235)",
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
-            }
-          : {
-              borderColor: TOKENS.outlineGhost,
-              backgroundColor: isLanding
-                ? "rgba(11, 19, 38, 0.92)"
-                : `color-mix(in srgb, ${TOKENS.surface} 96%, transparent)`,
-            }
-      }
+      style={{
+        borderColor: TOKENS.outlineGhost,
+        backgroundColor: isLanding
+          ? "rgba(11, 19, 38, 0.92)"
+          : `color-mix(in srgb, ${TOKENS.surface} 96%, transparent)`,
+      }}
     >
       <div
         className={cn(
@@ -55,12 +47,7 @@ export function AppNavbar({
           maxWidth === "full" && "w-full",
         )}
       >
-        <CspBrandMark
-          href={homeHref}
-          size="md"
-          wordmark={brandWordmark}
-          variant={isClassic ? "classic" : "console"}
-        />
+        <CspBrandMark href={homeHref} size="md" wordmark={brandWordmark} />
         {trailing ? (
           <nav className="flex items-center gap-1 sm:gap-2" aria-label="Account">
             {trailing}
@@ -81,7 +68,6 @@ export function AppNavbarLink({
   children,
   ...props
 }: AppNavbarLinkProps) {
-  const isClassic = variant === "classic"
   const isLanding = variant === "landing"
 
   return (
@@ -89,16 +75,13 @@ export function AppNavbarLink({
       className={cn(
         "inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium",
         "transition-[background-color,opacity] duration-150 ease-out",
-        !isClassic && "hover:bg-white/5 active:bg-white/[0.07]",
-        isClassic && "text-gray-600 hover:bg-gray-100 active:bg-gray-200/80",
+        "hover:bg-white/5 active:bg-white/[0.07]",
         (isLanding || variant === "console") && landingFocus,
         className,
       )}
-      style={
-        !isClassic
-          ? { color: isLanding ? TOKENS.onSurfaceMutedElevated : TOKENS.onSurfaceMuted }
-          : undefined
-      }
+      style={{
+        color: isLanding ? TOKENS.onSurfaceMutedElevated : TOKENS.onSurfaceMuted,
+      }}
       {...props}
     >
       {children}

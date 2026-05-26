@@ -7,7 +7,7 @@ declare module "next-auth" {
       email: string
       name?: string | null
       image?: string | null
-      /** Persisted dashboard experience: classic or Wealth Console */
+      /** Persisted dashboard experience: Wealth Console only */
       dashboardTheme?: string
       /** ISO 4217 display currency for formatted amounts */
       displayCurrency?: string

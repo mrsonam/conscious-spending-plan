@@ -1,17 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { cookies } from "next/headers";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PwaRegistration } from "./components/PwaRegistration";
 import { PwaThemeSync } from "./components/PwaThemeSync";
 import { SplashScreen } from "./components/SplashScreen";
 import { pwaThemeColorForShell } from "@/lib/pwa-branding";
-import {
-  DASHBOARD_THEME_COOKIE,
-  DASHBOARD_THEME_COOKIE_BOOTSTRAP,
-  parseDashboardTheme,
-} from "@/lib/dashboard-theme-cookie";
+import { DASHBOARD_THEME_COOKIE_BOOTSTRAP } from "@/lib/dashboard-theme-cookie";
 import { DashboardThemeCookieSync } from "./components/DashboardThemeCookieSync";
 
 const geistSans = Geist({
@@ -56,16 +51,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const jar = await cookies();
-  const splashTheme = parseDashboardTheme(
-    jar.get(DASHBOARD_THEME_COOKIE)?.value,
-  );
-
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      data-csp-dashboard-theme={splashTheme}
+      data-csp-dashboard-theme="console"
     >
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" sizes="192x192" />
@@ -79,7 +69,7 @@ export default async function RootLayout({
         <meta
           id="csp-theme-color"
           name="theme-color"
-          content={pwaThemeColorForShell(splashTheme)}
+          content={pwaThemeColorForShell()}
         />
         {/* Splash screens for different device sizes */}
         <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
@@ -94,7 +84,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SplashScreen initialTheme={splashTheme} />
+        <SplashScreen />
         <PwaRegistration />
         <Providers>
           <DashboardThemeCookieSync />

@@ -126,7 +126,7 @@ export function InvestmentLogDialog({
                 id="inv-log-account"
                 value={selectedInvestmentAccountId}
                 onValueChange={onAccountChange}
-                variant="console"
+               
                 className={cn(investmentConsoleField, "border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,

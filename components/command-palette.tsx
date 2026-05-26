@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import {
   filterCommandPaletteItems,
@@ -35,7 +34,7 @@ export function useCommandPalette() {
   return ctx
 }
 
-function shouldIgnoreCmdKTarget(target: EventTarget | null): boolean {
+function shouldIgnorePaletteShortcutTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const el = target
   if (el.closest("[data-command-palette-input]")) return false
@@ -59,8 +58,10 @@ export function CommandPaletteProvider({
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k") return
-      if (shouldIgnoreCmdKTarget(e.target)) return
+      if (e.key.toLowerCase() !== "f") return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+      if (e.repeat) return
+      if (shouldIgnorePaletteShortcutTarget(e.target)) return
       e.preventDefault()
       setOpen((o) => !o)
     }
@@ -94,7 +95,6 @@ function CommandPaletteDialog({
 }) {
   const router = useRouter()
   const items = React.useMemo(() => getCommandPaletteItems(), [])
-  const isConsole = true
 
   const [query, setQuery] = React.useState("")
   const filtered = React.useMemo(
@@ -169,18 +169,11 @@ function CommandPaletteDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(
-          "p-0 gap-0 overflow-hidden shadow-2xl border",
-          isConsole ? "rounded-xl" : "border-gray-200"
-        )}
-        style={
-          isConsole
-            ? {
-                background: TOKENS.surfaceHigh,
-                borderColor: TOKENS.outlineGhost,
-              }
-            : undefined
-        }
+        className="gap-0 overflow-hidden rounded-xl border p-0 shadow-2xl"
+        style={{
+          background: TOKENS.surfaceHigh,
+          borderColor: TOKENS.outlineGhost,
+        }}
         data-command-palette
       >
         <DialogHeader className="sr-only">
@@ -191,19 +184,12 @@ function CommandPaletteDialog({
         </DialogHeader>
 
         <div
-          className={cn(
-            "flex items-center gap-2 border-b px-3 py-2.5 sm:px-4",
-            isConsole ? "" : "border-gray-100 bg-white"
-          )}
-          style={
-            isConsole
-              ? { borderColor: TOKENS.outlineGhost, background: TOKENS.surface }
-              : undefined
-          }
+          className="flex items-center gap-2 border-b px-3 py-2.5 sm:px-4"
+          style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surface }}
         >
           <Search
             className="h-4 w-4 shrink-0 opacity-60"
-            style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+            style={{ color: TOKENS.onSurfaceMuted }}
             aria-hidden
           />
           <input
@@ -223,15 +209,8 @@ function CommandPaletteDialog({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Search pages…"
-            className={cn(
-              "min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:opacity-50",
-              isConsole ? "" : "text-gray-900 placeholder:text-gray-400"
-            )}
-            style={
-              isConsole
-                ? { color: TOKENS.onSurface, caretColor: TOKENS.primary }
-                : undefined
-            }
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:opacity-50"
+            style={{ color: TOKENS.onSurface, caretColor: TOKENS.primary }}
           />
         </div>
 
@@ -241,17 +220,12 @@ function CommandPaletteDialog({
           role="listbox"
           aria-label="Pages"
           className="scrollbar-none max-h-[min(60vh,420px)] overflow-y-auto py-1"
-          style={
-            isConsole ? { background: TOKENS.surfaceHigh } : undefined
-          }
+          style={{ background: TOKENS.surfaceHigh }}
         >
           {filtered.length === 0 ? (
             <li
-              className={cn(
-                "px-4 py-8 text-center text-sm",
-                isConsole ? "" : "text-gray-500"
-              )}
-              style={isConsole ? { color: TOKENS.onSurfaceMuted } : undefined}
+              className="px-4 py-8 text-center text-sm"
+              style={{ color: TOKENS.onSurfaceMuted }}
             >
               No pages match your search.
             </li>
@@ -266,34 +240,20 @@ function CommandPaletteDialog({
                     id={`command-palette-option-${item.id}`}
                     aria-selected={selected}
                     data-index={index}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors sm:px-4",
-                      isConsole ? "" : "text-gray-900",
-                      !isConsole && selected && "bg-indigo-50",
-                      !isConsole && !selected && "hover:bg-gray-50"
-                    )}
-                    style={
-                      isConsole
-                        ? {
-                            background: selected
-                              ? `color-mix(in srgb, ${TOKENS.primary} 18%, transparent)`
-                              : undefined,
-                            color: TOKENS.onSurface,
-                          }
-                        : undefined
-                    }
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors sm:px-4"
+                    style={{
+                      background: selected
+                        ? `color-mix(in srgb, ${TOKENS.primary} 18%, transparent)`
+                        : undefined,
+                      color: TOKENS.onSurface,
+                    }}
                     onMouseEnter={() => setSelectedIndex(index)}
                     onClick={() => navigateTo(item)}
                   >
                     <span className="min-w-0 font-medium">{item.title}</span>
                     <span
-                      className={cn(
-                        "shrink-0 text-[11px] uppercase tracking-wide",
-                        isConsole ? "" : "text-gray-400"
-                      )}
-                      style={
-                        isConsole ? { color: TOKENS.onSurfaceMuted } : undefined
-                      }
+                      className="shrink-0 text-[11px] uppercase tracking-wide"
+                      style={{ color: TOKENS.onSurfaceMuted }}
                     >
                       {item.group}
                     </span>
@@ -305,19 +265,12 @@ function CommandPaletteDialog({
         </ul>
 
         <div
-          className={cn(
-            "flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-[11px] sm:px-4",
-            isConsole ? "" : "border-gray-100 bg-gray-50/80 text-gray-500"
-          )}
-          style={
-            isConsole
-              ? {
-                  borderColor: TOKENS.outlineGhost,
-                  background: `color-mix(in srgb, ${TOKENS.surface} 88%, transparent)`,
-                  color: TOKENS.onSurfaceMuted,
-                }
-              : undefined
-          }
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-[11px] sm:px-4"
+          style={{
+            borderColor: TOKENS.outlineGhost,
+            background: `color-mix(in srgb, ${TOKENS.surface} 88%, transparent)`,
+            color: TOKENS.onSurfaceMuted,
+          }}
         >
           <span>
             <kbd className="rounded border px-1 py-px font-mono text-[10px] opacity-90">

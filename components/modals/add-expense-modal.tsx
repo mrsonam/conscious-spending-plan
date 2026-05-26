@@ -174,7 +174,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
           <DialogDescription>Log a new expense and deduct from an account</DialogDescription>
         </DialogHeader>
         <form noValidate onSubmit={handleSubmit} className="space-y-4" inert={submitting}>
-          <FormErrorAlert error={formError} variant="classic" />
+          <FormErrorAlert error={formError} />
 
           <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -192,7 +192,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                   }
                 }}
                 disabled={submitting}
-                variant="classic"
+               
                 className="mt-1 rounded-lg"
                 options={accounts.map((account) => ({
                   value: account.id,
@@ -201,7 +201,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 aria-invalid={!!fieldErrors.accountId}
                 {...formFieldAria("account", fieldErrors.accountId)}
               />
-              <FormFieldError controlId="account" message={fieldErrors.accountId} variant="classic" />
+              <FormFieldError controlId="account" message={fieldErrors.accountId} />
             </div>
             <div>
               <Label htmlFor="amount">Amount ($) *</Label>
@@ -220,7 +220,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 className="mt-1"
                 {...formFieldAria("amount", fieldErrors.amount)}
               />
-              <FormFieldError controlId="amount" message={fieldErrors.amount} variant="classic" />
+              <FormFieldError controlId="amount" message={fieldErrors.amount} />
             </div>
             <div>
               <Label htmlFor="date">Date *</Label>
@@ -236,7 +236,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 aria-invalid={!!fieldErrors.date}
                 {...formFieldAria("date", fieldErrors.date)}
               />
-              <FormFieldError controlId="date" message={fieldErrors.date} variant="classic" />
+              <FormFieldError controlId="date" message={fieldErrors.date} />
             </div>
             {(() => {
               const selectedAccount = accounts.find(acc => acc.id === accountId)
@@ -257,7 +257,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                       clearFieldError("fundCategory")
                     }}
                     disabled={submitting}
-                    variant="classic"
+                   
                     className="mt-1 rounded-lg"
                     placeholder="Select a fund category"
                     aria-invalid={!!fieldErrors.fundCategory}
@@ -273,7 +273,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                   <FormFieldError
                     controlId="fundCategory"
                     message={fieldErrors.fundCategory}
-                    variant="classic"
+                   
                   />
                 </div>
               )
@@ -285,7 +285,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                 value={expenseCategory}
                 onValueChange={setExpenseCategory}
                 disabled={submitting}
-                variant="classic"
+               
                 className="mt-1 rounded-lg"
                 placeholder="Select an expense category (optional)"
                 options={[

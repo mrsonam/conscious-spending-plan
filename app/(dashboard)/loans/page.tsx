@@ -15,7 +15,7 @@ export default function BentoLoansPage() {
         <Header
           title="Loans"
           description="Lending you extended and borrowing you owe — outside income and expense flows."
-          variant="console"
+         
         />
         <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <div className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />
@@ -40,7 +40,7 @@ export default function BentoLoansPage() {
       <Header
         title="Loans"
         description="Lending you extended and borrowing you owe — outside income and expense flows."
-        variant="console"
+       
       />
       <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <LoansPageBento />

@@ -22,7 +22,7 @@ export function ScrambleCurrencyValue({
   return (
     <span aria-hidden className={cn("inline-flex min-w-0 max-w-full items-center", className)}>
       <Skeleton
-        variant="console"
+       
         className="inline-block h-[0.95em] min-h-[11px] w-[6.5em] max-w-[10.5rem] shrink-0 align-middle rounded-md"
       />
     </span>
@@ -65,7 +65,7 @@ export function ScrambleIntegerValue({
   return (
     <span aria-hidden className={cn("inline-flex max-w-full items-center gap-1", className)}>
       <Skeleton
-        variant="console"
+       
         className="inline-block h-[0.65em] min-h-[12px] w-[2.25em] min-w-[2.75rem] shrink-0 align-middle rounded-md"
       />
       {suffix ? (

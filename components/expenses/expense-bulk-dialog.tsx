@@ -81,7 +81,7 @@ export function ExpenseBulkDialog({ p }: ExpenseBulkDialogProps) {
                 value={p.bulkAccountId}
                 onValueChange={p.setBulkAccountId}
                 disabled={p.submittingBulk}
-                variant="console"
+               
                 className={cn(expenseConsoleField, "mt-1 border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,
@@ -108,7 +108,7 @@ export function ExpenseBulkDialog({ p }: ExpenseBulkDialogProps) {
                   value={p.bulkFundCategory}
                   onValueChange={p.setBulkFundCategory}
                   disabled={p.submittingBulk}
-                  variant="console"
+                 
                   className={cn(expenseConsoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,
@@ -138,7 +138,7 @@ export function ExpenseBulkDialog({ p }: ExpenseBulkDialogProps) {
                   value={p.bulkExpenseCategory}
                   onValueChange={p.setBulkExpenseCategory}
                   disabled={p.submittingBulk}
-                  variant="console"
+                 
                   className={cn(expenseConsoleField, "mt-1 border-transparent")}
                   style={{
                     backgroundColor: TOKENS.surfaceLow,

@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
-import { isDashboardTheme } from "./dashboard-theme"
+import { normalizeDashboardTheme } from "./dashboard-theme"
 import {
   isValidDisplayCurrency,
   normalizeDisplayCurrency,
@@ -119,8 +119,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           dashboardTheme?: unknown
           displayCurrency?: unknown
         }
-        if (isDashboardTheme(s.dashboardTheme)) {
-          token.dashboardTheme = s.dashboardTheme
+        if (s.dashboardTheme !== undefined) {
+          token.dashboardTheme = normalizeDashboardTheme(s.dashboardTheme)
         }
         if (isValidDisplayCurrency(s.displayCurrency)) {
           token.displayCurrency = s.displayCurrency
@@ -146,7 +146,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
         if (dbUser) {
           token.id = dbUser.id
-          token.dashboardTheme = dbUser.dashboardTheme
+          token.dashboardTheme = normalizeDashboardTheme(dbUser.dashboardTheme)
           token.displayCurrency = normalizeDisplayCurrency(dbUser.displayCurrency)
         }
       } else if (user?.id && account?.provider === "credentials") {
@@ -155,7 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           select: { dashboardTheme: true, displayCurrency: true },
         })
-        token.dashboardTheme = dbUser?.dashboardTheme ?? "console"
+        token.dashboardTheme = normalizeDashboardTheme(dbUser?.dashboardTheme)
         token.displayCurrency = normalizeDisplayCurrency(
           dbUser?.displayCurrency
         )
@@ -195,9 +195,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         if (resolved) {
           session.user.id = resolved.id
-          session.user.dashboardTheme = isDashboardTheme(resolved.dashboardTheme)
-            ? resolved.dashboardTheme
-            : "console"
+          session.user.dashboardTheme = normalizeDashboardTheme(
+            resolved.dashboardTheme,
+          )
           session.user.displayCurrency = normalizeDisplayCurrency(
             resolved.displayCurrency
           )

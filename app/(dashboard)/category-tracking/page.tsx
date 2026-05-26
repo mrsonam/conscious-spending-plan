@@ -17,7 +17,7 @@ export default function BentoCategoryTrackingPage() {
         <Header
           title="Category tracking"
           description="Fund pillars, allocation, and spend pace."
-          variant="console"
+         
         />
         <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
           <CategoryTrackingBentoLoading
@@ -40,7 +40,7 @@ export default function BentoCategoryTrackingPage() {
       <Header
         title="Category tracking"
         description="Fund pillars, allocation, and spend pace."
-        variant="console"
+       
       />
       <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         <CategoryTrackingBento {...tracking} />

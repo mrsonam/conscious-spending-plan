@@ -1,18 +1,17 @@
 import { BENTO } from "./app-routes"
 
-export const DASHBOARD_THEMES = ["classic", "console"] as const
+/** Wealth Console is the only dashboard shell. */
+export type DashboardTheme = "console"
 
-export type DashboardTheme = (typeof DASHBOARD_THEMES)[number]
+export const DASHBOARD_THEME: DashboardTheme = "console"
 
 export function isDashboardTheme(value: unknown): value is DashboardTheme {
-  return (
-    typeof value === "string" &&
-    (DASHBOARD_THEMES as readonly string[]).includes(value)
-  )
+  return value === "console" || value === "classic"
 }
 
-/** All dashboard destinations use the Wealth Console shell. */
-export const DASHBOARD_HOME: Record<DashboardTheme, string> = {
-  classic: BENTO.dashboard,
-  console: BENTO.dashboard,
+/** Legacy DB/cookie values map to the console shell. */
+export function normalizeDashboardTheme(_value: unknown): DashboardTheme {
+  return "console"
 }
+
+export const DASHBOARD_HOME = BENTO.dashboard

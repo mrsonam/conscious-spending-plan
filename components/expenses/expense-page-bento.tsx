@@ -245,7 +245,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
-        theme="console"
+       
         onConfirm={p.confirmDelete}
       />
       <ConfirmDialog
@@ -258,7 +258,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
-        theme="console"
+       
         onConfirm={p.confirmDeleteRecurring}
       />
     </>

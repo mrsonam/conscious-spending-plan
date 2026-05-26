@@ -153,7 +153,7 @@ export function AccountsPageBentoLoading() {
                 id="sort-ledger-loading"
                 value="balance"
                 onValueChange={() => {}}
-                variant="console"
+               
                 disabled
                 className={cn(consoleField, "mt-0 w-auto min-w-[140px] cursor-not-allowed border-transparent py-2 text-xs opacity-60")}
                 style={{
