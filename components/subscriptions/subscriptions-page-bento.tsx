@@ -344,6 +344,7 @@ export function SubscriptionsPageBento() {
       }
       invalidateCachedJson(CACHE_KEY)
       invalidateCachedJson("dashboard:subscriptions")
+      invalidateCachedJson("dashboard:console")
       await refetch()
       setOpen(false)
       resetForm()
@@ -365,6 +366,7 @@ export function SubscriptionsPageBento() {
       }
       invalidateCachedJson(CACHE_KEY)
       invalidateCachedJson("dashboard:subscriptions")
+      invalidateCachedJson("dashboard:console")
       await refetch()
       setMessage({ type: "success", text: "Removed from subscriptions." })
     } catch {

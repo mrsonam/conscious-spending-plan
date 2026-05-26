@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type {
   FundAllocation,
   IncomeBreakdown,
@@ -229,7 +229,7 @@ export function useIncomePage(
         const path = `/api/income-entries?page=${page}&limit=${CONSOLE_TABLE_PAGE_SIZE}&includeStats=false`
         const data = await fetchJsonAndCache<Record<string, unknown>>(
           cacheKey,
-          force || silent ? withCacheBust(path) : `${path}&t=${Date.now()}`,
+          force || silent ? withCacheBust(path) : path,
           undefined,
           { force: force || silent },
         )
@@ -247,18 +247,56 @@ export function useIncomePage(
     [applyIncomeListPayload],
   )
 
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return
+
+    const cachedAllocation = peekCachedJson<FundAllocation>(
+      "income:allocation",
+      60_000,
+    )
+    const cachedAccounts = peekCachedJson<{ accounts?: IncomePageAccount[] }>(
+      "income:accounts",
+      60_000,
+    )
+    const cachedSummary = peekCachedJson<IncomePageStats>("income:summary", 30_000)
+    const cachedSource = peekCachedJson<{ entries?: IncomeEntry[] }>(
+      "income:source",
+      30_000,
+    )
+    const cachedHistory = peekCachedJson<Record<string, unknown>>(
+      "income:list:page:1",
+      30_000,
+    )
+
+    if (cachedAllocation) setAllocation(cachedAllocation)
+    if (cachedAccounts) applyAccountsPayload(cachedAccounts)
+    if (cachedSummary) {
+      applyIncomeStats(cachedSummary)
+      setLoadingSummary(false)
+    }
+    if (cachedSource) {
+      applySourceEntriesPayload(cachedSource)
+      setLoadingSource(false)
+    }
+    if (cachedHistory) {
+      applyIncomeListPayload(cachedHistory)
+      setHasLoadedHistory(true)
+    }
+    if (cachedAllocation && cachedAccounts) {
+      setLoadingForm(false)
+    }
+  }, [
+    status,
+    applyAccountsPayload,
+    applyIncomeListPayload,
+    applyIncomeStats,
+    applySourceEntriesPayload,
+  ])
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
-      setLoadingForm(true)
-      setLoadingSummary(true)
-      setLoadingSource(true)
-      setLoadingHistory(false)
-      const today = new Date()
-      setDate(today.toISOString().split("T")[0])
-      setAllocateToBudget(true)
-
       const cachedAllocation = peekCachedJson<FundAllocation>(
         "income:allocation",
         60_000,
@@ -275,42 +313,26 @@ export function useIncomePage(
         "income:source",
         30_000,
       )
-      const cachedHistory = peekCachedJson<Record<string, unknown>>(
-        "income:list:page:1",
-        30_000,
-      )
 
-      if (cachedAllocation) {
-        setAllocation(cachedAllocation)
+      if (!cachedAllocation || !cachedAccounts) {
+        setLoadingForm(true)
       }
-      if (cachedAccounts) {
-        applyAccountsPayload(cachedAccounts)
-      }
-      if (cachedSummary) {
-        applyIncomeStats(cachedSummary)
-        setLoadingSummary(false)
-      }
-      if (cachedSource) {
-        applySourceEntriesPayload(cachedSource)
-        setLoadingSource(false)
-      }
-      if (cachedHistory) {
-        applyIncomeListPayload(cachedHistory)
-        setHasLoadedHistory(true)
-      }
-      if (cachedAllocation && cachedAccounts) {
-        setLoadingForm(false)
-      }
+      if (!cachedSummary) setLoadingSummary(true)
+      if (!cachedSource) setLoadingSource(true)
+      setLoadingHistory(false)
 
-      const t = Date.now()
+      const today = new Date()
+      setDate(today.toISOString().split("T")[0])
+      setAllocateToBudget(true)
+
       Promise.allSettled([
         fetchJsonAndCache<FundAllocation>(
           "income:allocation",
-          `/api/fund-allocation?t=${t}`,
+          "/api/fund-allocation",
         ),
         fetchJsonAndCache<{ accounts?: IncomePageAccount[] }>(
           "income:accounts",
-          `/api/accounts?t=${t}`,
+          "/api/accounts",
         ),
       ]).then(([allocationResult, accountsResult]) => {
         if (allocationResult.status === "fulfilled") {

@@ -65,22 +65,41 @@ export function invalidateCachedJson(
   }
 }
 
+/** Wealth Console aggregated payload + per-widget shard keys. */
+export function invalidateDashboardConsoleCaches() {
+  invalidateCachedJson("dashboard:console")
+  invalidateCachedJson("dashboard:income-month")
+  invalidateCachedJson("dashboard:income-meta")
+  invalidateCachedJson("dashboard:accounts")
+  invalidateCachedJson("dashboard:expenses-current")
+  invalidateCachedJson("dashboard:expenses-last-month")
+  invalidateCachedJson("dashboard:tracking")
+  invalidateCachedJson("dashboard:investments")
+  invalidateCachedJson("dashboard:ytd")
+  invalidateCachedJson("dashboard:history")
+  invalidateCachedJson("dashboard:loans")
+  invalidateCachedJson("dashboard:subscriptions")
+}
+
+/** Seed in-memory cache after aggregated console load (keeps shard keys in sync). */
+export function seedCachedJson<T>(key: string, data: T) {
+  clientFetchCache.set(key, {
+    data,
+    updatedAt: Date.now(),
+  })
+}
+
 /** Clears category-tracking page cache + dashboard widgets that depend on the same APIs. */
 export function invalidateCategoryTrackingAndDashboardCaches() {
   invalidateCachedJson("category-tracking:")
-  invalidateCachedJson("dashboard:tracking")
-  invalidateCachedJson("dashboard:history")
+  invalidateDashboardConsoleCaches()
 }
 
 /** Clears caches touched by logging, editing, or deleting income. */
 export function invalidateIncomeDataCaches() {
   invalidateCachedJson(/^income:/)
   invalidateCachedJson("accounts")
-  invalidateCachedJson("dashboard:income-month")
-  invalidateCachedJson("dashboard:income-meta")
-  invalidateCachedJson("dashboard:accounts")
-  invalidateCachedJson("dashboard:ytd")
-  invalidateCategoryTrackingAndDashboardCaches()
+  invalidateDashboardConsoleCaches()
 }
 
 /** Clears caches touched by logging, editing, or deleting expenses. */
@@ -88,13 +107,7 @@ export function invalidateExpenseDataCaches() {
   invalidateCachedJson("accounts")
   invalidateCachedJson("expenses-summary")
   invalidateCachedJson("expenses:")
-  invalidateCachedJson("dashboard:expenses-current")
-  invalidateCachedJson("dashboard:expenses-last-month")
-  invalidateCachedJson("dashboard:accounts")
-  invalidateCachedJson("dashboard:income-month")
-  invalidateCachedJson("dashboard:income-meta")
-  invalidateCachedJson("dashboard:ytd")
-  invalidateCategoryTrackingAndDashboardCaches()
+  invalidateDashboardConsoleCaches()
 }
 
 export type FetchJsonAndCacheOptions = {

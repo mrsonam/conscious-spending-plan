@@ -5,12 +5,14 @@ import { Sidebar } from "@/components/layout/sidebar"
 import { CommandPaletteProvider } from "@/components/command-palette"
 import { ProductTourProvider } from "@/components/product-tour/product-tour-provider"
 import { TOKENS } from "@/lib/wealth-console-tokens"
+import { DashboardConsoleWarmup } from "@/components/layout/dashboard-console-warmup"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>
       <ProductTourProvider>
     <CommandPaletteProvider>
+      <DashboardConsoleWarmup />
       <div
         data-dashboard-shell
         className="flex h-dvh max-h-dvh overflow-hidden"

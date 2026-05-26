@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import {
@@ -12,11 +12,11 @@ import { IncomePageBento } from "@/components/income/income-page-bento"
 import { useIncomePage } from "@/hooks/use-income-page"
 
 export default function BentoIncomePage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const router = useRouter()
   const income = useIncomePage(status, router)
 
-  if (status === "loading") {
+  if (isSessionPending) {
     return (
       <>
         <Header

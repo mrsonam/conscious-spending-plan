@@ -1,15 +1,15 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { FundsPageBento } from "@/components/funds/funds-page-bento"
 
 export default function BentoFundsPage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const router = useRouter()
 
-  if (status === "loading") {
+  if (isSessionPending) {
     return (
       <>
         <Header

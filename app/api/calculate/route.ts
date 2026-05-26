@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import {
   ensureMonthlyCategoryBalances,
   getIncomeEntriesForMonthByDate,
+  schedulePersistPreviousMonthClosing,
 } from "@/lib/monthly-tracking"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import {
@@ -217,6 +218,8 @@ export async function POST(request: Request) {
       isCashAccount: depositAccount?.accountType === "cash",
       isExcludedFromAllocation: false,
     }
+
+    schedulePersistPreviousMonthClosing(session.user.id)
 
     return moneyJsonResponse(breakdown, currency)
   } catch (error) {

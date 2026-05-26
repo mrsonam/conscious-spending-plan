@@ -11,6 +11,7 @@ import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
 import { CSP_OPEN_SIDEBAR_EVENT, NAV_ITEM_TOUR_IDS } from "@/lib/product-tour"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
+import { prefetchDashboardConsole } from "@/lib/dashboard-console-cache"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 
 const SIDEBAR_COLLAPSED_KEY = "csp-wealth-console-sidebar-collapsed"
@@ -22,6 +23,7 @@ function NavRow({
   active,
   collapsed,
   tourId,
+  onWarmNavigate,
 }: {
   href: string
   icon: LucideIcon
@@ -29,13 +31,17 @@ function NavRow({
   active: boolean
   collapsed: boolean
   tourId?: string
+  onWarmNavigate?: () => void
 }) {
   return (
     <Link
       href={href}
+      prefetch
       data-tour={tourId}
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
+      onMouseEnter={onWarmNavigate}
+      onFocus={onWarmNavigate}
       className={cn(
         "group relative flex touch-manipulation items-center rounded-xl py-2 transition-all duration-200",
         collapsed
@@ -225,18 +231,25 @@ export function SidebarBento() {
                 railCollapsed && "lg:flex-col lg:items-center"
               )}
             >
-              <CspBrandMark
-                href={BENTO.dashboard}
-                size={railCollapsed ? "md" : "lg"}
-                wordmark={railCollapsed ? "none" : "short"}
-                eyebrow={railCollapsed ? undefined : "Wealth Console"}
-               
+              <div
                 className={cn(
-                  "min-w-0 flex-1 items-start",
-                  railCollapsed && "lg:mx-auto lg:flex-none lg:justify-center",
+                  "min-w-0 flex-1",
+                  railCollapsed && "lg:mx-auto lg:flex-none",
                 )}
-                onClick={() => setIsMobileOpen(false)}
-              />
+                onMouseEnter={prefetchDashboardConsole}
+              >
+                <CspBrandMark
+                  href={BENTO.dashboard}
+                  size={railCollapsed ? "md" : "lg"}
+                  wordmark={railCollapsed ? "none" : "short"}
+                  eyebrow={railCollapsed ? undefined : "Wealth Console"}
+                  className={cn(
+                    "items-start",
+                    railCollapsed && "lg:justify-center",
+                  )}
+                  onClick={() => setIsMobileOpen(false)}
+                />
+              </div>
               <div
                 className={cn(
                   "flex shrink-0 items-center gap-1",
@@ -298,6 +311,11 @@ export function SidebarBento() {
                         active={pathname === item.href}
                         collapsed={railCollapsed}
                         tourId={NAV_ITEM_TOUR_IDS[item.name]}
+                        onWarmNavigate={
+                          item.href === BENTO.dashboard
+                            ? prefetchDashboardConsole
+                            : undefined
+                        }
                       />
                     ))}
                   </div>

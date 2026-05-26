@@ -26,46 +26,70 @@ export type PreviousMonthResult = {
   overspent: Record<string, number>
 }
 
+function emptyPreviousMonthResult(): PreviousMonthResult {
+  return {
+    remaining: Object.fromEntries(
+      TRACKING_CATEGORIES.map((c) => [c, 0]),
+    ) as Record<string, number>,
+    overspent: Object.fromEntries(
+      TRACKING_CATEGORIES.map((c) => [c, 0]),
+    ) as Record<string, number>,
+  }
+}
+
+function previousCalendarMonth(month: number, year: number) {
+  return month === 1
+    ? { month: 12, year: year - 1 }
+    : { month: month - 1, year }
+}
+
 /**
- * Compute remaining and overspent for a given month, **after** applying the previous month's
- * carryover and overspent, then store in CategoryMonthClosing.
- *
- * Logic:
- * - Effective allocated for this month = this month's CategoryBalance − previous month's overspent
- *   (so we start from: previous remaining − previous overspent + income this month = balance − prev overspent).
- * - Spent = this month's expenses + transfers. For investments, the transfer is the spend
- *   because the money leaves the spending bucket before the investment holding is purchased.
- * - net = effective_allocated − spent; remaining = max(0, net); overspent = max(0, −net).
+ * Read stored month closing rows when all tracking categories are present.
  */
-export async function ensureMonthClosing(
+async function readStoredMonthClosing(
   userId: string,
   month: number,
-  year: number
-): Promise<PreviousMonthResult> {
-  const emptyResult = (): PreviousMonthResult => ({
-    remaining: Object.fromEntries(TRACKING_CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
-    overspent: Object.fromEntries(TRACKING_CATEGORIES.map((c) => [c, 0])) as Record<string, number>,
+  year: number,
+  currency: string,
+): Promise<PreviousMonthResult | null> {
+  const rows = await prisma.categoryMonthClosing.findMany({
+    where: { userId, month, year },
   })
+  if (rows.length < TRACKING_CATEGORIES.length) return null
 
-  // Stale JWT, deleted user, or bad id — avoid FK violation on CategoryMonthClosing (P2003).
+  const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
+  const remaining: Record<string, number> = {}
+  const overspent: Record<string, number> = {}
+  for (const cat of TRACKING_CATEGORIES) {
+    const row = rows.find((r) => r.category === cat)
+    if (!row) return null
+    remaining[cat] = toD(row.remaining ?? 0n)
+    overspent[cat] = toD(row.overspent ?? 0n)
+  }
+  return { remaining, overspent }
+}
+
+/**
+ * Compute remaining and overspent for a month (read-only — no DB writes).
+ */
+export async function computeMonthClosingForMonth(
+  userId: string,
+  month: number,
+  year: number,
+  currency?: string,
+): Promise<PreviousMonthResult> {
   const userExists = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true },
   })
-  if (!userExists) {
-    return emptyResult()
-  }
+  if (!userExists) return emptyPreviousMonthResult()
+
+  const resolvedCurrency = currency ?? (await getUserDisplayCurrency(userId))
+  const toD = (minor: bigint) => serializeMoneyForApi(minor, resolvedCurrency)
 
   const startOfMonth = new Date(year, month - 1, 1)
   const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999)
-
-  const prevMonth = month === 1 ? 12 : month - 1
-  const prevYear = month === 1 ? year - 1 : year
-
-  // Previous month's overspent: use stored closing so this month's remaining/overspent is after carryover/overspent.
-  // If previous month not yet stored, use 0 (no recursion).
-  const currency = await getUserDisplayCurrency(userId)
-  const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
+  const { month: prevMonth, year: prevYear } = previousCalendarMonth(month, year)
 
   const prevOverspentByCat: Record<string, number> = {}
   const prevClosings = await prisma.categoryMonthClosing.findMany({
@@ -104,7 +128,7 @@ export async function ensureMonthClosing(
     }),
   ])
 
-  const { remaining, overspent } = calculateMonthClosing({
+  return calculateMonthClosing({
     categoryBalances: balances.map((b) => ({
       category: b.category,
       balance: toD(b.balance),
@@ -120,50 +144,83 @@ export async function ensureMonthClosing(
     investments: investments.map((i) => ({ amount: toD(i.amount) })),
     previousOverspentByCategory: prevOverspentByCat,
   })
+}
 
-  for (const cat of TRACKING_CATEGORIES) {
-    const rem = dollarsToMinor(remaining[cat], currency)
-    const over = dollarsToMinor(overspent[cat], currency)
+/**
+ * Compute and persist month closing (use after writes — not on dashboard GET).
+ */
+export async function ensureMonthClosing(
+  userId: string,
+  month: number,
+  year: number,
+): Promise<PreviousMonthResult> {
+  const currency = await getUserDisplayCurrency(userId)
+  const { remaining, overspent } = await computeMonthClosingForMonth(
+    userId,
+    month,
+    year,
+    currency,
+  )
 
-    await prisma.categoryMonthClosing.upsert({
-      where: {
-        userId_category_month_year: { userId, category: cat, month, year },
-      },
-      create: {
-        userId,
-        category: cat,
-        month,
-        year,
-        remaining: rem,
-        overspent: over,
-        updatedAt: new Date(),
-      },
-      update: {
-        remaining: rem,
-        overspent: over,
-        updatedAt: new Date(),
-      },
-    })
-  }
+  const now = new Date()
+  await Promise.all(
+    TRACKING_CATEGORIES.map((cat) =>
+      prisma.categoryMonthClosing.upsert({
+        where: {
+          userId_category_month_year: { userId, category: cat, month, year },
+        },
+        create: {
+          userId,
+          category: cat,
+          month,
+          year,
+          remaining: dollarsToMinor(remaining[cat], currency),
+          overspent: dollarsToMinor(overspent[cat], currency),
+          updatedAt: now,
+        },
+        update: {
+          remaining: dollarsToMinor(remaining[cat], currency),
+          overspent: dollarsToMinor(overspent[cat], currency),
+          updatedAt: now,
+        },
+      }),
+    ),
+  )
 
   return { remaining, overspent }
 }
 
 /**
- * Get carryover and overspent for the *previous* month, from stored CategoryMonthClosing.
- * Ensures the previous month's closing is computed and stored first, then returns it.
- * So: next month's carryover = previous month's stored remaining; next month's overspent = previous month's stored overspent.
+ * Persist the calendar month before `month`/`year` (fire-and-forget after income/expense writes).
+ */
+export function schedulePersistPreviousMonthClosing(userId: string) {
+  const { month, year } = getCurrentMonthYear()
+  const { month: prevMonth, year: prevYear } = previousCalendarMonth(month, year)
+  void ensureMonthClosing(userId, prevMonth, prevYear).catch((error) => {
+    console.error("Failed to persist previous month closing:", error)
+  })
+}
+
+/**
+ * Carryover and overspent for the month before `month`/`year` (read-only on GET paths).
  */
 export async function getPreviousMonthRemainingAndOverspentByCategory(
   userId: string,
   month: number,
-  year: number
+  year: number,
 ): Promise<PreviousMonthResult> {
-  const prevMonth = month === 1 ? 12 : month - 1
-  const prevYear = month === 1 ? year - 1 : year
+  const { month: prevMonth, year: prevYear } = previousCalendarMonth(month, year)
+  const currency = await getUserDisplayCurrency(userId)
 
-  // Compute and store previous month's remaining/overspent, then return it
-  return ensureMonthClosing(userId, prevMonth, prevYear)
+  const stored = await readStoredMonthClosing(
+    userId,
+    prevMonth,
+    prevYear,
+    currency,
+  )
+  if (stored) return stored
+
+  return computeMonthClosingForMonth(userId, prevMonth, prevYear, currency)
 }
 
 /**

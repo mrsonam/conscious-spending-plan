@@ -4,12 +4,13 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { PwaRegistration } from "./components/PwaRegistration";
 import { PwaThemeSync } from "./components/PwaThemeSync";
-import { SplashScreen } from "./components/SplashScreen";
+import { SplashScreenLoader } from "./components/SplashScreenLoader";
 import { pwaThemeColorForShell } from "@/lib/pwa-branding";
 import { DASHBOARD_THEME_COOKIE_BOOTSTRAP } from "@/lib/dashboard-theme-cookie";
 import { DashboardThemeCookieSync } from "./components/DashboardThemeCookieSync";
 import { StaticPwaSplash } from "@/components/pwa/static-pwa-splash";
 import { APPLE_TOUCH_STARTUP_LINKS } from "@/lib/pwa-apple-startup";
+import { auth } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
   viewportFit: "cover",
 };
 
@@ -53,6 +54,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html
       lang="en"
@@ -89,9 +92,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <StaticPwaSplash />
-        <SplashScreen />
+        <SplashScreenLoader />
         <PwaRegistration />
-        <Providers>
+        <Providers session={session}>
           <DashboardThemeCookieSync />
           <PwaThemeSync />
           {children}

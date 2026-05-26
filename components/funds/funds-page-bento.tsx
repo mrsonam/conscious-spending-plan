@@ -384,6 +384,7 @@ const PILLARS: {
 
 export function FundsPageBento() {
   const {
+    session,
     status,
     allocation,
     loading,
@@ -397,7 +398,7 @@ export function FundsPageBento() {
     currencyCode,
   } = useFundSettingsPage()
 
-  if (status === "loading" || loading) {
+  if ((status === "loading" && !session) || loading) {
     return (
       <div className="space-y-6 sm:space-y-8">
         <div className="h-36 animate-pulse rounded-2xl border border-white/10 bg-white/5" />

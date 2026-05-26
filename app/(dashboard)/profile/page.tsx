@@ -1,15 +1,15 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { Header } from "@/components/layout/header"
 import { ProfilePageBento } from "@/components/profile/profile-page-bento"
 import { ProfileSkeleton } from "@/components/skeletons/profile-skeleton"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
 export default function BentoProfilePage() {
-  const { data: session, status } = useSession()
+  const { session, isSessionPending } = useHydratedSession()
 
-  const initialSessionLoading = status === "loading" && !session
+  const initialSessionLoading = isSessionPending
 
   if (initialSessionLoading) {
     return (

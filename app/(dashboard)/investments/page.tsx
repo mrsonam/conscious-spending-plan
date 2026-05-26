@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { InvestmentsPageBento } from "@/components/investments/investments-page-bento"
@@ -9,7 +9,7 @@ import { InvestmentsPageBentoLoading } from "@/components/investments/investment
 import { useInvestmentsPage } from "@/hooks/use-investments-page"
 
 export default function BentoInvestmentsPage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const router = useRouter()
   const investments = useInvestmentsPage(status)
 
@@ -19,7 +19,7 @@ export default function BentoInvestmentsPage() {
     }
   }, [status, router])
 
-  if (status === "loading") {
+  if (isSessionPending) {
     return (
       <>
         <Header

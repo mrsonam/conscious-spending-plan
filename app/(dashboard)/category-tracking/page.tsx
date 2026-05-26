@@ -1,16 +1,16 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { Header } from "@/components/layout/header"
 import { CategoryTrackingBento } from "@/components/category-tracking/category-tracking-bento"
 import { CategoryTrackingBentoLoading } from "@/components/category-tracking/category-tracking-bento-loading"
 import { useCategoryTrackingPage } from "@/hooks/use-category-tracking-page"
 
 export default function BentoCategoryTrackingPage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const tracking = useCategoryTrackingPage()
 
-  if (status === "loading") {
+  if (isSessionPending) {
     const now = new Date()
     return (
       <>

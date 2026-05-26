@@ -395,6 +395,35 @@ html.csp-splash-handoff #csp-static-splash {
   background: #0b1326;
 }
 
+/* Grid-only splash — matches static PWA HTML (no marquee CLS) */
+.splash-root--light {
+  will-change: opacity;
+}
+
+.splash-root--light-exit {
+  opacity: 0;
+  transition: opacity 0.22s ease-out;
+  pointer-events: none;
+}
+
+.splash-hero--light {
+  width: 7rem;
+  height: 7rem;
+  opacity: 1;
+}
+
+@media (min-width: 640px) {
+  .splash-hero--light {
+    width: 8rem;
+    height: 8rem;
+  }
+}
+
+.splash-content--light .splash-copy,
+.splash-content--light .splash-loader {
+  opacity: 1;
+}
+
 .splash-root--classic {
   background: linear-gradient(168deg, #f8fafc 0%, #eef2ff 42%, #e8ecff 100%);
 }
@@ -433,6 +462,7 @@ html.csp-splash-handoff #csp-static-splash {
   gap: 1.45rem;
   overflow: hidden;
   pointer-events: none;
+  contain: layout style paint;
   transform: rotate(-36deg) scale(1.48);
   transform-origin: 50% 42%;
   /* Edge fade only — no center cutout so icons stay visible above the logo */
@@ -444,16 +474,19 @@ html.csp-splash-handoff #csp-static-splash {
 
 .splash-marquee-row {
   width: 100%;
+  min-height: 2.5rem;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
 .splash-marquee-row--stagger {
-  padding-left: 2.75rem;
+  transform: translateX(2.75rem);
 }
 
 .splash-marquee-track {
   display: flex;
   width: max-content;
+  transform: translateZ(0);
   will-change: transform;
 }
 

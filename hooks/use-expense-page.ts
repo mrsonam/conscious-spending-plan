@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import {
   EXPENSE_CATEGORIES,
   FUND_CATEGORIES,
@@ -37,6 +37,11 @@ import {
   expenseMatchesListFilters,
   normalizeExpenseFromApi,
 } from "@/lib/expense-optimistic"
+import {
+  hasProcessedRecurringDueToday,
+  markRecurringProcessDueRanToday,
+  scheduleWhenIdle,
+} from "@/lib/recurring-process-due-schedule"
 
 type FetchOptions = { silent?: boolean }
 
@@ -120,6 +125,8 @@ export function useExpensePage(
   const [loadingRecurring, setLoadingRecurring] = useState(false)
   const [hasLoadedExpenses, setHasLoadedExpenses] = useState(false)
   const [hasLoadedRecurring, setHasLoadedRecurring] = useState(false)
+  const hasLoadedRecurringRef = useRef(false)
+  hasLoadedRecurringRef.current = hasLoadedRecurring
   const [showRecurringForm, setShowRecurringForm] = useState(false)
   const [loggingRecurringId, setLoggingRecurringId] = useState<string | null>(
     null,
@@ -424,38 +431,67 @@ export function useExpensePage(
     }
   }, [])
 
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return
+
+    const cachedAccounts = peekCachedJson<{ accounts: ExpensePageAccount[] }>(
+      "accounts",
+      60_000,
+    )
+    if (cachedAccounts) {
+      const list = cachedAccounts.accounts || []
+      setAccounts(list)
+      if (list.length > 0) {
+        const defaultAccount = list.find((acc) => acc.isDefault)
+        setAccountId((prev) => prev || defaultAccount?.id || list[0].id)
+      }
+      setLoadingAccounts(false)
+    }
+
+    const cachedSummary = peekCachedJson<ExpensePageStats>("expenses-summary", 45_000)
+    if (cachedSummary) {
+      setExpenseStats(cachedSummary)
+      setLoadingSummary(false)
+    }
+  }, [status])
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
     } else if (status === "authenticated") {
       void fetchAccounts()
       void fetchExpenseSummary()
-
-      const processDue = async () => {
-        try {
-          await fetch("/api/recurring-expenses/process-due", {
-            method: "POST",
-          })
-          invalidateCachedJson("recurring-expenses")
-          await reconcileExpenseData({ silent: true })
-          if (hasLoadedRecurring) {
-            await fetchRecurring(true)
-          }
-        } catch (error) {
-          console.error("Error auto-logging recurring expenses:", error)
-        }
-      }
-      void processDue()
     }
-  }, [
-    status,
-    router,
-    fetchAccounts,
-    fetchExpenseSummary,
-    reconcileExpenseData,
-    fetchRecurring,
-    hasLoadedRecurring,
-  ])
+  }, [status, router, fetchAccounts, fetchExpenseSummary])
+
+  /** At most once per local calendar day; deferred until idle so Expenses UI paints first. */
+  useEffect(() => {
+    if (status !== "authenticated") return
+    if (hasProcessedRecurringDueToday()) return
+
+    const cancel = scheduleWhenIdle(async () => {
+      if (hasProcessedRecurringDueToday()) return
+
+      try {
+        const response = await fetch("/api/recurring-expenses/process-due", {
+          method: "POST",
+          credentials: "same-origin",
+        })
+        if (!response.ok) return
+
+        markRecurringProcessDueRanToday()
+        invalidateCachedJson("recurring-expenses")
+        await reconcileExpenseData({ silent: true })
+        if (hasLoadedRecurringRef.current) {
+          await fetchRecurring(true)
+        }
+      } catch (error) {
+        console.error("Error auto-logging recurring expenses:", error)
+      }
+    })
+
+    return cancel
+  }, [status, reconcileExpenseData, fetchRecurring])
 
   useEffect(() => {
     if (status === "authenticated" && hasLoadedExpenses) {

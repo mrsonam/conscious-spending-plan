@@ -1,12 +1,21 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useState, useEffect, useSyncExternalStore } from "react"
 import Image from "next/image"
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { TOKENS } from "@/lib/wealth-console-tokens"
-import { SplashMarquee } from "./SplashMarquee"
+import {
+  hasSeenSplash,
+  markSplashSeen,
+  SPLASH_DISMISS_MS_MAX,
+  splashDismissMs,
+} from "@/lib/splash-policy"
 
-const SPLASH_EASE = [0.32, 0.72, 0, 1] as const
+const SplashScreenMotion = dynamic(
+  () =>
+    import("./SplashScreenMotion").then((m) => ({ default: m.SplashScreenMotion })),
+  { ssr: false },
+)
 
 function isLandingPath(pathname: string) {
   return pathname === "/" || pathname === ""
@@ -24,137 +33,112 @@ function subscribeNoop() {
   return () => {}
 }
 
+function useReturningVisitor() {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => hasSeenSplash(),
+    () => false,
+  )
+}
+
+function LightSplash({ exiting }: { exiting: boolean }) {
+  return (
+    <div
+      className={`splash-root splash-root--console splash-root--light safe-area-splash${exiting ? " splash-root--light-exit" : ""}`}
+      aria-busy="true"
+      aria-label="Loading Conscious Spending Plan"
+    >
+      <div className="splash-grid" aria-hidden />
+      <div className="splash-content splash-content--light">
+        <div className="splash-hero splash-hero--light">
+          <Image
+            src="/icon.svg"
+            alt=""
+            width={128}
+            height={128}
+            className="splash-logo-img"
+            priority
+          />
+        </div>
+        <div className="splash-copy">
+          <p
+            className="splash-eyebrow"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            Conscious spending
+          </p>
+        </div>
+        <div className="splash-loader" aria-hidden>
+          <div className="splash-loader-dots">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="splash-loader-dot"
+                style={{
+                  backgroundColor: TOKENS.primary,
+                  animationDelay: `${i * 120}ms`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SplashScreen() {
-  const reduceMotion = useReducedMotion()
   const [show, setShow] = useState(true)
+  const [exiting, setExiting] = useState(false)
   const onLanding = useSyncExternalStore(
     subscribeNoop,
     getLandingSnapshot,
     getServerLandingSnapshot,
   )
-
-  const isConsoleMarquee = true || onLanding
+  const returning = useReturningVisitor()
+  const lightVisual = onLanding || returning
 
   useEffect(() => {
     document.documentElement.classList.add("csp-splash-handoff")
+  }, [])
 
-    const dismiss = () => setShow(false)
+  useEffect(() => {
+    if (!lightVisual) return
+
+    const dismissMs = splashDismissMs(onLanding)
+
+    const dismiss = () => {
+      markSplashSeen()
+      setExiting(true)
+      window.setTimeout(() => setShow(false), 220)
+    }
 
     if (document.readyState === "complete") {
-      const t = setTimeout(dismiss, 1100)
+      const t = setTimeout(dismiss, dismissMs)
       return () => clearTimeout(t)
     }
 
-    const onLoad = () => setTimeout(dismiss, 1100)
+    const onLoad = () => setTimeout(dismiss, dismissMs)
     window.addEventListener("load", onLoad)
-    const maxTimer = setTimeout(dismiss, 2400)
+    const maxTimer = setTimeout(dismiss, SPLASH_DISMISS_MS_MAX)
     return () => {
       clearTimeout(maxTimer)
       window.removeEventListener("load", onLoad)
     }
-  }, [])
+  }, [onLanding, lightVisual])
+
+  if (!show) {
+    return null
+  }
+
+  if (lightVisual) {
+    return <LightSplash exiting={exiting} />
+  }
 
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          key="csp-splash"
-          className="splash-root splash-root--console safe-area-splash"
-          aria-busy="true"
-          aria-label="Loading Conscious Spending Plan"
-          initial={false}
-          exit={
-            reduceMotion
-              ? { opacity: 0, transition: { duration: 0.22 } }
-              : {
-                  clipPath: "circle(0% at 50% 38%)",
-                  transition: { duration: 0.68, ease: SPLASH_EASE, delay: 0.1 },
-                }
-          }
-          style={reduceMotion ? undefined : { clipPath: "circle(150% at 50% 38%)" }}
-        >
-          <SplashMarquee isConsole={isConsoleMarquee} paused={!!reduceMotion} />
-
-          <div className="splash-grid" aria-hidden />
-
-          <div className="splash-content">
-            <motion.div
-              className="splash-hero"
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0.2 }
-                  : { type: "spring", duration: 0.55, bounce: 0.18, delay: 0.05 }
-              }
-              exit={
-                reduceMotion
-                  ? { opacity: 0, transition: { duration: 0.18 } }
-                  : {
-                      scale: 1.2,
-                      opacity: 0,
-                      filter: "blur(10px)",
-                      transition: { duration: 0.44, ease: SPLASH_EASE, delay: 0.08 },
-                    }
-              }
-            >
-              <Image
-                src="/icon.svg"
-                alt=""
-                width={128}
-                height={128}
-                className="splash-logo-img"
-                priority
-              />
-            </motion.div>
-
-            <motion.div
-              className="splash-copy"
-              initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: SPLASH_EASE, delay: 0.22 }}
-              exit={
-                reduceMotion
-                  ? { opacity: 0, transition: { duration: 0.15 } }
-                  : { opacity: 0, y: -16, transition: { duration: 0.28, ease: SPLASH_EASE } }
-              }
-            >
-              <p
-                className="splash-eyebrow"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Conscious spending
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="splash-loader"
-              aria-hidden
-              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: SPLASH_EASE, delay: 0.32 }}
-              exit={
-                reduceMotion
-                  ? { opacity: 0, transition: { duration: 0.12 } }
-                  : { opacity: 0, y: 10, scale: 0.96, transition: { duration: 0.22 } }
-              }
-            >
-              <div className="splash-loader-dots">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="splash-loader-dot"
-                    style={{
-                      backgroundColor: TOKENS.primary,
-                      animationDelay: `${i * 120}ms`,
-                    }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <SplashScreenMotion
+      onLanding={onLanding}
+      onFinished={() => setShow(false)}
+    />
   )
 }

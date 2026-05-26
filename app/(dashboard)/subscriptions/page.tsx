@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { SubscriptionsPageBento } from "@/components/subscriptions/subscriptions-page-bento"
 
 export default function BentoSubscriptionsPage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const router = useRouter()
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function BentoSubscriptionsPage() {
     }
   }, [status, router])
 
-  if (status === "loading") {
+  if (isSessionPending) {
     return null
   }
 

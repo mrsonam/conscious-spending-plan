@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { ExpensesPageLoadingSkeleton } from "@/components/skeletons/expenses-sections"
@@ -8,11 +8,11 @@ import { ExpensePageBento } from "@/components/expenses/expense-page-bento"
 import { useExpensePage } from "@/hooks/use-expense-page"
 
 export default function BentoExpensesPage() {
-  const { data: session, status } = useSession()
+  const { session, status, isSessionPending } = useHydratedSession()
   const router = useRouter()
   const expense = useExpensePage(status, router)
 
-  if (status === "loading") {
+  if (isSessionPending) {
     return (
       <>
         <Header

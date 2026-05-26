@@ -14,6 +14,7 @@ import {
 } from "@/lib/money-serialize"
 import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
 import { minorSumToDollars } from "@/lib/money-aggregates"
+import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
 
 export async function GET(request: Request) {
   try {
@@ -297,6 +298,8 @@ export async function POST(request: Request) {
 
       return expense
     })
+
+    schedulePersistPreviousMonthClosing(userId)
 
     return moneyJsonResponse(
       {
