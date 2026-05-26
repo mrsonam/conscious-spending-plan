@@ -8,6 +8,8 @@ import { SplashScreen } from "./components/SplashScreen";
 import { pwaThemeColorForShell } from "@/lib/pwa-branding";
 import { DASHBOARD_THEME_COOKIE_BOOTSTRAP } from "@/lib/dashboard-theme-cookie";
 import { DashboardThemeCookieSync } from "./components/DashboardThemeCookieSync";
+import { StaticPwaSplash } from "@/components/pwa/static-pwa-splash";
+import { APPLE_TOUCH_STARTUP_LINKS } from "@/lib/pwa-apple-startup";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,12 +73,14 @@ export default async function RootLayout({
           name="theme-color"
           content={pwaThemeColorForShell()}
         />
-        {/* Splash screens for different device sizes */}
-        <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
-        <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
-        <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
-        <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
-        <link rel="apple-touch-startup-image" href="/icon.svg" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+        {APPLE_TOUCH_STARTUP_LINKS.map((link) => (
+          <link
+            key={link.media ?? "default"}
+            rel="apple-touch-startup-image"
+            href={link.href}
+            {...(link.media ? { media: link.media } : {})}
+          />
+        ))}
         <script
           dangerouslySetInnerHTML={{ __html: DASHBOARD_THEME_COOKIE_BOOTSTRAP }}
         />
@@ -84,6 +88,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <StaticPwaSplash />
         <SplashScreen />
         <PwaRegistration />
         <Providers>

@@ -36,6 +36,8 @@ export function SplashScreen() {
   const isConsoleMarquee = true || onLanding
 
   useEffect(() => {
+    document.documentElement.classList.add("csp-splash-handoff")
+
     const dismiss = () => setShow(false)
 
     if (document.readyState === "complete") {
