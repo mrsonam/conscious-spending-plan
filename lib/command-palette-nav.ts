@@ -1,5 +1,4 @@
-import { BENTO, CLASSIC } from "@/lib/app-routes"
-import { DASHBOARD_HOME, type DashboardTheme } from "@/lib/dashboard-theme"
+import { BENTO } from "@/lib/app-routes"
 
 export type CommandPaletteItem = {
   id: string
@@ -10,93 +9,83 @@ export type CommandPaletteItem = {
   keywords: string[]
 }
 
-function route(shell: "classic" | "console") {
-  return shell === "classic" ? CLASSIC : BENTO
-}
-
-/** All dashboard destinations for the user’s current shell (classic vs Wealth Console). */
-export function getCommandPaletteItems(
-  shell: DashboardTheme | undefined
-): CommandPaletteItem[] {
-  const s = shell === "classic" ? "classic" : "console"
-  const R = route(s)
-  const dashboardHref = DASHBOARD_HOME[shell === "classic" ? "classic" : "console"]
-
+/** All dashboard destinations for the Wealth Console shell. */
+export function getCommandPaletteItems(): CommandPaletteItem[] {
   return [
     {
       id: "dashboard",
       title: "Dashboard",
-      href: dashboardHref,
+      href: BENTO.dashboard,
       group: "Overview",
       keywords: ["home", "overview", "wealth", "console", "summary"],
     },
     {
       id: "income",
       title: "Income",
-      href: R.income,
+      href: BENTO.income,
       group: "Activity",
       keywords: ["money", "salary", "pay", "earn", "log"],
     },
     {
       id: "expenses",
       title: "Expenses",
-      href: R.expenses,
+      href: BENTO.expenses,
       group: "Activity",
       keywords: ["spend", "spending", "cost", "purchase"],
     },
     {
       id: "subscriptions",
       title: "Subscriptions",
-      href: R.subscriptions,
+      href: BENTO.subscriptions,
       group: "Activity",
       keywords: ["recurring", "bills", "netflix", "renewal"],
     },
     {
       id: "statement",
       title: "Statement",
-      href: R.statement,
+      href: BENTO.statement,
       group: "Activity",
       keywords: ["transactions", "history", "ledger", "export"],
     },
     {
       id: "category-tracking",
       title: "Category Tracking",
-      href: R.categoryTracking,
+      href: BENTO.categoryTracking,
       group: "Plan",
       keywords: ["budget", "buckets", "csp", "categories", "tracking"],
     },
     {
       id: "funds",
       title: "Fund Settings",
-      href: R.funds,
+      href: BENTO.funds,
       group: "Plan",
       keywords: ["allocation", "percent", "fixed", "savings", "investment split"],
     },
     {
       id: "investments",
       title: "Investments",
-      href: R.investments,
+      href: BENTO.investments,
       group: "Balance sheet",
       keywords: ["stocks", "shares", "portfolio", "holdings"],
     },
     {
       id: "accounts",
       title: "Accounts",
-      href: R.accounts,
+      href: BENTO.accounts,
       group: "Balance sheet",
       keywords: ["bank", "checking", "balance", "cards"],
     },
     {
       id: "loans",
       title: "Loans",
-      href: R.loans,
+      href: BENTO.loans,
       group: "Balance sheet",
       keywords: ["lend", "borrow", "debt", "repay"],
     },
     {
       id: "profile",
       title: "Profile",
-      href: R.profile,
+      href: BENTO.profile,
       group: "You",
       keywords: ["settings", "account", "currency", "preferences", "user"],
     },

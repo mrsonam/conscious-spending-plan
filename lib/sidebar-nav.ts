@@ -13,8 +13,7 @@ import {
   CalendarClock,
   Zap,
 } from "lucide-react"
-import { DASHBOARD_HOME } from "@/lib/dashboard-theme"
-import { BENTO, CLASSIC } from "@/lib/app-routes"
+import { BENTO } from "@/lib/app-routes"
 
 export type SidebarNavItem = { name: string; href: string; icon: LucideIcon }
 
@@ -25,86 +24,64 @@ export type SidebarNavGroup = {
   items: SidebarNavItem[]
 }
 
-function navGroups(
-  dashboardHref: string,
-  theme: "classic" | "console",
-): SidebarNavGroup[] {
-  const incomeHref = theme === "console" ? BENTO.income : CLASSIC.income
-  const expensesHref =
-    theme === "console" ? BENTO.expenses : CLASSIC.expenses
-  const statementHref =
-    theme === "console" ? BENTO.statement : CLASSIC.statement
-  const categoryTrackingHref =
-    theme === "console" ? BENTO.categoryTracking : CLASSIC.categoryTracking
-  const fundsHref = theme === "console" ? BENTO.funds : CLASSIC.funds
-  const investmentsHref =
-    theme === "console" ? BENTO.investments : CLASSIC.investments
-  const accountsHref = theme === "console" ? BENTO.accounts : CLASSIC.accounts
-  const loansHref = theme === "console" ? BENTO.loans : CLASSIC.loans
-  const profileHref = theme === "console" ? BENTO.profile : CLASSIC.profile
-  const subscriptionsHref =
-    theme === "console" ? BENTO.subscriptions : CLASSIC.subscriptions
-  return [
-    {
-      id: "overview",
-      label: "Overview",
-      items: [
-        { name: "Dashboard", href: dashboardHref, icon: LayoutDashboard },
-      ],
-    },
-    {
-      id: "activity",
-      label: "Activity",
-      items: [
-        { name: "Income", href: incomeHref, icon: DollarSign },
-        { name: "Expenses", href: expensesHref, icon: TrendingDown },
-        { name: "Subscriptions", href: subscriptionsHref, icon: CalendarClock },
-        { name: "Statement", href: statementHref, icon: FileText },
-      ],
-    },
-    {
-      id: "plan",
-      label: "Plan",
-      items: [
-        {
-          name: "Category Tracking",
-          href: categoryTrackingHref,
-          icon: BarChart3,
-        },
-        { name: "Fund Settings", href: fundsHref, icon: Wallet },
-      ],
-    },
-    {
-      id: "balance",
-      label: "Balance sheet",
-      items: [
-        { name: "Investments", href: investmentsHref, icon: TrendingUp },
-        { name: "Accounts", href: accountsHref, icon: CreditCard },
-        { name: "Loans", href: loansHref, icon: HandCoins },
-      ],
-    },
-    {
-      id: "account",
-      label: "You",
-      items: [
-        { name: "Profile", href: profileHref, icon: User },
-        { name: "Shortcuts", href: BENTO.shortcuts, icon: Zap },
-      ],
-    },
-  ]
-}
+const SIDEBAR_NAV_GROUPS: SidebarNavGroup[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    items: [
+      { name: "Dashboard", href: BENTO.dashboard, icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: "activity",
+    label: "Activity",
+    items: [
+      { name: "Income", href: BENTO.income, icon: DollarSign },
+      { name: "Expenses", href: BENTO.expenses, icon: TrendingDown },
+      { name: "Subscriptions", href: BENTO.subscriptions, icon: CalendarClock },
+      { name: "Statement", href: BENTO.statement, icon: FileText },
+    ],
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    items: [
+      {
+        name: "Category Tracking",
+        href: BENTO.categoryTracking,
+        icon: BarChart3,
+      },
+      { name: "Fund Settings", href: BENTO.funds, icon: Wallet },
+    ],
+  },
+  {
+    id: "balance",
+    label: "Balance sheet",
+    items: [
+      { name: "Investments", href: BENTO.investments, icon: TrendingUp },
+      { name: "Accounts", href: BENTO.accounts, icon: CreditCard },
+      { name: "Loans", href: BENTO.loans, icon: HandCoins },
+    ],
+  },
+  {
+    id: "account",
+    label: "You",
+    items: [
+      { name: "Profile", href: BENTO.profile, icon: User },
+      { name: "Shortcuts", href: BENTO.shortcuts, icon: Zap },
+    ],
+  },
+]
 
 export function buildSidebarNavigationGroups(
-  _dashboardTheme: string | undefined
+  _dashboardTheme?: string
 ): SidebarNavGroup[] {
-  const theme = "console"
-  const dashboardHref = DASHBOARD_HOME[theme]
-  return navGroups(dashboardHref, theme)
+  return SIDEBAR_NAV_GROUPS
 }
 
-/** Flat list in a stable order (classic sidebar). */
+/** Flat list in a stable order. */
 export function buildSidebarNavigation(
-  dashboardTheme: string | undefined
+  dashboardTheme?: string
 ): SidebarNavItem[] {
   return buildSidebarNavigationGroups(dashboardTheme).flatMap((g) => g.items)
 }

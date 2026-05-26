@@ -1,4 +1,4 @@
-import { BENTO, CLASSIC } from "./app-routes"
+import { BENTO } from "./app-routes"
 
 export const DASHBOARD_THEMES = ["classic", "console"] as const
 
@@ -11,7 +11,8 @@ export function isDashboardTheme(value: unknown): value is DashboardTheme {
   )
 }
 
+/** All dashboard destinations use the Wealth Console shell. */
 export const DASHBOARD_HOME: Record<DashboardTheme, string> = {
-  classic: CLASSIC.dashboard,
+  classic: BENTO.dashboard,
   console: BENTO.dashboard,
 }

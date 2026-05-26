@@ -1,2 +1,7 @@
-export { default } from "@/app/(dashboard)/bento/accounts/layout"
+import { Inter } from "next/font/google"
 
+const inter = Inter({ subsets: ["latin"], display: "swap" })
+
+export default function BentoAccountsLayout({ children }: { children: React.ReactNode }) {
+  return <div className={inter.className}>{children}</div>
+}

@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { Search } from "lucide-react"
 import {
   Dialog,
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { TOKENS } from "@/lib/wealth-console-tokens"
-import { isDashboardTheme, type DashboardTheme } from "@/lib/dashboard-theme"
 import {
   filterCommandPaletteItems,
   getCommandPaletteItems,
@@ -46,10 +44,6 @@ function shouldIgnoreCmdKTarget(target: EventTarget | null): boolean {
   }
   if (el.isContentEditable) return true
   return false
-}
-
-function shellFromSession(theme: string | undefined): DashboardTheme {
-  return isDashboardTheme(theme) ? theme : "console"
 }
 
 export function CommandPaletteProvider({
@@ -99,14 +93,8 @@ function CommandPaletteDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const router = useRouter()
-  const { data: session } = useSession()
-  const shell = shellFromSession(session?.user?.dashboardTheme)
-  const isConsole = shell === "console"
-
-  const items = React.useMemo(
-    () => getCommandPaletteItems(shell),
-    [shell]
-  )
+  const items = React.useMemo(() => getCommandPaletteItems(), [])
+  const isConsole = true
 
   const [query, setQuery] = React.useState("")
   const filtered = React.useMemo(

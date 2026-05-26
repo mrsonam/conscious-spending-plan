@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { useCommandPalette } from "@/components/command-palette"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
-import { BENTO, CLASSIC } from "@/lib/app-routes"
+import { BENTO } from "@/lib/app-routes"
 
 export function Header({
   title,
@@ -124,7 +124,7 @@ export function Header({
     >
       <div className="ml-14 flex min-w-0 flex-1 items-center gap-3 pr-2 sm:ml-16 lg:ml-0">
         <CspBrandMark
-          href={CLASSIC.dashboard}
+          href={BENTO.dashboard}
           size="sm"
           wordmark="none"
           variant="classic"
