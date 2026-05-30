@@ -14,15 +14,15 @@ import {
   getPreviousMonthRemainingAndOverspentByCategory,
 } from "@/lib/monthly-tracking"
 import {
-  addMinor,
   coerceMinor,
   dollarsToMinor,
-  subtractMinor,
   type MinorAmount,
 } from "@/lib/money"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
+import { ensureCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
+import { upsertEnvelopeBalancesForMonth } from "@/lib/envelope-balance-recompute"
 import { computeGeneralSavingsAvailableMinor } from "@/lib/saving-goal-general-savings"
 
 import { computeMaxTransferFromBucketMinor } from "@/lib/category-bucket-transfer-shared"
@@ -166,6 +166,7 @@ export async function transferCategoryBucketFunds(params: {
 
   await ensurePreTrackingSavingsBalances(userId)
   await ensureMonthlyCategoryBalances(userId, month, year)
+  await ensureCategoryBucketTransferTable()
 
   const snapshot = await loadMonthTrackingSnapshot(userId, month, year, currency)
   const sourceRow = snapshot.tracking[fromCategory as TrackingCategory]
@@ -209,16 +210,19 @@ export async function transferCategoryBucketFunds(params: {
   }
 
   await prisma.$transaction(async (tx: Tx) => {
-    await tx.categoryBalance.update({
-      where: { id: fromRow.id },
-      data: { balance: subtractMinor(fromBalance, amountMinor) },
-    })
-    await tx.categoryBalance.update({
-      where: { id: toRow.id },
-      data: { balance: addMinor(toBalance, amountMinor) },
+    await tx.categoryBucketTransfer.create({
+      data: {
+        userId,
+        fromCategory,
+        toCategory,
+        amount: amountMinor,
+        month,
+        year,
+      },
     })
   })
 
+  await upsertEnvelopeBalancesForMonth(userId, month, year, currency)
   await ensureMonthClosing(userId, month, year)
 
   return { ok: true, fromCategory, toCategory, amountMinor }

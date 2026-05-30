@@ -1,12 +1,9 @@
 import { addMinor, coerceMinor, dollarsToMinor } from "@/lib/money"
-import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
-import { FUND_CATEGORIES } from "@/lib/fund-allocation-fields"
+import { upsertEnvelopeBalancesForMonth } from "@/lib/envelope-balance-recompute"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import {
   ensureMonthClosing,
   getCurrentMonthYear,
-  getIncomeEntriesForMonthByDate,
-  getPreviousMonthRemainingByCategory,
 } from "@/lib/monthly-tracking"
 import { prisma } from "@/lib/prisma"
 import { getUserDisplayCurrency } from "@/lib/user-currency"
@@ -229,42 +226,12 @@ async function reconcileEnvelopeChainFromTrackingStart(
   trackingStart: { month: number; year: number },
   currency: string
 ) {
-  const fundAllocation = await prisma.fundAllocation.findUnique({ where: { userId } })
   const { month: endMonth, year: endYear } = getCurrentMonthYear()
 
   let { month, year } = trackingStart
 
   while (monthOnOrBefore(month, year, endMonth, endYear)) {
-    const carryover = await getPreviousMonthRemainingByCategory(userId, month, year)
-
-    let incomeTotals = Object.fromEntries(
-      FUND_CATEGORIES.map((cat) => [cat, 0n])
-    ) as Record<(typeof FUND_CATEGORIES)[number], bigint>
-
-    if (fundAllocation) {
-      const incomeEntries = await getIncomeEntriesForMonthByDate(userId, month, year)
-      incomeTotals = buildAllocatedSoFarFromEntries(
-        incomeEntries.map((entry) => ({
-          excludeFromAllocation: entry.excludeFromAllocation,
-          amount: entry.amount,
-          allocationFixedCosts: entry.allocationFixedCosts,
-          allocationSavings: entry.allocationSavings,
-          allocationInvestment: entry.allocationInvestment,
-          allocationGuiltFreeSpending: entry.allocationGuiltFreeSpending,
-        })),
-        fundAllocation,
-        currency
-      )
-    }
-
-    for (const cat of FUND_CATEGORIES) {
-      const balanceMinor = addMinor(
-        dollarsToMinor(carryover[cat] ?? 0, currency),
-        incomeTotals[cat]
-      )
-      await upsertCategoryBalanceExact(userId, cat, month, year, balanceMinor)
-    }
-
+    await upsertEnvelopeBalancesForMonth(userId, month, year, currency)
     await ensureMonthClosing(userId, month, year)
 
     const next = nextCalendarMonth(month, year)

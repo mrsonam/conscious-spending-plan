@@ -1,8 +1,12 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { fetchJsonAndCache } from "@/lib/client-fetch-cache"
+import {
+  fetchJsonAndCache,
+  invalidateDashboardConsoleCaches,
+  withCacheBust,
+} from "@/lib/client-fetch-cache"
 import type { DashboardConsolePayload } from "@/lib/dashboard-console-types"
 import { EMPTY_DASHBOARD_CONSOLE } from "@/lib/dashboard-console-types"
 import {
@@ -16,6 +20,13 @@ import {
 } from "@/lib/dashboard-console-cache"
 import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { WealthConsoleView } from "@/components/wealth-console/WealthConsoleView"
+import {
+  patchDashboardForExpenseLog,
+  patchDashboardForIncomeLog,
+  type DashboardConsoleSnapshot,
+  type DashboardExpenseLogPatch,
+  type DashboardIncomeLogPatch,
+} from "@/lib/dashboard-console-optimistic"
 import type {
   Account,
   Breakdown,
@@ -135,6 +146,75 @@ export default function DashboardPageClient() {
     return ((breakdown.income - lastMonthIncome) / lastMonthIncome) * 100
   }, [breakdown, lastMonthIncome])
 
+  const getConsoleSnapshot = useCallback((): DashboardConsoleSnapshot => {
+    return {
+      breakdown,
+      accounts,
+      expenses,
+      expensesTotalForMonth,
+      categoryTracking,
+      ytdSummary,
+    }
+  }, [
+    breakdown,
+    accounts,
+    expenses,
+    expensesTotalForMonth,
+    categoryTracking,
+    ytdSummary,
+  ])
+
+  const applyConsoleSnapshot = useCallback((snapshot: DashboardConsoleSnapshot) => {
+    setBreakdown(snapshot.breakdown)
+    setAccounts(snapshot.accounts)
+    setExpenses(snapshot.expenses)
+    setExpensesTotalForMonth(snapshot.expensesTotalForMonth)
+    setCategoryTracking(snapshot.categoryTracking)
+    setYtdSummary(snapshot.ytdSummary)
+  }, [])
+
+  const applyOptimisticIncomeLog = useCallback(
+    (input: DashboardIncomeLogPatch) => {
+      const snapshot = getConsoleSnapshot()
+      applyConsoleSnapshot(patchDashboardForIncomeLog(snapshot, input))
+      return snapshot
+    },
+    [applyConsoleSnapshot, getConsoleSnapshot],
+  )
+
+  const applyOptimisticExpenseLog = useCallback(
+    (input: DashboardExpenseLogPatch) => {
+      const snapshot = getConsoleSnapshot()
+      applyConsoleSnapshot(patchDashboardForExpenseLog(snapshot, input))
+      return snapshot
+    },
+    [applyConsoleSnapshot, getConsoleSnapshot],
+  )
+
+  const rollbackConsoleSnapshot = useCallback(
+    (snapshot: DashboardConsoleSnapshot) => {
+      applyConsoleSnapshot(snapshot)
+    },
+    [applyConsoleSnapshot],
+  )
+
+  const refreshConsole = useCallback(async () => {
+    invalidateDashboardConsoleCaches()
+    try {
+      const payload = await fetchJsonAndCache<DashboardConsolePayload>(
+        DASHBOARD_CONSOLE_CACHE_KEY,
+        withCacheBust("/api/dashboard/console"),
+        undefined,
+        { force: true }
+      )
+      seedDashboardShardCaches(payload)
+      applyConsolePayload(payload, payloadSetters)
+      fetchStockPrices(payload.investmentAccounts, setMarketPrices, () => false)
+    } catch (e) {
+      console.error("Wealth console refresh error:", e)
+    }
+  }, [payloadSetters])
+
   const showLoading = loading && breakdown == null
 
   if (status === "unauthenticated") {
@@ -159,6 +239,10 @@ export default function DashboardPageClient() {
       subscriptionDash={subscriptionDash}
       savingGoals={savingGoals}
       loading={showLoading || (isSessionPending && breakdown == null)}
+      onActivityLogged={refreshConsole}
+      onOptimisticIncomeLog={applyOptimisticIncomeLog}
+      onOptimisticExpenseLog={applyOptimisticExpenseLog}
+      onOptimisticRollback={rollbackConsoleSnapshot}
     />
   )
 }

@@ -17,6 +17,12 @@ import {
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { tryParseMoneyInput } from "@/lib/money-input"
 import { parseSharesInput } from "@/lib/shares"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyOptimisticDividend,
+  applyOptimisticInvestmentPurchase,
+  cloneInvestmentState,
+} from "@/lib/investment-optimistic"
 
 /** Same cache key as dashboard secondary load — warm cache when navigating between pages. */
 const INVESTMENTS_CACHE_KEY = "dashboard:investments"
@@ -251,42 +257,78 @@ export function useInvestmentsPage(status: string) {
       return false
     }
     setFieldErrors({})
-    setSubmittingDividend(true)
-    try {
-      const res = await fetch("/api/investments/dividends", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          investmentAccountId: dividendAccountId,
-          name: sym,
-          amount: amt,
-          date: dividendDate,
-        }),
-      })
-      const data = (await res.json()) as { error?: string }
-      if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Could not record dividend." })
-        return false
-      }
-      setMessage({
-        type: "success",
-        text: "Dividend recorded. Cash updated; income logged (not allocated to budget) and visible on Statements.",
-      })
-      setDividendSymbol("")
-      setDividendAmount("")
-      setDividendDate(new Date().toISOString().split("T")[0])
-      invalidateCachedJson(INVESTMENTS_CACHE_KEY)
-      invalidateCachedJson("statement:")
-      invalidateCachedJson(/^income:/)
-      invalidateCategoryTrackingAndDashboardCaches()
-      await refetchAccounts()
-      return true
-    } catch {
-      setMessage({ type: "error", text: "Something went wrong while saving." })
-      return false
-    } finally {
-      setSubmittingDividend(false)
+
+    const snapshot = cloneInvestmentState(
+      accounts,
+      dividendYtd,
+      dividendAllTime,
+      recentDividends
+    )
+    const payload = {
+      investmentAccountId: dividendAccountId,
+      name: sym,
+      amount: amt!,
+      date: dividendDate,
     }
+    const dividendPatch = applyOptimisticDividend(
+      accounts,
+      dividendYtd,
+      dividendAllTime,
+      recentDividends,
+      {
+        accountId: payload.investmentAccountId,
+        symbol: payload.name,
+        amount: payload.amount,
+        date: payload.date,
+      }
+    )
+    setAccounts(dividendPatch.accounts)
+    setDividendYtd(dividendPatch.dividendYtd)
+    setDividendAllTime(dividendPatch.dividendAllTime)
+    setRecentDividends(dividendPatch.recentDividends)
+    toastSuccess(
+      "Dividend recorded. Cash updated; income logged (not allocated to budget) and visible on Statements."
+    )
+    setDividendSymbol("")
+    setDividendAmount("")
+    setDividendDate(new Date().toISOString().split("T")[0])
+
+    void (async () => {
+      setSubmittingDividend(true)
+      try {
+        const res = await fetch("/api/investments/dividends", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setAccounts(snapshot.accounts)
+          setDividendYtd(snapshot.dividendYtd)
+          setDividendAllTime(snapshot.dividendAllTime)
+          setRecentDividends(snapshot.recentDividends)
+          setMessage({ type: "error", text: data.error || "Could not record dividend." })
+          toastError(data.error || "Could not record dividend.")
+          return
+        }
+        invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+        invalidateCachedJson("statement:")
+        invalidateCachedJson(/^income:/)
+        invalidateCategoryTrackingAndDashboardCaches()
+        await refetchAccounts()
+      } catch {
+        setAccounts(snapshot.accounts)
+        setDividendYtd(snapshot.dividendYtd)
+        setDividendAllTime(snapshot.dividendAllTime)
+        setRecentDividends(snapshot.recentDividends)
+        setMessage({ type: "error", text: "Something went wrong while saving." })
+        toastError("Something went wrong while saving.")
+      } finally {
+        setSubmittingDividend(false)
+      }
+    })()
+
+    return true
   }
 
   const totalInvested = useMemo(
@@ -630,45 +672,78 @@ export function useInvestmentsPage(status: string) {
       return false
     }
     setFieldErrors({})
-    setSubmitting(true)
-    try {
-      const response = await fetch("/api/investments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          investmentAccountId: selectedInvestmentAccountId,
-          investmentName: investmentName.trim(),
-          pricePerUnit: numPrice,
-          numberOfShares: sharesStr,
-          brokerageFee: numFee > 0 ? numFee : 0,
-          date,
-        }),
-      })
-      const data = (await response.json()) as { error?: string }
-      if (!response.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to create investment." })
-        return false
-      }
 
-      setMessage({ type: "success", text: "Investment created successfully." })
-      setSelectedInvestmentAccountId("")
-      setInvestmentName("")
-      setInvestmentSearchQuery("")
-      setInvestmentSearchResults([])
-      setShowInvestmentDropdown(false)
-      setPricePerUnit("")
-      setNumberOfShares("")
-      setBrokerageFee("")
-      invalidateCachedJson(INVESTMENTS_CACHE_KEY)
-      invalidateCategoryTrackingAndDashboardCaches()
-      await refetchAccounts()
-      return true
-    } catch {
-      setMessage({ type: "error", text: "Something went wrong while saving." })
-      return false
-    } finally {
-      setSubmitting(false)
+    const sharesNum = Number.parseFloat(sharesStr)
+    const snapshot = cloneInvestmentState(
+      accounts,
+      dividendYtd,
+      dividendAllTime,
+      recentDividends
+    )
+    const payload = {
+      investmentAccountId: selectedInvestmentAccountId,
+      investmentName: investmentName.trim(),
+      pricePerUnit: numPrice!,
+      numberOfShares: sharesStr,
+      brokerageFee: numFee > 0 ? numFee : 0,
+      date,
     }
+
+    setAccounts(
+      applyOptimisticInvestmentPurchase(accounts, {
+        accountId: payload.investmentAccountId,
+        investmentName: payload.investmentName,
+        pricePerUnit: payload.pricePerUnit,
+        numberOfShares: sharesNum,
+        brokerageFee: payload.brokerageFee,
+        date: payload.date,
+      })
+    )
+
+    toastSuccess("Investment created successfully.")
+    setSelectedInvestmentAccountId("")
+    setInvestmentName("")
+    setInvestmentSearchQuery("")
+    setInvestmentSearchResults([])
+    setShowInvestmentDropdown(false)
+    setPricePerUnit("")
+    setNumberOfShares("")
+    setBrokerageFee("")
+
+    void (async () => {
+      setSubmitting(true)
+      try {
+        const response = await fetch("/api/investments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          setAccounts(snapshot.accounts)
+          setDividendYtd(snapshot.dividendYtd)
+          setDividendAllTime(snapshot.dividendAllTime)
+          setRecentDividends(snapshot.recentDividends)
+          setMessage({ type: "error", text: data.error || "Failed to create investment." })
+          toastError(data.error || "Failed to create investment.")
+          return
+        }
+        invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+        invalidateCategoryTrackingAndDashboardCaches()
+        await refetchAccounts()
+      } catch {
+        setAccounts(snapshot.accounts)
+        setDividendYtd(snapshot.dividendYtd)
+        setDividendAllTime(snapshot.dividendAllTime)
+        setRecentDividends(snapshot.recentDividends)
+        setMessage({ type: "error", text: "Something went wrong while saving." })
+        toastError("Something went wrong while saving.")
+      } finally {
+        setSubmitting(false)
+      }
+    })()
+
+    return true
   }
 
   const chartSubtitle =

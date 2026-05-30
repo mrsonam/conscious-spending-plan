@@ -10,6 +10,18 @@ import {
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { parseMoneyInput } from "@/lib/money-input"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyOptimisticGoalArchive,
+  applyOptimisticGoalCreate,
+  applyOptimisticGoalDelete,
+  applyOptimisticGoalTransfer,
+  applyOptimisticGoalUpdate,
+  applyOptimisticGoalWithdraw,
+  cloneSavingGoalsState,
+  replaceOptimisticGoalRow,
+} from "@/lib/saving-goals-optimistic"
+import { isOptimisticClientId } from "@/lib/optimistic-id"
 
 export type SavingGoalStatus = "active" | "complete" | "archived"
 
@@ -131,156 +143,246 @@ export function useSavingGoalsPage(
     return parseMoneyInput(trimmed, currencyCode)
   }
 
+  const requirePersistedGoal = (goalId: string): boolean => {
+    if (!isOptimisticClientId(goalId)) return true
+    toastError("This goal is still being saved. Wait a moment and try again.")
+    return false
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
     if (!validateForm()) return
 
-    setSubmitting(true)
-    setMessage(null)
-    try {
-      const res = await fetch("/api/saving-goals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          target: targetPayload(target),
-          percent: Number(percent),
-        }),
-      })
-      const data = (await res.json()) as { error?: string }
-      if (res.ok) {
-        setMessage({ type: "success", text: "Saving goal created" })
-        resetForm()
-        await fetchGoals()
-        return true
-      }
-      setFormError(data.error ?? "Failed to create goal")
-      return false
-    } catch {
-      setFormError("An error occurred")
-      return false
-    } finally {
-      setSubmitting(false)
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const payload = {
+      name: name.trim(),
+      target: targetPayload(target),
+      percent: Number(percent),
     }
+    const optimistic = applyOptimisticGoalCreate(goals, summary, payload)
+    const optimisticId = optimistic.optimisticId
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Saving goal created")
+    resetForm()
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/saving-goals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = (await res.json()) as { error?: string; goal?: SavingGoalRow }
+        if (!res.ok) {
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setFormError(data.error ?? "Failed to create goal")
+          toastError(data.error ?? "Failed to create goal")
+          return
+        }
+        if (data.goal) {
+          setGoals((prev) => replaceOptimisticGoalRow(prev, optimisticId, data.goal!))
+        }
+        await fetchGoals()
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setFormError("An error occurred")
+        toastError("An error occurred")
+      }
+    })()
+
+    return true
   }
 
   const handleUpdate = async (
     goalId: string,
     updates: { name?: string; target?: number | null; percent?: number }
   ) => {
-    setActionGoalId(goalId)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/saving-goals/${goalId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      })
-      const data = (await res.json()) as { error?: string }
-      if (res.ok) {
-        setMessage({ type: "success", text: "Goal updated" })
+    if (!requirePersistedGoal(goalId)) return false
+
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const optimistic = applyOptimisticGoalUpdate(goals, summary, goalId, updates)
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Goal updated")
+
+    void (async () => {
+      setActionGoalId(goalId)
+      try {
+        const res = await fetch(`/api/saving-goals/${goalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setMessage({ type: "error", text: data.error ?? "Failed to update goal" })
+          toastError(data.error ?? "Failed to update goal")
+          return
+        }
         await fetchGoals()
-        return true
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setActionGoalId(null)
       }
-      setMessage({ type: "error", text: data.error ?? "Failed to update goal" })
-      return false
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-      return false
-    } finally {
-      setActionGoalId(null)
-    }
+    })()
+
+    return true
   }
 
   const handleArchive = async (goalId: string) => {
-    setActionGoalId(goalId)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/saving-goals/${goalId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "archive" }),
-      })
-      if (res.ok) {
-        setMessage({ type: "success", text: "Goal archived" })
+    if (!requirePersistedGoal(goalId)) return
+
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const optimistic = applyOptimisticGoalArchive(goals, summary, goalId)
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Goal archived")
+
+    void (async () => {
+      setActionGoalId(goalId)
+      try {
+        const res = await fetch(`/api/saving-goals/${goalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "archive" }),
+        })
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string }
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setMessage({ type: "error", text: data.error ?? "Failed to archive goal" })
+          toastError(data.error ?? "Failed to archive goal")
+          return
+        }
         await fetchGoals()
-      } else {
-        const data = (await res.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error ?? "Failed to archive goal" })
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setActionGoalId(null)
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    } finally {
-      setActionGoalId(null)
-    }
+    })()
   }
 
   const handleWithdraw = async (goalId: string) => {
-    setActionGoalId(goalId)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/saving-goals/${goalId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "withdraw" }),
-      })
-      if (res.ok) {
-        setMessage({ type: "success", text: "Goal withdrawn and archived" })
+    if (!requirePersistedGoal(goalId)) return
+
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const optimistic = applyOptimisticGoalWithdraw(goals, summary, goalId)
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Goal withdrawn and archived")
+
+    void (async () => {
+      setActionGoalId(goalId)
+      try {
+        const res = await fetch(`/api/saving-goals/${goalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "withdraw" }),
+        })
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string }
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setMessage({ type: "error", text: data.error ?? "Failed to withdraw goal" })
+          toastError(data.error ?? "Failed to withdraw goal")
+          return
+        }
         await fetchGoals()
-      } else {
-        const data = (await res.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error ?? "Failed to withdraw goal" })
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setActionGoalId(null)
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    } finally {
-      setActionGoalId(null)
-    }
+    })()
   }
 
   const handleTransfer = async (goalId: string, amount: number) => {
-    setActionGoalId(goalId)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/saving-goals/${goalId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "transfer", amount }),
-      })
-      const data = (await res.json()) as { error?: string }
-      if (res.ok) {
-        setMessage({ type: "success", text: "Funds transferred to goal" })
+    if (!requirePersistedGoal(goalId)) return false
+
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const optimistic = applyOptimisticGoalTransfer(goals, summary, goalId, amount)
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Funds transferred to goal")
+
+    void (async () => {
+      setActionGoalId(goalId)
+      try {
+        const res = await fetch(`/api/saving-goals/${goalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "transfer", amount }),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setMessage({ type: "error", text: data.error ?? "Failed to transfer funds" })
+          toastError(data.error ?? "Failed to transfer funds")
+          return
+        }
         await fetchGoals()
-        return true
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setActionGoalId(null)
       }
-      setMessage({ type: "error", text: data.error ?? "Failed to transfer funds" })
-      return false
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-      return false
-    } finally {
-      setActionGoalId(null)
-    }
+    })()
+
+    return true
   }
 
   const handleDelete = async (goalId: string) => {
-    setActionGoalId(goalId)
-    setMessage(null)
-    try {
-      const res = await fetch(`/api/saving-goals/${goalId}`, { method: "DELETE" })
-      if (res.ok) {
-        setMessage({ type: "success", text: "Goal deleted" })
+    if (!requirePersistedGoal(goalId)) return
+
+    const snapshot = cloneSavingGoalsState(goals, summary)
+    const optimistic = applyOptimisticGoalDelete(goals, summary, goalId)
+    setGoals(optimistic.goals)
+    setSummary(optimistic.summary)
+    toastSuccess("Goal deleted")
+
+    void (async () => {
+      setActionGoalId(goalId)
+      try {
+        const res = await fetch(`/api/saving-goals/${goalId}`, { method: "DELETE" })
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string }
+          setGoals(snapshot.goals)
+          setSummary(snapshot.summary)
+          setMessage({ type: "error", text: data.error ?? "Failed to delete goal" })
+          toastError(data.error ?? "Failed to delete goal")
+          return
+        }
         await fetchGoals()
-      } else {
-        const data = (await res.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error ?? "Failed to delete goal" })
+      } catch {
+        setGoals(snapshot.goals)
+        setSummary(snapshot.summary)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setActionGoalId(null)
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    } finally {
-      setActionGoalId(null)
-    }
+    })()
   }
 
   return {

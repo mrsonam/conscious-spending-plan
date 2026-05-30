@@ -16,8 +16,7 @@ import {
   downloadCsvFile,
   fetchAllExpensesForExport,
 } from "@/lib/expense-csv-export"
-import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
-import { TOKENS } from "@/lib/wealth-console-tokens"
+import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 
 export function ExpensePageBento(p: UseExpensePageResult) {
@@ -154,27 +153,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
 
   return (
     <>
-      {p.message && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border px-4 py-3 text-sm"
-          style={{
-            background:
-              p.message.type === "success"
-                ? `color-mix(in srgb, ${TOKENS.primary} 12%, ${TOKENS.surfaceLow})`
-                : `color-mix(in srgb, ${ERROR_SOFT} 12%, ${TOKENS.surfaceLow})`,
-            borderColor:
-              p.message.type === "success"
-                ? TOKENS.outlineGhost
-                : `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`,
-            color:
-              p.message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-          }}
-        >
-          {p.message.text}
-        </div>
-      )}
+      <FormStatusAlert message={p.message} />
 
       <ExpenseSummarySection
         p={p}

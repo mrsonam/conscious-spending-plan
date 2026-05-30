@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import {
   netPillarHeadroom,
   sumDeployableBalance,
+  savingsSpendableAmount,
   type CategoryTrackingRow,
 } from "../lib/category-tracking-shared"
 
@@ -29,5 +30,12 @@ const tracking = {
 }
 
 assert.equal(sumDeployableBalance(tracking), 250)
+
+const savingsRow = tracking.savings!
+assert.equal(savingsSpendableAmount(savingsRow, 40), 40)
+assert.equal(
+  sumDeployableBalance(tracking, 40),
+  250 - 100 + 40
+)
 
 console.log("deployable-balance.test.ts: all passed")

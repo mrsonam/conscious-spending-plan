@@ -21,6 +21,15 @@ import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyOptimisticSubscriptionCreate,
+  applyOptimisticSubscriptionDelete,
+  applyOptimisticSubscriptionUpdate,
+  cloneSubscriptionState,
+} from "@/lib/subscription-optimistic"
+import { createOptimisticId } from "@/lib/optimistic-id"
+import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import { monthlyEquivalent, type SubscriptionFrequency } from "@/lib/subscription-utils"
 import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -274,104 +283,171 @@ export function SubscriptionsPageBento() {
       setMessage({ type: "error", text: "Choose an account and a valid amount." })
       return
     }
-    setSubmitting(true)
-    setMessage(null)
-    try {
-      if (editId) {
-        const res = await fetch(`/api/subscriptions/${editId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: provider.trim() || null,
-            label: label.trim() || null,
-            status,
-            trialEndsAt: trialEndsAt || null,
-            nextRenewalAt: nextRenewalAt || null,
-            reminderDaysBefore: parseInt(reminderDays, 10) || 7,
-            foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
-            foreignAmount:
-              isInternational && foreignAmount && foreignCurrency.trim()
-                ? parseMoneyInput(foreignAmount, foreignCurrency.trim())
-                : null,
-            recurring: {
-              accountId,
-              amount: amt,
-              description: description.trim() || null,
-              category: fundCategory || null,
-              expenseCategory: expenseCategory || null,
-              frequency,
-              startDate,
-            },
-          }),
-        })
-        const data = (await res.json()) as { error?: string }
-        if (!res.ok) {
-          setMessage({ type: "error", text: data.error || "Update failed." })
-          return
-        }
-        setMessage({ type: "success", text: "Subscription updated." })
-      } else {
-        const res = await fetch("/api/subscriptions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            accountId,
+    const account = accounts.find((a) => a.id === accountId)
+    if (!account) {
+      setMessage({ type: "error", text: "Choose an account and a valid amount." })
+      return
+    }
+
+    const snapshot = cloneSubscriptionState(subscriptions, monthlyActiveTotal)
+    const currentEditId = editId
+    const recurringBase = {
+      accountId,
+      amount: amt,
+      description: description.trim() || null,
+      category: fundCategory || null,
+      expenseCategory: expenseCategory || null,
+      frequency,
+      startDate,
+    }
+    const subscriptionMeta = {
+      provider: provider.trim() || null,
+      label: label.trim() || null,
+      status,
+      trialEndsAt: trialEndsAt || null,
+      nextRenewalAt: nextRenewalAt || null,
+      reminderDaysBefore: parseInt(reminderDays, 10) || 7,
+      foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
+      foreignAmount:
+        isInternational && foreignAmount && foreignCurrency.trim()
+          ? parseMoneyInput(foreignAmount, foreignCurrency.trim())
+          : null,
+    }
+
+    if (editId) {
+      const existing = subscriptions.find((s) => s.id === currentEditId)
+      const optimistic = applyOptimisticSubscriptionUpdate(
+        subscriptions,
+        monthlyActiveTotal,
+        currentEditId,
+        {
+          ...subscriptionMeta,
+          recurringExpense: {
+            ...(existing?.recurringExpense ?? {
+              id: createOptimisticId("recurring"),
+              endDate: null,
+              isActive: true,
+            }),
             amount: amt,
-            description: description.trim() || null,
-            category: fundCategory || null,
-            expenseCategory: expenseCategory || null,
+            description: recurringBase.description,
             frequency,
             startDate,
-            provider: provider.trim() || null,
-            label: label.trim() || null,
-            trialEndsAt: trialEndsAt || null,
-            nextRenewalAt: nextRenewalAt || null,
-            reminderDaysBefore: parseInt(reminderDays, 10) || 7,
-            status,
-            foreignCurrency: isInternational ? foreignCurrency.trim() || null : null,
-            foreignAmount:
-              isInternational && foreignAmount && foreignCurrency.trim()
-                ? parseMoneyInput(foreignAmount, foreignCurrency.trim())
-                : null,
-          }),
-        })
-        const data = (await res.json()) as { error?: string }
-        if (!res.ok) {
-          setMessage({ type: "error", text: data.error || "Could not create." })
-          return
+            category: recurringBase.category,
+            expenseCategory: recurringBase.expenseCategory,
+            account,
+          },
         }
-        setMessage({ type: "success", text: "Subscription added." })
-      }
-      invalidateCachedJson(CACHE_KEY)
-      invalidateCachedJson("dashboard:subscriptions")
-      invalidateCachedJson("dashboard:console")
-      await refetch()
-      setOpen(false)
-      resetForm()
-    } catch {
-      setMessage({ type: "error", text: "Request failed." })
-    } finally {
-      setSubmitting(false)
+      )
+      setSubscriptions(optimistic.subscriptions)
+      setMonthlyActiveTotal(optimistic.monthlyActiveTotal)
+      toastSuccess("Subscription updated.")
+    } else {
+      const optimistic = applyOptimisticSubscriptionCreate(
+        subscriptions,
+        monthlyActiveTotal,
+        {
+          account,
+          amount: amt,
+          description: recurringBase.description,
+          category: recurringBase.category,
+          expenseCategory: recurringBase.expenseCategory,
+          frequency,
+          startDate,
+          ...subscriptionMeta,
+        }
+      )
+      setSubscriptions(optimistic.subscriptions)
+      setMonthlyActiveTotal(optimistic.monthlyActiveTotal)
+      toastSuccess("Subscription added.")
     }
+
+    setOpen(false)
+    resetForm()
+
+    void (async () => {
+      setSubmitting(true)
+      try {
+        if (currentEditId) {
+          const res = await fetch(`/api/subscriptions/${currentEditId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...subscriptionMeta,
+              recurring: recurringBase,
+            }),
+          })
+          const data = (await res.json()) as { error?: string }
+          if (!res.ok) {
+            setSubscriptions(snapshot.subscriptions)
+            setMonthlyActiveTotal(snapshot.monthlyActiveTotal)
+            setMessage({ type: "error", text: data.error || "Update failed." })
+            toastError(data.error || "Update failed.")
+            return
+          }
+        } else {
+          const res = await fetch("/api/subscriptions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...recurringBase,
+              ...subscriptionMeta,
+            }),
+          })
+          const data = (await res.json()) as { error?: string }
+          if (!res.ok) {
+            setSubscriptions(snapshot.subscriptions)
+            setMonthlyActiveTotal(snapshot.monthlyActiveTotal)
+            setMessage({ type: "error", text: data.error || "Could not create." })
+            toastError(data.error || "Could not create.")
+            return
+          }
+        }
+        invalidateCachedJson(CACHE_KEY)
+        invalidateCachedJson("dashboard:subscriptions")
+        invalidateCachedJson("dashboard:console")
+        await refetch()
+      } catch {
+        setSubscriptions(snapshot.subscriptions)
+        setMonthlyActiveTotal(snapshot.monthlyActiveTotal)
+        setMessage({ type: "error", text: "Request failed." })
+        toastError("Request failed.")
+      } finally {
+        setSubmitting(false)
+      }
+    })()
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this subscription from the list? The recurring charge will stay in Expenses until you delete it there.")) return
-    try {
-      const res = await fetch(`/api/subscriptions/${id}`, { method: "DELETE" })
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error || "Delete failed." })
-        return
+
+    const snapshot = cloneSubscriptionState(subscriptions, monthlyActiveTotal)
+    const optimistic = applyOptimisticSubscriptionDelete(subscriptions, monthlyActiveTotal, id)
+    setSubscriptions(optimistic.subscriptions)
+    setMonthlyActiveTotal(optimistic.monthlyActiveTotal)
+    toastSuccess("Removed from subscriptions.")
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/subscriptions/${id}`, { method: "DELETE" })
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string }
+          setSubscriptions(snapshot.subscriptions)
+          setMonthlyActiveTotal(snapshot.monthlyActiveTotal)
+          setMessage({ type: "error", text: data.error || "Delete failed." })
+          toastError(data.error || "Delete failed.")
+          return
+        }
+        invalidateCachedJson(CACHE_KEY)
+        invalidateCachedJson("dashboard:subscriptions")
+        invalidateCachedJson("dashboard:console")
+        await refetch()
+      } catch {
+        setSubscriptions(snapshot.subscriptions)
+        setMonthlyActiveTotal(snapshot.monthlyActiveTotal)
+        setMessage({ type: "error", text: "Delete failed." })
+        toastError("Delete failed.")
       }
-      invalidateCachedJson(CACHE_KEY)
-      invalidateCachedJson("dashboard:subscriptions")
-      invalidateCachedJson("dashboard:console")
-      await refetch()
-      setMessage({ type: "success", text: "Removed from subscriptions." })
-    } catch {
-      setMessage({ type: "error", text: "Delete failed." })
-    }
+    })()
   }
 
   const rows = useMemo(() => {
@@ -419,14 +495,7 @@ export function SubscriptionsPageBento() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {message ? (
-        <p
-          className="text-sm font-medium"
-          style={{ color: message.type === "success" ? TOKENS.primary : ERROR_SOFT }}
-        >
-          {message.text}
-        </p>
-      ) : null}
+      <FormStatusAlert message={message} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-start">
         {/* Telemetry Hero */}

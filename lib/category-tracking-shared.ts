@@ -83,6 +83,14 @@ export function expenseTypeLabel(value: string | null | undefined) {
   return EXPENSE_CATEGORIES.find((c) => c.value === value)?.label ?? value
 }
 
+export function trackingFundLabel(key: string): string {
+  return TRACKING_FUND_CATEGORIES.find((c) => c.key === key)?.label ?? key
+}
+
+export function trackingFundShort(key: string): string {
+  return TRACKING_FUND_CATEGORIES.find((c) => c.key === key)?.short ?? key
+}
+
 /** True headroom for one pillar: remaining minus any current-month breach. */
 export function netPillarHeadroom(
   row: Pick<CategoryTrackingRow, "remaining" | "overspent">
@@ -90,14 +98,39 @@ export function netPillarHeadroom(
   return Math.round((row.remaining - (row.overspent ?? 0)) * 100) / 100
 }
 
+/**
+ * Savings you can still spend or move — envelope headroom capped by the general
+ * pool after saving-goal assignments (same rule as bucket transfers).
+ */
+export function savingsSpendableAmount(
+  row: Pick<CategoryTrackingRow, "remaining" | "overspent">,
+  savingsGeneralAvailable: number
+): number {
+  const headroom = netPillarHeadroom(row)
+  const general = Math.max(0, savingsGeneralAvailable)
+  return Math.round(Math.min(headroom, general) * 100) / 100
+}
+
+function pillarDeployableAmount(
+  key: TrackingFundKey,
+  row: CategoryTrackingRow,
+  savingsGeneralAvailable?: number
+): number {
+  if (key === "savings" && savingsGeneralAvailable != null) {
+    return savingsSpendableAmount(row, savingsGeneralAvailable)
+  }
+  return netPillarHeadroom(row)
+}
+
 /** Deployable balance across all pillars (can be negative when net overspent). */
 export function sumDeployableBalance(
-  tracking: Record<string, CategoryTrackingRow>
+  tracking: Record<string, CategoryTrackingRow>,
+  savingsGeneralAvailable?: number
 ): number {
   return Math.round(
     FUND_KEYS.reduce((sum, key) => {
       const row = tracking[key]
-      return sum + (row ? netPillarHeadroom(row) : 0)
+      return sum + (row ? pillarDeployableAmount(key, row, savingsGeneralAvailable) : 0)
     }, 0) * 100
   ) / 100
 }

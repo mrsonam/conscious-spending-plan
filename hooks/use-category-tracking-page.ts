@@ -15,9 +15,21 @@ import {
   expenseTypeLabel,
   getMonthElapsedFraction,
   sumDeployableBalance,
+  trackingFundShort,
 } from "@/lib/category-tracking-shared"
+import {
+  bucketTransferFlowByCategory,
+  type CategoryBucketTransferApiRow,
+} from "@/lib/category-bucket-transfer-api"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import type { FundCategory } from "@/lib/fund-allocation-fields"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyOptimisticBucketTransfer,
+  applyOptimisticSavingsGeneralDelta,
+  cloneCategoryTrackingState,
+  createOptimisticBucketTransferId,
+} from "@/lib/category-bucket-transfer-optimistic"
 
 export type CategoryTrackingExpense = {
   id: string
@@ -33,6 +45,8 @@ type TrackingApiPayload = {
   tracking: Record<string, CategoryTrackingRow>
   totalIncomeForMonth?: number
   savingsGeneralAvailable?: number
+  savingsAssignedToGoals?: number
+  bucketTransfers?: CategoryBucketTransferApiRow[]
 }
 
 type HistoryApiPayload = {
@@ -55,6 +69,8 @@ export function useCategoryTrackingPage() {
   const [tracking, setTracking] = useState<Record<string, CategoryTrackingRow> | null>(null)
   const [totalIncomeForMonth, setTotalIncomeForMonth] = useState<number | null>(null)
   const [savingsGeneralAvailable, setSavingsGeneralAvailable] = useState(0)
+  const [savingsAssignedToGoals, setSavingsAssignedToGoals] = useState(0)
+  const [bucketTransfers, setBucketTransfers] = useState<CategoryBucketTransferApiRow[]>([])
   const [expenses, setExpenses] = useState<CategoryTrackingExpense[]>([])
   const [history, setHistory] = useState<Record<
     string,
@@ -63,9 +79,7 @@ export function useCategoryTrackingPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
-  const [transferSubmitting, setTransferSubmitting] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
-  const [transferMessage, setTransferMessage] = useState<string | null>(null)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -80,15 +94,15 @@ export function useCategoryTrackingPage() {
   const fetchData = useCallback(
     async (opts?: { bypassCache?: boolean }) => {
       if (opts?.bypassCache) {
-        invalidateCachedJson("category-tracking:v3:")
+        invalidateCachedJson("category-tracking:v4:")
       }
 
       const seq = ++loadSeq.current
       const t = Date.now()
       const periodKey = `${selectedYear}-${selectedMonth}`
-      const cacheKeySummary = `category-tracking:v3:summary:${periodKey}`
-      const cacheKeyExpenses = `category-tracking:v3:expenses:${periodKey}`
-      const cacheKeyHistory = `category-tracking:v3:history`
+      const cacheKeySummary = `category-tracking:v4:summary:${periodKey}`
+      const cacheKeyExpenses = `category-tracking:v4:expenses:${periodKey}`
+      const cacheKeyHistory = `category-tracking:v4:history`
 
       const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1)
       const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
@@ -105,6 +119,8 @@ export function useCategoryTrackingPage() {
         setTracking(peekSummary.tracking)
         setTotalIncomeForMonth(peekSummary.totalIncomeForMonth ?? null)
         setSavingsGeneralAvailable(peekSummary.savingsGeneralAvailable ?? 0)
+        setSavingsAssignedToGoals(peekSummary.savingsAssignedToGoals ?? 0)
+        setBucketTransfers(peekSummary.bucketTransfers ?? [])
       }
       if (peekExpenses) {
         setExpenses(peekExpenses.expenses || [])
@@ -136,6 +152,8 @@ export function useCategoryTrackingPage() {
         setTracking(summaryData.tracking)
         setTotalIncomeForMonth(summaryData.totalIncomeForMonth ?? null)
         setSavingsGeneralAvailable(summaryData.savingsGeneralAvailable ?? 0)
+        setSavingsAssignedToGoals(summaryData.savingsAssignedToGoals ?? 0)
+        setBucketTransfers(summaryData.bucketTransfers ?? [])
         setExpenses(expensesData.expenses || [])
         setHistory(historyData.history)
       } catch (e) {
@@ -206,7 +224,9 @@ export function useCategoryTrackingPage() {
   const totalSpent = tracking
     ? FUND_KEYS.reduce((s, k) => s + (tracking[k]?.spent ?? 0), 0)
     : 0
-  const totalRemaining = tracking ? sumDeployableBalance(tracking) : 0
+  const totalRemaining = tracking
+    ? sumDeployableBalance(tracking, savingsGeneralAvailable)
+    : 0
   const overallUsage = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
 
   const elapsed = getMonthElapsedFraction(selectedMonth, selectedYear)
@@ -259,11 +279,15 @@ export function useCategoryTrackingPage() {
       .slice(0, 10)
   }, [expenses])
 
+  const bucketTransferFlow = useMemo(
+    () => bucketTransferFlowByCategory(bucketTransfers),
+    [bucketTransfers]
+  )
+
   const isCurrentMonth =
     selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear()
 
   const openTransferDialog = useCallback(() => {
-    setTransferMessage(null)
     setTransferError(null)
     setTransferOpen(true)
   }, [])
@@ -274,8 +298,38 @@ export function useCategoryTrackingPage() {
       toCategory: FundCategory
       amount: number
     }) => {
-      setTransferSubmitting(true)
+      if (!tracking) return
+
       setTransferError(null)
+
+      const snapshot = cloneCategoryTrackingState(
+        tracking,
+        bucketTransfers,
+        savingsGeneralAvailable
+      )
+
+      const optimisticId = createOptimisticBucketTransferId()
+      const optimistic = applyOptimisticBucketTransfer({
+        tracking,
+        bucketTransfers,
+        fromCategory: payload.fromCategory,
+        toCategory: payload.toCategory,
+        amount: payload.amount,
+        optimisticId,
+      })
+
+      setTracking(optimistic.tracking)
+      setBucketTransfers(optimistic.bucketTransfers)
+      setSavingsGeneralAvailable((prev) =>
+        applyOptimisticSavingsGeneralDelta(prev, payload.fromCategory, payload.amount)
+      )
+
+      setTransferOpen(false)
+
+      const fromLabel = trackingFundShort(payload.fromCategory)
+      const toLabel = trackingFundShort(payload.toCategory)
+      toastSuccess(`Moved ${formatCurrency(payload.amount)} from ${fromLabel} to ${toLabel}`)
+
       try {
         const res = await fetch("/api/category-tracking/transfer", {
           method: "POST",
@@ -288,20 +342,30 @@ export function useCategoryTrackingPage() {
         })
         const data = (await res.json()) as { error?: string }
         if (!res.ok) {
-          setTransferError(data.error ?? "Transfer failed")
+          if (snapshot.tracking) setTracking(snapshot.tracking)
+          setBucketTransfers(snapshot.bucketTransfers)
+          setSavingsGeneralAvailable(snapshot.savingsGeneralAvailable)
+          toastError(data.error ?? "Transfer failed")
           return
         }
-        setTransferOpen(false)
-        setTransferMessage("Bucket transfer completed")
-        invalidateCachedJson("category-tracking:v3:")
+        invalidateCachedJson("category-tracking:v4:")
         await fetchData({ bypassCache: true })
       } catch {
-        setTransferError("Transfer failed")
-      } finally {
-        setTransferSubmitting(false)
+        if (snapshot.tracking) setTracking(snapshot.tracking)
+        setBucketTransfers(snapshot.bucketTransfers)
+        setSavingsGeneralAvailable(snapshot.savingsGeneralAvailable)
+        toastError("Transfer failed")
       }
     },
-    [fetchData, selectedMonth, selectedYear]
+    [
+      bucketTransfers,
+      fetchData,
+      formatCurrency,
+      savingsGeneralAvailable,
+      selectedMonth,
+      selectedYear,
+      tracking,
+    ]
   )
 
   const momSpend = useMemo(() => {
@@ -351,15 +415,15 @@ export function useCategoryTrackingPage() {
     expenseTypeRollup,
     momSpend,
     savingsGeneralAvailable,
+    savingsAssignedToGoals,
+    bucketTransfers,
+    bucketTransferFlow,
     currencyCode,
     isCurrentMonth,
     transferOpen,
     setTransferOpen,
     openTransferDialog,
-    transferSubmitting,
     transferError,
-    transferMessage,
-    setTransferMessage,
     transferBucketFunds,
   }
 }

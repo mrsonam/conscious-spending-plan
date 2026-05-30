@@ -29,7 +29,7 @@ import {
   ACCOUNT_FUND_CATEGORIES,
   type AccountRow,
 } from "@/hooks/use-accounts-page"
-import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { FormErrorAlert, FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import {
   FormFieldError,
   formFieldAria,
@@ -517,18 +517,7 @@ export function AccountsPageBento() {
         </div>
       </section>
 
-      {message ? (
-        <div
-          className="rounded-xl border px-4 py-3 text-xs"
-          style={{
-            borderColor: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            color: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            background: TOKENS.surfaceContainer,
-          }}
-        >
-          {message.text}
-        </div>
-      ) : null}
+      <FormStatusAlert message={message} className="text-xs" />
 
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent

@@ -8,10 +8,10 @@ import {
 import {
   ensureMonthlyCategoryBalances,
   getCurrentMonthYear,
-  getPreviousMonthRemainingByCategory,
 } from "@/lib/monthly-tracking"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
-import { addMinor, coerceMinor, dollarsToMinor } from "@/lib/money"
+import { upsertEnvelopeBalancesForMonth, computeEnvelopeBalancesMinor } from "@/lib/envelope-balance-recompute"
+import { addMinor, coerceMinor } from "@/lib/money"
 import { prisma } from "@/lib/prisma"
 
 export type MonthIncomeReallocation = {
@@ -98,12 +98,6 @@ export async function reallocateMonthIncomeForUser(
     currencyCode,
   )
 
-  const carryover = await getPreviousMonthRemainingByCategory(
-    userId,
-    resolved.month,
-    resolved.year,
-  )
-
   await prisma.$transaction(async (tx) => {
     for (const { entryId, alloc } of reallocations) {
       await tx.incomeEntry.update({
@@ -116,52 +110,27 @@ export async function reallocateMonthIncomeForUser(
         },
       })
     }
-
-    const existingBalances = await tx.categoryBalance.findMany({
-      where: {
-        userId,
-        month: resolved.month,
-        year: resolved.year,
-      },
-    })
-    const existingMap = new Map(existingBalances.map((row) => [row.category, row]))
-
-    for (const cat of FUND_CATEGORIES) {
-      const carryoverMinor = dollarsToMinor(carryover[cat] ?? 0, currencyCode)
-      const balance = addMinor(carryoverMinor, incomeTotals[cat])
-      const existing = existingMap.get(cat)
-      if (existing) {
-        await tx.categoryBalance.update({
-          where: { id: existing.id },
-          data: { balance },
-        })
-      } else {
-        await tx.categoryBalance.create({
-          data: {
-            userId,
-            category: cat,
-            balance,
-            month: resolved.month,
-            year: resolved.year,
-          },
-        })
-      }
-    }
   })
+
+  await upsertEnvelopeBalancesForMonth(
+    userId,
+    resolved.month,
+    resolved.year,
+    currencyCode
+  )
+
+  const envelopeTotals = await computeEnvelopeBalancesMinor(
+    userId,
+    resolved.month,
+    resolved.year,
+    currencyCode
+  )
 
   return {
     month: resolved.month,
     year: resolved.year,
     entryCount: reallocations.length,
     incomeTotals,
-    envelopeTotals: Object.fromEntries(
-      FUND_CATEGORIES.map((cat) => [
-        cat,
-        addMinor(
-          dollarsToMinor(carryover[cat] ?? 0, currencyCode),
-          incomeTotals[cat],
-        ),
-      ]),
-    ) as Record<CategoryKey, bigint>,
+    envelopeTotals,
   }
 }

@@ -11,6 +11,7 @@ import { CategoryTrackingHeroSection } from "@/components/category-tracking/cate
 import { CategoryTrackingHistorySection } from "@/components/category-tracking/category-tracking-history-section"
 import { CategoryTrackingLedgerSection } from "@/components/category-tracking/category-tracking-ledger-section"
 import { CategoryTrackingPillarSection } from "@/components/category-tracking/category-tracking-pillar-section"
+import { CategoryTrackingBucketTransfersSection } from "@/components/category-tracking/category-tracking-bucket-transfers-section"
 import { CategoryTrackingPressureSection } from "@/components/category-tracking/category-tracking-pressure-section"
 import { CategoryTrackingBucketTransferDialog } from "@/components/category-tracking/category-tracking-bucket-transfer-dialog"
 
@@ -42,15 +43,15 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
     momSpend,
     refreshing,
     savingsGeneralAvailable,
+    savingsAssignedToGoals,
+    bucketTransfers,
+    bucketTransferFlow,
     currencyCode,
     isCurrentMonth,
     transferOpen,
     setTransferOpen,
     openTransferDialog,
-    transferSubmitting,
     transferError,
-    transferMessage,
-    setTransferMessage,
     transferBucketFunds,
   } = p
 
@@ -115,20 +116,6 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
             </div>
           )}
 
-          {transferMessage ? (
-            <div
-              className="rounded-xl border px-4 py-3 text-sm"
-              role="status"
-              style={{
-                borderColor: TOKENS.primary,
-                color: TOKENS.primary,
-                background: `color-mix(in srgb, ${TOKENS.primary} 10%, ${TOKENS.surfaceLow})`,
-              }}
-            >
-              {transferMessage}
-            </div>
-          ) : null}
-
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-start">
             <CategoryTrackingHeroSection
               totalRemaining={totalRemaining}
@@ -161,7 +148,6 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
             savingsGeneralAvailable={savingsGeneralAvailable}
             formatCurrency={formatCurrency}
             currencyCode={currencyCode}
-            submitting={transferSubmitting}
             formError={transferError}
             onSubmit={transferBucketFunds}
           />
@@ -180,8 +166,17 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
 
             <CategoryTrackingPillarSection
               tracking={tracking}
+              bucketTransferFlow={bucketTransferFlow}
+              savingsGeneralAvailable={savingsGeneralAvailable}
+              savingsAssignedToGoals={savingsAssignedToGoals}
               elapsed={elapsed}
               formatCurrency={formatCurrency}
+            />
+
+            <CategoryTrackingBucketTransfersSection
+              transfers={bucketTransfers}
+              selectedMonthLabel={selectedMonthLabel}
+              formatDate={formatDate}
             />
           </div>
 

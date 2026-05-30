@@ -7,6 +7,7 @@ import { getCurrentMonthYear, getIncomeEntriesForMonthByDate, getPreviousMonthRe
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
 import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
 import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
+import { listCategoryBucketTransfersForMonth } from "@/lib/category-bucket-transfer-api"
 import { loadGeneralSavingsContext } from "@/lib/saving-goal-general-savings"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { minorSumToDollars } from "@/lib/money-aggregates"
@@ -208,6 +209,13 @@ export async function GET(request: Request) {
       currentYear
     )
 
+    const bucketTransfers = await listCategoryBucketTransfersForMonth(
+      session.user.id,
+      currentMonth,
+      currentYear,
+      currency
+    )
+
     const totalIncomeMinor = incomeEntriesForMonth.reduce(
       (sum, e) => addMinor(sum, coerceMinor(e.amount)),
       0n,
@@ -230,6 +238,8 @@ export async function GET(request: Request) {
         year: currentYear,
         totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
         savingsGeneralAvailable: toD(savingsCtx.availableMinor),
+        savingsAssignedToGoals: toD(savingsCtx.assignedToGoalsMinor),
+        bucketTransfers,
         planVsLiquid: {
           liquidTotal: planVsLiquid.liquidTotal,
           deployable: planVsLiquid.deployable,

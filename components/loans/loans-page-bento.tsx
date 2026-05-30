@@ -19,7 +19,7 @@ import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useLoansPage } from "@/hooks/use-loans-page"
-import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { FormErrorAlert, FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import {
   FormFieldError,
   formFieldAria,
@@ -245,18 +245,7 @@ export function LoansPageBento() {
         </div>
       </section>
 
-      {message ? (
-        <div
-          className="rounded-xl border px-4 py-3 text-xs"
-          style={{
-            borderColor: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            color: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            background: TOKENS.surfaceContainer,
-          }}
-        >
-          {message.text}
-        </div>
-      ) : null}
+      <FormStatusAlert message={message} className="text-xs" />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div

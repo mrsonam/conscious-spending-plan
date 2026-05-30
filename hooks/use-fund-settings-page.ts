@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { toastSuccess } from "@/lib/app-toast"
 
 export interface FundAllocation {
   id: string
@@ -104,7 +105,7 @@ export function useFundSettingsPage() {
       })
 
       if (response.ok) {
-        setMessage({ type: "success", text: "Settings saved successfully!" })
+        toastSuccess("Settings saved successfully!")
         const balancesRes = await fetch("/api/category-balances")
         if (balancesRes.ok) {
           const data = (await balancesRes.json()) as { balances?: CategoryBalance[] }

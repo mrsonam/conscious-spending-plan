@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { BENTO } from "@/lib/app-routes"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import {
   CreditCard,
   PiggyBank,
@@ -482,34 +483,7 @@ export function FundsPageBento() {
       </section>
 
       <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10">
-        {message ? (
-          <div
-            className="flex items-start gap-3 rounded-2xl border px-4 py-3.5 sm:px-5"
-            style={{
-              borderColor: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-              background:
-                message.type === "success"
-                  ? `color-mix(in srgb, ${TOKENS.primary} 10%, ${TOKENS.surfaceContainer})`
-                  : `color-mix(in srgb, ${ERROR_SOFT} 10%, ${TOKENS.surfaceContainer})`,
-            }}
-          >
-            <span
-              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-              style={{
-                background:
-                  message.type === "success"
-                    ? `color-mix(in srgb, ${TOKENS.primary} 25%, transparent)`
-                    : `color-mix(in srgb, ${ERROR_SOFT} 25%, transparent)`,
-                color: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-              }}
-            >
-              {message.type === "success" ? "✓" : "!"}
-            </span>
-            <p className="text-sm leading-snug" style={{ color: message.type === "success" ? TOKENS.primary : ERROR_SOFT }}>
-              {message.text}
-            </p>
-          </div>
-        ) : null}
+        <FormStatusAlert message={message} className="sm:px-5" />
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:gap-7">
           {PILLARS.map((p) => (

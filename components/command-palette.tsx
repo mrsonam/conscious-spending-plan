@@ -58,7 +58,7 @@ export function CommandPaletteProvider({
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "f") return
+      if (!e.key || e.key.toLowerCase() !== "f") return
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
       if (e.repeat) return
       if (shouldIgnorePaletteShortcutTarget(e.target)) return

@@ -22,9 +22,10 @@ import {
   useSavingGoalsPage,
   type SavingGoalRow,
 } from "@/hooks/use-saving-goals-page"
-import { SavingGoalsSkeleton } from "@/components/skeletons/saving-goals-skeleton"
+import { SavingGoalsPageBentoLoading } from "@/components/saving-goals/saving-goals-page-bento-loading"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { FormErrorAlert, FormStatusAlert } from "@/components/wealth-console/form-status-alert"
+import { isOptimisticClientId } from "@/lib/optimistic-id"
 import {
   FormFieldError,
   formFieldAria,
@@ -145,6 +146,7 @@ function GoalCard({
   onDelete: (id: string) => void
 }) {
   const busy = actionGoalId === goal.id
+  const pendingSave = isOptimisticClientId(goal.id)
   const canEdit = goal.status === "active"
   const actionBtn =
     "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -203,7 +205,8 @@ function GoalCard({
               <button
                 type="button"
                 onClick={() => onEdit(goal)}
-                disabled={busy}
+                disabled={busy || pendingSave}
+                title={pendingSave ? "Goal is still being saved" : undefined}
                 className={actionBtn}
                 style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
               >
@@ -212,7 +215,8 @@ function GoalCard({
               <button
                 type="button"
                 onClick={() => onTransfer(goal)}
-                disabled={busy}
+                disabled={busy || pendingSave}
+                title={pendingSave ? "Goal is still being saved" : undefined}
                 className={cn(actionBtn, "inline-flex items-center gap-1")}
                 style={{
                   borderColor: `color-mix(in srgb, ${TOKENS.primary} 40%, transparent)`,
@@ -588,7 +592,6 @@ export function SavingGoalsPageBento({
   const [transferGoal, setTransferGoal] = useState<SavingGoalRow | null>(null)
   const [transferAmount, setTransferAmount] = useState("")
   const [transferError, setTransferError] = useState<string | null>(null)
-  const [transferSubmitting, setTransferSubmitting] = useState(false)
 
   const activeGoals = useMemo(
     () => goals.filter((g) => g.status === "active"),
@@ -641,7 +644,7 @@ export function SavingGoalsPageBento({
     setTransferGoal(goal)
   }
 
-  const submitTransfer = async (e: React.FormEvent) => {
+  const submitTransfer = (e: React.FormEvent) => {
     e.preventDefault()
     if (!transferGoal) return
     setTransferError(null)
@@ -658,10 +661,12 @@ export function SavingGoalsPageBento({
       return
     }
 
-    setTransferSubmitting(true)
-    const ok = await handleTransfer(transferGoal.id, amount)
-    setTransferSubmitting(false)
-    if (ok) setTransferGoal(null)
+    void handleTransfer(transferGoal.id, amount).then((ok) => {
+      if (ok) {
+        setTransferGoal(null)
+        setTransferAmount("")
+      }
+    })
   }
 
   const submitCreate = async (e: React.FormEvent) => {
@@ -670,7 +675,7 @@ export function SavingGoalsPageBento({
   }
 
   if (loading) {
-    return <SavingGoalsSkeleton />
+    return <SavingGoalsPageBentoLoading />
   }
 
   return (
@@ -763,22 +768,7 @@ export function SavingGoalsPageBento({
         ))}
       </div>
 
-      {message ? (
-        <div
-          className="rounded-2xl border px-4 py-3.5 text-sm"
-          role="status"
-          style={{
-            borderColor: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            color: message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-            background:
-              message.type === "success"
-                ? `color-mix(in srgb, ${TOKENS.primary} 10%, ${TOKENS.surfaceContainer})`
-                : `color-mix(in srgb, ${ERROR_SOFT} 10%, ${TOKENS.surfaceContainer})`,
-          }}
-        >
-          {message.text}
-        </div>
-      ) : null}
+      <FormStatusAlert message={message} />
 
       {activeGoals.length > 0 ? (
         <section className="space-y-4">
@@ -912,7 +902,7 @@ export function SavingGoalsPageBento({
         goal={transferGoal}
         availableAmount={summary.generalSavingsAvailable}
         formatCurrency={formatCurrency}
-        submitting={transferSubmitting || actionGoalId === transferGoal?.id}
+        submitting={actionGoalId === transferGoal?.id}
         formError={transferError}
         amount={transferAmount}
         onAmountChange={setTransferAmount}

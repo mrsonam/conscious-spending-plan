@@ -12,6 +12,14 @@ import {
   requireSelection,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyOptimisticMarkBorrowedRepaid,
+  applyOptimisticMarkLoanRepaid,
+  applyOptimisticRecordBorrowed,
+  applyOptimisticRecordLoan,
+  cloneLoansState,
+} from "@/lib/loans-optimistic"
 
 export type LoanFormFieldKey =
   | "accountId"
@@ -191,76 +199,103 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     })
 
     const amountNum = parseMoneyInput(amount, currencyCode)
-    setSubmitting(true)
+    const account = accounts.find((a) => a.id === accountId)
+    if (!account) return false
 
-    try {
-      const response = await fetch("/api/loans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId,
-          amount: amountNum,
-          borrowerName: borrowerName || null,
-          description: description || null,
-          date,
-          dueDate: dueDate || null,
-        }),
-      })
+    const snapshot = cloneLoansState(accounts, loans, borrowedLoans)
+    const optimistic = applyOptimisticRecordLoan(loans, accounts, {
+      accountId,
+      amount: amountNum,
+      borrowerName: borrowerName || null,
+      description: description || null,
+      date,
+      dueDate: dueDate || null,
+      account: { id: account.id, name: account.name, bankName: account.bankName },
+    })
+    setLoans(optimistic.loans)
+    setAccounts(optimistic.accounts)
+    setAmount("")
+    setBorrowerName("")
+    setDescription("")
+    setDueDate("")
+    toastSuccess(
+      "Loan recorded successfully. Amount deducted from account (not counted as spending)."
+    )
 
-      const data = (await response.json()) as { error?: string }
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: "Loan recorded successfully. Amount deducted from account (not counted as spending).",
+    void (async () => {
+      setSubmitting(true)
+      try {
+        const response = await fetch("/api/loans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            accountId,
+            amount: amountNum,
+            borrowerName: borrowerName || null,
+            description: description || null,
+            date,
+            dueDate: dueDate || null,
+          }),
         })
-        setAmount("")
-        setBorrowerName("")
-        setDescription("")
-        setDueDate("")
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          setLoans(snapshot.loans)
+          setAccounts(snapshot.accounts)
+          setMessage({ type: "error", text: data.error || "Failed to record loan" })
+          toastError(data.error || "Failed to record loan")
+          return
+        }
         await fetchLoans()
         await fetchAccounts()
-        return true
+      } catch {
+        setLoans(snapshot.loans)
+        setAccounts(snapshot.accounts)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setSubmitting(false)
       }
-      setMessage({ type: "error", text: data.error || "Failed to record loan" })
-      return false
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-      return false
-    } finally {
-      setSubmitting(false)
-    }
+    })()
+
+    return true
   }
 
   const handleMarkRepaid = async (loanId: string, toAccountId: string): Promise<boolean> => {
-    setMessage(null)
-    setRepaySubmitting(true)
-    try {
-      const response = await fetch("/api/loans", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loanId, toAccountId }),
-      })
+    const snapshot = cloneLoansState(accounts, loans, borrowedLoans)
+    const optimistic = applyOptimisticMarkLoanRepaid(loans, accounts, loanId, toAccountId)
+    setLoans(optimistic.loans)
+    setAccounts(optimistic.accounts)
+    toastSuccess("Loan marked as repaid. Amount credited to the selected account.")
 
-      const data = (await response.json()) as { error?: string }
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: "Loan marked as repaid. Amount credited to the selected account.",
+    void (async () => {
+      setRepaySubmitting(true)
+      try {
+        const response = await fetch("/api/loans", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ loanId, toAccountId }),
         })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          setLoans(snapshot.loans)
+          setAccounts(snapshot.accounts)
+          setMessage({ type: "error", text: data.error || "Failed to update loan" })
+          toastError(data.error || "Failed to update loan")
+          return
+        }
         await fetchLoans()
         await fetchAccounts()
-        return true
+      } catch {
+        setLoans(snapshot.loans)
+        setAccounts(snapshot.accounts)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setRepaySubmitting(false)
       }
-      setMessage({ type: "error", text: data.error || "Failed to update loan" })
-      return false
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-      return false
-    } finally {
-      setRepaySubmitting(false)
-    }
+    })()
+
+    return true
   }
 
   const handleSubmitBorrowed = async (e: React.FormEvent): Promise<boolean> => {
@@ -291,79 +326,109 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
     })
 
     const amountNum = parseMoneyInput(borrowedAmount, currencyCode)
-    setBorrowedSubmitting(true)
+    const account = accounts.find((a) => a.id === borrowedAccountId)
+    if (!account) return false
 
-    try {
-      const response = await fetch("/api/borrowed-loans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: borrowedAccountId,
-          amount: amountNum,
-          lenderName: lenderName || null,
-          description: borrowedDescription || null,
-          date: borrowedDate,
-          dueDate: borrowedDueDate || null,
-        }),
-      })
+    const snapshot = cloneLoansState(accounts, loans, borrowedLoans)
+    const optimistic = applyOptimisticRecordBorrowed(borrowedLoans, accounts, {
+      accountId: borrowedAccountId,
+      amount: amountNum,
+      lenderName: lenderName || null,
+      description: borrowedDescription || null,
+      date: borrowedDate,
+      dueDate: borrowedDueDate || null,
+      account: { id: account.id, name: account.name, bankName: account.bankName },
+    })
+    setBorrowedLoans(optimistic.borrowedLoans)
+    setAccounts(optimistic.accounts)
+    setBorrowedAmount("")
+    setLenderName("")
+    setBorrowedDescription("")
+    setBorrowedDueDate("")
+    toastSuccess("Borrowing recorded. Balance updated (not counted as income).")
 
-      const data = (await response.json()) as { error?: string }
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: "Borrowing recorded. Balance updated (not counted as income).",
+    void (async () => {
+      setBorrowedSubmitting(true)
+      try {
+        const response = await fetch("/api/borrowed-loans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            accountId: borrowedAccountId,
+            amount: amountNum,
+            lenderName: lenderName || null,
+            description: borrowedDescription || null,
+            date: borrowedDate,
+            dueDate: borrowedDueDate || null,
+          }),
         })
-        setBorrowedAmount("")
-        setLenderName("")
-        setBorrowedDescription("")
-        setBorrowedDueDate("")
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          setBorrowedLoans(snapshot.borrowedLoans)
+          setAccounts(snapshot.accounts)
+          setBorrowedFormError(data.error || "Failed to record borrowed money")
+          toastError(data.error || "Failed to record borrowed money")
+          return
+        }
         await fetchBorrowedLoans()
         await fetchAccounts()
-        return true
+      } catch {
+        setBorrowedLoans(snapshot.borrowedLoans)
+        setAccounts(snapshot.accounts)
+        setBorrowedFormError("An error occurred")
+        toastError("An error occurred")
+      } finally {
+        setBorrowedSubmitting(false)
       }
-      setBorrowedFormError(data.error || "Failed to record borrowed money")
-      return false
-    } catch {
-      setBorrowedFormError("An error occurred")
-      return false
-    } finally {
-      setBorrowedSubmitting(false)
-    }
+    })()
+
+    return true
   }
 
   const handleMarkBorrowedRepaid = async (
     borrowedLoanId: string,
     fromAccountId: string,
   ): Promise<boolean> => {
-    setMessage(null)
-    setRepaySubmitting(true)
-    try {
-      const response = await fetch("/api/borrowed-loans", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ borrowedLoanId, fromAccountId }),
-      })
+    const snapshot = cloneLoansState(accounts, loans, borrowedLoans)
+    const optimistic = applyOptimisticMarkBorrowedRepaid(
+      borrowedLoans,
+      accounts,
+      borrowedLoanId,
+      fromAccountId
+    )
+    setBorrowedLoans(optimistic.borrowedLoans)
+    setAccounts(optimistic.accounts)
+    toastSuccess("Marked repaid. Amount deducted from the selected account.")
 
-      const data = (await response.json()) as { error?: string }
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: "Marked repaid. Amount deducted from the selected account.",
+    void (async () => {
+      setRepaySubmitting(true)
+      try {
+        const response = await fetch("/api/borrowed-loans", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ borrowedLoanId, fromAccountId }),
         })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          setBorrowedLoans(snapshot.borrowedLoans)
+          setAccounts(snapshot.accounts)
+          setMessage({ type: "error", text: data.error || "Failed to update borrowed loan" })
+          toastError(data.error || "Failed to update borrowed loan")
+          return
+        }
         await fetchBorrowedLoans()
         await fetchAccounts()
-        return true
+      } catch {
+        setBorrowedLoans(snapshot.borrowedLoans)
+        setAccounts(snapshot.accounts)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
+      } finally {
+        setRepaySubmitting(false)
       }
-      setMessage({ type: "error", text: data.error || "Failed to update borrowed loan" })
-      return false
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-      return false
-    } finally {
-      setRepaySubmitting(false)
-    }
+    })()
+
+    return true
   }
 
   const formatDate = useCallback((dateString: string) => {

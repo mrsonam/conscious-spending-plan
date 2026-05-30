@@ -1,11 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
-import { Label } from "@/components/ui/label"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
@@ -18,8 +23,28 @@ import {
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
-import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
+import {
+  FormFieldError,
+  formFieldAria,
+} from "@/components/forms/form-field-error"
 import { invalidateExpenseDataCaches } from "@/lib/client-fetch-cache"
+import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
+import {
+  EXPENSE_CATEGORIES,
+  FUND_CATEGORIES,
+} from "@/lib/expense-page-constants"
+import {
+  expenseConsoleField,
+  expenseFieldLabelClass,
+} from "@/components/expenses/expense-console-ui"
+import { TOKENS } from "@/lib/wealth-console-tokens"
+import { createOptimisticExpenseId } from "@/lib/expense-optimistic"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import type {
+  DashboardConsoleSnapshot,
+  DashboardExpenseLogPatch,
+} from "@/lib/dashboard-console-optimistic"
 
 type ExpenseModalFieldKey = "accountId" | "amount" | "date" | "fundCategory"
 
@@ -35,41 +60,31 @@ interface AddExpenseModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void | Promise<void>
+  onOptimisticApply?: (
+    input: DashboardExpenseLogPatch,
+  ) => DashboardConsoleSnapshot
+  onOptimisticRollback?: (snapshot: DashboardConsoleSnapshot) => void
 }
 
-const FUND_CATEGORIES = [
-  { value: "fixedCosts", label: "Fixed Costs" },
-  { value: "investment", label: "Investment" },
-  { value: "savings", label: "Savings" },
-  { value: "guiltFreeSpending", label: "Guilt-Free Spending" },
-]
+const fieldStyle = {
+  background: TOKENS.surfaceLow,
+  borderColor: TOKENS.outlineGhost,
+  color: TOKENS.onSurface,
+} as const
 
-const EXPENSE_CATEGORIES = [
-  { value: "groceries", label: "Groceries" },
-  { value: "food", label: "Food & Dining" },
-  { value: "transport", label: "Transportation" },
-  { value: "gas", label: "Gas & Fuel" },
-  { value: "bills", label: "Bills & Utilities" },
-  { value: "rent", label: "Rent & Mortgage" },
-  { value: "insurance", label: "Insurance" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "shopping", label: "Shopping" },
-  { value: "clothing", label: "Clothing & Apparel" },
-  { value: "healthcare", label: "Healthcare" },
-  { value: "pharmacy", label: "Pharmacy & Medicine" },
-  { value: "education", label: "Education" },
-  { value: "subscriptions", label: "Subscriptions" },
-  { value: "personal", label: "Personal Care" },
-  { value: "gifts", label: "Gifts & Donations" },
-  { value: "travel", label: "Travel" },
-  { value: "home", label: "Home & Garden" },
-  { value: "pet", label: "Pet Care" },
-  { value: "fitness", label: "Fitness & Sports" },
-  { value: "technology", label: "Technology & Electronics" },
-  { value: "other", label: "Other" },
-]
+const selectFieldStyle = {
+  backgroundColor: TOKENS.surfaceLow,
+  borderColor: TOKENS.outlineGhost,
+  color: TOKENS.onSurface,
+} as const
 
-export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseModalProps) {
+export function AddExpenseModal({
+  open,
+  onOpenChange,
+  onSuccess,
+  onOptimisticApply,
+  onOptimisticRollback,
+}: AddExpenseModalProps) {
   const { formatCurrency, currencyCode } = useFormatCurrency()
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
@@ -87,10 +102,10 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
     if (open) {
       const today = new Date()
       setDate(today.toISOString().split("T")[0])
-      
-      fetch("/api/accounts").then(res => {
+
+      fetch("/api/accounts").then((res) => {
         if (res.ok) {
-          res.json().then(data => {
+          res.json().then((data) => {
             setAccounts(data.accounts || [])
             if (data.accounts?.length > 0) {
               setAccountId(data.accounts[0].id)
@@ -105,7 +120,7 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
     e.preventDefault()
     setFormError(null)
 
-    const selectedAccount = accounts.find(acc => acc.id === accountId)
+    const selectedAccount = accounts.find((acc) => acc.id === accountId)
     const isCashAccount = selectedAccount?.accountType === "cash"
 
     const errs = buildFieldErrors<ExpenseModalFieldKey>([
@@ -134,6 +149,18 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
       date,
     }
 
+    const optimisticId = createOptimisticExpenseId()
+    const snapshot = onOptimisticApply?.({
+      id: optimisticId,
+      accountId,
+      amount: amountNum,
+      description: description || null,
+      category: fundCategory || null,
+      date,
+    })
+
+    toastSuccess("Expense logged successfully!")
+    setFormError(null)
     setAmount("")
     setDescription("")
     setFundCategory("")
@@ -155,9 +182,13 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
         }
         await onSuccess?.()
       } catch (error) {
-        setFormError(
-          error instanceof Error ? error.message : "Failed to log expense",
-        )
+        if (snapshot && onOptimisticRollback) {
+          onOptimisticRollback(snapshot)
+        }
+        const message =
+          error instanceof Error ? error.message : "Failed to log expense"
+        setFormError(message)
+        toastError(message)
         onOpenChange(true)
       } finally {
         setSubmitting(false)
@@ -165,90 +196,143 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
     })()
   }
 
+  const selectedAccount = accounts.find((acc) => acc.id === accountId)
+  const isCashAccount = selectedAccount?.accountType === "cash"
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="relative max-h-[90vh] overflow-y-auto border p-0 shadow-2xl"
+        style={{
+          background: TOKENS.surfaceContainer,
+          borderColor: TOKENS.outlineGhost,
+          boxShadow:
+            "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)",
+        }}
+      >
         <DialogClose onClose={() => onOpenChange(false)} />
-        <DialogHeader>
-          <DialogTitle>Add Expense</DialogTitle>
-          <DialogDescription>Log a new expense and deduct from an account</DialogDescription>
-        </DialogHeader>
-        <form noValidate onSubmit={handleSubmit} className="space-y-4" inert={submitting}>
-          <FormErrorAlert error={formError} />
+        <div className="p-6 sm:p-8">
+          <DialogHeader>
+            <DialogTitle
+              className="text-xl"
+              style={{ color: TOKENS.onSurface }}
+            >
+              Log expense
+            </DialogTitle>
+            <DialogDescription
+              className="text-sm leading-relaxed"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Deduct from an account. Non-cash accounts require a fund pillar.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            noValidate
+            onSubmit={handleSubmit}
+            className="mt-6 space-y-5"
+            inert={submitting}
+          >
+            <FormErrorAlert error={formError} />
 
-          <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="account">Account *</Label>
-              <AppSelect
-                id="account"
-                value={accountId}
-                onValueChange={(v) => {
-                  setAccountId(v)
-                  clearFieldError("accountId")
-                  const selectedAccount = accounts.find((acc) => acc.id === v)
-                  if (selectedAccount?.accountType === "cash") {
-                    setFundCategory("")
-                  }
-                }}
-                disabled={submitting}
-               
-                className="mt-1 rounded-lg"
-                options={accounts.map((account) => ({
-                  value: account.id,
-                  label: `${account.name} (${account.bankName}) - ${formatCurrency(account.balance)}`,
-                }))}
-                aria-invalid={!!fieldErrors.accountId}
-                {...formFieldAria("account", fieldErrors.accountId)}
-              />
-              <FormFieldError controlId="account" message={fieldErrors.accountId} />
-            </div>
-            <div>
-              <Label htmlFor="amount">Amount ($) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value)
-                  clearFieldError("amount")
-                }}
-                min="0"
-                step="0.01"
-                disabled={submitting}
-                placeholder="0.00"
-                className="mt-1"
-                {...formFieldAria("amount", fieldErrors.amount)}
-              />
-              <FormFieldError controlId="amount" message={fieldErrors.amount} />
-            </div>
-            <div>
-              <Label htmlFor="date">Date *</Label>
-              <DateInput
-                id="date"
-                value={date}
-                onChange={(e) => {
-                  setDate(e.target.value)
-                  clearFieldError("date")
-                }}
-                disabled={submitting}
-                className="mt-1"
-                aria-invalid={!!fieldErrors.date}
-                {...formFieldAria("date", fieldErrors.date)}
-              />
-              <FormFieldError controlId="date" message={fieldErrors.date} />
-            </div>
-            {(() => {
-              const selectedAccount = accounts.find(acc => acc.id === accountId)
-              const isCashAccount = selectedAccount?.accountType === "cash"
-              
-              if (isCashAccount) {
-                return null // Don't show fund category for cash accounts
-              }
-              
-              return (
+            <fieldset
+              disabled={submitting}
+              className="min-w-0 space-y-5 border-0 p-0"
+            >
+              <div>
+                <label
+                  htmlFor="account"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Account *
+                </label>
+                <AppSelect
+                  id="account"
+                  value={accountId}
+                  onValueChange={(v) => {
+                    setAccountId(v)
+                    clearFieldError("accountId")
+                    const account = accounts.find((acc) => acc.id === v)
+                    if (account?.accountType === "cash") {
+                      setFundCategory("")
+                    }
+                  }}
+                  disabled={submitting}
+                  className={cn(expenseConsoleField, "mt-1 border-transparent")}
+                  style={selectFieldStyle}
+                  aria-invalid={!!fieldErrors.accountId}
+                  {...formFieldAria("account", fieldErrors.accountId)}
+                  options={accounts.map((account) => ({
+                    value: account.id,
+                    label: `${account.name} (${account.bankName}) — ${formatCurrency(account.balance)}`,
+                  }))}
+                />
+                <FormFieldError
+                  controlId="account"
+                  message={fieldErrors.accountId}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="amount"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Amount ($) *
+                </label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value)
+                    clearFieldError("amount")
+                  }}
+                  min="0"
+                  step="0.01"
+                  disabled={submitting}
+                  placeholder="0.00"
+                  className={cn(expenseConsoleField, "border-transparent")}
+                  style={fieldStyle}
+                  {...formFieldAria("amount", fieldErrors.amount)}
+                />
+                <FormFieldError controlId="amount" message={fieldErrors.amount} />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="date"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Date *
+                </label>
+                <DateInput
+                  id="date"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value)
+                    clearFieldError("date")
+                  }}
+                  disabled={submitting}
+                  className={cn(expenseConsoleField, "border-transparent")}
+                  style={fieldStyle}
+                  aria-invalid={!!fieldErrors.date}
+                  {...formFieldAria("date", fieldErrors.date)}
+                />
+                <FormFieldError controlId="date" message={fieldErrors.date} />
+              </div>
+
+              {!isCashAccount && (
                 <div>
-                  <Label htmlFor="fundCategory">Fund Category *</Label>
+                  <label
+                    htmlFor="fundCategory"
+                    className={expenseFieldLabelClass}
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
+                    Fund category *
+                  </label>
                   <AppSelect
                     id="fundCategory"
                     value={fundCategory}
@@ -257,13 +341,13 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                       clearFieldError("fundCategory")
                     }}
                     disabled={submitting}
-                   
-                    className="mt-1 rounded-lg"
-                    placeholder="Select a fund category"
+                    className={cn(expenseConsoleField, "mt-1 border-transparent")}
+                    style={selectFieldStyle}
+                    placeholder="Select fund"
                     aria-invalid={!!fieldErrors.fundCategory}
                     {...formFieldAria("fundCategory", fieldErrors.fundCategory)}
                     options={[
-                      { value: "", label: "Select a fund category" },
+                      { value: "", label: "Select fund" },
                       ...FUND_CATEGORIES.map((cat) => ({
                         value: cat.value,
                         label: cat.label,
@@ -273,54 +357,74 @@ export function AddExpenseModal({ open, onOpenChange, onSuccess }: AddExpenseMod
                   <FormFieldError
                     controlId="fundCategory"
                     message={fieldErrors.fundCategory}
-                   
                   />
                 </div>
-              )
-            })()}
-            <div>
-              <Label htmlFor="expenseCategory">Expense Category</Label>
-              <AppSelect
-                id="expenseCategory"
-                value={expenseCategory}
-                onValueChange={setExpenseCategory}
-                disabled={submitting}
-               
-                className="mt-1 rounded-lg"
-                placeholder="Select an expense category (optional)"
-                options={[
-                  { value: "", label: "Select an expense category (optional)" },
-                  ...EXPENSE_CATEGORIES.map((cat) => ({
-                    value: cat.value,
-                    label: cat.label,
-                  })),
-                ]}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Input
-              id="description"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={submitting}
-              placeholder="e.g., Groceries, Rent, etc."
-              className="mt-1"
-            />
-          </div>
-          </fieldset>
+              )}
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={submitting}>
-              Add Expense
-            </Button>
-          </div>
-        </form>
+              <div>
+                <label
+                  htmlFor="expenseCategory"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Expense category
+                </label>
+                <AppSelect
+                  id="expenseCategory"
+                  value={expenseCategory}
+                  onValueChange={setExpenseCategory}
+                  disabled={submitting}
+                  className={cn(expenseConsoleField, "mt-1 border-transparent")}
+                  style={selectFieldStyle}
+                  placeholder="Optional"
+                  options={[
+                    { value: "", label: "Optional" },
+                    ...EXPENSE_CATEGORIES.map((cat) => ({
+                      value: cat.value,
+                      label: cat.label,
+                    })),
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="description"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Description
+                </label>
+                <Input
+                  id="description"
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={submitting}
+                  placeholder="Memo"
+                  className={cn(expenseConsoleField, "border-transparent")}
+                  style={fieldStyle}
+                />
+              </div>
+            </fieldset>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className={cn(
+                "w-full min-h-11 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-50",
+                consoleFocus,
+              )}
+              style={{
+                background: TOKENS.primary,
+                color: TOKENS.surface,
+                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+              }}
+            >
+              {submitting ? "Logging…" : "Log expense"}
+            </button>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -6,18 +6,27 @@ import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import {
   TRACKING_FUND_CATEGORIES,
+  netPillarHeadroom,
+  savingsSpendableAmount,
   type CategoryTrackingRow,
 } from "@/lib/category-tracking-shared"
 import { CategoryTrackingSegmentedBlocks } from "@/components/category-tracking/category-tracking-console-ui"
+import type { BucketTransferFlow } from "@/lib/category-bucket-transfer-api"
 
 type CategoryTrackingPillarSectionProps = {
   tracking: Record<string, CategoryTrackingRow>
+  bucketTransferFlow: Record<string, BucketTransferFlow>
+  savingsGeneralAvailable: number
+  savingsAssignedToGoals: number
   elapsed: number
   formatCurrency: (amount: number) => string
 }
 
 export function CategoryTrackingPillarSection({
   tracking,
+  bucketTransferFlow,
+  savingsGeneralAvailable,
+  savingsAssignedToGoals,
   elapsed,
   formatCurrency,
 }: CategoryTrackingPillarSectionProps) {
@@ -35,9 +44,17 @@ export function CategoryTrackingPillarSection({
         {CATEGORIES.map((cat) => {
           const data = tracking[cat.key]
           if (!data) return null
+          const flow = bucketTransferFlow[cat.key]
+          const movedIn = flow?.in ?? 0
+          const movedOut = flow?.out ?? 0
           const isOverspent = data.overspent > 0
           const deployed =
             cat.key === "investment" ? data.transferred : data.spent
+          const envelopeHeadroom = netPillarHeadroom(data)
+          const displayAmount =
+            cat.key === "savings"
+              ? savingsSpendableAmount(data, savingsGeneralAvailable)
+              : envelopeHeadroom
           const usageBase =
             cat.key === "investment"
               ? data.available > 0
@@ -80,7 +97,7 @@ export function CategoryTrackingPillarSection({
               </div>
               <div className="mt-3">
                 <MajorFigureCurrency
-                  amount={data.remaining}
+                  amount={displayAmount}
                   variant={isOverspent ? "loss" : "prosperity"}
                   className="text-xl font-black sm:text-2xl!"
                   decimalEm={0.4}
@@ -89,7 +106,11 @@ export function CategoryTrackingPillarSection({
                   className="mt-1 text-[10px]"
                   style={{ color: isOverspent ? ERROR_SOFT : TOKENS.onSurfaceMuted }}
                 >
-                  {isOverspent ? `Breach ${formatCurrency(data.overspent)}` : "Residual"}
+                  {cat.key === "savings"
+                    ? "Spendable"
+                    : isOverspent
+                      ? `Breach ${formatCurrency(data.overspent)}`
+                      : "Residual"}
                 </p>
               </div>
               <div className="mt-3 space-y-1 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -97,16 +118,44 @@ export function CategoryTrackingPillarSection({
                   <span>Envelope</span>
                   <span style={{ color: TOKENS.onSurface }}>{formatCurrency(data.allocated)}</span>
                 </div>
+                {cat.key === "savings" && savingsAssignedToGoals > 0 && (
+                  <div className="flex justify-between">
+                    <span>In saving goals</span>
+                    <span style={{ color: TOKENS.secondary }}>
+                      {formatCurrency(savingsAssignedToGoals)}
+                    </span>
+                  </div>
+                )}
+                {cat.key === "savings" && envelopeHeadroom !== displayAmount && (
+                  <div className="flex justify-between">
+                    <span>Envelope headroom</span>
+                    <span style={{ color: TOKENS.onSurface }}>
+                      {formatCurrency(envelopeHeadroom)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>{cat.key === "investment" ? "Transferred" : "Spent"}</span>
                   <span style={{ color: ERROR_SOFT }}>{formatCurrency(deployed)}</span>
                 </div>
-                {(data.carryover > 0 || data.overspending > 0) && (
+                {(data.carryover > 0 || data.overspending > 0 || movedIn > 0 || movedOut > 0) && (
                   <div className="border-t pt-2" style={{ borderColor: TOKENS.outlineGhost }}>
                     {data.carryover > 0 && (
                       <div className="flex justify-between" style={{ color: TOKENS.primary }}>
                         <span>Carry</span>
                         <span>+{formatCurrency(data.carryover)}</span>
+                      </div>
+                    )}
+                    {movedIn > 0 && (
+                      <div className="flex justify-between" style={{ color: TOKENS.secondary }}>
+                        <span>Moved in</span>
+                        <span>+{formatCurrency(movedIn)}</span>
+                      </div>
+                    )}
+                    {movedOut > 0 && (
+                      <div className="flex justify-between" style={{ color: TOKENS.onSurfaceMuted }}>
+                        <span>Moved out</span>
+                        <span>-{formatCurrency(movedOut)}</span>
                       </div>
                     )}
                     {data.overspending > 0 && (

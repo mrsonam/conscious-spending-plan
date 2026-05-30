@@ -20,12 +20,24 @@ import {
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyAccountTransferBalances,
+  cloneAccountRows,
+} from "@/lib/account-optimistic"
+import {
+  invalidateCachedJson,
+  invalidateCategoryTrackingAndDashboardCaches,
+} from "@/lib/client-fetch-cache"
+import { ACCOUNTS_LIST_CACHE_KEY } from "@/hooks/use-accounts-page"
 
 interface Account {
   id: string
   name: string
   bankName: string
   balance: number
+  accountType: string
+  isDefault: boolean
 }
 
 interface TransferModalProps {
@@ -106,41 +118,65 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
     clearFieldErrors()
 
     const amountNum = parseMoneyInput(transferAmount, currencyCode)
-
-    setTransferring(true)
-
-    try {
-      const response = await fetch("/api/transfers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromAccountId,
-          toAccountId,
-          amount: amountNum,
-          description: transferDescription || null,
-          category: transferCategory || null,
-          date: transferDate,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setTransferAmount("")
-        setTransferDescription("")
-        setTransferCategory("")
-        setFromAccountId("")
-        setToAccountId("")
-        onOpenChange(false)
-        if (onSuccess) onSuccess()
-      } else {
-        setFormError(data.error || "Failed to create transfer")
-      }
-    } catch {
-      setFormError("An error occurred")
-    } finally {
-      setTransferring(false)
+    const transferPayload = {
+      fromAccountId,
+      toAccountId,
+      amount: amountNum,
+      description: transferDescription || null,
+      category: transferCategory || null,
+      date: transferDate,
     }
+    const snapshot = cloneAccountRows(accounts)
+
+    setAccounts(
+      applyAccountTransferBalances(
+        accounts,
+        transferPayload.fromAccountId,
+        transferPayload.toAccountId,
+        transferPayload.amount
+      )
+    )
+    setTransferAmount("")
+    setTransferDescription("")
+    setTransferCategory("")
+    setFromAccountId("")
+    setToAccountId("")
+    onOpenChange(false)
+    toastSuccess("Transfer completed!")
+    if (onSuccess) onSuccess()
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/transfers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(transferPayload),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          setAccounts(snapshot)
+          setFormError(data.error || "Failed to create transfer")
+          toastError(data.error || "Failed to create transfer")
+          onOpenChange(true)
+          return
+        }
+
+        invalidateCachedJson(ACCOUNTS_LIST_CACHE_KEY)
+        invalidateCategoryTrackingAndDashboardCaches()
+        const res = await fetch(`/api/accounts?t=${Date.now()}`)
+        if (res.ok) {
+          const refreshed = (await res.json()) as { accounts?: Account[] }
+          setAccounts(refreshed.accounts || [])
+        }
+      } catch {
+        setAccounts(snapshot)
+        setFormError("An error occurred")
+        toastError("An error occurred")
+        onOpenChange(true)
+      }
+    })()
   }
 
   return (

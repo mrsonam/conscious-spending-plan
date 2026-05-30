@@ -54,7 +54,7 @@ type CategoryTrackingBucketTransferDialogProps = {
   savingsGeneralAvailable: number
   formatCurrency: (amount: number) => string
   currencyCode: string
-  submitting: boolean
+  submitting?: boolean
   formError: string | null
   onSubmit: (payload: {
     fromCategory: FundCategory
@@ -89,7 +89,7 @@ export function CategoryTrackingBucketTransferDialog({
   savingsGeneralAvailable,
   formatCurrency,
   currencyCode,
-  submitting,
+  submitting = false,
   formError,
   onSubmit,
 }: CategoryTrackingBucketTransferDialogProps) {

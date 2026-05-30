@@ -13,7 +13,7 @@ import { InvestmentSleevesSection } from "@/components/investments/investment-sl
 import { InvestmentSummarySection } from "@/components/investments/investment-summary-section"
 import { InvestmentsPageBentoLoading } from "@/components/investments/investments-page-bento-loading"
 import type { UseInvestmentsPageResult } from "@/hooks/use-investments-page"
-import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 
 export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
@@ -82,26 +82,7 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {p.message ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border px-4 py-3 text-sm"
-          style={{
-            background:
-              p.message.type === "success"
-                ? `color-mix(in srgb, ${TOKENS.primary} 12%, ${TOKENS.surfaceLow})`
-                : `color-mix(in srgb, ${ERROR_SOFT} 12%, ${TOKENS.surfaceLow})`,
-            borderColor:
-              p.message.type === "success"
-                ? TOKENS.outlineGhost
-                : `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`,
-            color: p.message.type === "success" ? TOKENS.primary : ERROR_SOFT,
-          }}
-        >
-          {p.message.text}
-        </div>
-      ) : null}
+      <FormStatusAlert message={p.message} />
 
       <InvestmentSummarySection
         totalHoldings={p.totalHoldings}

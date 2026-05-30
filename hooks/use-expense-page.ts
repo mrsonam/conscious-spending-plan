@@ -42,6 +42,7 @@ import {
   markRecurringProcessDueRanToday,
   scheduleWhenIdle,
 } from "@/lib/recurring-process-due-schedule"
+import { toastLoading, toastSuccess, toastUpdate } from "@/lib/app-toast"
 
 type FetchOptions = { silent?: boolean }
 
@@ -563,7 +564,7 @@ export function useExpensePage(
       })
       const data = await res.json()
       if (res.ok) {
-        setMessage({ type: "success", text: "Recurring expense added." })
+        toastSuccess("Recurring expense added.")
         setRecurringAmount("")
         setRecurringDescription("")
         setRecurringFundCategory("")
@@ -611,7 +612,7 @@ export function useExpensePage(
     }
 
     applyOptimisticExpense(optimisticEntry, source.amount)
-    setMessage({ type: "success", text: "Expense logged for today." })
+    toastSuccess("Expense logged for today.")
     setLoggingRecurringId(id)
 
     void (async () => {
@@ -661,7 +662,7 @@ export function useExpensePage(
         method: "DELETE",
       })
       if (res.ok) {
-        setMessage({ type: "success", text: "Recurring expense removed." })
+        toastSuccess("Recurring expense removed.")
         setRecurring((prev) => prev.filter((r) => r.id !== recurringDeleteId))
         invalidateCachedJson("recurring-expenses")
         invalidateExpenseDataCaches()
@@ -756,7 +757,7 @@ export function useExpensePage(
     expenseLogInFlightRef.current = true
     applyOptimisticExpense(optimisticEntry, amountNum)
 
-    setMessage({ type: "success", text: "Expense logged successfully!" })
+    toastSuccess("Expense logged successfully!")
     setLogFormError(null)
     clearFieldErrors()
     setAmount("")
@@ -903,10 +904,7 @@ export function useExpensePage(
     }
     const rowCount = rows.length
 
-    setMessage({
-      type: "success",
-      text: `Adding ${rowCount} expense(s)…`,
-    })
+    const toastId = toastLoading(`Adding ${rowCount} expense(s)…`)
     setBulkText("")
     setShowBulkForm(false)
 
@@ -922,16 +920,18 @@ export function useExpensePage(
         if (!response.ok) {
           throw new Error(data.error || "Bulk add failed")
         }
-        setMessage({
-          type: "success",
-          text: `${data.created} expense(s) added. Total: $${(data.total ?? 0).toFixed(2)}`,
-        })
+        toastUpdate(
+          toastId,
+          `${data.created} expense(s) added. Total: $${(data.total ?? 0).toFixed(2)}`,
+          "success"
+        )
         await reconcileExpenseData({ silent: true })
       } catch (error) {
-        setMessage({
-          type: "error",
-          text: error instanceof Error ? error.message : "An error occurred",
-        })
+        toastUpdate(
+          toastId,
+          error instanceof Error ? error.message : "An error occurred",
+          "error"
+        )
         await reconcileExpenseData({ silent: true })
       } finally {
         setSubmittingBulk(false)
@@ -960,7 +960,7 @@ export function useExpensePage(
 
     setExpenses((prev) => prev.filter((entry) => entry.id !== deletedId))
     setExpensesTotal((total) => Math.max(0, total - 1))
-    setMessage({ type: "success", text: "Expense deleted successfully" })
+    toastSuccess("Expense deleted successfully")
     setExpenseToDelete(null)
     setShowDeleteConfirm(false)
 

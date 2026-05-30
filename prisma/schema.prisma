@@ -34,6 +34,7 @@ model User {
   categoryMonthClosings CategoryMonthClosing[]
   savingGoals       SavingGoal[]
   savingGoalCredits SavingGoalCredit[]
+  categoryBucketTransfers CategoryBucketTransfer[]
   apiTokens        ApiToken[]
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
@@ -395,4 +396,20 @@ model SavingGoalCredit {
   @@unique([savingGoalId, incomeEntryId])
   @@index([userId])
   @@index([incomeEntryId])
+}
+
+/// Plan-level move between fund buckets (Category Tracking envelope transfer).
+model CategoryBucketTransfer {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromCategory String   // fixedCosts | savings | investment | guiltFreeSpending
+  toCategory   String
+  amount       BigInt
+  month        Int
+  year         Int
+  createdAt    DateTime @default(now())
+
+  @@index([userId, month, year])
+  @@index([userId, createdAt])
 }

@@ -19,6 +19,14 @@ import {
   requireSelection,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { toastError, toastSuccess } from "@/lib/app-toast"
+import {
+  applyAccountTransferBalances,
+  applyOptimisticAccountCreate,
+  applyOptimisticAccountDelete,
+  applyOptimisticAccountUpdate,
+  cloneAccountRows,
+} from "@/lib/account-optimistic"
 
 export type AccountFormFieldKey =
   | "name"
@@ -213,47 +221,86 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       return next
     })
 
-    try {
-      const method = editingAccount ? "PUT" : "POST"
+    const balance = editingAccount
+      ? parseMoneyInput(startingFunds, currencyCode)
+      : parseMoneyInput(startingFunds, currencyCode) || 0
 
-      const body = editingAccount
-        ? {
-            id: editingAccount.id,
+    const snapshot = cloneAccountRows(accounts)
+    const editId = editingAccount?.id
+    const wasEditing = Boolean(editId)
+
+    if (editId) {
+      setAccounts(
+        applyOptimisticAccountUpdate(accounts, editId, {
+          name,
+          bankName,
+          accountType,
+          balance,
+          isDefault,
+        }) as AccountRow[]
+      )
+    } else {
+      setAccounts(
+        applyOptimisticAccountCreate(accounts, {
+          name,
+          bankName,
+          accountType,
+          balance,
+          isDefault,
+        }) as AccountRow[]
+      )
+    }
+
+    toastSuccess(wasEditing ? "Account updated!" : "Account created!")
+    resetForm()
+
+    const savePayload = wasEditing
+      ? {
+          method: "PUT" as const,
+          body: {
+            id: editId,
             name,
             bankName,
             accountType,
             isDefault,
-            balance: parseMoneyInput(startingFunds, currencyCode),
-          }
-        : {
+            balance,
+          },
+        }
+      : {
+          method: "POST" as const,
+          body: {
             name,
             bankName,
             accountType,
-            startingFunds: parseMoneyInput(startingFunds, currencyCode) || 0,
+            startingFunds: balance,
             isDefault,
-          }
+          },
+        }
 
-      setSavingAccount(true)
-      const response = await fetch("/api/accounts", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
+    void (async () => {
+      try {
+        const response = await fetch("/api/accounts", {
+          method: savePayload.method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(savePayload.body),
+        })
 
-      if (response.ok) {
-        setMessage({ type: "success", text: editingAccount ? "Account updated!" : "Account created!" })
-        resetForm()
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string }
+          setAccounts(snapshot)
+          setAccountFormError(data.error || "Failed to save account")
+          toastError(data.error || "Failed to save account")
+          return
+        }
+
         invalidateAccountsCaches()
         await refetchAccounts()
-      } else {
-        const data = (await response.json()) as { error?: string }
-        setAccountFormError(data.error || "Failed to save account")
+      } catch {
+        setAccounts(snapshot)
+        setAccountFormError("An error occurred")
+        toastError("An error occurred")
       }
-    } catch {
-      setAccountFormError("An error occurred")
-    } finally {
-      setSavingAccount(false)
-    }
+    })()
   }
 
   const handleDelete = (id: string) => {
@@ -264,24 +311,36 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const confirmDeleteAccount = async () => {
     if (!accountToDelete) return
 
-    try {
-      const response = await fetch(`/api/accounts?id=${accountToDelete}`, {
-        method: "DELETE",
-      })
+    const deletedId = accountToDelete
+    const snapshot = cloneAccountRows(accounts)
 
-      if (response.ok) {
-        setMessage({ type: "success", text: "Account deleted!" })
-        setShowDeleteConfirm(false)
-        setAccountToDelete(null)
+    setAccounts(applyOptimisticAccountDelete(accounts, deletedId) as AccountRow[])
+    toastSuccess("Account deleted!")
+    setShowDeleteConfirm(false)
+    setAccountToDelete(null)
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/accounts?id=${deletedId}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string }
+          setAccounts(snapshot)
+          setMessage({ type: "error", text: data.error || "Failed to delete account" })
+          toastError(data.error || "Failed to delete account")
+          return
+        }
+
         invalidateAccountsCaches()
         await refetchAccounts()
-      } else {
-        const data = (await response.json()) as { error?: string }
-        setMessage({ type: "error", text: data.error || "Failed to delete account" })
+      } catch {
+        setAccounts(snapshot)
+        setMessage({ type: "error", text: "An error occurred" })
+        toastError("An error occurred")
       }
-    } catch {
-      setMessage({ type: "error", text: "An error occurred" })
-    }
+    })()
   }
 
   const handleTransfer = async (e: React.FormEvent) => {
@@ -327,43 +386,59 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
       return next
     })
 
-    setTransferring(true)
+    const amountNum = parseMoneyInput(transferAmount, currencyCode)
+    const snapshot = cloneAccountRows(accounts)
+    const transferPayload = {
+      fromAccountId,
+      toAccountId,
+      amount: amountNum,
+      description: transferDescription || null,
+      date: transferDate,
+      category: transferCategory || null,
+    }
 
-    try {
-      const response = await fetch("/api/transfers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromAccountId,
-          toAccountId,
-          amount: parseMoneyInput(transferAmount, currencyCode),
-          description: transferDescription || null,
-          date: transferDate,
-          category: transferCategory || null,
-        }),
-      })
+    setAccounts(
+      applyAccountTransferBalances(
+        accounts,
+        transferPayload.fromAccountId,
+        transferPayload.toAccountId,
+        transferPayload.amount
+      ) as AccountRow[]
+    )
+    setShowTransferForm(false)
+    setFromAccountId("")
+    setToAccountId("")
+    setTransferAmount("")
+    setTransferDescription("")
+    setTransferCategory("")
+    const today = new Date()
+    setTransferDate(today.toISOString().split("T")[0])
+    toastSuccess("Transfer completed!")
 
-      if (response.ok) {
-        setMessage({ type: "success", text: "Transfer completed!" })
-        setShowTransferForm(false)
-        setFromAccountId("")
-        setToAccountId("")
-        setTransferAmount("")
-        setTransferDescription("")
-        setTransferCategory("")
-        const today = new Date()
-        setTransferDate(today.toISOString().split("T")[0])
+    void (async () => {
+      try {
+        const response = await fetch("/api/transfers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(transferPayload),
+        })
+
+        if (!response.ok) {
+          const data = (await response.json()) as { error?: string }
+          setAccounts(snapshot)
+          setTransferFormError(data.error || "Failed to transfer funds")
+          toastError(data.error || "Failed to transfer funds")
+          return
+        }
+
         invalidateAccountsCaches()
         await refetchAccounts()
-      } else {
-        const data = (await response.json()) as { error?: string }
-        setTransferFormError(data.error || "Failed to transfer funds")
+      } catch {
+        setAccounts(snapshot)
+        setTransferFormError("An error occurred")
+        toastError("An error occurred")
       }
-    } catch {
-      setTransferFormError("An error occurred")
-    } finally {
-      setTransferring(false)
-    }
+    })()
   }
 
   return {

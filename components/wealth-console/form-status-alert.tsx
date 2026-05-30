@@ -15,23 +15,17 @@ type FormStatusAlertProps = {
 }
 
 export function FormStatusAlert({ message, className }: FormStatusAlertProps) {
-  if (!message) return null
-
-  const isError = message.type === "error"
+  if (!message || message.type !== "error") return null
 
   return (
     <div
-      role={isError ? "alert" : "status"}
+      role="alert"
       aria-live="polite"
       className={cn("rounded-xl border px-4 py-3 text-sm leading-snug", className)}
       style={{
-        background: isError
-          ? `color-mix(in srgb, ${ERROR_SOFT} 12%, ${TOKENS.surfaceLow})`
-          : `color-mix(in srgb, ${TOKENS.primary} 12%, ${TOKENS.surfaceLow})`,
-        borderColor: isError
-          ? `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`
-          : TOKENS.outlineGhost,
-        color: isError ? ERROR_SOFT : TOKENS.primary,
+        background: `color-mix(in srgb, ${ERROR_SOFT} 12%, ${TOKENS.surfaceLow})`,
+        borderColor: `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`,
+        color: ERROR_SOFT,
       }}
     >
       {message.text}

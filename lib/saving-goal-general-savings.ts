@@ -71,6 +71,10 @@ export async function loadGeneralSavingsContext(
 
   const savingsBucketMinor = coerceMinor(savingsRow?.balance ?? 0n)
   const goalCurrentsMinor = goals.map((g) => coerceMinor(g.currentMinor))
+  const assignedToGoalsMinor = goalCurrentsMinor.reduce(
+    (sum, current) => addMinor(sum, current),
+    0n
+  )
   const availableMinor = computeGeneralSavingsAvailableMinor(
     savingsBucketMinor,
     goalCurrentsMinor
@@ -80,6 +84,7 @@ export async function loadGeneralSavingsContext(
     month: resolved.month,
     year: resolved.year,
     savingsBucketMinor,
+    assignedToGoalsMinor,
     availableMinor,
   }
 }
