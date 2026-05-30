@@ -249,44 +249,7 @@ export function computeIncomeAllocationsMinor(
 
   const unallocated = subtractMinor(incomeMinor, assignmentTotal(amounts))
   if (unallocated > 0n) {
-    let leftover = distributePoolByTargetWeights(
-      amounts,
-      unallocated,
-      fundAllocation,
-      incomeMinor,
-      getAllocatedFromIncomeSoFar
-    )
-
-    while (leftover > 0n) {
-      const ordered = [...FUND_CATEGORIES]
-        .map((cat) => ({
-          cat,
-          room: roomUnderCap(
-            cat,
-            amounts,
-            fundAllocation,
-            getAllocatedFromIncomeSoFar
-          ),
-          weight: allocateCategory(fundAllocation, cat, incomeMinor),
-        }))
-        .filter((item) => item.room > 0n && item.weight > 0n)
-        .sort((a, b) => (a.weight > b.weight ? -1 : a.weight < b.weight ? 1 : 0))
-
-      if (ordered.length === 0) break
-
-      let assigned = false
-      for (const item of ordered) {
-        if (leftover <= 0n) break
-        amounts[item.cat] = addMinor(amounts[item.cat], 1n)
-        leftover -= 1n
-        assigned = true
-      }
-      if (!assigned) break
-    }
-
-    if (leftover > 0n) {
-      amounts.savings = addMinor(amounts.savings, leftover)
-    }
+    amounts.savings = addMinor(amounts.savings, unallocated)
   }
 
   return amounts

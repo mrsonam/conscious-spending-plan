@@ -54,6 +54,7 @@ export type ConsolePayloadSetters = {
   setTrajectorySeries: (v: TrajectoryPoint[]) => void
   setLoanSummary: (v: LoanSummary | null) => void
   setSubscriptionDash: (v: DashboardConsolePayload["subscriptionDash"]) => void
+  setSavingGoals: (v: DashboardConsolePayload["savingGoals"]) => void
 }
 
 export function applyConsolePayload(
@@ -72,6 +73,7 @@ export function applyConsolePayload(
   setters.setTrajectorySeries(buildTrajectorySeries(payload.history))
   setters.setLoanSummary(loanSummaryFromPayload(payload))
   setters.setSubscriptionDash(payload.subscriptionDash)
+  setters.setSavingGoals(payload.savingGoals ?? [])
 }
 
 export function fetchStockPrices(
@@ -116,6 +118,7 @@ export function initialStateFromConsole(payload: DashboardConsolePayload) {
     trajectorySeries: buildTrajectorySeries(payload.history),
     loanSummary: loanSummaryFromPayload(payload),
     subscriptionDash: payload.subscriptionDash,
+    savingGoals: payload.savingGoals ?? [],
     loading: payload.breakdown == null,
   }
 }

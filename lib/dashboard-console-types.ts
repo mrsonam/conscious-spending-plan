@@ -30,6 +30,14 @@ export type DashboardConsolePayload = {
       kind: "renewal" | "trial"
     }>
   }
+  savingGoals: Array<{
+    id: string
+    name: string
+    current: number
+    target: number | null
+    percent: number
+    status: string
+  }>
 }
 
 export const EMPTY_DASHBOARD_CONSOLE: DashboardConsolePayload = {
@@ -53,4 +61,5 @@ export const EMPTY_DASHBOARD_CONSOLE: DashboardConsolePayload = {
     monthlyActiveTotal: 0,
     upcoming: [],
   },
+  savingGoals: [],
 }

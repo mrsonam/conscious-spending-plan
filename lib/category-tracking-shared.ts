@@ -83,6 +83,25 @@ export function expenseTypeLabel(value: string | null | undefined) {
   return EXPENSE_CATEGORIES.find((c) => c.value === value)?.label ?? value
 }
 
+/** True headroom for one pillar: remaining minus any current-month breach. */
+export function netPillarHeadroom(
+  row: Pick<CategoryTrackingRow, "remaining" | "overspent">
+): number {
+  return Math.round((row.remaining - (row.overspent ?? 0)) * 100) / 100
+}
+
+/** Deployable balance across all pillars (can be negative when net overspent). */
+export function sumDeployableBalance(
+  tracking: Record<string, CategoryTrackingRow>
+): number {
+  return Math.round(
+    FUND_KEYS.reduce((sum, key) => {
+      const row = tracking[key]
+      return sum + (row ? netPillarHeadroom(row) : 0)
+    }, 0) * 100
+  ) / 100
+}
+
 /** Elapsed fraction of selected month for pace (0–1). Past months = 1, future = 0. */
 export function getMonthElapsedFraction(month: number, year: number): number {
   const now = new Date()

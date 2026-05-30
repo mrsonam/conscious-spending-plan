@@ -32,6 +32,8 @@ model User {
   investmentHoldings InvestmentHolding[]
   investmentDividends InvestmentDividend[]
   categoryMonthClosings CategoryMonthClosing[]
+  savingGoals       SavingGoal[]
+  savingGoalCredits SavingGoalCredit[]
   apiTokens        ApiToken[]
   defaultAccountId String?
   /// "classic" | "console" — which dashboard experience to load by default
@@ -116,6 +118,7 @@ model IncomeEntry {
 
   /// When set, this row was created for an investment dividend (one-to-one).
   investmentDividend InvestmentDividend?
+  savingGoalCredits  SavingGoalCredit[]
 
   @@index([userId])
   @@index([accountId])
@@ -357,4 +360,39 @@ model BorrowedLoan {
   @@index([userId])
   @@index([accountId])
   @@index([userId, status])
+}
+
+/// Named saving goal — auto-credits a % of each income's savings-bucket allocation.
+model SavingGoal {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  targetMinor  BigInt?
+  currentMinor BigInt   @default(0)
+  percentBps   Int      // % of savings-bucket allocation (1000 = 10%)
+  status       String   @default("active") // active | complete | archived
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  credits      SavingGoalCredit[]
+
+  @@index([userId, status])
+}
+
+/// Ledger row crediting a saving goal from a specific income entry.
+model SavingGoalCredit {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savingGoalId  String
+  savingGoal    SavingGoal  @relation(fields: [savingGoalId], references: [id], onDelete: Cascade)
+  incomeEntryId String
+  incomeEntry   IncomeEntry @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
+  amountMinor   BigInt
+  createdAt     DateTime    @default(now())
+
+  @@unique([savingGoalId, incomeEntryId])
+  @@index([userId])
+  @@index([incomeEntryId])
 }

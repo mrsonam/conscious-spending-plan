@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { coerceMinor, subtractMinor } from "@/lib/money"
+import { reverseSavingGoalCreditsForIncome } from "@/lib/saving-goal-credits-server"
 
 export async function DELETE(
   _request: Request,
@@ -83,6 +84,13 @@ export async function DELETE(
               data: { balance: { decrement: entryAmount } },
             })
           }
+        }
+
+        if (hadAllocation && (entry.allocationSavings ?? 0n) > 0n) {
+          await reverseSavingGoalCreditsForIncome(tx, {
+            userId: session.user.id,
+            incomeEntryId: id,
+          })
         }
 
         await tx.incomeEntry.delete({

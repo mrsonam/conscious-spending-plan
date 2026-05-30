@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
+import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear } from "@/lib/monthly-tracking"
 import { serializeMoneyForApi } from "@/lib/money-api"
@@ -24,6 +25,8 @@ export async function GET() {
     const currency = currencyFromSession(session.user.displayCurrency)
     const toD = (minor: bigint | null | undefined) =>
       serializeMoneyForApi(coerceMinor(minor ?? 0n), currency)
+
+    await ensurePreTrackingSavingsBalances(session.user.id)
 
     const { month: currentMonth, year: currentYear } = getCurrentMonthYear()
     
@@ -55,7 +58,7 @@ export async function GET() {
     const prevOfOldest = oldest.month === 1 ? { month: 12, year: oldest.year - 1 } : { month: oldest.month - 1, year: oldest.year }
     const allMonthKeys = [prevOfOldest, ...monthKeys]
 
-    const [allCategoryBalances, allExpenses, allInvestments] = await Promise.all([
+    const [allCategoryBalances, allExpenses, allTransfers] = await Promise.all([
       prisma.categoryBalance.findMany({
         where: {
           userId: session.user.id,
@@ -70,12 +73,13 @@ export async function GET() {
         },
         select: { amount: true, category: true, date: true },
       }),
-      prisma.investmentHolding.findMany({
+      prisma.transfer.findMany({
         where: {
           userId: session.user.id,
           date: { gte: overallStart, lte: overallEnd },
+          category: { in: ["fixedCosts", "investment", "savings", "guiltFreeSpending"] },
         },
-        select: { amount: true, date: true },
+        select: { amount: true, category: true, date: true },
       }),
     ])
 
@@ -97,9 +101,11 @@ export async function GET() {
           spent[e.category] += toD(e.amount)
         }
       }
-      for (const inv of allInvestments) {
-        const d = new Date(inv.date)
-        if (d >= startOfMonth && d <= endOfMonth) spent.investment += toD(inv.amount)
+      for (const transfer of allTransfers) {
+        const d = new Date(transfer.date)
+        if (d >= startOfMonth && d <= endOfMonth && transfer.category === "investment") {
+          spent.investment += toD(transfer.amount)
+        }
       }
       return spent
     }

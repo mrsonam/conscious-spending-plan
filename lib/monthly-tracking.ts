@@ -218,9 +218,10 @@ export async function getPreviousMonthRemainingAndOverspentByCategory(
     prevYear,
     currency,
   )
-  if (stored) return stored
+  const base =
+    stored ?? (await computeMonthClosingForMonth(userId, prevMonth, prevYear, currency))
 
-  return computeMonthClosingForMonth(userId, prevMonth, prevYear, currency)
+  return base
 }
 
 /**

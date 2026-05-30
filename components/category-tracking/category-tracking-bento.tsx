@@ -12,6 +12,7 @@ import { CategoryTrackingHistorySection } from "@/components/category-tracking/c
 import { CategoryTrackingLedgerSection } from "@/components/category-tracking/category-tracking-ledger-section"
 import { CategoryTrackingPillarSection } from "@/components/category-tracking/category-tracking-pillar-section"
 import { CategoryTrackingPressureSection } from "@/components/category-tracking/category-tracking-pressure-section"
+import { CategoryTrackingBucketTransferDialog } from "@/components/category-tracking/category-tracking-bucket-transfer-dialog"
 
 export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
   const {
@@ -40,6 +41,17 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
     expenseTypeRollup,
     momSpend,
     refreshing,
+    savingsGeneralAvailable,
+    currencyCode,
+    isCurrentMonth,
+    transferOpen,
+    setTransferOpen,
+    openTransferDialog,
+    transferSubmitting,
+    transferError,
+    transferMessage,
+    setTransferMessage,
+    transferBucketFunds,
   } = p
 
   const recentMonthRows = useMemo(() => {
@@ -69,7 +81,8 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
 
   const hasTracking = tracking != null
   const runwayPct =
-    totalAllocated > 0 ? Math.min(100, (totalRemaining / totalAllocated) * 100) : 0
+    totalAllocated > 0 ? (totalRemaining / totalAllocated) * 100 : 0
+  const isOverDeployed = totalRemaining < 0
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -102,6 +115,20 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
             </div>
           )}
 
+          {transferMessage ? (
+            <div
+              className="rounded-xl border px-4 py-3 text-sm"
+              role="status"
+              style={{
+                borderColor: TOKENS.primary,
+                color: TOKENS.primary,
+                background: `color-mix(in srgb, ${TOKENS.primary} 10%, ${TOKENS.surfaceLow})`,
+              }}
+            >
+              {transferMessage}
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-start">
             <CategoryTrackingHeroSection
               totalRemaining={totalRemaining}
@@ -110,6 +137,7 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
               totalSpent={totalSpent}
               overallUsage={overallUsage}
               runwayPct={runwayPct}
+              isOverDeployed={isOverDeployed}
               momSpend={momSpend}
               selectedMonthLabel={selectedMonthLabel}
               formatCurrency={formatCurrency}
@@ -121,8 +149,22 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
               setSelectedMonth={setSelectedMonth}
               setSelectedYear={setSelectedYear}
               refreshing={refreshing}
+              isCurrentMonth={isCurrentMonth}
+              onOpenTransfer={openTransferDialog}
             />
           </div>
+
+          <CategoryTrackingBucketTransferDialog
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+            tracking={tracking}
+            savingsGeneralAvailable={savingsGeneralAvailable}
+            formatCurrency={formatCurrency}
+            currencyCode={currencyCode}
+            submitting={transferSubmitting}
+            formError={transferError}
+            onSubmit={transferBucketFunds}
+          />
 
           <div className="w-full min-w-0 space-y-6 sm:space-y-8">
             <CategoryTrackingAllocationSection

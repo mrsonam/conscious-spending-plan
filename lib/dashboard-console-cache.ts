@@ -278,6 +278,7 @@ export function peekDashboardSecondarySnapshot(): DashboardSecondarySnapshot {
       monthlyActiveTotal: subscriptionsData?.monthlyActiveTotal ?? 0,
       upcoming: subscriptionsData?.upcoming ?? [],
     },
+    savingGoals: [],
   }
 
   return {

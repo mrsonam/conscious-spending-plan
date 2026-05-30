@@ -3,6 +3,7 @@
 import { Calendar, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppSelect } from "@/components/ui/app-select"
+import { CategoryTrackingTransferTrigger } from "@/components/category-tracking/category-tracking-bucket-transfer-dialog"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import {
   CATEGORY_TRACKING_PERIOD_ID,
@@ -18,6 +19,8 @@ type CategoryTrackingCommandSectionProps = {
   setSelectedMonth: (m: number) => void
   setSelectedYear: (y: number) => void
   refreshing: boolean
+  isCurrentMonth: boolean
+  onOpenTransfer: () => void
 }
 
 export function CategoryTrackingCommandSection({
@@ -27,6 +30,8 @@ export function CategoryTrackingCommandSection({
   setSelectedMonth,
   setSelectedYear,
   refreshing,
+  isCurrentMonth,
+  onOpenTransfer,
 }: CategoryTrackingCommandSectionProps) {
   return (
     <section className="lg:col-span-5">
@@ -94,6 +99,16 @@ export function CategoryTrackingCommandSection({
             }))}
           />
         </div>
+
+        <CategoryTrackingTransferTrigger
+          disabled={!isCurrentMonth}
+          disabledReason={
+            isCurrentMonth
+              ? undefined
+              : "Switch to the current month to move funds between buckets."
+          }
+          onOpen={onOpenTransfer}
+        />
       </div>
     </section>
   )

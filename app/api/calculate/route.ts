@@ -15,6 +15,8 @@ import {
   type CategoryKey,
   type IncomeAllocationMinor,
 } from "@/lib/income-allocation"
+import { applySavingGoalCreditsForIncome } from "@/lib/saving-goal-credits-server"
+import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { currencyFromSession } from "@/lib/user-currency"
 
 export async function POST(request: Request) {
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
       )
     }
 
+    await ensurePreTrackingSavingsBalances(session.user.id)
     await ensureMonthlyCategoryBalances(
       session.user.id,
       targetMonth,
@@ -197,6 +200,32 @@ export async function POST(request: Request) {
       incrementBalance("savings", alloc.savings),
     ])
 
+    let savingGoalBreakdown: {
+      generalSavings: number
+      goalCredits: Record<string, number>
+    } | null = null
+
+    if (alloc.savings > 0n) {
+      const goalResult = await applySavingGoalCreditsForIncome(prisma, {
+        userId: session.user.id,
+        incomeEntryId: incomeEntry.id,
+        savingsAllocationMinor: alloc.savings,
+      })
+      const goalCreditsApi: Record<string, number> = {}
+      for (const [goalId, amount] of Object.entries(goalResult.goalCredits)) {
+        if (amount > 0n) {
+          goalCreditsApi[goalId] = serializeMoneyForApi(amount, currency)
+        }
+      }
+      savingGoalBreakdown = {
+        generalSavings: serializeMoneyForApi(
+          goalResult.generalSavingsMinor,
+          currency
+        ),
+        goalCredits: goalCreditsApi,
+      }
+    }
+
     if (depositAccount) {
       await prisma.account.update({
         where: { id: depositAccount.id },
@@ -217,6 +246,7 @@ export async function POST(request: Request) {
         : null,
       isCashAccount: depositAccount?.accountType === "cash",
       isExcludedFromAllocation: false,
+      ...(savingGoalBreakdown && { savingGoalBreakdown }),
     }
 
     schedulePersistPreviousMonthClosing(session.user.id)

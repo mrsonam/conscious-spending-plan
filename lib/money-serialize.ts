@@ -79,6 +79,7 @@ export function deepSerializeBigIntsForApi(
 export const ACCOUNT_MONEY_FIELDS = ["balance", "startingFunds"] as const
 export const AMOUNT_ONLY_FIELDS = ["amount"] as const
 export const LOAN_MONEY_FIELDS = ["amount", "repaidAmount"] as const
+export const SAVING_GOAL_MONEY_FIELDS = ["targetMinor", "currentMinor"] as const
 export const INCOME_MONEY_FIELDS = [
   "amount",
   "allocationFixedCosts",

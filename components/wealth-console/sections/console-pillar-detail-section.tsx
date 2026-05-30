@@ -84,7 +84,7 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       rows={savingsDisplayRows}
                       accent={TOKENS.primary}
                       size="compact"
-                      detailHref={BENTO.funds}
+                      detailHref={BENTO.savingGoals}
                     />
                   )}
                 </div>

@@ -14,8 +14,10 @@ import {
   TRACKING_FUND_CATEGORIES,
   expenseTypeLabel,
   getMonthElapsedFraction,
+  sumDeployableBalance,
 } from "@/lib/category-tracking-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import type { FundCategory } from "@/lib/fund-allocation-fields"
 
 export type CategoryTrackingExpense = {
   id: string
@@ -30,6 +32,7 @@ export type CategoryTrackingExpense = {
 type TrackingApiPayload = {
   tracking: Record<string, CategoryTrackingRow>
   totalIncomeForMonth?: number
+  savingsGeneralAvailable?: number
 }
 
 type HistoryApiPayload = {
@@ -45,12 +48,13 @@ const HISTORY_MAX_AGE_MS = 120_000
 
 export function useCategoryTrackingPage() {
   const { data: session, status } = useSession()
-  const { formatCurrency } = useFormatCurrency()
+  const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
   const loadSeq = useRef(0)
 
   const [tracking, setTracking] = useState<Record<string, CategoryTrackingRow> | null>(null)
   const [totalIncomeForMonth, setTotalIncomeForMonth] = useState<number | null>(null)
+  const [savingsGeneralAvailable, setSavingsGeneralAvailable] = useState(0)
   const [expenses, setExpenses] = useState<CategoryTrackingExpense[]>([])
   const [history, setHistory] = useState<Record<
     string,
@@ -58,6 +62,10 @@ export function useCategoryTrackingPage() {
   > | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [transferSubmitting, setTransferSubmitting] = useState(false)
+  const [transferError, setTransferError] = useState<string | null>(null)
+  const [transferMessage, setTransferMessage] = useState<string | null>(null)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -72,15 +80,15 @@ export function useCategoryTrackingPage() {
   const fetchData = useCallback(
     async (opts?: { bypassCache?: boolean }) => {
       if (opts?.bypassCache) {
-        invalidateCachedJson("category-tracking:")
+        invalidateCachedJson("category-tracking:v3:")
       }
 
       const seq = ++loadSeq.current
       const t = Date.now()
       const periodKey = `${selectedYear}-${selectedMonth}`
-      const cacheKeySummary = `category-tracking:summary:${periodKey}`
-      const cacheKeyExpenses = `category-tracking:expenses:${periodKey}`
-      const cacheKeyHistory = `category-tracking:history`
+      const cacheKeySummary = `category-tracking:v3:summary:${periodKey}`
+      const cacheKeyExpenses = `category-tracking:v3:expenses:${periodKey}`
+      const cacheKeyHistory = `category-tracking:v3:history`
 
       const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1)
       const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
@@ -96,6 +104,7 @@ export function useCategoryTrackingPage() {
       if (peekSummary) {
         setTracking(peekSummary.tracking)
         setTotalIncomeForMonth(peekSummary.totalIncomeForMonth ?? null)
+        setSavingsGeneralAvailable(peekSummary.savingsGeneralAvailable ?? 0)
       }
       if (peekExpenses) {
         setExpenses(peekExpenses.expenses || [])
@@ -126,6 +135,7 @@ export function useCategoryTrackingPage() {
 
         setTracking(summaryData.tracking)
         setTotalIncomeForMonth(summaryData.totalIncomeForMonth ?? null)
+        setSavingsGeneralAvailable(summaryData.savingsGeneralAvailable ?? 0)
         setExpenses(expensesData.expenses || [])
         setHistory(historyData.history)
       } catch (e) {
@@ -196,9 +206,7 @@ export function useCategoryTrackingPage() {
   const totalSpent = tracking
     ? FUND_KEYS.reduce((s, k) => s + (tracking[k]?.spent ?? 0), 0)
     : 0
-  const totalRemaining = tracking
-    ? FUND_KEYS.reduce((s, k) => s + (tracking[k]?.remaining ?? 0), 0)
-    : 0
+  const totalRemaining = tracking ? sumDeployableBalance(tracking) : 0
   const overallUsage = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
 
   const elapsed = getMonthElapsedFraction(selectedMonth, selectedYear)
@@ -251,6 +259,51 @@ export function useCategoryTrackingPage() {
       .slice(0, 10)
   }, [expenses])
 
+  const isCurrentMonth =
+    selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear()
+
+  const openTransferDialog = useCallback(() => {
+    setTransferMessage(null)
+    setTransferError(null)
+    setTransferOpen(true)
+  }, [])
+
+  const transferBucketFunds = useCallback(
+    async (payload: {
+      fromCategory: FundCategory
+      toCategory: FundCategory
+      amount: number
+    }) => {
+      setTransferSubmitting(true)
+      setTransferError(null)
+      try {
+        const res = await fetch("/api/category-tracking/transfer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            month: selectedMonth,
+            year: selectedYear,
+          }),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setTransferError(data.error ?? "Transfer failed")
+          return
+        }
+        setTransferOpen(false)
+        setTransferMessage("Bucket transfer completed")
+        invalidateCachedJson("category-tracking:v3:")
+        await fetchData({ bypassCache: true })
+      } catch {
+        setTransferError("Transfer failed")
+      } finally {
+        setTransferSubmitting(false)
+      }
+    },
+    [fetchData, selectedMonth, selectedYear]
+  )
+
   const momSpend = useMemo(() => {
     if (!history?.fixedCosts?.length || history.fixedCosts.length < 2) return null
     const n = history.fixedCosts.length
@@ -297,6 +350,17 @@ export function useCategoryTrackingPage() {
     spendShare,
     expenseTypeRollup,
     momSpend,
+    savingsGeneralAvailable,
+    currencyCode,
+    isCurrentMonth,
+    transferOpen,
+    setTransferOpen,
+    openTransferDialog,
+    transferSubmitting,
+    transferError,
+    transferMessage,
+    setTransferMessage,
+    transferBucketFunds,
   }
 }
 

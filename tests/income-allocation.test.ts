@@ -68,12 +68,12 @@ function sum(allocResult: ReturnType<typeof alloc>): bigint {
   assert.equal(sum(result), income(1000))
 }
 
-// Rounding remainder spreads by weight (fixed costs gets extra cent here)
+// Rounding remainder goes to savings
 {
   const result = alloc(100.01)
   assert.equal(sum(result), income(100.01))
-  assert.equal(result.fixedCosts, income(40.01))
-  assert.equal(result.savings, income(20))
+  assert.equal(result.fixedCosts, income(40))
+  assert.equal(result.savings, income(20.01))
   assert.equal(result.investment, income(20))
   assert.equal(result.guiltFreeSpending, income(20))
 }

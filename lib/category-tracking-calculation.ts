@@ -69,10 +69,6 @@ export function calculateCategoryTracking({
   for (const transfer of transfers) {
     if (transfer.category && isTrackingCategory(transfer.category)) {
       categoryStats[transfer.category].transferred += transfer.amount
-
-      if (transfer.category === "investment") {
-        categoryStats.investment.spent += transfer.amount
-      }
     }
   }
 
@@ -88,7 +84,7 @@ export function calculateCategoryTracking({
       Math.max(0, current.allocated - carryover)
     const remaining =
       category === "investment"
-        ? available - current.spent
+        ? available - current.transferred
         : available - current.spent - current.transferred
     const overspentTotal = remaining < 0 ? Math.abs(remaining) : 0
     const overspentFromTransfer =
@@ -96,7 +92,7 @@ export function calculateCategoryTracking({
 
     tracking[category] = {
       allocated: round2(allocatedFromIncome),
-      spent: round2(current.spent),
+      spent: round2(category === "investment" ? current.transferred : current.spent),
       transferred: round2(current.transferred),
       income: 0,
       carryover: round2(carryover),

@@ -36,7 +36,15 @@ export function CategoryTrackingPillarSection({
           const data = tracking[cat.key]
           if (!data) return null
           const isOverspent = data.overspent > 0
-          const usagePercent = data.allocated > 0 ? (data.spent / data.allocated) * 100 : 0
+          const deployed =
+            cat.key === "investment" ? data.transferred : data.spent
+          const usageBase =
+            cat.key === "investment"
+              ? data.available > 0
+                ? data.available
+                : data.allocated + data.carryover
+              : data.allocated
+          const usagePercent = usageBase > 0 ? (deployed / usageBase) * 100 : 0
           const Icon = cat.Icon
           let paceLabel = "—"
           if (elapsed <= 0) paceLabel = "Future"
@@ -90,8 +98,8 @@ export function CategoryTrackingPillarSection({
                   <span style={{ color: TOKENS.onSurface }}>{formatCurrency(data.allocated)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{cat.key === "investment" ? "Invested" : "Spent"}</span>
-                  <span style={{ color: ERROR_SOFT }}>{formatCurrency(data.spent)}</span>
+                  <span>{cat.key === "investment" ? "Transferred" : "Spent"}</span>
+                  <span style={{ color: ERROR_SOFT }}>{formatCurrency(deployed)}</span>
                 </div>
                 {(data.carryover > 0 || data.overspending > 0) && (
                   <div className="border-t pt-2" style={{ borderColor: TOKENS.outlineGhost }}>

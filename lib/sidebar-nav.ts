@@ -12,6 +12,7 @@ import {
   HandCoins,
   CalendarClock,
   Zap,
+  Target,
 } from "lucide-react"
 import { BENTO } from "@/lib/app-routes"
 
@@ -52,6 +53,7 @@ const SIDEBAR_NAV_GROUPS: SidebarNavGroup[] = [
         icon: BarChart3,
       },
       { name: "Fund Settings", href: BENTO.funds, icon: Wallet },
+      { name: "Savings Goals", href: BENTO.savingGoals, icon: Target },
     ],
   },
   {

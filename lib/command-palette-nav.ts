@@ -62,6 +62,13 @@ export function getCommandPaletteItems(): CommandPaletteItem[] {
       keywords: ["allocation", "percent", "fixed", "savings", "investment split"],
     },
     {
+      id: "saving-goals",
+      title: "Savings Goals",
+      href: BENTO.savingGoals,
+      group: "Plan",
+      keywords: ["goals", "target", "phone", "emergency fund", "savings split"],
+    },
+    {
       id: "investments",
       title: "Investments",
       href: BENTO.investments,

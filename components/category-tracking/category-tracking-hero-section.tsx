@@ -22,6 +22,7 @@ type CategoryTrackingHeroSectionProps = {
   totalSpent: number
   overallUsage: number
   runwayPct: number
+  isOverDeployed?: boolean
   momSpend: MomSpend
   selectedMonthLabel: string
   formatCurrency: (amount: number) => string
@@ -34,6 +35,7 @@ export function CategoryTrackingHeroSection({
   totalSpent,
   overallUsage,
   runwayPct,
+  isOverDeployed = false,
   momSpend,
   selectedMonthLabel,
   formatCurrency,
@@ -108,7 +110,7 @@ export function CategoryTrackingHeroSection({
         <div className={cn("mt-2", consoleHeroFigureClass)}>
           <MajorFigureCurrency
             amount={totalRemaining}
-            variant="prosperity"
+            variant={isOverDeployed ? "loss" : "prosperity"}
             className={consoleHeroFigureInnerClass}
             decimalEm={0.45}
           />
@@ -150,8 +152,10 @@ export function CategoryTrackingHeroSection({
           />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider">
             <span style={{ color: TOKENS.onSurfaceMuted }}>Residual runway</span>
-            <span style={{ color: runwayPct > 35 ? TOKENS.primary : ERROR_SOFT }}>
-              {runwayPct.toFixed(0)}% unspent
+            <span style={{ color: isOverDeployed || runwayPct <= 35 ? ERROR_SOFT : TOKENS.primary }}>
+              {isOverDeployed
+                ? `${Math.abs(runwayPct).toFixed(0)}% over envelopes`
+                : `${Math.min(100, runwayPct).toFixed(0)}% unspent`}
             </span>
           </div>
         </div>

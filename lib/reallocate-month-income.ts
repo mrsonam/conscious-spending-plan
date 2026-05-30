@@ -10,6 +10,7 @@ import {
   getCurrentMonthYear,
   getPreviousMonthRemainingByCategory,
 } from "@/lib/monthly-tracking"
+import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { addMinor, coerceMinor, dollarsToMinor } from "@/lib/money"
 import { prisma } from "@/lib/prisma"
 
@@ -75,6 +76,7 @@ export async function reallocateMonthIncomeForUser(
     throw new Error("Fund allocation not found")
   }
 
+  await ensurePreTrackingSavingsBalances(userId)
   await ensureMonthlyCategoryBalances(userId, resolved.month, resolved.year)
 
   const startOfMonth = new Date(resolved.year, resolved.month - 1, 1)

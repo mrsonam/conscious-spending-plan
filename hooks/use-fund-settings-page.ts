@@ -40,12 +40,18 @@ export function useFundSettingsPage() {
     type: "success" | "error"
     text: string
   } | null>(null)
+  const [savingGoalsSummary, setSavingGoalsSummary] = useState<{
+    activeCount: number
+    assignedPercent: number
+    unassignedPercent: number
+  } | null>(null)
 
   const fetchAllocation = useCallback(async () => {
     try {
-      const [allocationRes, balancesRes] = await Promise.all([
+      const [allocationRes, balancesRes, goalsRes] = await Promise.all([
         fetch("/api/fund-allocation"),
         fetch("/api/category-balances"),
+        fetch("/api/saving-goals?status=active"),
       ])
 
       if (allocationRes.ok) {
@@ -56,6 +62,17 @@ export function useFundSettingsPage() {
       if (balancesRes.ok) {
         const data = (await balancesRes.json()) as { balances?: CategoryBalance[] }
         setBalances(data.balances || [])
+      }
+
+      if (goalsRes.ok) {
+        const data = (await goalsRes.json()) as {
+          summary?: {
+            activeCount: number
+            assignedPercent: number
+            unassignedPercent: number
+          }
+        }
+        if (data.summary) setSavingGoalsSummary(data.summary)
       }
     } catch (e) {
       console.error("Error fetching allocation:", e)
@@ -142,5 +159,6 @@ export function useFundSettingsPage() {
     getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
+    savingGoalsSummary,
   }
 }

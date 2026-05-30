@@ -52,6 +52,9 @@ export default function DashboardPageClient() {
   const [subscriptionDash, setSubscriptionDash] = useState(
     EMPTY_DASHBOARD_CONSOLE.subscriptionDash,
   )
+  const [savingGoals, setSavingGoals] = useState(
+    EMPTY_DASHBOARD_CONSOLE.savingGoals,
+  )
   const [loading, setLoading] = useState(true)
 
   const payloadSetters = useMemo(
@@ -68,6 +71,7 @@ export default function DashboardPageClient() {
       setTrajectorySeries,
       setLoanSummary,
       setSubscriptionDash,
+      setSavingGoals,
     }),
     [],
   )
@@ -153,6 +157,7 @@ export default function DashboardPageClient() {
       marketPrices={marketPrices}
       loanSummary={loanSummary}
       subscriptionDash={subscriptionDash}
+      savingGoals={savingGoals}
       loading={showLoading || (isSessionPending && breakdown == null)}
     />
   )

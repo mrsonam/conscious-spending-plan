@@ -24,6 +24,32 @@ assert.equal(tracking.investment.transferred, 1_000)
 assert.equal(tracking.investment.remaining, 0)
 assert.equal(tracking.investment.overspent, 0)
 
+const holdingOnly = calculateCategoryTracking({
+  categoryBalances: [{ category: "investment", balance: 1_000 }],
+  expenses: [{ category: "investment", amount: 500 }],
+  transfers: [],
+  investments: [{ amount: 1_000 }],
+  carryoverByCategory: emptyPrevious(),
+  overspentByCategory: emptyPrevious(),
+})
+
+assert.equal(holdingOnly.investment.spent, 0)
+assert.equal(holdingOnly.investment.transferred, 0)
+assert.equal(holdingOnly.investment.remaining, 1_000)
+
+const transferOnly = calculateCategoryTracking({
+  categoryBalances: [{ category: "investment", balance: 1_000 }],
+  expenses: [],
+  transfers: [{ category: "investment", amount: 400 }],
+  investments: [{ amount: 1_000 }],
+  carryoverByCategory: emptyPrevious(),
+  overspentByCategory: emptyPrevious(),
+})
+
+assert.equal(transferOnly.investment.spent, 400)
+assert.equal(transferOnly.investment.transferred, 400)
+assert.equal(transferOnly.investment.remaining, 600)
+
 const trackingWithIncomeAlloc = calculateCategoryTracking({
   categoryBalances: [{ category: "investment", balance: 1_500 }],
   expenses: [],
@@ -48,17 +74,5 @@ const closing = calculateMonthClosing({
 
 assert.equal(closing.remaining.investment, 0)
 assert.equal(closing.overspent.investment, 0)
-
-const holdingOnly = calculateCategoryTracking({
-  categoryBalances: [{ category: "investment", balance: 1_000 }],
-  expenses: [],
-  transfers: [],
-  investments: [{ amount: 1_000 }],
-  carryoverByCategory: emptyPrevious(),
-  overspentByCategory: emptyPrevious(),
-})
-
-assert.equal(holdingOnly.investment.spent, 0)
-assert.equal(holdingOnly.investment.remaining, 1_000)
 
 console.log("category tracking calculation tests passed")

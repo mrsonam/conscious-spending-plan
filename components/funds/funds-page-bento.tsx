@@ -1,7 +1,9 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { BENTO } from "@/lib/app-routes"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import {
@@ -396,6 +398,7 @@ export function FundsPageBento() {
     getAllocatedFromIncome,
     formatCurrency,
     currencyCode,
+    savingGoalsSummary,
   } = useFundSettingsPage()
 
   if ((status === "loading" && !session) || loading) {
@@ -529,6 +532,32 @@ export function FundsPageBento() {
             />
           ))}
         </div>
+
+        {savingGoalsSummary ? (
+          <Link
+            href={BENTO.savingGoals}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 transition-opacity hover:opacity-95 sm:px-5"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              background: `color-mix(in srgb, ${TOKENS.primary} 8%, ${TOKENS.surfaceContainer})`,
+              boxShadow: CARD_INSET,
+            }}
+          >
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Savings goals
+              </p>
+              <p className="mt-1 text-sm" style={{ color: TOKENS.onSurface }}>
+                {savingGoalsSummary.activeCount === 0
+                  ? "No active goals — create one to split savings allocation"
+                  : `${savingGoalsSummary.activeCount} active goal${savingGoalsSummary.activeCount === 1 ? "" : "s"} · ${savingGoalsSummary.assignedPercent}% assigned`}
+              </p>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: TOKENS.primary }}>
+              Manage goals →
+            </span>
+          </Link>
+        ) : null}
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <p className="max-w-md text-[11px] leading-relaxed sm:text-xs" style={{ color: TOKENS.onSurfaceMuted }}>

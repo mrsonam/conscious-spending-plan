@@ -6,6 +6,8 @@ import {
   getIncomeEntriesForMonthByDate,
   getPreviousMonthRemainingAndOverspentByCategory,
 } from "@/lib/monthly-tracking"
+import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
+import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
 import {
   computeIncomeAllocationsMinor,
   incomeAllocationToApi,
@@ -35,6 +37,7 @@ import { getExchangeRate } from "@/lib/fx-rate"
 import { dollarsToMinor } from "@/lib/money"
 import type { DashboardConsolePayload } from "@/lib/dashboard-console-types"
 import type { Breakdown } from "@/components/wealth-console/types"
+import { bpsToDisplayPercent } from "@/lib/saving-goal-allocation"
 
 const FUND_CATEGORIES = [
   "fixedCosts",
@@ -180,6 +183,8 @@ async function loadCategoryTracking(
   const { month: currentMonth, year: currentYear, startOfMonth, endOfMonth } =
     getCurrentMonthYear()
 
+  await ensurePreTrackingSavingsBalances(userId)
+
   const [
     currentMonthCategoryBalances,
     currentMonthExpenses,
@@ -247,7 +252,7 @@ async function loadCategoryTracking(
     }
   }
 
-  const tracking = calculateCategoryTracking({
+  let tracking = calculateCategoryTracking({
     categoryBalances: currentMonthCategoryBalances.map((b) => ({
       category: b.category,
       balance: toD(b.balance ?? 0n),
@@ -269,6 +274,10 @@ async function loadCategoryTracking(
       ? incomeAllocatedByCategory
       : undefined,
   })
+
+  tracking = (
+    await reconcilePlanToLiquid(userId, currentMonth, currentYear, currency, tracking)
+  ).tracking
 
   const slim: DashboardConsolePayload["tracking"] = {}
   for (const key of Object.keys(tracking)) {
@@ -318,7 +327,7 @@ async function loadCategoryHistory(userId: string, currency: string) {
       : { month: oldest.month - 1, year: oldest.year }
   const allMonthKeys = [prevOfOldest, ...monthKeys]
 
-  const [allCategoryBalances, allExpenses, allInvestments] = await Promise.all([
+  const [allCategoryBalances, allExpenses, allTransfers] = await Promise.all([
     prisma.categoryBalance.findMany({
       where: {
         userId,
@@ -333,12 +342,13 @@ async function loadCategoryHistory(userId: string, currency: string) {
       },
       select: { amount: true, category: true, date: true },
     }),
-    prisma.investmentHolding.findMany({
+    prisma.transfer.findMany({
       where: {
         userId,
         date: { gte: overallStart, lte: overallEnd },
+        category: { in: [...FUND_CATEGORIES] },
       },
-      select: { amount: true, date: true },
+      select: { amount: true, category: true, date: true },
     }),
   ])
 
@@ -370,9 +380,11 @@ async function loadCategoryHistory(userId: string, currency: string) {
         spent[e.category] += toD(e.amount)
       }
     }
-    for (const inv of allInvestments) {
-      const d = new Date(inv.date)
-      if (d >= startOfMonth && d <= endOfMonth) spent.investment += toD(inv.amount)
+    for (const transfer of allTransfers) {
+      const d = new Date(transfer.date)
+      if (d >= startOfMonth && d <= endOfMonth && transfer.category === "investment") {
+        spent.investment += toD(transfer.amount)
+      }
     }
     return spent
   }
@@ -559,6 +571,29 @@ async function loadSubscriptionDash(userId: string, currency: string) {
   return { monthlyActiveTotal, upcoming }
 }
 
+async function loadSavingGoalsForDashboard(userId: string, currency: string) {
+  const goals = await prisma.savingGoal.findMany({
+    where: {
+      userId,
+      status: { in: ["active", "complete"] },
+    },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    take: 4,
+  })
+
+  return goals.map((g) => ({
+    id: g.id,
+    name: g.name,
+    current: serializeMoneyForApi(g.currentMinor, currency),
+    target:
+      g.targetMinor != null
+        ? serializeMoneyForApi(g.targetMinor, currency)
+        : null,
+    percent: bpsToDisplayPercent(g.percentBps),
+    status: g.status,
+  }))
+}
+
 export async function loadDashboardConsoleData(
   userId: string,
   currency: string,
@@ -605,6 +640,7 @@ export async function loadDashboardConsoleData(
     history,
     loansRows,
     subscriptionDash,
+    savingGoalsRows,
   ] = await Promise.all([
     loadCurrentMonthBreakdown(userId, currency, fundAllocation),
     getIncomePageStats(userId),
@@ -640,6 +676,7 @@ export async function loadDashboardConsoleData(
       take: 100,
     }),
     loadSubscriptionDash(userId, currency),
+    loadSavingGoalsForDashboard(userId, currency),
   ])
 
   const accounts = mapMoneyListToApi(
@@ -674,5 +711,6 @@ export async function loadDashboardConsoleData(
     history,
     loans,
     subscriptionDash,
+    savingGoals: savingGoalsRows,
   }
 }

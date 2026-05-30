@@ -62,6 +62,7 @@ export function useWealthConsoleDerived({
   lastMonthExpenses,
   marketPrices,
   loading,
+  savingGoals = [],
 }: {
   breakdown: Breakdown | null
   accounts: Account[]
@@ -73,6 +74,14 @@ export function useWealthConsoleDerived({
   lastMonthExpenses: number
   marketPrices: Record<string, number>
   loading: boolean
+  savingGoals?: Array<{
+    id: string
+    name: string
+    current: number
+    target: number | null
+    percent: number
+    status: string
+  }>
 }): WealthConsoleDerived {
   const { formatCurrency } = useFormatCurrency()
 
@@ -134,12 +143,23 @@ export function useWealthConsoleDerived({
     [investmentAccounts],
   )
 
+  const goalDisplayRows = useMemo(
+    () =>
+      savingGoals.slice(0, 2).map((g) => ({
+        label: g.name,
+        amount: g.current,
+      })),
+    [savingGoals],
+  )
+
   const savingsDisplayRows =
-    savingsRows.length > 0
-      ? savingsRows
-      : breakdown && breakdown.savings > 0
-        ? [{ label: "Monthly allocation", amount: breakdown.savings }]
-        : []
+    goalDisplayRows.length > 0
+      ? goalDisplayRows
+      : savingsRows.length > 0
+        ? savingsRows
+        : breakdown && breakdown.savings > 0
+          ? [{ label: "Monthly allocation", amount: breakdown.savings }]
+          : []
 
   const projectionValue = useMemo(
     () => buildProjectionValue(breakdown),
@@ -208,6 +228,7 @@ export function useWealthConsoleDashboard(
     lastMonthExpenses: props.lastMonthExpenses,
     marketPrices: props.marketPrices,
     loading: props.loading,
+    savingGoals: props.savingGoals,
   })
   return { ...props, ...derived }
 }
@@ -227,5 +248,13 @@ export type WealthConsoleViewProps = {
   marketPrices: Record<string, number>
   loanSummary: LoanSummary | null
   subscriptionDash: SubscriptionDashboardSnapshot
+  savingGoals: Array<{
+    id: string
+    name: string
+    current: number
+    target: number | null
+    percent: number
+    status: string
+  }>
   loading: boolean
 }

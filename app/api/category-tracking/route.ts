@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
+import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getIncomeEntriesForMonthByDate, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
 import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
+import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
+import { loadGeneralSavingsContext } from "@/lib/saving-goal-general-savings"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { currencyFromSession } from "@/lib/user-currency"
@@ -31,6 +34,8 @@ export async function GET(request: Request) {
 
     const currency = currencyFromSession(session.user.displayCurrency)
     const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
+
+    await ensurePreTrackingSavingsBalances(session.user.id)
 
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get("month")
@@ -164,7 +169,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const tracking = calculateCategoryTracking({
+    let tracking = calculateCategoryTracking({
       categoryBalances: currentMonthCategoryBalances.map((b) => ({
         category: b.category,
         balance: toD(b.balance ?? 0n),
@@ -187,6 +192,22 @@ export async function GET(request: Request) {
         : undefined,
     })
 
+    const planVsLiquid = await reconcilePlanToLiquid(
+      session.user.id,
+      currentMonth,
+      currentYear,
+      currency,
+      tracking
+    )
+    tracking = planVsLiquid.tracking
+
+    const savingsCtx = await loadGeneralSavingsContext(
+      prisma,
+      session.user.id,
+      currentMonth,
+      currentYear
+    )
+
     const totalIncomeMinor = incomeEntriesForMonth.reduce(
       (sum, e) => addMinor(sum, coerceMinor(e.amount)),
       0n,
@@ -208,6 +229,13 @@ export async function GET(request: Request) {
         month: currentMonth,
         year: currentYear,
         totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
+        savingsGeneralAvailable: toD(savingsCtx.availableMinor),
+        planVsLiquid: {
+          liquidTotal: planVsLiquid.liquidTotal,
+          deployable: planVsLiquid.deployable,
+          gap: planVsLiquid.gap,
+          adjusted: planVsLiquid.adjusted,
+        },
       },
       currency,
       {
