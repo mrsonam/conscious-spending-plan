@@ -290,7 +290,7 @@ export function SubscriptionsPageBento() {
     }
 
     const snapshot = cloneSubscriptionState(subscriptions, monthlyActiveTotal)
-    const currentEditId = editId
+    const editingId = editId
     const recurringBase = {
       accountId,
       amount: amt,
@@ -315,11 +315,11 @@ export function SubscriptionsPageBento() {
     }
 
     if (editId) {
-      const existing = subscriptions.find((s) => s.id === currentEditId)
+      const existing = subscriptions.find((s) => s.id === editId)
       const optimistic = applyOptimisticSubscriptionUpdate(
         subscriptions,
         monthlyActiveTotal,
-        currentEditId,
+        editId,
         {
           ...subscriptionMeta,
           recurringExpense: {
@@ -367,8 +367,8 @@ export function SubscriptionsPageBento() {
     void (async () => {
       setSubmitting(true)
       try {
-        if (currentEditId) {
-          const res = await fetch(`/api/subscriptions/${currentEditId}`, {
+        if (editingId) {
+          const res = await fetch(`/api/subscriptions/${editingId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

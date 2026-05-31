@@ -61,13 +61,19 @@ function categorySlice(income: number, type: string, value: number): number {
   return 0
 }
 
+/** Account fields used when approximating an income breakdown in the UI. */
+export type OptimisticBreakdownAccount = Pick<
+  IncomePageAccount,
+  "name" | "bankName" | "accountType"
+> | null
+
 /** Approximate breakdown for instant UI; server response replaces it after save. */
 export function computeOptimisticBreakdown(
   incomeAmount: number,
   allocation: FundAllocation,
   options: {
     allocateToBudget: boolean
-    account: IncomePageAccount | null
+    account: OptimisticBreakdownAccount
   },
 ): IncomeBreakdown {
   const { allocateToBudget, account } = options

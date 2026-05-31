@@ -41,9 +41,12 @@ export function cloneLoansState<
   }
 }
 
-export function applyOptimisticRecordLoan<L extends LoanRowLike>(
+export function applyOptimisticRecordLoan<
+  L extends LoanRowLike,
+  A extends LoanAccountLike,
+>(
   loans: L[],
-  accounts: LoanAccountLike[],
+  accounts: A[],
   input: {
     accountId: string
     amount: number
@@ -53,7 +56,7 @@ export function applyOptimisticRecordLoan<L extends LoanRowLike>(
     dueDate: string | null
     account: { id: string; name: string; bankName: string }
   }
-): { loans: L[]; accounts: LoanAccountLike[] } {
+): { loans: L[]; accounts: A[] } {
   const now = new Date().toISOString()
   const loan = {
     id: createOptimisticId("loan"),
@@ -80,12 +83,15 @@ export function applyOptimisticRecordLoan<L extends LoanRowLike>(
   }
 }
 
-export function applyOptimisticMarkLoanRepaid<L extends LoanRowLike>(
+export function applyOptimisticMarkLoanRepaid<
+  L extends LoanRowLike,
+  A extends LoanAccountLike,
+>(
   loans: L[],
-  accounts: LoanAccountLike[],
+  accounts: A[],
   loanId: string,
   toAccountId: string
-): { loans: L[]; accounts: LoanAccountLike[] } {
+): { loans: L[]; accounts: A[] } {
   const loan = loans.find((l) => l.id === loanId)
   if (!loan) return { loans, accounts }
 
@@ -101,9 +107,12 @@ export function applyOptimisticMarkLoanRepaid<L extends LoanRowLike>(
   return { loans: nextLoans, accounts: nextAccounts }
 }
 
-export function applyOptimisticRecordBorrowed<L extends LoanRowLike>(
+export function applyOptimisticRecordBorrowed<
+  L extends LoanRowLike,
+  A extends LoanAccountLike,
+>(
   borrowedLoans: L[],
-  accounts: LoanAccountLike[],
+  accounts: A[],
   input: {
     accountId: string
     amount: number
@@ -113,7 +122,7 @@ export function applyOptimisticRecordBorrowed<L extends LoanRowLike>(
     dueDate: string | null
     account: { id: string; name: string; bankName: string }
   }
-): { borrowedLoans: L[]; accounts: LoanAccountLike[] } {
+): { borrowedLoans: L[]; accounts: A[] } {
   const now = new Date().toISOString()
   const row = {
     id: createOptimisticId("borrowed"),
@@ -140,12 +149,15 @@ export function applyOptimisticRecordBorrowed<L extends LoanRowLike>(
   }
 }
 
-export function applyOptimisticMarkBorrowedRepaid<L extends LoanRowLike>(
+export function applyOptimisticMarkBorrowedRepaid<
+  L extends LoanRowLike,
+  A extends LoanAccountLike,
+>(
   borrowedLoans: L[],
-  accounts: LoanAccountLike[],
+  accounts: A[],
   borrowedLoanId: string,
   fromAccountId: string
-): { borrowedLoans: L[]; accounts: LoanAccountLike[] } {
+): { borrowedLoans: L[]; accounts: A[] } {
   const loan = borrowedLoans.find((l) => l.id === borrowedLoanId)
   if (!loan) return { borrowedLoans, accounts }
 
