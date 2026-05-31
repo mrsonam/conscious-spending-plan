@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
-import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear } from "@/lib/monthly-tracking"
 import { serializeMoneyForApi } from "@/lib/money-api"
@@ -25,8 +24,6 @@ export async function GET() {
     const currency = currencyFromSession(session.user.displayCurrency)
     const toD = (minor: bigint | null | undefined) =>
       serializeMoneyForApi(coerceMinor(minor ?? 0n), currency)
-
-    await ensurePreTrackingSavingsBalances(session.user.id)
 
     const { month: currentMonth, year: currentYear } = getCurrentMonthYear()
     
@@ -159,7 +156,11 @@ export async function GET() {
       })
     }
 
-    return moneyJsonResponse({ history }, currency)
+    return moneyJsonResponse({ history }, currency, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+      },
+    })
   } catch (error) {
     console.error("Error fetching category history:", error)
     return NextResponse.json(

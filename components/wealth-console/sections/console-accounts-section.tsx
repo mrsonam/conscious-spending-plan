@@ -1,13 +1,9 @@
 "use client"
 
-import Link from "next/link"
-import { Gem } from "lucide-react"
-import { BENTO } from "@/lib/app-routes"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { accountTypeDisplay } from "@/components/wealth-console/dashboard-utils"
-import { consoleFocus, consoleMicroLabel } from "@/components/wealth-console/console-ui"
-import { cn } from "@/lib/utils"
+import { consoleMicroLabel } from "@/components/wealth-console/console-ui"
 import type { WealthConsoleDashboardVM } from "@/components/wealth-console/use-wealth-console-derived"
 
 export function ConsoleAccountsSection({ vm }: { vm: WealthConsoleDashboardVM }) {
@@ -15,7 +11,6 @@ export function ConsoleAccountsSection({ vm }: { vm: WealthConsoleDashboardVM })
     formatCurrency,
     accounts,
     ytdSummary,
-    projectionValue,
     loading,
   } = vm
 
@@ -24,11 +19,11 @@ export function ConsoleAccountsSection({ vm }: { vm: WealthConsoleDashboardVM })
     <>
             <div
               id="console-accounts"
-              className="scroll-mt-28 mt-12 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5 lg:items-stretch"
+              className="scroll-mt-28 mt-12 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-start lg:gap-5"
             >
               <h2 className="sr-only">Accounts and wealth</h2>
               <div
-                className="overflow-hidden rounded-xl lg:col-span-8"
+                className="h-fit self-start overflow-hidden rounded-xl lg:col-span-8"
                 style={{
                   background: TOKENS.surfaceLow,
                   border: `1px solid ${TOKENS.outlineGhost}`,
@@ -132,7 +127,7 @@ export function ConsoleAccountsSection({ vm }: { vm: WealthConsoleDashboardVM })
 
               <div
                 id="console-wealth"
-                className="scroll-mt-28 flex flex-col gap-3 lg:col-span-4"
+                className="scroll-mt-28 flex flex-col gap-3 self-start lg:col-span-4"
               >
                 {ytdSummary && (
                   <div className="space-y-3">
@@ -231,65 +226,6 @@ export function ConsoleAccountsSection({ vm }: { vm: WealthConsoleDashboardVM })
                   </div>
                 )}
 
-                {projectionValue != null && (
-                  <div
-                    className="relative overflow-hidden rounded-xl p-6 sm:p-8"
-                    style={{
-                      background: TOKENS.primary,
-                      boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
-                    }}
-                  >
-                    <Gem
-                      className="pointer-events-none absolute -right-6 -top-6 h-36 w-36 sm:h-44 sm:w-44 lg:h-52 lg:w-52"
-                      strokeWidth={1}
-                      style={{
-                        color: TOKENS.onPrimaryMuted,
-                      }}
-                      aria-hidden
-                    />
-                    <div className="relative z-[1] max-w-xl">
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-[0.28em]"
-                        style={{ color: TOKENS.onPrimaryMuted }}
-                      >
-                        Wealth status
-                      </p>
-                      <p
-                        className="mt-5 text-xl font-black leading-[1.25] tracking-tight sm:text-2xl lg:text-[1.65rem] lg:leading-snug"
-                        style={{ color: TOKENS.surface }}
-                      >
-                        You are on track to save{" "}
-                        <MajorFigureCurrency
-                          amount={projectionValue}
-                          variant="neutral"
-                          colorMain={TOKENS.surface}
-                          colorDecimal={TOKENS.onPrimaryMuted}
-                        />{" "}
-                        by Q4.
-                      </p>
-                      <p
-                        className="mt-4 max-w-md text-sm font-normal leading-relaxed sm:text-[0.9375rem]"
-                        style={{ color: TOKENS.onPrimarySubtle }}
-                      >
-                        Based on current trajectory and conscious spending
-                        efficiency.
-                      </p>
-                    </div>
-                    <Link
-                      href={BENTO.statement}
-                      className={cn(
-                        consoleFocus,
-                        "relative z-[1] mt-8 block w-full rounded-xl py-3.5 text-center text-[10px] font-bold uppercase tracking-[0.22em] transition-opacity hover:opacity-95 sm:py-4 sm:text-[11px]",
-                      )}
-                      style={{
-                        background: TOKENS.surface,
-                        color: TOKENS.onPrimary,
-                      }}
-                    >
-                      Optimization report
-                    </Link>
-                  </div>
-                )}
               </div>
             </div>
     </>

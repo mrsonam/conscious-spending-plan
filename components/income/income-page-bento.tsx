@@ -37,6 +37,7 @@ import {
   Building2,
   Calculator,
   Download,
+  Pencil,
   Plus,
   Trash2,
   TrendingDown,
@@ -301,6 +302,23 @@ export function IncomePageBento(p: UseIncomePageResult) {
     const ok = await p.handleSubmit(e)
     if (ok) setLogOpen(false)
   }
+
+  const openLogDialog = () => {
+    p.resetLogForm()
+    setLogOpen(true)
+  }
+
+  const openEditDialog = (entry: IncomeEntry) => {
+    p.startEditEntry(entry)
+    setLogOpen(true)
+  }
+
+  const handleLogOpenChange = (open: boolean) => {
+    setLogOpen(open)
+    if (!open) p.resetLogForm()
+  }
+
+  const isEditing = Boolean(p.editingEntryId)
 
   const exportCsv = async () => {
     setExporting(true)
@@ -573,7 +591,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
               <button
                 type="button"
-                onClick={() => setLogOpen(true)}
+                onClick={openLogDialog}
                 disabled={p.loadingForm || !p.allocation}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95"
                 style={{
@@ -597,7 +615,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
         />
       )}
 
-      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+      <Dialog open={logOpen} onOpenChange={handleLogOpenChange}>
         <DialogContent
           className="relative max-h-[90vh] overflow-y-auto border p-0 shadow-2xl"
           style={{
@@ -607,21 +625,22 @@ export function IncomePageBento(p: UseIncomePageResult) {
               "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)",
           }}
         >
-          <DialogClose onClose={() => setLogOpen(false)} />
+          <DialogClose onClose={() => handleLogOpenChange(false)} />
           <div className="p-6 sm:p-8">
             <DialogHeader>
               <DialogTitle
                 className="text-xl"
                 style={{ color: TOKENS.onSurface }}
               >
-                Log income
+                {isEditing ? "Edit income" : "Log income"}
               </DialogTitle>
               <DialogDescription
                 className="text-sm leading-relaxed"
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
-                Enter amount and date. Optionally allocate to your conscious
-                spending pillars.
+                {isEditing
+                  ? "Update amount, account, date, or allocation. Budget envelopes and balances adjust automatically."
+                  : "Enter amount and date. Optionally allocate to your conscious spending pillars."}
               </DialogDescription>
             </DialogHeader>
             <form noValidate onSubmit={submitLog} className="mt-6 space-y-5" inert={p.calculating}>
@@ -810,7 +829,13 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 }}
               >
                 <Calculator className="h-4 w-4" strokeWidth={2} />
-                {p.calculating ? "Logging…" : "Submit"}
+                {p.calculating
+                  ? isEditing
+                    ? "Saving…"
+                    : "Logging…"
+                  : isEditing
+                    ? "Save changes"
+                    : "Submit"}
               </button>
             </form>
           </div>
@@ -928,6 +953,21 @@ export function IncomePageBento(p: UseIncomePageResult) {
                         {entry.account?.bankName ?? "No account"}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openEditDialog(entry)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent"
+                      }}
+                      aria-label={`Edit income ${entry.description?.trim() || "entry"}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => p.setDeleteEntryId(entry.id)}

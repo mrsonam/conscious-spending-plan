@@ -1,8 +1,96 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { moneyJsonResponse } from "@/lib/api-money-response"
+import { parseMoneyFromApi } from "@/lib/money-api"
 import { coerceMinor, subtractMinor } from "@/lib/money"
 import { reverseSavingGoalCreditsForIncome } from "@/lib/saving-goal-credits-server"
+import { updateIncomeEntryForUser } from "@/lib/update-income-entry-server"
+import { currencyFromSession } from "@/lib/user-currency"
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const { id } = await params
+    const body = await request.json()
+    const {
+      income,
+      description,
+      date,
+      periodStart,
+      periodEnd,
+      accountId,
+      allocateToBudget = true,
+    } = body
+
+    let incomeMinor: bigint
+    try {
+      incomeMinor = parseMoneyFromApi(income, currency)
+    } catch {
+      return NextResponse.json(
+        { error: "Valid income amount is required" },
+        { status: 400 },
+      )
+    }
+    if (incomeMinor <= 0n) {
+      return NextResponse.json(
+        { error: "Valid income amount is required" },
+        { status: 400 },
+      )
+    }
+
+    if (!date || !periodStart || !periodEnd) {
+      return NextResponse.json(
+        { error: "Date and period are required" },
+        { status: 400 },
+      )
+    }
+
+    const incomeDate = new Date(date + "T12:00:00")
+    if (Number.isNaN(incomeDate.getTime())) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 })
+    }
+
+    const result = await updateIncomeEntryForUser(
+      session.user.id,
+      id,
+      {
+        incomeMinor,
+        description: description ?? null,
+        date: incomeDate,
+        periodStart: new Date(periodStart),
+        periodEnd: new Date(periodEnd),
+        accountId: accountId ?? null,
+        allocateToBudget: allocateToBudget !== false,
+      },
+      currency,
+    )
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+
+    return moneyJsonResponse(
+      { entry: result.entry, breakdown: result.breakdown },
+      currency,
+    )
+  } catch (error) {
+    console.error("Error updating income entry:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    )
+  }
+}
 
 export async function DELETE(
   _request: Request,

@@ -19,13 +19,17 @@ import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
 import {
+  adjustAccountsForIncomeEdit,
+  applyOptimisticIncomeEditSummaryDelta,
   applyOptimisticIncomeSummaryDelta,
   buildOptimisticIncomeEntry,
   computeOptimisticBreakdown,
   createOptimisticIncomeId,
   incomeEntryFromCalculateResponse,
   isInCurrentMonth,
+  normalizeIncomeEntryFromApi,
 } from "@/lib/income-optimistic"
+import { toastSuccess } from "@/lib/app-toast"
 import {
   fetchJsonAndCache,
   invalidateIncomeDataCaches,
@@ -86,6 +90,7 @@ export function useIncomePage(
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false)
   const [allocateToBudget, setAllocateToBudget] = useState(true)
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
   const [incomeStats, setIncomeStats] = useState<IncomePageStats>(EMPTY_INCOME_STATS)
 
   const summaryFetchGenRef = useRef(0)
@@ -448,6 +453,37 @@ export function useIncomePage(
     await fetchIncomeEntries(1)
   }, [fetchIncomeEntries, hasLoadedHistory])
 
+  const resetLogForm = useCallback(() => {
+    setEditingEntryId(null)
+    setError("")
+    clearFieldErrors()
+    setIncome("")
+    setDescription("")
+    const today = new Date()
+    setDate(today.toISOString().split("T")[0]!)
+    setAllocateToBudget(true)
+    if (accounts.length > 0) {
+      const defaultAccount = accounts.find((acc) => acc.isDefault)
+      setSelectedAccountId(defaultAccount?.id || accounts[0]!.id)
+    }
+  }, [accounts, clearFieldErrors])
+
+  const startEditEntry = useCallback(
+    (entry: IncomeEntry) => {
+      setEditingEntryId(entry.id)
+      setError("")
+      clearFieldErrors()
+      setIncome(String(entry.amount))
+      setDescription(entry.description ?? "")
+      setDate(entry.date.slice(0, 10))
+      setAllocateToBudget(entry.excludeFromAllocation !== true)
+      if (entry.account?.id) {
+        setSelectedAccountId(entry.account.id)
+      }
+    },
+    [clearFieldErrors],
+  )
+
   const handleSubmit = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
     setError("")
@@ -480,30 +516,7 @@ export function useIncomePage(
 
     const selectedAccount =
       accounts.find((acc) => acc.id === selectedAccountId) ?? null
-    const optimisticId = createOptimisticIncomeId()
     const trimmedDescription = description.trim() || null
-    const optimisticEntry = buildOptimisticIncomeEntry({
-      id: optimisticId,
-      amount: incomeAmount,
-      description: trimmedDescription,
-      date,
-      periodStart,
-      periodEnd,
-      excludeFromAllocation: !allocateToBudget,
-      account: selectedAccount
-        ? {
-            id: selectedAccount.id,
-            name: selectedAccount.name,
-            bankName: selectedAccount.bankName,
-            accountType: selectedAccount.accountType,
-          }
-        : null,
-    })
-    const optimisticBreakdown = computeOptimisticBreakdown(
-      incomeAmount,
-      allocation,
-      { allocateToBudget, account: selectedAccount },
-    )
 
     const snapshot: IncomeLogSnapshot = {
       allocation,
@@ -527,6 +540,134 @@ export function useIncomePage(
     }
 
     incomeLogInFlightRef.current = true
+
+    if (editingEntryId) {
+      const entryId = editingEntryId
+      const existing =
+        incomeEntries.find((entry) => entry.id === entryId) ??
+        sourceEntries.find((entry) => entry.id === entryId)
+
+      if (!existing) {
+        incomeLogInFlightRef.current = false
+        setError("Income entry not found. Refresh and try again.")
+        return false
+      }
+
+      const updatedEntry = buildOptimisticIncomeEntry({
+        id: entryId,
+        amount: incomeAmount,
+        description: trimmedDescription,
+        date,
+        periodStart,
+        periodEnd,
+        excludeFromAllocation: !allocateToBudget,
+        account: selectedAccount
+          ? {
+              id: selectedAccount.id,
+              name: selectedAccount.name,
+              bankName: selectedAccount.bankName,
+              accountType: selectedAccount.accountType,
+            }
+          : null,
+      })
+      const optimisticBreakdown = computeOptimisticBreakdown(
+        incomeAmount,
+        allocation,
+        { allocateToBudget, account: selectedAccount },
+      )
+
+      const patchEntry = (rows: IncomeEntry[]) =>
+        rows.map((row) => (row.id === entryId ? updatedEntry : row))
+
+      setBreakdown(optimisticBreakdown)
+      setIncomeStats((prev) =>
+        applyOptimisticIncomeEditSummaryDelta(prev, existing, updatedEntry),
+      )
+      setSourceEntries((prev) => {
+        const next = patchEntry(prev)
+        if (isInCurrentMonth(existing.date) && !isInCurrentMonth(date)) {
+          return next.filter((row) => row.id !== entryId)
+        }
+        if (!isInCurrentMonth(existing.date) && isInCurrentMonth(date)) {
+          if (next.some((row) => row.id === entryId)) return next
+          return [updatedEntry, ...next]
+        }
+        return next
+      })
+      setIncomeEntries(patchEntry)
+      setAccounts((prev) =>
+        adjustAccountsForIncomeEdit(prev, existing, updatedEntry),
+      )
+
+      toastSuccess("Income updated.")
+
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/income-entries/${encodeURIComponent(entryId)}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            },
+          )
+          const data = (await response.json()) as {
+            entry?: IncomeEntry
+            breakdown?: IncomeBreakdown
+            error?: string
+          }
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to update income entry")
+          }
+
+          if (data.breakdown) {
+            setBreakdown(data.breakdown)
+          }
+          if (data.entry) {
+            const saved = normalizeIncomeEntryFromApi(data.entry)
+            replaceOptimisticIncomeEntry(entryId, saved)
+          }
+
+          await reconcileIncomeData({ silent: true })
+        } catch (err) {
+          rollbackIncomeLog(snapshot)
+          setError(
+            err instanceof Error
+              ? err.message
+              : "An error occurred. Please try again.",
+          )
+        } finally {
+          incomeLogInFlightRef.current = false
+        }
+      })()
+
+      return true
+    }
+
+    const optimisticId = createOptimisticIncomeId()
+    const optimisticEntry = buildOptimisticIncomeEntry({
+      id: optimisticId,
+      amount: incomeAmount,
+      description: trimmedDescription,
+      date,
+      periodStart,
+      periodEnd,
+      excludeFromAllocation: !allocateToBudget,
+      account: selectedAccount
+        ? {
+            id: selectedAccount.id,
+            name: selectedAccount.name,
+            bankName: selectedAccount.bankName,
+            accountType: selectedAccount.accountType,
+          }
+        : null,
+    })
+    const optimisticBreakdown = computeOptimisticBreakdown(
+      incomeAmount,
+      allocation,
+      { allocateToBudget, account: selectedAccount },
+    )
+
     applyOptimisticIncome(
       optimisticEntry,
       optimisticBreakdown,
@@ -534,10 +675,7 @@ export function useIncomePage(
       selectedAccount,
     )
 
-    setIncome("")
-    setDescription("")
-    const today = new Date()
-    setDate(today.toISOString().split("T")[0])
+    resetLogForm()
 
     void (async () => {
       try {
@@ -703,6 +841,9 @@ export function useIncomePage(
     setDeleteEntryId,
     fetchIncomeEntries,
     ensureHistoryLoaded,
+    editingEntryId,
+    resetLogForm,
+    startEditEntry,
     handleSubmit,
     formatDate,
     handleDeleteEntry,

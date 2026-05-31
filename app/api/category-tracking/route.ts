@@ -3,7 +3,7 @@ import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { prisma } from "@/lib/prisma"
-import { getCurrentMonthYear, getIncomeEntriesForMonthByDate, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
+import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
 import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
 import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
@@ -74,9 +74,9 @@ export async function GET(request: Request) {
       currentMonthCategoryBalances,
       currentMonthExpenses,
       currentMonthTransfers,
-      currentMonthInvestments,
       incomeEntriesForMonth,
       fundAllocation,
+      previousMonth,
     ] = await Promise.all([
       prisma.categoryBalance.findMany({
         where: {
@@ -85,7 +85,8 @@ export async function GET(request: Request) {
           year: currentYear,
         },
       }),
-      prisma.expense.findMany({
+      prisma.expense.groupBy({
+        by: ["category"],
         where: {
           userId: session.user.id,
           date: {
@@ -96,12 +97,10 @@ export async function GET(request: Request) {
             in: ["fixedCosts", "investment", "savings", "guiltFreeSpending"],
           },
         },
-        select: {
-          amount: true,
-          category: true,
-        },
+        _sum: { amount: true },
       }),
-      prisma.transfer.findMany({
+      prisma.transfer.groupBy({
+        by: ["category"],
         where: {
           userId: session.user.id,
           date: {
@@ -112,22 +111,7 @@ export async function GET(request: Request) {
             in: ["fixedCosts", "investment", "savings", "guiltFreeSpending"],
           },
         },
-        select: {
-          amount: true,
-          category: true,
-        },
-      }),
-      prisma.investmentHolding.findMany({
-        where: {
-          userId: session.user.id,
-          date: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-        select: {
-          amount: true,
-        },
+        _sum: { amount: true },
       }),
       prisma.incomeEntry.findMany({
         where: {
@@ -147,14 +131,15 @@ export async function GET(request: Request) {
       prisma.fundAllocation.findUnique({
         where: { userId: session.user.id },
       }),
-    ])
-
-    const { remaining: carryoverByCategory, overspent: overspentByCategory } =
-      await getPreviousMonthRemainingAndOverspentByCategory(
+      getPreviousMonthRemainingAndOverspentByCategory(
         session.user.id,
         currentMonth,
         currentYear
-      )
+      ),
+    ])
+
+    const { remaining: carryoverByCategory, overspent: overspentByCategory } =
+      previousMonth
 
     const incomeAllocatedMinor = fundAllocation
       ? buildAllocatedSoFarFromEntries(
@@ -175,17 +160,19 @@ export async function GET(request: Request) {
         category: b.category,
         balance: toD(b.balance ?? 0n),
       })),
-      expenses: currentMonthExpenses.map((e) => ({
-        category: e.category,
-        amount: toD(e.amount),
-      })),
-      transfers: currentMonthTransfers.map((t) => ({
-        category: t.category,
-        amount: toD(t.amount),
-      })),
-      investments: currentMonthInvestments.map((i) => ({
-        amount: toD(i.amount),
-      })),
+      expenses: currentMonthExpenses
+        .filter((e) => e.category)
+        .map((e) => ({
+          category: e.category!,
+          amount: toD(e._sum.amount ?? 0n),
+        })),
+      transfers: currentMonthTransfers
+        .filter((t) => t.category)
+        .map((t) => ({
+          category: t.category!,
+          amount: toD(t._sum.amount ?? 0n),
+        })),
+      investments: [],
       carryoverByCategory,
       overspentByCategory,
       incomeAllocatedByCategory: incomeAllocatedMinor
@@ -193,28 +180,28 @@ export async function GET(request: Request) {
         : undefined,
     })
 
-    const planVsLiquid = await reconcilePlanToLiquid(
-      session.user.id,
-      currentMonth,
-      currentYear,
-      currency,
-      tracking
-    )
+    const [planVsLiquid, savingsCtx, bucketTransfers] = await Promise.all([
+      reconcilePlanToLiquid(
+        session.user.id,
+        currentMonth,
+        currentYear,
+        currency,
+        tracking
+      ),
+      loadGeneralSavingsContext(
+        prisma,
+        session.user.id,
+        currentMonth,
+        currentYear
+      ),
+      listCategoryBucketTransfersForMonth(
+        session.user.id,
+        currentMonth,
+        currentYear,
+        currency
+      ),
+    ])
     tracking = planVsLiquid.tracking
-
-    const savingsCtx = await loadGeneralSavingsContext(
-      prisma,
-      session.user.id,
-      currentMonth,
-      currentYear
-    )
-
-    const bucketTransfers = await listCategoryBucketTransfersForMonth(
-      session.user.id,
-      currentMonth,
-      currentYear,
-      currency
-    )
 
     const totalIncomeMinor = incomeEntriesForMonth.reduce(
       (sum, e) => addMinor(sum, coerceMinor(e.amount)),

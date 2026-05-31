@@ -12,6 +12,7 @@ import { CSP_OPEN_SIDEBAR_EVENT, NAV_ITEM_TOUR_IDS } from "@/lib/product-tour"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
 import { prefetchDashboardConsole } from "@/lib/dashboard-console-cache"
+import { prefetchRouteData } from "@/lib/route-data-warmup"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 
 const SIDEBAR_COLLAPSED_KEY = "csp-wealth-console-sidebar-collapsed"
@@ -311,11 +312,7 @@ export function SidebarBento() {
                         active={pathname === item.href}
                         collapsed={railCollapsed}
                         tourId={NAV_ITEM_TOUR_IDS[item.name]}
-                        onWarmNavigate={
-                          item.href === BENTO.dashboard
-                            ? prefetchDashboardConsole
-                            : undefined
-                        }
+                        onWarmNavigate={() => prefetchRouteData(item.href)}
                       />
                     ))}
                   </div>

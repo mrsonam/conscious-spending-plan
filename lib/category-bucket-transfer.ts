@@ -20,7 +20,7 @@ import {
 } from "@/lib/money"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
-import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
+import { ensurePreTrackingSavingsBalances, invalidatePreTrackingEnsureCache } from "@/lib/pre-tracking-savings"
 import { ensureCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
 import { upsertEnvelopeBalancesForMonth } from "@/lib/envelope-balance-recompute"
 import { computeGeneralSavingsAvailableMinor } from "@/lib/saving-goal-general-savings"
@@ -164,7 +164,8 @@ export async function transferCategoryBucketFunds(params: {
     return { ok: false, error: "Amount must be greater than zero" }
   }
 
-  await ensurePreTrackingSavingsBalances(userId)
+  invalidatePreTrackingEnsureCache(userId)
+  await ensurePreTrackingSavingsBalances(userId, { force: true })
   await ensureMonthlyCategoryBalances(userId, month, year)
   await ensureCategoryBucketTransferTable()
 

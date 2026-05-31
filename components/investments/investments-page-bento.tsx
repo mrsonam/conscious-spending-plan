@@ -43,7 +43,7 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
     if (ok) setDividendOpen(false)
   }
 
-  if (p.loading) {
+  if (p.loading && p.accounts.length === 0) {
     return <InvestmentsPageBentoLoading />
   }
 

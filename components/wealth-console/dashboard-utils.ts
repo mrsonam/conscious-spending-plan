@@ -83,16 +83,6 @@ export function buildInvestmentRows(accounts: InvestmentAccount[]): DetailRow[] 
     .map(([label, amount]) => ({ label, amount }))
 }
 
-export function buildProjectionValue(breakdown: Breakdown | null): number | null {
-  if (!breakdown || breakdown.income <= 0) return null
-  const month = new Date().getMonth()
-  const monthsRemaining = Math.max(1, 12 - month)
-  const monthlyWealth = breakdown.savings + breakdown.investment
-  const projected = monthlyWealth * monthsRemaining
-  if (projected <= 0) return null
-  return projected
-}
-
 export function buildSpendingAlerts(
   categoryTracking: Record<string, CategoryTracking>,
   formatCurrency: (amount: number) => string,

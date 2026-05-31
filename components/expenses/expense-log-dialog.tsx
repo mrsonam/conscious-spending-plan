@@ -34,6 +34,7 @@ type ExpenseLogDialogProps = {
   onOpenChange: (open: boolean) => void
   p: UseExpensePageResult
   onSubmit: (e: React.FormEvent) => void | Promise<void>
+  editingExpenseId?: string | null
 }
 
 export function ExpenseLogDialog({
@@ -41,8 +42,10 @@ export function ExpenseLogDialog({
   onOpenChange,
   p,
   onSubmit,
+  editingExpenseId = null,
 }: ExpenseLogDialogProps) {
   const fe = p.fieldErrors
+  const isEditing = Boolean(editingExpenseId)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,13 +65,15 @@ export function ExpenseLogDialog({
               className="text-xl"
               style={{ color: TOKENS.onSurface }}
             >
-              Log expense
+              {isEditing ? "Edit expense" : "Log expense"}
             </DialogTitle>
             <DialogDescription
               className="text-sm leading-relaxed"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              Deduct from an account. Non-cash accounts require a fund pillar.
+              {isEditing
+                ? "Update amount, account, categories, or date. Account balances adjust automatically."
+                : "Deduct from an account. Non-cash accounts require a fund pillar."}
             </DialogDescription>
           </DialogHeader>
           <form noValidate onSubmit={onSubmit} className="mt-6 space-y-5" inert={p.submitting}>
@@ -272,7 +277,13 @@ export function ExpenseLogDialog({
                 boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
               }}
             >
-              {p.submitting ? "Logging…" : "Log expense"}
+              {p.submitting
+                ? isEditing
+                  ? "Saving…"
+                  : "Logging…"
+                : isEditing
+                  ? "Save changes"
+                  : "Log expense"}
             </button>
           </form>
         </div>

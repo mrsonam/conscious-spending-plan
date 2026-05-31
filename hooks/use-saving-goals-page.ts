@@ -1,8 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import {
+  fetchJsonAndCache,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -46,6 +50,14 @@ export interface SavingGoalsSummary {
 
 export type SavingGoalFormFieldKey = "name" | "target" | "percent"
 
+const SAVING_GOALS_CACHE_KEY = "saving-goals:page"
+const SAVING_GOALS_CACHE_MS = 45_000
+
+type SavingGoalsApiPayload = {
+  goals?: SavingGoalRow[]
+  summary?: SavingGoalsSummary
+}
+
 export function useSavingGoalsPage(
   authStatus: "loading" | "authenticated" | "unauthenticated"
 ) {
@@ -74,23 +86,37 @@ export function useSavingGoalsPage(
   const { fieldErrors, setFieldErrors, clearFieldError } =
     useFormFieldErrors<SavingGoalFormFieldKey>()
 
-  const fetchGoals = useCallback(async () => {
+  const fetchGoals = useCallback(async (opts?: { force?: boolean }) => {
+    const cached = peekCachedJson<SavingGoalsApiPayload>(SAVING_GOALS_CACHE_KEY, SAVING_GOALS_CACHE_MS)
+    if (!cached?.goals) {
+      setLoading(true)
+    }
+    const t = Date.now()
     try {
-      const res = await fetch("/api/saving-goals")
-      if (res.ok) {
-        const data = (await res.json()) as {
-          goals?: SavingGoalRow[]
-          summary?: SavingGoalsSummary
-        }
-        setGoals(data.goals ?? [])
-        if (data.summary) setSummary(data.summary)
-      }
+      const data = await fetchJsonAndCache<SavingGoalsApiPayload>(
+        SAVING_GOALS_CACHE_KEY,
+        `/api/saving-goals?t=${t}`,
+        undefined,
+        opts?.force ? { force: true } : undefined,
+      )
+      setGoals(data.goals ?? [])
+      if (data.summary) setSummary(data.summary)
     } catch (e) {
       console.error("Error fetching saving goals:", e)
     } finally {
       setLoading(false)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (authStatus !== "authenticated") return
+    const cached = peekCachedJson<SavingGoalsApiPayload>(SAVING_GOALS_CACHE_KEY, SAVING_GOALS_CACHE_MS)
+    if (cached?.goals) {
+      setGoals(cached.goals)
+      if (cached.summary) setSummary(cached.summary)
+      setLoading(false)
+    }
+  }, [authStatus])
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -185,7 +211,7 @@ export function useSavingGoalsPage(
         if (data.goal) {
           setGoals((prev) => replaceOptimisticGoalRow(prev, optimisticId, data.goal!))
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)
@@ -225,7 +251,7 @@ export function useSavingGoalsPage(
           toastError(data.error ?? "Failed to update goal")
           return
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)
@@ -264,7 +290,7 @@ export function useSavingGoalsPage(
           toastError(data.error ?? "Failed to archive goal")
           return
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)
@@ -301,7 +327,7 @@ export function useSavingGoalsPage(
           toastError(data.error ?? "Failed to withdraw goal")
           return
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)
@@ -338,7 +364,7 @@ export function useSavingGoalsPage(
           toastError(data.error ?? "Failed to transfer funds")
           return
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)
@@ -373,7 +399,7 @@ export function useSavingGoalsPage(
           toastError(data.error ?? "Failed to delete goal")
           return
         }
-        await fetchGoals()
+        await fetchGoals({ force: true })
       } catch {
         setGoals(snapshot.goals)
         setSummary(snapshot.summary)

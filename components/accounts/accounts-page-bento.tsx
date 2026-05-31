@@ -202,7 +202,7 @@ export function AccountsPageBento() {
     return { label: "Manual", tone: "ok" as const }
   }
 
-  if (loadingAccounts) {
+  if (loadingAccounts && accounts.length === 0) {
     return <AccountsPageBentoLoading />
   }
 

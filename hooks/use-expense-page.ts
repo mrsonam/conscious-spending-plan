@@ -32,6 +32,7 @@ import {
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import {
   applyOptimisticSummaryDelta,
+  adjustAccountsForExpenseEdit,
   buildOptimisticExpenseEntry,
   createOptimisticExpenseId,
   expenseMatchesListFilters,
@@ -116,6 +117,7 @@ export function useExpensePage(
     new Date().toISOString().split("T")[0],
   )
   const [submitting, setSubmitting] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
 
   const [filterStartDate, setFilterStartDate] = useState("")
   const [filterEndDate, setFilterEndDate] = useState("")
@@ -437,10 +439,9 @@ export function useExpensePage(
   useLayoutEffect(() => {
     if (status !== "authenticated") return
 
-    const cachedAccounts = peekCachedJson<{ accounts: ExpensePageAccount[] }>(
-      "accounts",
-      60_000,
-    )
+    const cachedAccounts =
+      peekCachedJson<{ accounts: ExpensePageAccount[] }>("accounts", 60_000) ??
+      peekCachedJson<{ accounts?: ExpensePageAccount[] }>("dashboard:accounts", 45_000)
     if (cachedAccounts) {
       const list = cachedAccounts.accounts || []
       setAccounts(list)
@@ -681,6 +682,33 @@ export function useExpensePage(
     }
   }
 
+  const resetLogForm = useCallback(() => {
+    setEditingExpenseId(null)
+    setLogFormError(null)
+    clearFieldErrors()
+    setAmount("")
+    setDescription("")
+    setFundCategory("")
+    setExpenseCategory("")
+    setDate(new Date().toISOString().split("T")[0]!)
+    if (accounts.length > 0) {
+      const defaultAccount = accounts.find((acc) => acc.isDefault)
+      setAccountId(defaultAccount?.id || accounts[0]!.id)
+    }
+  }, [accounts, clearFieldErrors])
+
+  const startEditExpense = useCallback((expense: ExpenseEntry) => {
+    setEditingExpenseId(expense.id)
+    setLogFormError(null)
+    clearFieldErrors()
+    setAccountId(expense.accountId)
+    setAmount(String(expense.amount))
+    setDescription(expense.description ?? "")
+    setFundCategory(expense.category ?? "")
+    setExpenseCategory(expense.expenseCategory ?? "")
+    setDate(expense.date.slice(0, 10))
+  }, [clearFieldErrors])
+
   const handleSubmit = async (e: React.FormEvent): Promise<boolean> => {
     e.preventDefault()
     setLogFormError(null)
@@ -723,22 +751,6 @@ export function useExpensePage(
     if (!selectedAccount) return false
     if (expenseLogInFlightRef.current) return false
 
-    const optimisticId = createOptimisticExpenseId()
-    const optimisticEntry = buildOptimisticExpenseEntry({
-      id: optimisticId,
-      accountId,
-      amount: amountNum,
-      description: description || null,
-      category: fundCategory || null,
-      expenseCategory: expenseCategory || null,
-      date,
-      account: {
-        id: selectedAccount.id,
-        name: selectedAccount.name,
-        bankName: selectedAccount.bankName,
-      },
-    })
-
     const snapshot: ExpenseLogSnapshot = {
       accounts,
       expenses,
@@ -757,15 +769,115 @@ export function useExpensePage(
     }
 
     expenseLogInFlightRef.current = true
+
+    if (editingExpenseId) {
+      const expenseId = editingExpenseId
+      const existing = expenses.find((entry) => entry.id === expenseId)
+      if (!existing) {
+        expenseLogInFlightRef.current = false
+        setLogFormError("Expense not found. Refresh and try again.")
+        return false
+      }
+
+      const updatedEntry = buildOptimisticExpenseEntry({
+        id: expenseId,
+        accountId,
+        amount: amountNum,
+        description: description || null,
+        category: fundCategory || null,
+        expenseCategory: expenseCategory || null,
+        date,
+        account: {
+          id: selectedAccount.id,
+          name: selectedAccount.name,
+          bankName: selectedAccount.bankName,
+        },
+      })
+
+      setAccounts((prev) =>
+        adjustAccountsForExpenseEdit(prev, existing, updatedEntry),
+      )
+      setExpenses((prev) => {
+        const next = prev.map((row) =>
+          row.id === expenseId ? updatedEntry : row,
+        )
+        return next.filter(
+          (row) =>
+            row.id !== expenseId ||
+            expenseMatchesListFilters(row, listFilters()),
+        )
+      })
+
+      toastSuccess("Expense updated.")
+
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/expenses?id=${encodeURIComponent(expenseId)}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            },
+          )
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to update expense")
+          }
+
+          const saved = normalizeExpenseFromApi(data.expense as ExpenseEntry)
+          setExpenses((prev) => {
+            const next = prev.map((row) =>
+              row.id === expenseId ? saved : row,
+            )
+            return next.filter(
+              (row) =>
+                row.id !== expenseId ||
+                expenseMatchesListFilters(row, listFilters()),
+            )
+          })
+
+          await reconcileExpenseData({ silent: true })
+        } catch (error) {
+          rollbackExpenseLog(snapshot)
+          setMessage({
+            type: "error",
+            text:
+              error instanceof Error ? error.message : "Failed to update expense",
+          })
+          setLogFormError(
+            error instanceof Error ? error.message : "Failed to update expense",
+          )
+        } finally {
+          expenseLogInFlightRef.current = false
+        }
+      })()
+
+      return true
+    }
+
+    const optimisticId = createOptimisticExpenseId()
+    const optimisticEntry = buildOptimisticExpenseEntry({
+      id: optimisticId,
+      accountId,
+      amount: amountNum,
+      description: description || null,
+      category: fundCategory || null,
+      expenseCategory: expenseCategory || null,
+      date,
+      account: {
+        id: selectedAccount.id,
+        name: selectedAccount.name,
+        bankName: selectedAccount.bankName,
+      },
+    })
+
     applyOptimisticExpense(optimisticEntry, amountNum)
 
     toastSuccess("Expense logged successfully!")
     setLogFormError(null)
     clearFieldErrors()
-    setAmount("")
-    setDescription("")
-    setFundCategory("")
-    setExpenseCategory("")
+    resetLogForm()
     setShowAddForm(false)
 
     void (async () => {
@@ -1090,6 +1202,9 @@ export function useExpensePage(
     handleLogRecurring,
     handleDeleteRecurring,
     confirmDeleteRecurring,
+    editingExpenseId,
+    resetLogForm,
+    startEditExpense,
     handleSubmit,
     handleBulkSubmit,
     handleDelete,

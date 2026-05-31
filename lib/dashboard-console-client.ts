@@ -1,4 +1,8 @@
-import type { DashboardConsolePayload } from "@/lib/dashboard-console-types"
+import type {
+  DashboardConsoleCorePayload,
+  DashboardConsolePayload,
+  DashboardConsoleSecondaryPayload,
+} from "@/lib/dashboard-console-types"
 import type {
   Account,
   Breakdown,
@@ -57,8 +61,8 @@ export type ConsolePayloadSetters = {
   setSavingGoals: (v: DashboardConsolePayload["savingGoals"]) => void
 }
 
-export function applyConsolePayload(
-  payload: DashboardConsolePayload,
+export function applyConsoleCorePayload(
+  payload: DashboardConsoleCorePayload,
   setters: ConsolePayloadSetters,
 ) {
   setters.setBreakdown(payload.breakdown)
@@ -68,12 +72,26 @@ export function applyConsolePayload(
   setters.setExpensesTotalForMonth(payload.expensesTotalForMonth)
   setters.setLastMonthExpenses(payload.lastMonthExpenses)
   setters.setCategoryTracking(payload.tracking)
-  setters.setInvestmentAccounts(payload.investmentAccounts)
   setters.setYtdSummary(payload.ytd)
+}
+
+export function applyConsoleSecondaryPayload(
+  payload: DashboardConsoleSecondaryPayload,
+  setters: ConsolePayloadSetters,
+) {
+  setters.setInvestmentAccounts(payload.investmentAccounts)
   setters.setTrajectorySeries(buildTrajectorySeries(payload.history))
-  setters.setLoanSummary(loanSummaryFromPayload(payload))
+  setters.setLoanSummary(loanSummaryFromPayload({ loans: payload.loans } as DashboardConsolePayload))
   setters.setSubscriptionDash(payload.subscriptionDash)
   setters.setSavingGoals(payload.savingGoals ?? [])
+}
+
+export function applyConsolePayload(
+  payload: DashboardConsolePayload,
+  setters: ConsolePayloadSetters,
+) {
+  applyConsoleCorePayload(payload, setters)
+  applyConsoleSecondaryPayload(payload, setters)
 }
 
 export function fetchStockPrices(

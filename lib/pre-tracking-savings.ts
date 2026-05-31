@@ -217,6 +217,51 @@ async function upsertCategoryBalanceExact(
   })
 }
 
+const ENSURE_TTL_MS = 5 * 60_000
+const ensuredAt = new Map<string, number>()
+const ensureInFlight = new Map<string, Promise<void>>()
+
+/** Drop read-path cache after envelope mutations so the next ensure can reconcile. */
+export function invalidatePreTrackingEnsureCache(userId?: string) {
+  if (userId) {
+    ensuredAt.delete(userId)
+    return
+  }
+  ensuredAt.clear()
+}
+
+async function isPreTrackingChainCurrent(
+  userId: string,
+  trackingStart: { month: number; year: number },
+  seedMinor: bigint
+): Promise<boolean> {
+  const prev = previousCalendarMonth(trackingStart.month, trackingStart.year)
+  const seedRow = await prisma.categoryBalance.findUnique({
+    where: {
+      userId_category_month_year: {
+        userId,
+        category: "savings",
+        month: prev.month,
+        year: prev.year,
+      },
+    },
+    select: { balance: true },
+  })
+  if (coerceMinor(seedRow?.balance ?? 0n) !== seedMinor) {
+    return false
+  }
+
+  const { month: endMonth, year: endYear } = getCurrentMonthYear()
+  const closingCount = await prisma.categoryMonthClosing.count({
+    where: {
+      userId,
+      month: endMonth,
+      year: endYear,
+    },
+  })
+  return closingCount >= 4
+}
+
 /**
  * Replay envelope balances and month closings from tracking start through today.
  * Keeps carry/clawback in sync after pre-tracking seed changes Jan and downstream months.
@@ -240,16 +285,36 @@ async function reconcileEnvelopeChainFromTrackingStart(
   }
 }
 
-/**
- * Seed pre-tracking bank balances into the savings bucket for the first tracked month.
- * Idempotent — safe to call on every read/write path.
- */
-export async function ensurePreTrackingSavingsBalances(userId: string) {
+async function ensurePreTrackingSavingsBalancesInner(
+  userId: string,
+  opts?: { force?: boolean }
+) {
+  if (!opts?.force) {
+    const lastEnsured = ensuredAt.get(userId)
+    if (lastEnsured != null && Date.now() - lastEnsured < ENSURE_TTL_MS) {
+      return
+    }
+  }
+
   const trackingStart = await resolveTrackingStartMonth(userId)
-  if (!trackingStart) return
+  if (!trackingStart) {
+    ensuredAt.set(userId, Date.now())
+    return
+  }
 
   const seedMinor = await sumPreTrackingSavingsMinor(userId, trackingStart)
-  if (seedMinor <= 0n) return
+  if (seedMinor <= 0n) {
+    ensuredAt.set(userId, Date.now())
+    return
+  }
+
+  if (
+    !opts?.force &&
+    (await isPreTrackingChainCurrent(userId, trackingStart, seedMinor))
+  ) {
+    ensuredAt.set(userId, Date.now())
+    return
+  }
 
   const currency = await getUserDisplayCurrency(userId)
   const { month, year } = trackingStart
@@ -260,4 +325,27 @@ export async function ensurePreTrackingSavingsBalances(userId: string) {
   await ensureMonthClosing(userId, prev.month, prev.year)
 
   await reconcileEnvelopeChainFromTrackingStart(userId, trackingStart, currency)
+  ensuredAt.set(userId, Date.now())
+}
+
+/**
+ * Seed pre-tracking bank balances into the savings bucket for the first tracked month.
+ * Idempotent — safe to call on every read/write path.
+ */
+export async function ensurePreTrackingSavingsBalances(
+  userId: string,
+  opts?: { force?: boolean }
+) {
+  if (!opts?.force) {
+    const inFlight = ensureInFlight.get(userId)
+    if (inFlight) {
+      return inFlight
+    }
+  }
+
+  const work = ensurePreTrackingSavingsBalancesInner(userId, opts).finally(() => {
+    ensureInFlight.delete(userId)
+  })
+  ensureInFlight.set(userId, work)
+  return work
 }

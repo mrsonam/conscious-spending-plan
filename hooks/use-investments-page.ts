@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   fetchJsonAndCache,
   invalidateCachedJson,
@@ -108,27 +108,33 @@ export function useInvestmentsPage(status: string) {
     setDividendDate(d)
   }, [])
 
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return
+    const cached = peekCachedJson<InvestmentsApiPayload>(INVESTMENTS_CACHE_KEY, 45_000)
+    if (cached?.accounts) {
+      setAccounts(cached.accounts)
+      setDividendYtd(cached.dividendYtd ?? 0)
+      setDividendAllTime(cached.dividendAllTime ?? 0)
+      setRecentDividends(cached.recentDividends ?? [])
+      setLoading(false)
+    }
+  }, [status])
+
   useEffect(() => {
     if (status !== "authenticated") return
 
     let cancelled = false
 
     async function load() {
-      setLoading(true)
+      const cached = peekCachedJson<InvestmentsApiPayload>(
+        INVESTMENTS_CACHE_KEY,
+        45_000,
+      )
+      if (!cached?.accounts) {
+        setLoading(true)
+      }
       const t = Date.now()
       try {
-        const cached = peekCachedJson<InvestmentsApiPayload>(
-          INVESTMENTS_CACHE_KEY,
-          45_000,
-        )
-        if (cached?.accounts) {
-          setAccounts(cached.accounts)
-          setDividendYtd(cached.dividendYtd ?? 0)
-          setDividendAllTime(cached.dividendAllTime ?? 0)
-          setRecentDividends(cached.recentDividends ?? [])
-          setLoading(false)
-        }
-
         const data = await fetchJsonAndCache<InvestmentsApiPayload>(
           INVESTMENTS_CACHE_KEY,
           `/api/investments?t=${t}`,

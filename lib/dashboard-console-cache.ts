@@ -7,7 +7,12 @@ import {
   buildTrajectorySeries,
   loanSummaryFromPayload,
 } from "@/lib/dashboard-console-client"
-import type { DashboardConsolePayload } from "@/lib/dashboard-console-types"
+import type {
+  DashboardConsoleCorePayload,
+  DashboardConsolePayload,
+  DashboardConsoleSecondaryPayload,
+} from "@/lib/dashboard-console-types"
+import { EMPTY_DASHBOARD_CONSOLE, mergeDashboardConsolePayload } from "@/lib/dashboard-console-types"
 import type {
   Account,
   Breakdown,
@@ -20,6 +25,8 @@ import type {
 } from "@/components/wealth-console/types"
 
 export const DASHBOARD_CONSOLE_CACHE_KEY = "dashboard:console"
+export const DASHBOARD_CONSOLE_CORE_CACHE_KEY = "dashboard:console:core"
+export const DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY = "dashboard:console:secondary"
 export const DASHBOARD_CONSOLE_CACHE_MS = 45_000
 
 const INCOME_MONTH_MS = 45_000
@@ -61,35 +68,52 @@ export type DashboardCoreSnapshot = {
   hasCore: boolean
 }
 
+function mergeCachedConsoleParts(
+  core?: DashboardConsoleCorePayload | null,
+  secondary?: DashboardConsoleSecondaryPayload | null,
+): DashboardConsolePayload | undefined {
+  if (!core) return undefined
+  return mergeDashboardConsolePayload(
+    core,
+    secondary ?? {
+      history: {},
+      investmentAccounts: [],
+      loans: [],
+      subscriptionDash: EMPTY_DASHBOARD_CONSOLE.subscriptionDash,
+      savingGoals: [],
+    },
+  )
+}
+
 export function peekDashboardConsoleBlob(
   maxAgeMs = DASHBOARD_CONSOLE_CACHE_MS,
 ) {
-  return peekCachedJson<DashboardConsolePayload>(
+  const full = peekCachedJson<DashboardConsolePayload>(
     DASHBOARD_CONSOLE_CACHE_KEY,
     maxAgeMs,
   )
-}
+  if (full) return full
 
-/** Warm console JSON before navigation (deduped via fetchJsonAndCache). */
-export function prefetchDashboardConsole() {
-  if (peekDashboardConsoleBlob()) return
-  void fetchJsonAndCache<DashboardConsolePayload>(
-    DASHBOARD_CONSOLE_CACHE_KEY,
-    "/api/dashboard/console",
+  const core = peekCachedJson<DashboardConsoleCorePayload>(
+    DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+    maxAgeMs,
   )
-    .then((payload) => {
-      seedDashboardShardCaches(payload)
-    })
-    .catch(() => {})
+  const secondary = peekCachedJson<DashboardConsoleSecondaryPayload>(
+    DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+    maxAgeMs,
+  )
+  return mergeCachedConsoleParts(core, secondary)
 }
 
-export function seedDashboardShardCaches(payload: DashboardConsolePayload) {
-  seedCachedJson(DASHBOARD_CONSOLE_CACHE_KEY, payload)
+export function seedDashboardCoreShardCaches(payload: DashboardConsoleCorePayload) {
+  seedCachedJson(DASHBOARD_CONSOLE_CORE_CACHE_KEY, payload)
   seedCachedJson("dashboard:income-month", { breakdown: payload.breakdown })
   seedCachedJson("dashboard:income-meta", {
     lastMonthIncome: payload.lastMonthIncome,
   })
   seedCachedJson("dashboard:accounts", { accounts: payload.accounts })
+  seedCachedJson("accounts", { accounts: payload.accounts })
+  seedCachedJson("statement:accounts", { accounts: payload.accounts })
   seedCachedJson("dashboard:expenses-current", {
     expenses: payload.expenses,
     total: payload.expensesTotalForMonth,
@@ -98,11 +122,56 @@ export function seedDashboardShardCaches(payload: DashboardConsolePayload) {
     total: payload.lastMonthExpenses,
   })
   seedCachedJson("dashboard:tracking", { tracking: payload.tracking })
-  seedCachedJson("dashboard:investments", { accounts: payload.investmentAccounts })
   seedCachedJson("dashboard:ytd", payload.ytd)
+}
+
+export function seedDashboardSecondaryShardCaches(
+  payload: DashboardConsoleSecondaryPayload,
+) {
+  seedCachedJson(DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY, payload)
+  seedCachedJson("dashboard:investments", { accounts: payload.investmentAccounts })
   seedCachedJson("dashboard:history", { history: payload.history })
   seedCachedJson("dashboard:loans", { loans: payload.loans })
   seedCachedJson("dashboard:subscriptions", payload.subscriptionDash)
+}
+
+/** Warm console JSON before navigation (core first, secondary in background). */
+export function prefetchDashboardConsole() {
+  if (peekDashboardConsoleBlob()) return
+
+  void fetchJsonAndCache<DashboardConsoleCorePayload>(
+    DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+    "/api/dashboard/console",
+  )
+    .then((core) => {
+      seedDashboardCoreShardCaches(core)
+      const cachedSecondary = peekCachedJson<DashboardConsoleSecondaryPayload>(
+        DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+        DASHBOARD_CONSOLE_CACHE_MS,
+      )
+      const merged = mergeCachedConsoleParts(core, cachedSecondary)
+      if (merged) seedCachedJson(DASHBOARD_CONSOLE_CACHE_KEY, merged)
+
+      void fetchJsonAndCache<DashboardConsoleSecondaryPayload>(
+        DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+        "/api/dashboard/console/secondary",
+      )
+        .then((secondary) => {
+          seedDashboardSecondaryShardCaches(secondary)
+          seedCachedJson(
+            DASHBOARD_CONSOLE_CACHE_KEY,
+            mergeDashboardConsolePayload(core, secondary),
+          )
+        })
+        .catch(() => {})
+    })
+    .catch(() => {})
+}
+
+export function seedDashboardShardCaches(payload: DashboardConsolePayload) {
+  seedCachedJson(DASHBOARD_CONSOLE_CACHE_KEY, payload)
+  seedDashboardCoreShardCaches(payload)
+  seedDashboardSecondaryShardCaches(payload)
 }
 
 export function peekDashboardCoreSnapshot(now = new Date()): DashboardCoreSnapshot {
@@ -115,6 +184,21 @@ export function peekDashboardCoreSnapshot(now = new Date()): DashboardCoreSnapsh
       expenses: blob.expenses,
       expensesTotalForMonth: blob.expensesTotalForMonth,
       hasCore: blob.breakdown != null,
+    }
+  }
+
+  const core = peekCachedJson<DashboardConsoleCorePayload>(
+    DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+    DASHBOARD_CONSOLE_CACHE_MS,
+  )
+  if (core) {
+    return {
+      breakdown: core.breakdown,
+      lastMonthIncome: core.lastMonthIncome,
+      accounts: core.accounts,
+      expenses: core.expenses,
+      expensesTotalForMonth: core.expensesTotalForMonth,
+      hasCore: core.breakdown != null,
     }
   }
 
@@ -196,6 +280,22 @@ export function peekDashboardSecondarySnapshot(): DashboardSecondarySnapshot {
       trajectorySeries: buildTrajectorySeries(blob.history),
       loanSummary: loanSummaryFromPayload(blob),
       subscriptionDash: blob.subscriptionDash,
+    }
+  }
+
+  const secondary = peekCachedJson<DashboardConsoleSecondaryPayload>(
+    DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+    SECONDARY_MS,
+  )
+  if (secondary) {
+    return {
+      lastMonthExpenses: 0,
+      categoryTracking: {},
+      investmentAccounts: secondary.investmentAccounts,
+      ytdSummary: null,
+      trajectorySeries: buildTrajectorySeries(secondary.history),
+      loanSummary: loanSummaryFromPayload({ loans: secondary.loans } as DashboardConsolePayload),
+      subscriptionDash: secondary.subscriptionDash,
     }
   }
 
@@ -312,5 +412,6 @@ export function dashboardSecondaryApiPaths(now = new Date()) {
     history: "/api/category-tracking/history",
     loans: "/api/loans?status=active",
     subscriptions: "/api/subscriptions?upcomingDays=14",
+    consoleSecondary: "/api/dashboard/console/secondary",
   }
 }

@@ -5,19 +5,30 @@ import { useRouter } from "next/navigation"
 import {
   fetchJsonAndCache,
   invalidateDashboardConsoleCaches,
+  peekCachedJson,
   withCacheBust,
 } from "@/lib/client-fetch-cache"
-import type { DashboardConsolePayload } from "@/lib/dashboard-console-types"
-import { EMPTY_DASHBOARD_CONSOLE } from "@/lib/dashboard-console-types"
+import type {
+  DashboardConsoleCorePayload,
+  DashboardConsoleSecondaryPayload,
+} from "@/lib/dashboard-console-types"
+import { EMPTY_DASHBOARD_CONSOLE, mergeDashboardConsolePayload } from "@/lib/dashboard-console-types"
 import {
+  applyConsoleCorePayload,
   applyConsolePayload,
+  applyConsoleSecondaryPayload,
   fetchStockPrices,
 } from "@/lib/dashboard-console-client"
 import {
   DASHBOARD_CONSOLE_CACHE_KEY,
+  DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+  DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
   peekDashboardConsoleBlob,
+  seedDashboardCoreShardCaches,
+  seedDashboardSecondaryShardCaches,
   seedDashboardShardCaches,
 } from "@/lib/dashboard-console-cache"
+import { seedCachedJson } from "@/lib/client-fetch-cache"
 import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { WealthConsoleView } from "@/components/wealth-console/WealthConsoleView"
 import {
@@ -89,11 +100,29 @@ export default function DashboardPageClient() {
 
   useLayoutEffect(() => {
     const cached = peekDashboardConsoleBlob()
-    if (!cached) return
+    if (cached) {
+      seedDashboardShardCaches(cached)
+      applyConsolePayload(cached, payloadSetters)
+      setLoading(false)
+      return
+    }
 
-    seedDashboardShardCaches(cached)
-    applyConsolePayload(cached, payloadSetters)
-    setLoading(false)
+    const core = peekCachedJson<DashboardConsoleCorePayload>(
+      DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+    )
+    if (core) {
+      seedDashboardCoreShardCaches(core)
+      applyConsoleCorePayload(core, payloadSetters)
+      setLoading(false)
+    }
+
+    const secondary = peekCachedJson<DashboardConsoleSecondaryPayload>(
+      DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+    )
+    if (secondary) {
+      seedDashboardSecondaryShardCaches(secondary)
+      applyConsoleSecondaryPayload(secondary, payloadSetters)
+    }
   }, [payloadSetters])
 
   useEffect(() => {
@@ -108,26 +137,62 @@ export default function DashboardPageClient() {
     let cancelled = false
     const isCancelled = () => cancelled
 
+    async function loadSecondary(core: DashboardConsoleCorePayload) {
+      try {
+        const secondary = await fetchJsonAndCache<DashboardConsoleSecondaryPayload>(
+          DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+          "/api/dashboard/console/secondary",
+        )
+        if (isCancelled()) return
+
+        seedDashboardSecondaryShardCaches(secondary)
+        applyConsoleSecondaryPayload(secondary, payloadSetters)
+        seedCachedJson(
+          DASHBOARD_CONSOLE_CACHE_KEY,
+          mergeDashboardConsolePayload(core, secondary),
+        )
+        fetchStockPrices(secondary.investmentAccounts, setMarketPrices, isCancelled)
+      } catch (e) {
+        console.error("Wealth console secondary load error:", e)
+      }
+    }
+
     async function load() {
       const cached = peekDashboardConsoleBlob()
+      const coreCached = peekCachedJson<DashboardConsoleCorePayload>(
+        DASHBOARD_CONSOLE_CORE_CACHE_KEY,
+      )
+      const secondaryCached = peekCachedJson<DashboardConsoleSecondaryPayload>(
+        DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+      )
+
       if (cached) {
         applyConsolePayload(cached, payloadSetters)
         setLoading(false)
         fetchStockPrices(cached.investmentAccounts, setMarketPrices, isCancelled)
+      } else if (coreCached) {
+        applyConsoleCorePayload(coreCached, payloadSetters)
+        setLoading(false)
+        if (secondaryCached) {
+          applyConsoleSecondaryPayload(secondaryCached, payloadSetters)
+          fetchStockPrices(secondaryCached.investmentAccounts, setMarketPrices, isCancelled)
+        }
       } else {
         setLoading(true)
       }
 
       try {
-        const payload = await fetchJsonAndCache<DashboardConsolePayload>(
-          DASHBOARD_CONSOLE_CACHE_KEY,
+        const core = await fetchJsonAndCache<DashboardConsoleCorePayload>(
+          DASHBOARD_CONSOLE_CORE_CACHE_KEY,
           "/api/dashboard/console",
         )
         if (isCancelled()) return
 
-        seedDashboardShardCaches(payload)
-        applyConsolePayload(payload, payloadSetters)
-        fetchStockPrices(payload.investmentAccounts, setMarketPrices, isCancelled)
+        seedDashboardCoreShardCaches(core)
+        applyConsoleCorePayload(core, payloadSetters)
+        setLoading(false)
+
+        void loadSecondary(core)
       } catch (e) {
         console.error("Wealth console load error:", e)
       } finally {
@@ -201,15 +266,28 @@ export default function DashboardPageClient() {
   const refreshConsole = useCallback(async () => {
     invalidateDashboardConsoleCaches()
     try {
-      const payload = await fetchJsonAndCache<DashboardConsolePayload>(
-        DASHBOARD_CONSOLE_CACHE_KEY,
+      const core = await fetchJsonAndCache<DashboardConsoleCorePayload>(
+        DASHBOARD_CONSOLE_CORE_CACHE_KEY,
         withCacheBust("/api/dashboard/console"),
         undefined,
-        { force: true }
+        { force: true },
       )
-      seedDashboardShardCaches(payload)
-      applyConsolePayload(payload, payloadSetters)
-      fetchStockPrices(payload.investmentAccounts, setMarketPrices, () => false)
+      seedDashboardCoreShardCaches(core)
+      applyConsoleCorePayload(core, payloadSetters)
+
+      const secondary = await fetchJsonAndCache<DashboardConsoleSecondaryPayload>(
+        DASHBOARD_CONSOLE_SECONDARY_CACHE_KEY,
+        withCacheBust("/api/dashboard/console/secondary"),
+        undefined,
+        { force: true },
+      )
+      seedDashboardSecondaryShardCaches(secondary)
+      applyConsoleSecondaryPayload(secondary, payloadSetters)
+      seedCachedJson(
+        DASHBOARD_CONSOLE_CACHE_KEY,
+        mergeDashboardConsolePayload(core, secondary),
+      )
+      fetchStockPrices(secondary.investmentAccounts, setMarketPrices, () => false)
     } catch (e) {
       console.error("Wealth console refresh error:", e)
     }

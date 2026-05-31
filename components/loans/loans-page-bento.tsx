@@ -160,7 +160,10 @@ export function LoansPageBento() {
     if (ok) setBorrowedOpen(false)
   }
 
-  if (loading) {
+  const showInitialLoad =
+    loading && accounts.length === 0 && loans.length === 0 && borrowedLoans.length === 0
+
+  if (showInitialLoad) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <div className="h-36 animate-pulse rounded-xl border border-white/10 bg-white/5" />

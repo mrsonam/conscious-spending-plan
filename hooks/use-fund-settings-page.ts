@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess } from "@/lib/app-toast"
+import { fetchJsonAndCache, peekCachedJson } from "@/lib/client-fetch-cache"
 
 export interface FundAllocation {
   id: string
@@ -29,6 +30,10 @@ export interface CategoryBalance {
   allocatedFromIncome: number
 }
 
+const FUNDS_ALLOCATION_CACHE_KEY = "funds:allocation"
+const FUNDS_BALANCES_CACHE_KEY = "funds:balances"
+const FUNDS_CACHE_MS = 45_000
+
 export function useFundSettingsPage() {
   const { data: session, status } = useSession()
   const { formatCurrency, currencyCode } = useFormatCurrency()
@@ -47,23 +52,35 @@ export function useFundSettingsPage() {
     unassignedPercent: number
   } | null>(null)
 
-  const fetchAllocation = useCallback(async () => {
+  const fetchAllocation = useCallback(async (opts?: { force?: boolean }) => {
+    const cachedAllocation = peekCachedJson<FundAllocation>(FUNDS_ALLOCATION_CACHE_KEY, FUNDS_CACHE_MS)
+    const cachedBalances = peekCachedJson<{ balances?: CategoryBalance[] }>(
+      FUNDS_BALANCES_CACHE_KEY,
+      FUNDS_CACHE_MS,
+    )
+    if (!cachedAllocation) {
+      setLoading(true)
+    }
+    const t = Date.now()
     try {
-      const [allocationRes, balancesRes, goalsRes] = await Promise.all([
-        fetch("/api/fund-allocation"),
-        fetch("/api/category-balances"),
-        fetch("/api/saving-goals?status=active"),
+      const [allocationData, balancesData, goalsRes] = await Promise.all([
+        fetchJsonAndCache<FundAllocation>(
+          FUNDS_ALLOCATION_CACHE_KEY,
+          `/api/fund-allocation?t=${t}`,
+          undefined,
+          opts?.force ? { force: true } : undefined,
+        ),
+        fetchJsonAndCache<{ balances?: CategoryBalance[] }>(
+          FUNDS_BALANCES_CACHE_KEY,
+          `/api/category-balances?t=${t}`,
+          undefined,
+          opts?.force ? { force: true } : undefined,
+        ),
+        fetch(`/api/saving-goals?status=active&t=${t}`),
       ])
 
-      if (allocationRes.ok) {
-        const data = (await allocationRes.json()) as FundAllocation
-        setAllocation(data)
-      }
-
-      if (balancesRes.ok) {
-        const data = (await balancesRes.json()) as { balances?: CategoryBalance[] }
-        setBalances(data.balances || [])
-      }
+      setAllocation(allocationData)
+      setBalances(balancesData.balances || [])
 
       if (goalsRes.ok) {
         const data = (await goalsRes.json()) as {
@@ -81,6 +98,24 @@ export function useFundSettingsPage() {
       setLoading(false)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return
+    const cachedAllocation = peekCachedJson<FundAllocation>(FUNDS_ALLOCATION_CACHE_KEY, FUNDS_CACHE_MS)
+    const cachedBalances = peekCachedJson<{ balances?: CategoryBalance[] }>(
+      FUNDS_BALANCES_CACHE_KEY,
+      FUNDS_CACHE_MS,
+    )
+    if (cachedAllocation) {
+      setAllocation(cachedAllocation)
+    }
+    if (cachedBalances?.balances) {
+      setBalances(cachedBalances.balances)
+    }
+    if (cachedAllocation && cachedBalances?.balances) {
+      setLoading(false)
+    }
+  }, [status])
 
   useEffect(() => {
     if (status === "unauthenticated") {

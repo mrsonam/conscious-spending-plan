@@ -674,7 +674,7 @@ export function SavingGoalsPageBento({
     if (ok) setCreateOpen(false)
   }
 
-  if (loading) {
+  if (loading && goals.length === 0) {
     return <SavingGoalsPageBentoLoading />
   }
 

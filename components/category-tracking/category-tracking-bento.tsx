@@ -81,13 +81,14 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
   )
 
   const hasTracking = tracking != null
+  const showInitialLoad = loading && !hasTracking
   const runwayPct =
     totalAllocated > 0 ? (totalRemaining / totalAllocated) * 100 : 0
   const isOverDeployed = totalRemaining < 0
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {loading ? (
+      {showInitialLoad ? (
         <CategoryTrackingBentoLoading
           monthOptions={monthOptions}
           selectedMonth={selectedMonth}

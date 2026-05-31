@@ -55,6 +55,63 @@ export function applyOptimisticIncomeSummaryDelta(
   return next
 }
 
+export function applyOptimisticIncomeEditSummaryDelta(
+  stats: IncomePageStats,
+  oldEntry: Pick<IncomeEntry, "amount" | "date">,
+  newEntry: Pick<IncomeEntry, "amount" | "date">,
+): IncomePageStats {
+  let next = { ...stats }
+  if (isInCurrentMonth(oldEntry.date)) {
+    next = {
+      ...next,
+      currentMonthTotal: Math.max(0, next.currentMonthTotal - oldEntry.amount),
+    }
+  }
+  if (isInCurrentYear(oldEntry.date)) {
+    next = {
+      ...next,
+      ytdTotal: Math.max(0, next.ytdTotal - oldEntry.amount),
+    }
+  }
+  return applyOptimisticIncomeSummaryDelta(next, newEntry.amount, newEntry.date)
+}
+
+export function adjustAccountsForIncomeEdit(
+  accounts: IncomePageAccount[],
+  oldEntry: Pick<IncomeEntry, "amount"> & { account?: IncomeEntry["account"] },
+  newEntry: Pick<IncomeEntry, "amount"> & { account?: IncomeEntry["account"] },
+): IncomePageAccount[] {
+  return accounts.map((account) => {
+    let balance = account.balance
+    if (oldEntry.account?.id === account.id) {
+      balance -= oldEntry.amount
+    }
+    if (newEntry.account?.id === account.id) {
+      balance += newEntry.amount
+    }
+    if (balance === account.balance) return account
+    return { ...account, balance }
+  })
+}
+
+export function normalizeIncomeEntryFromApi(entry: IncomeEntry): IncomeEntry {
+  return {
+    ...entry,
+    date:
+      typeof entry.date === "string"
+        ? entry.date.slice(0, 10)
+        : entry.date,
+    periodStart:
+      typeof entry.periodStart === "string"
+        ? entry.periodStart.slice(0, 10)
+        : entry.periodStart,
+    periodEnd:
+      typeof entry.periodEnd === "string"
+        ? entry.periodEnd.slice(0, 10)
+        : entry.periodEnd,
+  }
+}
+
 function categorySlice(income: number, type: string, value: number): number {
   if (type === "fixed") return value
   if (type === "percentage") return (income * value) / 100

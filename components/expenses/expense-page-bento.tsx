@@ -42,6 +42,21 @@ export function ExpensePageBento(p: UseExpensePageResult) {
     if (ok) setLogOpen(false)
   }
 
+  const openLogDialog = () => {
+    p.resetLogForm()
+    setLogOpen(true)
+  }
+
+  const openEditDialog = (expense: (typeof p.expenses)[number]) => {
+    p.startEditExpense(expense)
+    setLogOpen(true)
+  }
+
+  const handleLogOpenChange = (open: boolean) => {
+    setLogOpen(open)
+    if (!open) p.resetLogForm()
+  }
+
   const perf = p.expenseStats.monthOverMonthPct
   const perfGood = perf === null || perf <= 0
 
@@ -168,7 +183,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         investOver={investOver}
         fixedThreshold={fixedThreshold}
         investTarget={investTarget}
-        onLogOpen={() => setLogOpen(true)}
+        onLogOpen={openLogDialog}
         onBulkOpen={openBulkImport}
       />
 
@@ -189,9 +204,10 @@ export function ExpensePageBento(p: UseExpensePageResult) {
 
       <ExpenseLogDialog
         open={logOpen}
-        onOpenChange={setLogOpen}
+        onOpenChange={handleLogOpenChange}
         p={p}
         onSubmit={submitLog}
+        editingExpenseId={p.editingExpenseId}
       />
 
       <ExpenseBulkDialog p={p} />
@@ -203,6 +219,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         onFiltersOpenChange={setFiltersOpen}
         exportingCsv={exportingCsv}
         onExportCsv={() => void exportCsv()}
+        onEditExpense={openEditDialog}
       />
 
       <ExpenseRecurringSection

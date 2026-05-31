@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import {
   invalidateCachedJson,
   fetchJsonAndCache,
@@ -179,6 +179,27 @@ export function SubscriptionsPageBento() {
     setUpcoming(data.upcoming ?? [])
   }, [])
 
+  useLayoutEffect(() => {
+    const cachedAccounts =
+      peekCachedJson<{ accounts?: Account[] }>("subscriptions:accounts", 60_000) ??
+      peekCachedJson<{ accounts?: Account[] }>("dashboard:accounts", 45_000)
+    if (cachedAccounts?.accounts) {
+      setAccounts(cachedAccounts.accounts)
+    }
+
+    const cachedSubs = peekCachedJson<{
+      subscriptions?: SubscriptionRow[]
+      monthlyActiveTotal?: number
+      upcoming?: typeof upcoming
+    }>(CACHE_KEY, 30_000)
+    if (cachedSubs?.subscriptions) {
+      setSubscriptions(cachedSubs.subscriptions)
+      setMonthlyActiveTotal(cachedSubs.monthlyActiveTotal ?? 0)
+      setUpcoming(cachedSubs.upcoming ?? [])
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -188,26 +209,28 @@ export function SubscriptionsPageBento() {
           60_000
         )
         if (cached?.accounts) setAccounts(cached.accounts)
-        const [accRes, subFirst] = await Promise.all([
-          fetchJsonAndCache<{ accounts?: Account[] }>(
-            "subscriptions:accounts",
-            `/api/accounts?t=${Date.now()}`
-          ),
-          peekCachedJson<{
-            subscriptions?: SubscriptionRow[]
-            monthlyActiveTotal?: number
-            upcoming?: typeof upcoming
-          }>(CACHE_KEY, 30_000),
-        ])
-        if (cancelled) return
-        setAccounts(accRes.accounts ?? [])
+        const subFirst = peekCachedJson<{
+          subscriptions?: SubscriptionRow[]
+          monthlyActiveTotal?: number
+          upcoming?: typeof upcoming
+        }>(CACHE_KEY, 30_000)
         if (subFirst?.subscriptions) {
           setSubscriptions(subFirst.subscriptions)
           setMonthlyActiveTotal(subFirst.monthlyActiveTotal ?? 0)
           setUpcoming(subFirst.upcoming ?? [])
           setLoading(false)
+        } else {
+          setLoading(true)
         }
-        await refetch()
+        const [accRes] = await Promise.all([
+          fetchJsonAndCache<{ accounts?: Account[] }>(
+            "subscriptions:accounts",
+            `/api/accounts?t=${Date.now()}`
+          ),
+          refetch(),
+        ])
+        if (cancelled) return
+        setAccounts(accRes.accounts ?? [])
       } catch {
         if (!cancelled) setMessage({ type: "error", text: "Failed to load data." })
       } finally {

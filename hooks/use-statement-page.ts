@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import {
   fetchJsonAndCache,
   peekCachedJson,
@@ -115,6 +115,23 @@ export function useStatementPage(
     [],
   )
   const [summary, setSummary] = useState<StatementSummary>(EMPTY_SUMMARY)
+
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return
+
+    const cachedAccounts =
+      peekCachedJson<{ accounts?: StatementAccount[] }>("statement:accounts", 60_000) ??
+      peekCachedJson<{ accounts?: StatementAccount[] }>("dashboard:accounts", 45_000)
+    if (cachedAccounts?.accounts?.length) {
+      setAccounts(cachedAccounts.accounts)
+    }
+
+    const cachedSummary = peekCachedJson<StatementSummary>("statement:summary:all", 30_000)
+    if (cachedSummary) {
+      setSummary(cachedSummary)
+      setLoadingSummary(false)
+    }
+  }, [status])
 
   const fetchAccounts = useCallback(async () => {
     const cached = peekCachedJson<{ accounts?: StatementAccount[] }>(

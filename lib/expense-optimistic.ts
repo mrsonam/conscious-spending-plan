@@ -1,4 +1,4 @@
-import type { ExpenseEntry, ExpensePageStats } from "@/lib/expense-page-types"
+import type { ExpenseEntry, ExpensePageAccount, ExpensePageStats } from "@/lib/expense-page-types"
 
 export type ExpenseListFilters = {
   startDate?: string
@@ -85,6 +85,24 @@ export function applyOptimisticSummaryDelta(
     currentMonthTotal: stats.currentMonthTotal + expense.amount,
     fundBreakdownCurrentMonth: fundBreakdown,
   }
+}
+
+export function adjustAccountsForExpenseEdit(
+  accounts: ExpensePageAccount[],
+  oldExpense: Pick<ExpenseEntry, "accountId" | "amount">,
+  newExpense: Pick<ExpenseEntry, "accountId" | "amount">,
+): ExpensePageAccount[] {
+  return accounts.map((account) => {
+    let balance = account.balance
+    if (account.id === oldExpense.accountId) {
+      balance += oldExpense.amount
+    }
+    if (account.id === newExpense.accountId) {
+      balance -= newExpense.amount
+    }
+    if (balance === account.balance) return account
+    return { ...account, balance }
+  })
 }
 
 export function normalizeExpenseFromApi(expense: ExpenseEntry): ExpenseEntry {

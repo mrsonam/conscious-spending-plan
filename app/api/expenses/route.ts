@@ -323,6 +323,180 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Expense ID is required" },
+        { status: 400 },
+      )
+    }
+
+    const existing = await prisma.expense.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Expense not found" }, { status: 404 })
+    }
+
+    const body = await request.json()
+    const {
+      amount,
+      description,
+      category,
+      expenseCategory,
+      date,
+    }: {
+      amount?: number
+      description?: string | null
+      category?: string | null
+      expenseCategory?: string | null
+      date?: string
+    } = body
+    const accountId: string | undefined = body.accountId
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+
+    let amountMinor = existing.amount
+    if (amount != null) {
+      try {
+        amountMinor = parseMoneyFromApi(amount, currency)
+      } catch {
+        return NextResponse.json(
+          { error: "Amount must be greater than 0" },
+          { status: 400 },
+        )
+      }
+      if (amountMinor <= 0n) {
+        return NextResponse.json(
+          { error: "Amount must be greater than 0" },
+          { status: 400 },
+        )
+      }
+    }
+
+    const nextAccountId = accountId ?? existing.accountId
+    const expenseDate = date ? new Date(date) : existing.date
+    if (Number.isNaN(expenseDate.getTime())) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 })
+    }
+
+    const nextAccount = await prisma.account.findFirst({
+      where: {
+        id: nextAccountId,
+        userId: session.user.id,
+      },
+    })
+
+    if (!nextAccount) {
+      return NextResponse.json(
+        { error: "Account not found or does not belong to user" },
+        { status: 404 },
+      )
+    }
+
+    const sameAccount = nextAccountId === existing.accountId
+    const amountDelta = amountMinor - existing.amount
+
+    if (sameAccount) {
+      if (amountDelta > 0n && nextAccount.balance < amountDelta) {
+        return NextResponse.json(
+          { error: "Insufficient funds in the account" },
+          { status: 400 },
+        )
+      }
+    } else if (nextAccount.balance < amountMinor) {
+      return NextResponse.json(
+        { error: "Insufficient funds in the account" },
+        { status: 400 },
+      )
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (sameAccount) {
+        if (amountDelta !== 0n) {
+          await tx.account.update({
+            where: { id: nextAccountId },
+            data: {
+              balance: { decrement: amountDelta },
+            },
+          })
+        }
+      } else {
+        await tx.account.update({
+          where: { id: existing.accountId },
+          data: {
+            balance: { increment: existing.amount },
+          },
+        })
+        await tx.account.update({
+          where: { id: nextAccountId },
+          data: {
+            balance: { decrement: amountMinor },
+          },
+        })
+      }
+
+      return tx.expense.update({
+        where: { id },
+        data: {
+          accountId: nextAccountId,
+          amount: amountMinor,
+          ...(description !== undefined && { description: description || null }),
+          ...(category !== undefined && { category: category || null }),
+          ...(expenseCategory !== undefined && {
+            expenseCategory: expenseCategory || null,
+          }),
+          date: expenseDate,
+        },
+        include: {
+          account: {
+            select: {
+              id: true,
+              name: true,
+              bankName: true,
+            },
+          },
+        },
+      })
+    })
+
+    schedulePersistPreviousMonthClosing(session.user.id)
+
+    return moneyJsonResponse(
+      {
+        expense: mapMoneyFieldsToApi(
+          result as unknown as Record<string, unknown>,
+          currency,
+          AMOUNT_ONLY_FIELDS,
+        ),
+      },
+      currency,
+    )
+  } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
+    console.error("Error updating expense:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    )
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const session = await auth()

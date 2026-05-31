@@ -4,7 +4,6 @@ import { useMemo } from "react"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import {
   buildInvestmentRows,
-  buildProjectionValue,
   buildPulseMetrics,
   buildSpendingAlerts,
   EMPTY_BREAKDOWN,
@@ -39,7 +38,6 @@ export type WealthConsoleDerived = {
   guiltRows: DetailRow[]
   investmentRows: DetailRow[]
   savingsDisplayRows: DetailRow[]
-  projectionValue: number | null
   spendingAlerts: SpendingAlert[]
   changeLabel: string
   breakdownData: Breakdown
@@ -161,11 +159,6 @@ export function useWealthConsoleDerived({
           ? [{ label: "Monthly allocation", amount: breakdown.savings }]
           : []
 
-  const projectionValue = useMemo(
-    () => buildProjectionValue(breakdown),
-    [breakdown],
-  )
-
   const spendingAlerts = useMemo(
     () => buildSpendingAlerts(categoryTracking, formatCurrency),
     [categoryTracking, formatCurrency],
@@ -199,7 +192,6 @@ export function useWealthConsoleDerived({
     guiltRows,
     investmentRows,
     savingsDisplayRows,
-    projectionValue,
     spendingAlerts,
     changeLabel,
     breakdownData,

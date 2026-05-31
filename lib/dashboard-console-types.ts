@@ -40,6 +40,32 @@ export type DashboardConsolePayload = {
   }>
 }
 
+/** Fast path — above-the-fold dashboard widgets. */
+export type DashboardConsoleCorePayload = Pick<
+  DashboardConsolePayload,
+  | "breakdown"
+  | "lastMonthIncome"
+  | "accounts"
+  | "expenses"
+  | "expensesTotalForMonth"
+  | "lastMonthExpenses"
+  | "tracking"
+  | "ytd"
+>
+
+/** Deferred — trajectory, investments, loans, subscriptions, goals. */
+export type DashboardConsoleSecondaryPayload = Pick<
+  DashboardConsolePayload,
+  "history" | "investmentAccounts" | "loans" | "subscriptionDash" | "savingGoals"
+>
+
+export function mergeDashboardConsolePayload(
+  core: DashboardConsoleCorePayload,
+  secondary: DashboardConsoleSecondaryPayload,
+): DashboardConsolePayload {
+  return { ...core, ...secondary }
+}
+
 export const EMPTY_DASHBOARD_CONSOLE: DashboardConsolePayload = {
   breakdown: null,
   lastMonthIncome: 0,

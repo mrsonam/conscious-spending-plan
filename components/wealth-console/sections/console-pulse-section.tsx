@@ -647,10 +647,10 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                   </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-5">
+                <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
                   {spendingAlerts.length > 0 ? (
                     <aside
-                      className="min-w-0 rounded-xl border p-5"
+                      className="h-fit min-w-0 self-start rounded-xl border p-5"
                       style={{
                         borderColor: TOKENS.outlineGhost,
                         background: TOKENS.surfaceLow,
@@ -699,7 +699,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                     }
                   >
                     <div
-                      className="h-full rounded-xl border p-5 transition-colors hover:opacity-[0.98] sm:p-6"
+                      className="rounded-xl border p-5 transition-colors hover:opacity-[0.98] sm:p-6"
                       style={{
                         background: TOKENS.surfaceContainer,
                         boxShadow: CARD_INSET,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   fetchJsonAndCache,
@@ -106,6 +106,18 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     }
   }, [])
 
+  useLayoutEffect(() => {
+    if (authStatus !== "authenticated") return
+    const cached = peekCachedJson<{ accounts?: AccountRow[] }>(
+      ACCOUNTS_LIST_CACHE_KEY,
+      45_000,
+    )
+    if (cached?.accounts) {
+      setAccounts(cached.accounts)
+      setLoadingAccounts(false)
+    }
+  }, [authStatus])
+
   useEffect(() => {
     if (authStatus === "unauthenticated") {
       router.push("/login")
@@ -116,18 +128,15 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     let cancelled = false
 
     async function load() {
-      setLoadingAccounts(true)
+      const cached = peekCachedJson<{ accounts?: AccountRow[] }>(
+        ACCOUNTS_LIST_CACHE_KEY,
+        45_000,
+      )
+      if (!cached?.accounts) {
+        setLoadingAccounts(true)
+      }
       const t = Date.now()
       try {
-        const cached = peekCachedJson<{ accounts?: AccountRow[] }>(
-          ACCOUNTS_LIST_CACHE_KEY,
-          45_000,
-        )
-        if (cached?.accounts) {
-          setAccounts(cached.accounts)
-          setLoadingAccounts(false)
-        }
-
         const data = await fetchJsonAndCache<{ accounts?: AccountRow[] }>(
           ACCOUNTS_LIST_CACHE_KEY,
           `/api/accounts?t=${t}`,

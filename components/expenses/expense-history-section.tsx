@@ -1,7 +1,7 @@
 "use client"
 
 import type { RefObject } from "react"
-import { Download, Filter, TrendingDown, Trash2 } from "lucide-react"
+import { Download, Filter, Pencil, TrendingDown, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
@@ -25,6 +25,7 @@ type ExpenseHistorySectionProps = {
   onFiltersOpenChange: (open: boolean) => void
   exportingCsv: boolean
   onExportCsv: () => void
+  onEditExpense: (expense: UseExpensePageResult["expenses"][number]) => void
 }
 
 export function ExpenseHistorySection({
@@ -34,6 +35,7 @@ export function ExpenseHistorySection({
   onFiltersOpenChange,
   exportingCsv,
   onExportCsv,
+  onEditExpense,
 }: ExpenseHistorySectionProps) {
   return (
     <section
@@ -227,6 +229,18 @@ export function ExpenseHistorySection({
                       {expense.account.name}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => onEditExpense(expense)}
+                    className={cn(
+                      "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                      consoleFocus,
+                    )}
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                    aria-label={`Edit expense ${expense.description?.trim() || "transaction"}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => p.handleDelete(expense.id)}

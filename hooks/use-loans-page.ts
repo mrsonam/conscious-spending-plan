@@ -1,9 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
+import {
+  fetchJsonAndCache,
+  peekCachedJson,
+} from "@/lib/client-fetch-cache"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -74,6 +78,11 @@ export interface LoansPageAccount {
   isDefault: boolean
 }
 
+const LOANS_ACCOUNTS_CACHE_KEY = "dashboard:accounts"
+const LOANS_LENT_CACHE_KEY = "loans:lent"
+const LOANS_BORROWED_CACHE_KEY = "loans:borrowed"
+const LOANS_CACHE_MS = 45_000
+
 export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthenticated") {
   const { formatCurrency, currencyCode } = useFormatCurrency()
   const router = useRouter()
@@ -111,18 +120,25 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   const [repaySubmitting, setRepaySubmitting] = useState(false)
 
   const fetchAccounts = useCallback(async () => {
-    setLoadingAccounts(true)
+    const cached = peekCachedJson<{ accounts?: LoansPageAccount[] }>(
+      LOANS_ACCOUNTS_CACHE_KEY,
+      LOANS_CACHE_MS,
+    )
+    if (!cached?.accounts) {
+      setLoadingAccounts(true)
+    }
+    const t = Date.now()
     try {
-      const response = await fetch("/api/accounts")
-      if (response.ok) {
-        const data = (await response.json()) as { accounts?: LoansPageAccount[] }
-        const list = data.accounts || []
-        setAccounts(list)
-        if (list.length > 0) {
-          const def = list.find((a) => a.isDefault)
-          setAccountId((prev) => prev || def?.id || list[0].id)
-          setBorrowedAccountId((prev) => prev || def?.id || list[0].id)
-        }
+      const data = await fetchJsonAndCache<{ accounts?: LoansPageAccount[] }>(
+        LOANS_ACCOUNTS_CACHE_KEY,
+        `/api/accounts?t=${t}`,
+      )
+      const list = data.accounts || []
+      setAccounts(list)
+      if (list.length > 0) {
+        const def = list.find((a) => a.isDefault)
+        setAccountId((prev) => prev || def?.id || list[0].id)
+        setBorrowedAccountId((prev) => prev || def?.id || list[0].id)
       }
     } catch {
       console.error("Error fetching accounts")
@@ -132,13 +148,17 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   }, [])
 
   const fetchLoans = useCallback(async () => {
-    setLoadingLoans(true)
+    const cached = peekCachedJson<{ loans?: LoanRow[] }>(LOANS_LENT_CACHE_KEY, LOANS_CACHE_MS)
+    if (!cached?.loans) {
+      setLoadingLoans(true)
+    }
+    const t = Date.now()
     try {
-      const response = await fetch("/api/loans")
-      if (response.ok) {
-        const data = (await response.json()) as { loans?: LoanRow[] }
-        setLoans(data.loans || [])
-      }
+      const data = await fetchJsonAndCache<{ loans?: LoanRow[] }>(
+        LOANS_LENT_CACHE_KEY,
+        `/api/loans?t=${t}`,
+      )
+      setLoans(data.loans || [])
     } catch {
       console.error("Error fetching loans")
     } finally {
@@ -147,19 +167,60 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   }, [])
 
   const fetchBorrowedLoans = useCallback(async () => {
-    setLoadingBorrowedLoans(true)
+    const cached = peekCachedJson<{ borrowedLoans?: BorrowedLoanRow[] }>(
+      LOANS_BORROWED_CACHE_KEY,
+      LOANS_CACHE_MS,
+    )
+    if (!cached?.borrowedLoans) {
+      setLoadingBorrowedLoans(true)
+    }
+    const t = Date.now()
     try {
-      const response = await fetch("/api/borrowed-loans")
-      if (response.ok) {
-        const data = (await response.json()) as { borrowedLoans?: BorrowedLoanRow[] }
-        setBorrowedLoans(data.borrowedLoans || [])
-      }
+      const data = await fetchJsonAndCache<{ borrowedLoans?: BorrowedLoanRow[] }>(
+        LOANS_BORROWED_CACHE_KEY,
+        `/api/borrowed-loans?t=${t}`,
+      )
+      setBorrowedLoans(data.borrowedLoans || [])
     } catch {
       console.error("Error fetching borrowed loans")
     } finally {
       setLoadingBorrowedLoans(false)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (authStatus !== "authenticated") return
+
+    const cachedAccounts = peekCachedJson<{ accounts?: LoansPageAccount[] }>(
+      LOANS_ACCOUNTS_CACHE_KEY,
+      LOANS_CACHE_MS,
+    )
+    if (cachedAccounts?.accounts) {
+      const list = cachedAccounts.accounts
+      setAccounts(list)
+      if (list.length > 0) {
+        const def = list.find((a) => a.isDefault)
+        setAccountId((prev) => prev || def?.id || list[0].id)
+        setBorrowedAccountId((prev) => prev || def?.id || list[0].id)
+      }
+      setLoadingAccounts(false)
+    }
+
+    const cachedLoans = peekCachedJson<{ loans?: LoanRow[] }>(LOANS_LENT_CACHE_KEY, LOANS_CACHE_MS)
+    if (cachedLoans?.loans) {
+      setLoans(cachedLoans.loans)
+      setLoadingLoans(false)
+    }
+
+    const cachedBorrowed = peekCachedJson<{ borrowedLoans?: BorrowedLoanRow[] }>(
+      LOANS_BORROWED_CACHE_KEY,
+      LOANS_CACHE_MS,
+    )
+    if (cachedBorrowed?.borrowedLoans) {
+      setBorrowedLoans(cachedBorrowed.borrowedLoans)
+      setLoadingBorrowedLoans(false)
+    }
+  }, [authStatus])
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
