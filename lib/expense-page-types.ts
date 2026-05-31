@@ -42,6 +42,8 @@ export interface ExpensePageStats {
   ytdTotal: number
   monthOverMonthPct: number | null
   lastMonthExpenses: number
+  /** Mean monthly spend over the trailing 6 calendar months (months with spend only). */
+  averageMonthlySpending: number
   fundBreakdownCurrentMonth: {
     fixedCosts: number
     investment: number

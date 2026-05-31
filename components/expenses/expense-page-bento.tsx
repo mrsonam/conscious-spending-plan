@@ -61,7 +61,9 @@ export function ExpensePageBento(p: UseExpensePageResult) {
   const investOver = investPct > investTarget + 5
 
   const liquidity = p.accounts.reduce((sum, a) => sum + (a.balance || 0), 0)
-  const runwayMonths = monthTotal > 0 ? liquidity / monthTotal : null
+  const averageMonthlySpending = p.expenseStats.averageMonthlySpending || 0
+  const runwayMonths =
+    averageMonthlySpending > 0 ? liquidity / averageMonthlySpending : null
   const subcategoryInsights = p.expenseStats.subcategoryInsights
   const topCategories = subcategoryInsights.topCategories
   const leadCategory = topCategories[0] ?? null
@@ -211,7 +213,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
 
       <ExpenseLiquiditySection
         p={p}
-        monthTotal={monthTotal}
+        averageMonthlySpending={averageMonthlySpending}
         runwayMonths={runwayMonths}
         showSummarySkeleton={showSummarySkeleton}
       />

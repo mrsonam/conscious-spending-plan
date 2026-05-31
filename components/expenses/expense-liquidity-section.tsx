@@ -8,14 +8,14 @@ import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 
 type ExpenseLiquiditySectionProps = {
   p: UseExpensePageResult
-  monthTotal: number
+  averageMonthlySpending: number
   runwayMonths: number | null
   showSummarySkeleton: boolean
 }
 
 export function ExpenseLiquiditySection({
   p,
-  monthTotal,
+  averageMonthlySpending,
   runwayMonths,
   showSummarySkeleton,
 }: ExpenseLiquiditySectionProps) {
@@ -42,15 +42,15 @@ export function ExpenseLiquiditySection({
             className="mt-3 max-w-3xl text-sm leading-snug"
             style={{ color: TOKENS.onSurfaceMuted }}
           >
-            If you kept spending at this month&apos;s pace (
+            At your average monthly spending of{" "}
             <span style={{ color: TOKENS.onSurface }}>
               {showSummarySkeleton ? (
                 <ScrambleCurrencyValue min={400} max={5400} className="font-medium!" />
               ) : (
-                p.formatCurrency(monthTotal)
+                p.formatCurrency(averageMonthlySpending)
               )}
-            </span>
-            ), your liquid balances would cover about{" "}
+            </span>{" "}
+            (last six months), your liquid balances would cover about{" "}
             <span style={{ color: TOKENS.onSurface }}>
               {runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} months`}
             </span>{" "}

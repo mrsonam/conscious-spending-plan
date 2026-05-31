@@ -3,6 +3,32 @@ import { EXPENSE_CATEGORIES } from "@/lib/expense-page-constants"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { getUserDisplayCurrency } from "@/lib/user-currency"
 
+const TRAILING_MONTHS_FOR_AVERAGE = 6
+
+/** Rolling mean of monthly expense totals (only months with spend > 0). */
+export function computeAverageMonthlySpending(monthTotals: number[]): number {
+  const withSpend = monthTotals.filter((total) => total > 0)
+  if (withSpend.length === 0) return 0
+  const sum = withSpend.reduce((acc, total) => acc + total, 0)
+  return Math.round((sum / withSpend.length) * 100) / 100
+}
+
+function trailingMonthRanges(now: Date, count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - index, 1)
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() - index + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
+    return { monthStart, monthEnd }
+  })
+}
+
 export async function getExpenseSummary(userId: string) {
   const currency = await getUserDisplayCurrency(userId)
   const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
@@ -49,6 +75,7 @@ export async function getExpenseSummary(userId: string) {
     monthByFund,
     monthByExpenseCategory,
     prevMonthByExpenseCategory,
+    ...trailingMonthAggs
   ] = await Promise.all([
     prisma.expense.aggregate({
       where: statsWhereMonth,
@@ -84,11 +111,23 @@ export async function getExpenseSummary(userId: string) {
       },
       _sum: { amount: true },
     }),
+    ...trailingMonthRanges(now, TRAILING_MONTHS_FOR_AVERAGE).map(({ monthStart, monthEnd }) =>
+      prisma.expense.aggregate({
+        where: {
+          userId,
+          date: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { amount: true },
+      }),
+    ),
   ])
 
   const currentMonthTotal = toD(monthAgg._sum.amount)
   const ytdTotal = toD(ytdAgg._sum.amount)
   const lastMonthExpenses = toD(prevAgg._sum.amount)
+  const averageMonthlySpending = computeAverageMonthlySpending(
+    trailingMonthAggs.map((row) => toD(row._sum.amount)),
+  )
   const monthOverMonthPct =
     lastMonthExpenses > 0
       ? ((currentMonthTotal - lastMonthExpenses) / lastMonthExpenses) * 100
@@ -157,6 +196,7 @@ export async function getExpenseSummary(userId: string) {
     ytdTotal,
     monthOverMonthPct,
     lastMonthExpenses,
+    averageMonthlySpending,
     fundBreakdownCurrentMonth,
     subcategoryInsights: {
       totalClassified,

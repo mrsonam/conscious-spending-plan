@@ -66,6 +66,7 @@ const EMPTY_EXPENSE_STATS: ExpensePageStats = {
   ytdTotal: 0,
   monthOverMonthPct: null,
   lastMonthExpenses: 0,
+  averageMonthlySpending: 0,
   fundBreakdownCurrentMonth: {
     fixedCosts: 0,
     investment: 0,
@@ -176,6 +177,7 @@ export function useExpensePage(
             ? null
             : (data.monthOverMonthPct as number),
         lastMonthExpenses: (data.lastMonthExpenses as number) ?? 0,
+        averageMonthlySpending: (data.averageMonthlySpending as number) ?? 0,
         fundBreakdownCurrentMonth:
           (data.fundBreakdownCurrentMonth as ExpensePageStats["fundBreakdownCurrentMonth"]) ??
           {
