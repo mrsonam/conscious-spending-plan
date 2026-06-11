@@ -43,6 +43,7 @@ function NavRow({
       aria-label={collapsed ? label : undefined}
       onMouseEnter={onWarmNavigate}
       onFocus={onWarmNavigate}
+      onTouchStart={onWarmNavigate}
       className={cn(
         "group relative flex touch-manipulation items-center rounded-xl py-2 transition-all duration-200",
         collapsed

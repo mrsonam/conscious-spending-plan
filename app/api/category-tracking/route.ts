@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
-import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
@@ -35,8 +34,6 @@ export async function GET(request: Request) {
 
     const currency = currencyFromSession(session.user.displayCurrency)
     const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
-
-    await ensurePreTrackingSavingsBalances(session.user.id)
 
     const { searchParams } = new URL(request.url)
     const monthParam = searchParams.get("month")

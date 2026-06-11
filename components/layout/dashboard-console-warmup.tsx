@@ -2,17 +2,17 @@
 
 import { useEffect } from "react"
 import { prefetchDashboardConsole } from "@/lib/dashboard-console-cache"
-import { useHydratedSession } from "@/hooks/use-hydrated-session"
 
-/** Prefetch Wealth Console JSON while the user is on any dashboard route. */
+/**
+ * Prefetch Wealth Console JSON while the user is on any dashboard route.
+ * Fires immediately on mount — the dashboard layout already guarantees
+ * authentication via a server-side auth() check and redirect, so there is
+ * no need to wait for the client session hook to resolve.
+ */
 export function DashboardConsoleWarmup() {
-  const { status } = useHydratedSession()
-
   useEffect(() => {
-    if (status === "authenticated") {
-      prefetchDashboardConsole()
-    }
-  }, [status])
+    prefetchDashboardConsole()
+  }, [])
 
   return null
 }
