@@ -29,7 +29,7 @@ export async function PATCH(
       periodStart,
       periodEnd,
       accountId,
-      allocateToBudget = true,
+      allocateToBudget,
     } = body
 
     let incomeMinor: bigint
@@ -70,7 +70,7 @@ export async function PATCH(
         periodStart: new Date(periodStart),
         periodEnd: new Date(periodEnd),
         accountId: accountId ?? null,
-        allocateToBudget: allocateToBudget !== false,
+        allocateToBudget: typeof allocateToBudget === "boolean" ? allocateToBudget : undefined,
       },
       currency,
     )

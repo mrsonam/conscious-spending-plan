@@ -324,7 +324,18 @@ async function ensurePreTrackingSavingsBalancesInner(
   await upsertCategoryBalanceExact(userId, "savings", prev.month, prev.year, seedMinor)
   await ensureMonthClosing(userId, prev.month, prev.year)
 
-  await reconcileEnvelopeChainFromTrackingStart(userId, trackingStart, currency)
+  try {
+    await reconcileEnvelopeChainFromTrackingStart(userId, trackingStart, currency)
+  } catch (err) {
+    // A concurrent instance (different serverless process) may have written the
+    // same rows simultaneously, causing a conflict. Re-check the DB: if the chain
+    // is now current, the other instance succeeded and we can treat this as done.
+    if (await isPreTrackingChainCurrent(userId, trackingStart, seedMinor)) {
+      ensuredAt.set(userId, Date.now())
+      return
+    }
+    throw err
+  }
   ensuredAt.set(userId, Date.now())
 }
 

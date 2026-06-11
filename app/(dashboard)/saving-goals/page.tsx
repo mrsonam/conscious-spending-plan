@@ -1,12 +1,21 @@
 "use client"
 
+import { useEffect } from "react"
 import { useHydratedSession } from "@/hooks/use-hydrated-session"
+import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { SavingGoalsPageBento } from "@/components/saving-goals/saving-goals-page-bento"
 import { SavingGoalsPageBentoLoading } from "@/components/saving-goals/saving-goals-page-bento-loading"
 
 export default function SavingGoalsPage() {
   const { session, status, isSessionPending } = useHydratedSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
 
   if (isSessionPending) {
     return (

@@ -77,6 +77,8 @@ export async function GET(request: Request) {
       incomeEntriesForMonth,
       fundAllocation,
       previousMonth,
+      savingsCtx,
+      bucketTransfers,
     ] = await Promise.all([
       prisma.categoryBalance.findMany({
         where: {
@@ -136,6 +138,18 @@ export async function GET(request: Request) {
         currentMonth,
         currentYear
       ),
+      loadGeneralSavingsContext(
+        prisma,
+        session.user.id,
+        currentMonth,
+        currentYear
+      ),
+      listCategoryBucketTransfersForMonth(
+        session.user.id,
+        currentMonth,
+        currentYear,
+        currency
+      ),
     ])
 
     const { remaining: carryoverByCategory, overspent: overspentByCategory } =
@@ -180,27 +194,13 @@ export async function GET(request: Request) {
         : undefined,
     })
 
-    const [planVsLiquid, savingsCtx, bucketTransfers] = await Promise.all([
-      reconcilePlanToLiquid(
-        session.user.id,
-        currentMonth,
-        currentYear,
-        currency,
-        tracking
-      ),
-      loadGeneralSavingsContext(
-        prisma,
-        session.user.id,
-        currentMonth,
-        currentYear
-      ),
-      listCategoryBucketTransfersForMonth(
-        session.user.id,
-        currentMonth,
-        currentYear,
-        currency
-      ),
-    ])
+    const planVsLiquid = await reconcilePlanToLiquid(
+      session.user.id,
+      currentMonth,
+      currentYear,
+      currency,
+      tracking
+    )
     tracking = planVsLiquid.tracking
 
     const totalIncomeMinor = incomeEntriesForMonth.reduce(

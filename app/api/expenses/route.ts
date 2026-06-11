@@ -411,42 +411,31 @@ export async function PATCH(request: Request) {
     const sameAccount = nextAccountId === existing.accountId
     const amountDelta = amountMinor - existing.amount
 
-    if (sameAccount) {
-      if (amountDelta > 0n && nextAccount.balance < amountDelta) {
-        return NextResponse.json(
-          { error: "Insufficient funds in the account" },
-          { status: 400 },
-        )
-      }
-    } else if (nextAccount.balance < amountMinor) {
-      return NextResponse.json(
-        { error: "Insufficient funds in the account" },
-        { status: 400 },
-      )
-    }
-
     const result = await prisma.$transaction(async (tx) => {
       if (sameAccount) {
-        if (amountDelta !== 0n) {
+        if (amountDelta > 0n) {
+          // Atomic check-and-decrement: WHERE balance >= amountDelta prevents overdraft
+          const updated = await tx.account.updateMany({
+            where: { id: nextAccountId, balance: { gte: amountDelta } },
+            data: { balance: { decrement: amountDelta } },
+          })
+          if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
+        } else if (amountDelta < 0n) {
           await tx.account.update({
             where: { id: nextAccountId },
-            data: {
-              balance: { decrement: amountDelta },
-            },
+            data: { balance: { increment: -amountDelta } },
           })
         }
       } else {
+        // Atomic check-and-decrement on the new account
+        const updated = await tx.account.updateMany({
+          where: { id: nextAccountId, balance: { gte: amountMinor } },
+          data: { balance: { decrement: amountMinor } },
+        })
+        if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
         await tx.account.update({
           where: { id: existing.accountId },
-          data: {
-            balance: { increment: existing.amount },
-          },
-        })
-        await tx.account.update({
-          where: { id: nextAccountId },
-          data: {
-            balance: { decrement: amountMinor },
-          },
+          data: { balance: { increment: existing.amount } },
         })
       }
 
@@ -487,6 +476,9 @@ export async function PATCH(request: Request) {
       currency,
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error updating expense:", error)

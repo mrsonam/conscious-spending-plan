@@ -10,7 +10,7 @@ import {
 } from "@/lib/saving-goal-allocation"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { transferToSavingGoal } from "@/lib/saving-goal-general-savings"
-import { getUserDisplayCurrency } from "@/lib/user-currency"
+import { currencyFromSession } from "@/lib/user-currency"
 
 export async function PATCH(
   request: Request,
@@ -23,7 +23,7 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const currency = await getUserDisplayCurrency(session.user.id)
+    const currency = currencyFromSession(session.user.displayCurrency)
     const body = (await request.json()) as {
       name?: string
       target?: number | string | null
@@ -43,7 +43,7 @@ export async function PATCH(
     if (body.action === "archive") {
       const updated = await prisma.savingGoal.update({
         where: { id },
-        data: { status: "archived" },
+        data: { status: "archived", currentMinor: 0n },
       })
       return moneyJsonResponse(
         { goal: mapSavingGoalToApi(updated as unknown as Record<string, unknown>, currency) },

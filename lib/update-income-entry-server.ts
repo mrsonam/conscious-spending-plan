@@ -21,7 +21,7 @@ export type UpdateIncomeEntryInput = {
   periodStart: Date
   periodEnd: Date
   accountId: string | null
-  allocateToBudget: boolean
+  allocateToBudget: boolean | undefined
 }
 
 function monthKey(month: number, year: number) {
@@ -45,6 +45,9 @@ export async function updateIncomeEntryForUser(
     return { error: "Income entry not found", status: 404 as const }
   }
 
+  // Preserve the existing entry's allocation flag when the caller doesn't send one
+  const effectiveAllocateToBudget = input.allocateToBudget ?? !existing.excludeFromAllocation
+
   if (input.accountId) {
     const account = await prisma.account.findFirst({
       where: { id: input.accountId, userId },
@@ -57,7 +60,7 @@ export async function updateIncomeEntryForUser(
   const fundAllocation = await prisma.fundAllocation.findUnique({
     where: { userId },
   })
-  if (!fundAllocation && input.allocateToBudget) {
+  if (!fundAllocation && effectiveAllocateToBudget) {
     return { error: "Fund allocation not found", status: 404 as const }
   }
 
@@ -86,8 +89,8 @@ export async function updateIncomeEntryForUser(
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         accountId: input.accountId,
-        excludeFromAllocation: !input.allocateToBudget,
-        ...(input.allocateToBudget
+        excludeFromAllocation: !effectiveAllocateToBudget,
+        ...(effectiveAllocateToBudget
           ? {}
           : {
               allocationFixedCosts: null,
@@ -110,37 +113,58 @@ export async function updateIncomeEntryForUser(
   if (!existing.excludeFromAllocation) {
     monthsToReallocate.add(monthKey(oldMonth, oldYear))
   }
-  if (input.allocateToBudget) {
+  if (effectiveAllocateToBudget) {
     monthsToReallocate.add(monthKey(newMonth, newYear))
   }
 
-  if (monthsToReallocate.size > 0) {
-    await ensurePreTrackingSavingsBalances(userId)
-    for (const key of monthsToReallocate) {
-      const [yearStr, monthStr] = key.split("-")
-      const year = Number(yearStr)
-      const month = Number(monthStr)
-      await ensureMonthlyCategoryBalances(userId, month, year)
-      await reallocateMonthIncomeForUser(userId, currency, month, year)
-    }
-  }
-
-  if (input.allocateToBudget) {
-    const updated = await prisma.incomeEntry.findUnique({
-      where: { id: entryId },
-      select: { allocationSavings: true },
-    })
-    const savingsAlloc = coerceMinor(updated?.allocationSavings ?? 0n)
-    if (savingsAlloc > 0n) {
-      await applySavingGoalCreditsForIncome(prisma, {
-        userId,
-        incomeEntryId: entryId,
-        savingsAllocationMinor: savingsAlloc,
-      })
-    }
-  }
-
+  // Fire background job immediately — the main transaction has already committed.
   schedulePersistPreviousMonthClosing(userId)
+
+  try {
+    if (monthsToReallocate.size > 0) {
+      await ensurePreTrackingSavingsBalances(userId)
+      for (const key of monthsToReallocate) {
+        const [yearStr, monthStr] = key.split("-")
+        const year = Number(yearStr)
+        const month = Number(monthStr)
+        await ensureMonthlyCategoryBalances(userId, month, year)
+        await reallocateMonthIncomeForUser(userId, currency, month, year)
+      }
+    }
+
+    if (effectiveAllocateToBudget) {
+      const updated = await prisma.incomeEntry.findUnique({
+        where: { id: entryId },
+        select: { allocationSavings: true },
+      })
+      const savingsAlloc = coerceMinor(updated?.allocationSavings ?? 0n)
+      if (savingsAlloc > 0n) {
+        await applySavingGoalCreditsForIncome(prisma, {
+          userId,
+          incomeEntryId: entryId,
+          savingsAllocationMinor: savingsAlloc,
+        })
+      }
+    }
+  } catch (allocationError) {
+    // The main transaction committed and reversed old credits. If reallocation
+    // failed, restore credits to the pre-edit amount so goal balances are not
+    // silently zeroed. existing.allocationSavings holds the pre-edit value
+    // because the transaction only clears allocation fields for excluded entries.
+    const priorSavingsAlloc = coerceMinor(existing.allocationSavings ?? 0n)
+    if (priorSavingsAlloc > 0n && !existing.excludeFromAllocation) {
+      try {
+        await applySavingGoalCreditsForIncome(prisma, {
+          userId,
+          incomeEntryId: entryId,
+          savingsAllocationMinor: priorSavingsAlloc,
+        })
+      } catch {
+        // Recovery also failed — original error takes precedence
+      }
+    }
+    throw allocationError
+  }
 
   const saved = await prisma.incomeEntry.findUnique({
     where: { id: entryId },
