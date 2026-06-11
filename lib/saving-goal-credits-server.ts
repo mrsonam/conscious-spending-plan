@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client"
+import type { PrismaContext } from "@/lib/prisma"
 
 import {
   computeSavingGoalCreditsMinor,
@@ -6,7 +6,7 @@ import {
 } from "@/lib/saving-goal-allocation"
 import { coerceMinor } from "@/lib/money"
 
-type Tx = Prisma.TransactionClient
+type Tx = PrismaContext
 
 /** Apply saving-goal credits for one income entry inside a transaction. */
 export async function applySavingGoalCreditsForIncome(

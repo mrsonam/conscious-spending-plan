@@ -1,13 +1,20 @@
 import { PrismaClient } from '@prisma/client'
+import { withAccelerate } from '@prisma/extension-accelerate'
+
+const createPrismaClient = () =>
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  }).$extends(withAccelerate())
+
+type PrismaClientSingleton = ReturnType<typeof createPrismaClient>
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+  prisma: PrismaClientSingleton | undefined
 }
 
-// Prisma Client configuration optimized for Supabase/PostgreSQL
-// Connection pooling is handled by Supabase connection string
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-})
+export const prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+/** Accepts either the extended client or a Prisma transaction client. */
+export type PrismaContext = typeof prisma | import('@prisma/client').Prisma.TransactionClient
