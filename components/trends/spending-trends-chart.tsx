@@ -34,10 +34,10 @@ export type SpendingTrendMonth = {
 }
 
 const CATEGORY_COLORS = {
-  fixedCosts: TOKENS.secondary,       // blue
-  savings: TOKENS.primary,            // green
-  investment: TOKENS.tertiary,        // grey-blue
-  guiltFreeSpending: "#f4a261",       // warm orange
+  fixedCosts: "#ef4444",
+  savings: "#10b981",
+  investment: "#3b82f6",
+  guiltFreeSpending: "#8b5cf6",
 } as const
 
 const CATEGORY_LABELS = {

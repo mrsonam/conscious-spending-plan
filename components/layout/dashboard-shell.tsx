@@ -6,6 +6,7 @@ import { CommandPaletteProvider } from "@/components/command-palette"
 import { ProductTourProvider } from "@/components/product-tour/product-tour-provider"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { DashboardConsoleWarmup } from "@/components/layout/dashboard-console-warmup"
+import { QuickExpenseProvider } from "@/components/layout/quick-expense-provider"
 import { Toaster } from "@/components/ui/sonner"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <Suspense fallback={null}>
       <ProductTourProvider>
     <CommandPaletteProvider>
+      <QuickExpenseProvider>
       <DashboardConsoleWarmup />
       <div
         data-dashboard-shell
@@ -25,6 +27,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      </QuickExpenseProvider>
     </CommandPaletteProvider>
       </ProductTourProvider>
     </Suspense>

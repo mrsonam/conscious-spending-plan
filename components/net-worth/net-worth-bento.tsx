@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
-import { SpendingTrendsChart, type SpendingTrendMonth } from "./spending-trends-chart"
+import { NetWorthChart, type NetWorthSnapshot } from "./net-worth-chart"
 
 const RANGE_OPTIONS = [
   { label: "6 months", value: 6 },
@@ -11,38 +11,48 @@ const RANGE_OPTIONS = [
   { label: "24 months", value: 24 },
 ]
 
-function SkeletonBar({ width }: { width: string }) {
+function SkeletonPulse() {
   return (
-    <div
-      className="animate-pulse rounded"
-      style={{ height: 200, width, background: TOKENS.surfaceHigh }}
-    />
+    <div className="flex flex-col gap-2 px-2" style={{ height: 280 }}>
+      <div className="mt-auto flex items-end gap-3">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div
+            key={i}
+            className="animate-pulse flex-1 rounded-t"
+            style={{
+              height: `${30 + Math.sin(i) * 20 + 40}px`,
+              background: TOKENS.surfaceHigh,
+            }}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
-export function SpendingTrendsBento() {
+export function NetWorthBento() {
   const { formatCurrency } = useFormatCurrency()
   const [months, setMonths] = useState(12)
-  const [data, setData] = useState<SpendingTrendMonth[] | null>(null)
+  const [data, setData] = useState<NetWorthSnapshot[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback((m: number) => {
     setLoading(true)
     setError(null)
-    fetch(`/api/spending-trends?months=${m}`)
+    fetch(`/api/net-worth-history?months=${m}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.error) throw new Error(json.error)
-        setData(json.months)
+        setData(json.snapshots)
       })
       .catch((e) => setError(e.message ?? "Failed to load"))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    load(months)
-  }, [months, load])
+  useEffect(() => { load(months) }, [months, load])
+
+  const latest = data?.[data.length - 1]
 
   return (
     <div
@@ -54,14 +64,19 @@ export function SpendingTrendsBento() {
       }}
     >
       {/* Header */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold" style={{ color: TOKENS.onSurface }}>
-            Spending trends
+            Net worth
           </h2>
           <p className="mt-0.5 text-[12px]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Actual spend by category vs. income
+            Cash + investments + loans out — recorded monthly
           </p>
+          {latest && !loading && (
+            <p className="mt-2 text-2xl font-black tabular-nums" style={{ color: TOKENS.primary }}>
+              {formatCurrency(latest.netWorth)}
+            </p>
+          )}
         </div>
         <div
           className="flex rounded-xl border p-0.5"
@@ -87,21 +102,24 @@ export function SpendingTrendsBento() {
 
       {/* Chart area */}
       {loading ? (
-        <div className="flex items-end gap-1 px-2" style={{ height: 320 }}>
-          {Array.from({ length: months === 6 ? 6 : months === 12 ? 12 : 18 }).map((_, i) => (
-            <SkeletonBar key={i} width={`${100 / (months === 6 ? 6 : months === 12 ? 12 : 18)}%`} />
-          ))}
-        </div>
+        <SkeletonPulse />
       ) : error ? (
         <div
-          className="flex h-[320px] items-center justify-center rounded-xl text-[13px]"
+          className="flex h-[280px] items-center justify-center rounded-xl text-[13px]"
           style={{ background: TOKENS.surface, color: TOKENS.onSurfaceMuted }}
         >
           {error}
         </div>
-      ) : data ? (
-        <SpendingTrendsChart data={data} formatCurrency={formatCurrency} />
-      ) : null}
+      ) : data && data.length > 0 ? (
+        <NetWorthChart data={data} formatCurrency={formatCurrency} />
+      ) : (
+        <div
+          className="flex h-[280px] items-center justify-center rounded-xl text-[13px]"
+          style={{ background: TOKENS.surface, color: TOKENS.onSurfaceMuted }}
+        >
+          Your first snapshot will appear here next month.
+        </div>
+      )}
     </div>
   )
 }

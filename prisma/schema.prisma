@@ -12,41 +12,42 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  fundAllocation FundAllocation?
-  incomeEntries IncomeEntry[]
-  accounts      Account[]
-  transfers     Transfer[]
-  expenses      Expense[]
-  recurringExpenses RecurringExpense[]
-  subscriptions Subscription[]
-  loans         Loan[]
-  borrowedLoans BorrowedLoan[]
-  categoryBalances CategoryBalance[]
-  categoryTransactions CategoryTransaction[]
-  investmentHoldings InvestmentHolding[]
-  investmentDividends InvestmentDividend[]
-  categoryMonthClosings CategoryMonthClosing[]
-  savingGoals       SavingGoal[]
-  savingGoalCredits SavingGoalCredit[]
-  categoryBucketTransfers CategoryBucketTransfer[]
-  apiTokens        ApiToken[]
-  defaultAccountId String?
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
+  password                 String
+  name                     String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  fundAllocation           FundAllocation?
+  incomeEntries            IncomeEntry[]
+  accounts                 Account[]
+  transfers                Transfer[]
+  expenses                 Expense[]
+  recurringExpenses        RecurringExpense[]
+  subscriptions            Subscription[]
+  loans                    Loan[]
+  borrowedLoans            BorrowedLoan[]
+  categoryBalances         CategoryBalance[]
+  categoryTransactions     CategoryTransaction[]
+  investmentHoldings       InvestmentHolding[]
+  investmentDividends      InvestmentDividend[]
+  categoryMonthClosings    CategoryMonthClosing[]
+  savingGoals              SavingGoal[]
+  savingGoalCredits        SavingGoalCredit[]
+  categoryBucketTransfers  CategoryBucketTransfer[]
+  apiTokens                ApiToken[]
+  netWorthSnapshots        NetWorthSnapshot[]
+  defaultAccountId         String?
   /// "classic" | "console" — which dashboard experience to load by default
-  dashboardTheme   String   @default("console")
+  dashboardTheme           String                   @default("console")
   /// ISO 4217 code — ledger amounts are stored in minor units of this currency
-  displayCurrency  String   @default("AUD")
+  displayCurrency          String                   @default("AUD")
   /// Set when the user finishes first-time setup (accounts + bucket splits).
-  onboardingCompletedAt DateTime?
+  onboardingCompletedAt    DateTime?
   /// Set when the user saves bucket splits during onboarding (even if still default %).
   onboardingBucketsSavedAt DateTime?
   /// Set when the user finishes the in-app spotlight product tour.
-  productTourCompletedAt DateTime?
+  productTourCompletedAt   DateTime?
 }
 
 /// Personal access token for external integrations (e.g. Apple Shortcuts).
@@ -56,10 +57,10 @@ model ApiToken {
   id         String    @id @default(cuid())
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name       String    // user-visible label, e.g. "iPhone Shortcut"
-  token      String?   // plaintext token; null only for legacy rows created before plaintext was kept
+  name       String // user-visible label, e.g. "iPhone Shortcut"
+  token      String? // plaintext token; null only for legacy rows created before plaintext was kept
   tokenHash  String    @unique // sha256 of full token secret — used for bearer lookup
-  prefix     String    // first ~10 chars of the plaintext, for display (e.g. "csp_abcdef")
+  prefix     String // first ~10 chars of the plaintext, for display (e.g. "csp_abcdef")
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
   revokedAt  DateTime?
@@ -68,53 +69,53 @@ model ApiToken {
 }
 
 model FundAllocation {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Allocation types: 'percentage' or 'fixed'
-  fixedCostsType        String   @default("percentage")
-  fixedCostsPercentBps  Int      @default(5000) // 10000 = 100%, 5000 = 50%
-  fixedCostsFixedMinor  BigInt?  // Used when fixedCostsType = 'fixed'
-  fixedCostsCap         BigInt?  // Optional cap in minor units (null = no cap)
-  
-  savingsType           String   @default("percentage")
-  savingsPercentBps     Int      @default(2000)
-  savingsFixedMinor     BigInt?
-  savingsCap            BigInt?
-  
-  investmentType        String   @default("percentage")
-  investmentPercentBps  Int      @default(1000)
-  investmentFixedMinor  BigInt?
-  investmentCap         BigInt?
-  
-  guiltFreeSpendingType String   @default("percentage")
-  guiltFreeSpendingPercentBps Int @default(2000)
+  fixedCostsType       String  @default("percentage")
+  fixedCostsPercentBps Int     @default(5000) // 10000 = 100%, 5000 = 50%
+  fixedCostsFixedMinor BigInt? // Used when fixedCostsType = 'fixed'
+  fixedCostsCap        BigInt? // Optional cap in minor units (null = no cap)
+
+  savingsType       String  @default("percentage")
+  savingsPercentBps Int     @default(2000)
+  savingsFixedMinor BigInt?
+  savingsCap        BigInt?
+
+  investmentType       String  @default("percentage")
+  investmentPercentBps Int     @default(1000)
+  investmentFixedMinor BigInt?
+  investmentCap        BigInt?
+
+  guiltFreeSpendingType       String  @default("percentage")
+  guiltFreeSpendingPercentBps Int     @default(2000)
   guiltFreeSpendingFixedMinor BigInt?
-  guiltFreeSpendingCap  BigInt?
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  guiltFreeSpendingCap        BigInt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model IncomeEntry {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount        BigInt
-  description   String?  // Optional description for the income entry
-  date          DateTime @default(now()) // Date when income was received
-  periodStart   DateTime
-  periodEnd     DateTime
-  accountId     String?  // Account where income was deposited
-  account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  createdAt     DateTime @default(now())
-  excludeFromAllocation Boolean @default(false) // If true, this income is not used for fund allocation / budgets
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount                BigInt
+  description           String? // Optional description for the income entry
+  date                  DateTime @default(now()) // Date when income was received
+  periodStart           DateTime
+  periodEnd             DateTime
+  accountId             String? // Account where income was deposited
+  account               Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  createdAt             DateTime @default(now())
+  excludeFromAllocation Boolean  @default(false) // If true, this income is not used for fund allocation / budgets
 
   // Amount allocated to each category when this entry was added (used to reverse on delete)
-  allocationFixedCosts       BigInt?
-  allocationSavings          BigInt?
-  allocationInvestment       BigInt?
+  allocationFixedCosts        BigInt?
+  allocationSavings           BigInt?
+  allocationInvestment        BigInt?
   allocationGuiltFreeSpending BigInt?
 
   /// When set, this row was created for an investment dividend (one-to-one).
@@ -126,27 +127,27 @@ model IncomeEntry {
 }
 
 model Account {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  bankName      String
-  accountType   String   // e.g., "checking", "savings", "investment", "credit"
-  balance       BigInt   @default(0)
-  startingFunds BigInt   @default(0)
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  outgoingTransfers Transfer[] @relation("FromAccount")
-  incomingTransfers Transfer[] @relation("ToAccount")
-  expenses      Expense[]
-  recurringExpenses RecurringExpense[]
-  incomeEntries IncomeEntry[]
-  investmentHoldings InvestmentHolding[]
+  id                  String               @id @default(cuid())
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String
+  bankName            String
+  accountType         String // e.g., "checking", "savings", "investment", "credit"
+  balance             BigInt               @default(0)
+  startingFunds       BigInt               @default(0)
+  isDefault           Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  outgoingTransfers   Transfer[]           @relation("FromAccount")
+  incomingTransfers   Transfer[]           @relation("ToAccount")
+  expenses            Expense[]
+  recurringExpenses   RecurringExpense[]
+  incomeEntries       IncomeEntry[]
+  investmentHoldings  InvestmentHolding[]
   investmentDividends InvestmentDividend[]
-  loans         Loan[]
-  borrowedLoans BorrowedLoan[]
-  
+  loans               Loan[]
+  borrowedLoans       BorrowedLoan[]
+
   @@index([userId])
 }
 
@@ -160,10 +161,10 @@ model Transfer {
   toAccount     Account  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Cascade)
   amount        BigInt
   description   String?
-  category      String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
+  category      String? // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
   date          DateTime @default(now()) // Date when transfer occurred
   createdAt     DateTime @default(now())
-  
+
   @@index([userId])
   @@index([fromAccountId])
   @@index([toAccountId])
@@ -171,30 +172,30 @@ model Transfer {
 }
 
 model CategoryBalance {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
-  balance       BigInt   @default(0) // Accumulated amount in minor units for this category for the current month
-  month         Int      // Month (1-12)
-  year          Int      // Year
-  updatedAt     DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  balance   BigInt   @default(0) // Accumulated amount in minor units for this category for the current month
+  month     Int // Month (1-12)
+  year      Int // Year
+  updatedAt DateTime @updatedAt
+
   @@unique([userId, category, month, year])
   @@index([userId])
   @@index([userId, month, year])
 }
 
 model CategoryMonthClosing {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category   String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
-  month      Int      // Month (1-12)
-  year       Int
-  remaining  BigInt   @default(0) // Carryover to next month in minor units (>= 0)
-  overspent  BigInt   @default(0) // Amount to deduct from next month in minor units (>= 0)
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  month     Int // Month (1-12)
+  year      Int
+  remaining BigInt   @default(0) // Carryover to next month in minor units (>= 0)
+  overspent BigInt   @default(0) // Amount to deduct from next month in minor units (>= 0)
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, category, month, year])
   @@index([userId])
@@ -209,11 +210,11 @@ model Expense {
   account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   amount          BigInt
   description     String?
-  category        String?  // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
-  expenseCategory String?  // Expense category: 'food', 'transport', 'bills', 'entertainment', etc.
+  category        String? // Fund category: 'fixedCosts', 'investment', 'savings', 'guiltFreeSpending'
+  expenseCategory String? // Expense category: 'food', 'transport', 'bills', 'entertainment', etc.
   date            DateTime // Date of the expense
   createdAt       DateTime @default(now())
-  
+
   @@index([userId])
   @@index([accountId])
   @@index([userId, date])
@@ -221,21 +222,21 @@ model Expense {
 }
 
 model RecurringExpense {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId       String
-  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account         Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   amount          BigInt
   description     String?
   category        String?
   expenseCategory String?
-  frequency       String   // 'weekly', 'monthly', 'yearly'
-  startDate       DateTime @default(now())
+  frequency       String // 'weekly', 'monthly', 'yearly'
+  startDate       DateTime      @default(now())
   endDate         DateTime?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   subscription    Subscription?
 
   @@index([userId])
@@ -244,57 +245,57 @@ model RecurringExpense {
 
 /// Recurring charge tracked as a subscription (1:1 with RecurringExpense for billing).
 model Subscription {
-  id                 String   @id @default(cuid())
+  id                 String           @id @default(cuid())
   userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recurringExpenseId String   @unique
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurringExpenseId String           @unique
   recurringExpense   RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
   provider           String?
   label              String?
-  status             String   @default("active") // active | paused | cancelled
+  status             String           @default("active") // active | paused | cancelled
   trialEndsAt        DateTime?
   nextRenewalAt      DateTime?
-  reminderDaysBefore Int      @default(7)
-  foreignCurrency    String?  // null if local currency, e.g. "USD" if foreign
-  foreignAmount      BigInt?  // original amount in foreign currency minor units
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  reminderDaysBefore Int              @default(7)
+  foreignCurrency    String? // null if local currency, e.g. "USD" if foreign
+  foreignAmount      BigInt? // original amount in foreign currency minor units
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([userId])
   @@index([userId, status])
 }
 
 model CategoryTransaction {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category      String   // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
-  type          String   // 'expense' or 'income'
-  amount        BigInt
-  description   String?
-  date          DateTime
-  month         Int      // Month (1-12) for tracking
-  year          Int      // Year for tracking
-  createdAt     DateTime @default(now())
-  
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String // 'fixedCosts', 'savings', 'investment', 'guiltFreeSpending'
+  type        String // 'expense' or 'income'
+  amount      BigInt
+  description String?
+  date        DateTime
+  month       Int // Month (1-12) for tracking
+  year        Int // Year for tracking
+  createdAt   DateTime @default(now())
+
   @@index([userId])
   @@index([userId, category, month, year])
   @@index([userId, date])
 }
 
 model InvestmentHolding {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  name          String   // Name of the share / fund / asset
-  amount        BigInt   // Total invested in minor units including brokerage fees
-  pricePerUnit  BigInt?  // Price per share/unit in minor units
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name           String // Name of the share / fund / asset
+  amount         BigInt // Total invested in minor units including brokerage fees
+  pricePerUnit   BigInt? // Price per share/unit in minor units
   numberOfShares Decimal? @db.Decimal(24, 8) // Share count as exact decimal (not float)
-  brokerageFee  BigInt?  // Optional brokerage fee in minor units
-  date          DateTime @default(now())
-  createdAt     DateTime @default(now())
+  brokerageFee   BigInt? // Optional brokerage fee in minor units
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([userId])
   @@index([accountId])
@@ -303,17 +304,17 @@ model InvestmentHolding {
 
 /// Cash dividend received on a stock / fund — credited to the investment account balance.
 model InvestmentDividend {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  name      String   // Symbol / ticker (matches InvestmentHolding.name for the same line)
-  amount    BigInt
-  date      DateTime @default(now())
-  createdAt DateTime @default(now())
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name          String // Symbol / ticker (matches InvestmentHolding.name for the same line)
+  amount        BigInt
+  date          DateTime     @default(now())
+  createdAt     DateTime     @default(now())
   /// Mirrors this dividend on the income ledger (statement); cascades when income row is deleted.
-  incomeEntryId String?   @unique
+  incomeEntryId String?      @unique
   incomeEntry   IncomeEntry? @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -322,20 +323,20 @@ model InvestmentDividend {
 }
 
 model Loan {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount        BigInt
-  description   String?
-  borrowerName  String?
-  date          DateTime @default(now())
-  dueDate       DateTime?
-  status        String   @default("active") // 'active', 'repaid', 'defaulted'
-  repaidAmount  BigInt   @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount       BigInt
+  description  String?
+  borrowerName String?
+  date         DateTime  @default(now())
+  dueDate      DateTime?
+  status       String    @default("active") // 'active', 'repaid', 'defaulted'
+  repaidAmount BigInt    @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId])
   @@index([accountId])
@@ -343,20 +344,20 @@ model Loan {
 }
 
 model BorrowedLoan {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  amount        BigInt
-  description   String?
-  lenderName    String?
-  date          DateTime @default(now())
-  dueDate       DateTime?
-  status        String   @default("active") // 'active', 'repaid', 'defaulted'
-  repaidAmount  BigInt   @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount       BigInt
+  description  String?
+  lenderName   String?
+  date         DateTime  @default(now())
+  dueDate      DateTime?
+  status       String    @default("active") // 'active', 'repaid', 'defaulted'
+  repaidAmount BigInt    @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId])
   @@index([accountId])
@@ -365,17 +366,17 @@ model BorrowedLoan {
 
 /// Named saving goal — auto-credits a % of each income's savings-bucket allocation.
 model SavingGoal {
-  id           String   @id @default(cuid())
+  id           String             @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
   targetMinor  BigInt?
-  currentMinor BigInt   @default(0)
-  percentBps   Int      // % of savings-bucket allocation (1000 = 10%)
-  status       String   @default("active") // active | complete | archived
+  currentMinor BigInt             @default(0)
+  percentBps   Int // % of savings-bucket allocation (1000 = 10%)
+  status       String             @default("active") // active | complete | archived
   completedAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   credits      SavingGoalCredit[]
 
   @@index([userId, status])
@@ -403,7 +404,7 @@ model CategoryBucketTransfer {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fromCategory String   // fixedCosts | savings | investment | guiltFreeSpending
+  fromCategory String // fixedCosts | savings | investment | guiltFreeSpending
   toCategory   String
   amount       BigInt
   month        Int
@@ -412,4 +413,20 @@ model CategoryBucketTransfer {
 
   @@index([userId, month, year])
   @@index([userId, createdAt])
+}
+
+model NetWorthSnapshot {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month           Int
+  year            Int
+  cashValue       BigInt   @default(0)
+  investmentValue BigInt   @default(0)
+  loanValue       BigInt   @default(0)
+  netWorth        BigInt   @default(0)
+  recordedAt      DateTime @default(now())
+
+  @@unique([userId, month, year])
+  @@index([userId])
 }

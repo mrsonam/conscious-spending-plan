@@ -49,3 +49,6 @@ next-env.d.ts
 .cursor
 .impeccable
 docs/superpowers
+prisma/scripts
+.playwright-mcp/
+supabase-backup.*

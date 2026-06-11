@@ -21,6 +21,7 @@ import type {
 import { ConsoleOverviewSection } from "@/components/wealth-console/sections/console-overview-section"
 import { ConsolePillarDetailSection } from "@/components/wealth-console/sections/console-pillar-detail-section"
 import { ConsoleAccountsSection } from "@/components/wealth-console/sections/console-accounts-section"
+import { ConsoleBudgetAlertsStrip } from "@/components/wealth-console/console-budget-alerts-strip"
 
 const ConsolePulseSection = dynamic(
   () =>
@@ -107,6 +108,7 @@ export function WealthConsoleView(
               onLogIncome={openLogIncome}
               onLogExpense={openLogExpense}
             />
+            <ConsoleBudgetAlertsStrip alerts={vm.spendingAlerts} />
             <ConsoleOverviewSection vm={vm}>
               <ConsolePulseSection vm={vm} />
             </ConsoleOverviewSection>

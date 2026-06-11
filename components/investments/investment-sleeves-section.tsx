@@ -45,8 +45,11 @@ export function InvestmentSleevesSection({
         badgeColor={TOKENS.primary}
       >
         <ul className="mt-3 space-y-2">
-          {topHoldingsList.slice(0, 3).map((row) => (
-            <li key={row.symbol} className="flex items-center justify-between gap-2 text-xs">
+          {topHoldingsList.slice(0, 3).map((row, index) => (
+            <li
+              key={`core-${row.symbol}-${index}`}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
               <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
                 {row.symbol}
               </span>
@@ -56,7 +59,7 @@ export function InvestmentSleevesSection({
             </li>
           ))}
           {topHoldingsList.length === 0 ? (
-            <li className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+            <li key="core-empty" className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
               No positions yet.
             </li>
           ) : null}
@@ -73,8 +76,11 @@ export function InvestmentSleevesSection({
 
       <SleeveCard title="Secondary sleeve" badge="Next tier" badgeColor={TOKENS.onSurfaceMuted}>
         <ul className="mt-3 space-y-2">
-          {topHoldingsList.slice(3, 6).map((row) => (
-            <li key={row.symbol} className="flex items-center justify-between gap-2 text-xs">
+          {topHoldingsList.slice(3, 6).map((row, index) => (
+            <li
+              key={`secondary-${row.symbol}-${index}`}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
               <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
                 {row.symbol}
               </span>
@@ -84,7 +90,7 @@ export function InvestmentSleevesSection({
             </li>
           ))}
           {topHoldingsList.length <= 3 ? (
-            <li className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+            <li key="secondary-empty" className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
               Add more tickers to populate this sleeve.
             </li>
           ) : null}
@@ -109,8 +115,11 @@ export function InvestmentSleevesSection({
         badgeColor={TOKENS.primary}
       >
         <ul className="mt-3 space-y-2">
-          {accounts.map((acc) => (
-            <li key={acc.id} className="flex items-center justify-between gap-2 text-xs">
+          {accounts.map((acc, index) => (
+            <li
+              key={acc.id ? `${acc.id}-${index}` : `cash-account-${index}`}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
               <span className="min-w-0 truncate font-semibold" style={{ color: TOKENS.onSurface }}>
                 {acc.name}
               </span>

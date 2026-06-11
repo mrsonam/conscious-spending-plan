@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { Header } from "@/components/layout/header"
 import { SpendingTrendsBento } from "@/components/trends/spending-trends-bento"
+import { NetWorthBento } from "@/components/net-worth/net-worth-bento"
 
 export default function TrendsPage() {
   const { session, status, isSessionPending } = useHydratedSession()
@@ -39,6 +40,7 @@ export default function TrendsPage() {
         description="Spending patterns across months."
       />
       <div className="mx-auto w-full max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <NetWorthBento />
         <SpendingTrendsBento />
       </div>
     </>

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowUpRight, CalendarClock } from "lucide-react"
+import { ArrowUpRight, CalendarClock } from "lucide-react"
 import { BENTO } from "@/lib/app-routes"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
@@ -28,7 +28,6 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
     investmentAllocated,
     expenseChangePct,
     savingsRatePct,
-    spendingAlerts,
     breakdownData,
     showBreakdownSkeleton,
     showNetWorthSkeleton,
@@ -648,55 +647,9 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                 </div>
 
                 <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
-                  {spendingAlerts.length > 0 ? (
-                    <aside
-                      className="h-fit min-w-0 self-start rounded-xl border p-5"
-                      style={{
-                        borderColor: TOKENS.outlineGhost,
-                        background: TOKENS.surfaceLow,
-                      }}
-                    >
-                      <p
-                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em]"
-                        style={{ color: TOKENS.onSurfaceMutedElevated }}
-                      >
-                        <AlertTriangle
-                          className="h-4 w-4 shrink-0"
-                          style={{ color: TOKENS.warning }}
-                        />
-                        Signals
-                      </p>
-                      <ul className="mt-4 space-y-3">
-                        {spendingAlerts.map((a) => (
-                          <li
-                            key={`${a.category}-${a.severity}-${a.message}`}
-                            className="text-sm leading-snug"
-                            style={{
-                              color:
-                                a.severity === "danger"
-                                  ? TOKENS.loss
-                                  : TOKENS.onSurface,
-                            }}
-                          >
-                            <span className="text-xs font-bold uppercase tracking-wide opacity-80">
-                              {a.category}
-                            </span>
-                            <br />
-                            <span className="mt-0.5 inline-block">
-                              {a.message}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </aside>
-                  ) : null}
                   <div
                     id="console-subscriptions"
-                    className={
-                      spendingAlerts.length === 0
-                        ? "scroll-mt-28 min-w-0 lg:col-span-2"
-                        : "scroll-mt-28 min-w-0"
-                    }
+                    className="scroll-mt-28 min-w-0 lg:col-span-2"
                   >
                     <div
                       className="rounded-xl border p-5 transition-colors hover:opacity-[0.98] sm:p-6"
