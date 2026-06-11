@@ -1,17 +1,15 @@
 import type { FundCategory } from "@/lib/fund-allocation-fields"
-import { isFundCategory } from "@/lib/category-bucket-transfer-shared"
+import {
+  isFundCategory,
+  type CategoryBucketTransferApiRow,
+} from "@/lib/category-bucket-transfer-shared"
 import { ensureCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
 import { isMissingCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
 
-export type CategoryBucketTransferApiRow = {
-  id: string
-  fromCategory: FundCategory
-  toCategory: FundCategory
-  amount: number
-  createdAt: string
-}
+export type { CategoryBucketTransferApiRow, BucketTransferFlow } from "@/lib/category-bucket-transfer-shared"
+export { bucketTransferFlowByCategory } from "@/lib/category-bucket-transfer-shared"
 
 export async function listCategoryBucketTransfersForMonth(
   userId: string,
@@ -34,8 +32,8 @@ export async function listCategoryBucketTransfersForMonth(
       }
       out.push({
         id: row.id,
-        fromCategory: row.fromCategory,
-        toCategory: row.toCategory,
+        fromCategory: row.fromCategory as FundCategory,
+        toCategory: row.toCategory as FundCategory,
         amount: serializeMoneyForApi(row.amount, currency),
         createdAt: row.createdAt.toISOString(),
       })
@@ -47,28 +45,4 @@ export async function listCategoryBucketTransfersForMonth(
     }
     throw error
   }
-}
-
-export type BucketTransferFlow = { in: number; out: number }
-
-export function bucketTransferFlowByCategory(
-  transfers: CategoryBucketTransferApiRow[]
-): Record<FundCategory, BucketTransferFlow> {
-  const flow = Object.fromEntries(
-    (["fixedCosts", "savings", "investment", "guiltFreeSpending"] as FundCategory[]).map(
-      (cat) => [cat, { in: 0, out: 0 }]
-    )
-  ) as Record<FundCategory, BucketTransferFlow>
-
-  for (const t of transfers) {
-    flow[t.fromCategory].out += t.amount
-    flow[t.toCategory].in += t.amount
-  }
-
-  for (const cat of Object.keys(flow) as FundCategory[]) {
-    flow[cat].in = Math.round(flow[cat].in * 100) / 100
-    flow[cat].out = Math.round(flow[cat].out * 100) / 100
-  }
-
-  return flow
 }

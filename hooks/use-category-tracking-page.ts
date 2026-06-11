@@ -20,7 +20,7 @@ import {
 import {
   bucketTransferFlowByCategory,
   type CategoryBucketTransferApiRow,
-} from "@/lib/category-bucket-transfer-api"
+} from "@/lib/category-bucket-transfer-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import type { FundCategory } from "@/lib/fund-allocation-fields"
 import { toastError, toastSuccess } from "@/lib/app-toast"
