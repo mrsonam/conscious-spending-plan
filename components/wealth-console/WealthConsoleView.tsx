@@ -22,6 +22,10 @@ import { ConsoleOverviewSection } from "@/components/wealth-console/sections/con
 import { ConsolePillarDetailSection } from "@/components/wealth-console/sections/console-pillar-detail-section"
 import { ConsoleAccountsSection } from "@/components/wealth-console/sections/console-accounts-section"
 import { ConsoleBudgetAlertsStrip } from "@/components/wealth-console/console-budget-alerts-strip"
+import { useSession } from "next-auth/react"
+import { PendingReviewBar } from "@/components/basiq/pending-review-bar"
+import { TransactionReview } from "@/components/basiq/transaction-review"
+import { useBasiq } from "@/hooks/use-basiq"
 
 const ConsolePulseSection = dynamic(
   () =>
@@ -73,6 +77,10 @@ export function WealthConsoleView(
   const openLogIncome = useCallback(() => setIncomeOpen(true), [])
   const openLogExpense = useCallback(() => setExpenseOpen(true), [])
 
+  const { status } = useSession()
+  const basiq = useBasiq(status)
+  const [reviewOpen, setReviewOpen] = useState(false)
+
   const handleActivityLogged = useCallback(async () => {
     await onActivityLogged?.()
   }, [onActivityLogged])
@@ -88,7 +96,11 @@ export function WealthConsoleView(
       <Header
         title="Wealth Console"
         description="Monthly flow, allocation, and balances in one view."
-       
+
+      />
+      <PendingReviewBar
+        count={basiq.pendingCount}
+        onClick={() => setReviewOpen(true)}
       />
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
         {!hasBreakdown && !loading ? (
@@ -133,6 +145,13 @@ export function WealthConsoleView(
         onOptimisticRollback={onOptimisticRollback}
       />
 
+      <TransactionReview
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        onReviewComplete={(count) =>
+          basiq.setPendingCount((prev) => Math.max(0, prev - (count > 0 ? 1 : 1)))
+        }
+      />
     </div>
   )
 }
