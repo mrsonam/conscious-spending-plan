@@ -25,6 +25,8 @@ export type LogIncomeEntryInput = {
   allocateToBudget?: boolean
   /** Skip month envelope sync — caller runs reallocateMonthIncomeForUser once after a batch. */
   deferEnvelopeSync?: boolean
+  externalId?: string
+  source?: string
 }
 
 export type LogIncomeEntryResult = {
@@ -131,6 +133,8 @@ export async function logIncomeEntryForUser(
       allocationSavings: alloc.savings,
       allocationInvestment: allocateToBudget ? alloc.investment : 0n,
       allocationGuiltFreeSpending: allocateToBudget ? alloc.guiltFreeSpending : 0n,
+      externalId: input.externalId ?? null,
+      source: input.source ?? "manual",
     },
   })
 
