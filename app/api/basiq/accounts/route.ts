@@ -16,6 +16,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "basiqUserId required" }, { status: 400 })
     }
 
+    const ownsConnection = await prisma.basiqConnection.findFirst({
+      where: { userId: session.user.id, basiqUserId },
+    })
+    if (!ownsConnection) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const [basiqAccounts, appAccounts, connections] = await Promise.all([
       getBasiqAccounts(basiqUserId),
       prisma.account.findMany({

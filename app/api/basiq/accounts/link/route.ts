@@ -42,10 +42,13 @@ export async function POST(request: Request) {
             },
           })
         } else if (m.appAccountId) {
-          await tx.account.update({
-            where: { id: m.appAccountId },
+          const updated = await tx.account.updateMany({
+            where: { id: m.appAccountId, userId: session.user.id },
             data: { basiqAccountId: m.basiqAccountId },
           })
+          if (updated.count === 0) {
+            throw new Error("Account not found or not owned by user")
+          }
         }
       }
 
