@@ -37,6 +37,7 @@ model User {
   categoryBucketTransfers  CategoryBucketTransfer[]
   apiTokens                ApiToken[]
   netWorthSnapshots        NetWorthSnapshot[]
+  basiqConnections         BasiqConnection[]
   defaultAccountId         String?
   /// "classic" | "console" — which dashboard experience to load by default
   dashboardTheme           String                   @default("console")
@@ -121,9 +122,12 @@ model IncomeEntry {
   /// When set, this row was created for an investment dividend (one-to-one).
   investmentDividend InvestmentDividend?
   savingGoalCredits  SavingGoalCredit[]
+  externalId            String?
+  source                String   @default("manual")
 
   @@index([userId])
   @@index([accountId])
+  @@unique([userId, externalId])
 }
 
 model Account {
@@ -138,6 +142,8 @@ model Account {
   isDefault           Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  basiqAccountId      String?
+  lastSyncedAt        DateTime?
   outgoingTransfers   Transfer[]           @relation("FromAccount")
   incomingTransfers   Transfer[]           @relation("ToAccount")
   expenses            Expense[]
@@ -214,11 +220,15 @@ model Expense {
   expenseCategory String? // Expense category: 'food', 'transport', 'bills', 'entertainment', etc.
   date            DateTime // Date of the expense
   createdAt       DateTime @default(now())
+  externalId      String?
+  source          String   @default("manual")
+  syncStatus      String   @default("confirmed")
 
   @@index([userId])
   @@index([accountId])
   @@index([userId, date])
   @@index([userId, expenseCategory])
+  @@unique([userId, externalId])
 }
 
 model RecurringExpense {
@@ -428,5 +438,21 @@ model NetWorthSnapshot {
   recordedAt      DateTime @default(now())
 
   @@unique([userId, month, year])
+  @@index([userId])
+}
+
+model BasiqConnection {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  basiqUserId     String
+  connectionId    String
+  institutionId   String
+  institutionName String
+  status          String   @default("active")
+  connectedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, connectionId])
   @@index([userId])
 }
