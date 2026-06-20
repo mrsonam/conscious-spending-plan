@@ -13,6 +13,9 @@ import {
   normalizeDisplayCurrency,
 } from "@/lib/display-currency"
 import { buildCurrencySelectOptions } from "@/components/ui/currency-select-options"
+import { ConnectBankButton } from "@/components/basiq/connect-bank-button"
+import { ConnectionStatus } from "@/components/basiq/connection-status"
+import { useBasiq } from "@/hooks/use-basiq"
 
 function getInitials(email: string) {
   return email
@@ -25,13 +28,14 @@ function getInitials(email: string) {
 }
 
 export function ProfilePageBento() {
-  const { data: session, update } = useSession()
+  const { data: session, update, status } = useSession()
   const { startTour } = useProductTour()
   const [displayCurrency, setDisplayCurrency] = useState(
     DEFAULT_DISPLAY_CURRENCY,
   )
   const [currencySaving, setCurrencySaving] = useState(false)
   const [currencyMessage, setCurrencyMessage] = useState<string | null>(null)
+  const basiq = useBasiq(status)
 
   useEffect(() => {
     if (session?.user?.displayCurrency) {
@@ -222,6 +226,43 @@ export function ProfilePageBento() {
               {currencyMessage}
             </p>
           ) : null}
+        </section>
+      </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-12 lg:gap-5">
+        <section
+          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            Bank Sync
+          </p>
+          <p className="mt-1 text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
+            Automatic transaction import
+          </p>
+          <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+            Connect your bank to automatically sync income and expenses.
+          </p>
+          <div className="mt-4">
+            {basiq.connection ? (
+              <ConnectionStatus
+                institutionName={basiq.connection.institutionName}
+                connectedAt={basiq.connection.connectedAt}
+                linkedAccounts={basiq.linkedAccounts.map((a) => ({
+                  name: a.name,
+                  lastSyncedAt: a.lastSyncedAt,
+                }))}
+                syncing={basiq.syncing}
+                onSync={basiq.triggerSync}
+                onDisconnect={basiq.disconnect}
+              />
+            ) : (
+              <ConnectBankButton />
+            )}
+          </div>
         </section>
       </div>
 
