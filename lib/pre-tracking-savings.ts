@@ -77,16 +77,31 @@ export async function sumPreTrackingSavingsMinor(
     (sum, account) => addMinor(sum, coerceMinor(account.startingFunds)),
     0n
   )
-  if (fromStartingFunds > 0n) {
-    return fromStartingFunds
-  }
 
   const resolvedStart = trackingStart ?? (await resolveTrackingStartMonth(userId))
   if (!resolvedStart) {
-    return 0n
+    return fromStartingFunds > 0n ? fromStartingFunds : 0n
   }
 
-  return computeInferredPreTrackingSavingsMinor(userId, accounts, resolvedStart)
+  const inferred = await computeInferredPreTrackingSavingsMinor(
+    userId,
+    accounts.map((a) => ({ id: a.id, balance: a.balance })),
+    resolvedStart,
+  )
+
+  if (fromStartingFunds <= 0n) {
+    return inferred
+  }
+
+  // When account balances were edited without updating startingFunds, prefer inferred.
+  const diff =
+    fromStartingFunds > inferred ? fromStartingFunds - inferred : inferred - fromStartingFunds
+  const threshold = dollarsToMinor(100, await getUserDisplayCurrency(userId))
+  if (diff > threshold) {
+    return inferred
+  }
+
+  return fromStartingFunds
 }
 
 /**
@@ -317,19 +332,15 @@ async function ensurePreTrackingSavingsBalancesInner(
   }
 
   const currency = await getUserDisplayCurrency(userId)
-  const { month, year } = trackingStart
-  const prev = previousCalendarMonth(month, year)
+  const prev = previousCalendarMonth(trackingStart.month, trackingStart.year)
 
-  // Month before tracking: savings envelope holds the pre-tracking pool.
+  // Month before tracking: fixed pre-Jan pool only (never increment on read).
   await upsertCategoryBalanceExact(userId, "savings", prev.month, prev.year, seedMinor)
   await ensureMonthClosing(userId, prev.month, prev.year)
 
   try {
     await reconcileEnvelopeChainFromTrackingStart(userId, trackingStart, currency)
   } catch (err) {
-    // A concurrent instance (different serverless process) may have written the
-    // same rows simultaneously, causing a conflict. Re-check the DB: if the chain
-    // is now current, the other instance succeeded and we can treat this as done.
     if (await isPreTrackingChainCurrent(userId, trackingStart, seedMinor)) {
       ensuredAt.set(userId, Date.now())
       return
@@ -340,7 +351,7 @@ async function ensurePreTrackingSavingsBalancesInner(
 }
 
 /**
- * Seed pre-tracking bank balances into the savings bucket for the first tracked month.
+ * Seed pre-tracking bank balances into the savings bucket carry for the first tracked month.
  * Idempotent — safe to call on every read/write path.
  */
 export async function ensurePreTrackingSavingsBalances(

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 
 import {
   netPillarHeadroom,
+  reconcileTrackingDisplayToLiquid,
   sumDeployableBalance,
   savingsSpendableAmount,
   type CategoryTrackingRow,
@@ -32,10 +33,19 @@ const tracking = {
 assert.equal(sumDeployableBalance(tracking), 250)
 
 const savingsRow = tracking.savings!
-assert.equal(savingsSpendableAmount(savingsRow, 40), 40)
+assert.equal(savingsSpendableAmount(savingsRow, 0, 40), 40)
+assert.equal(savingsSpendableAmount(savingsRow, 10, 30), 30)
 assert.equal(
   sumDeployableBalance(tracking, 40),
   250 - 100 + 40
 )
+assert.equal(
+  sumDeployableBalance(tracking, 30, 10),
+  250 - 100 + 30
+)
+
+const liquid = 1170
+const reconciled = reconcileTrackingDisplayToLiquid(tracking, liquid)
+assert.equal(sumDeployableBalance(reconciled, 40), liquid)
 
 console.log("deployable-balance.test.ts: all passed")

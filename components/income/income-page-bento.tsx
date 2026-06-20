@@ -27,6 +27,7 @@ import type { IncomeBreakdown, IncomeEntry } from "@/lib/income-page-types"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
+import { IncomeBulkDialog } from "@/components/income/income-bulk-dialog"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import {
@@ -320,6 +321,17 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
   const isEditing = Boolean(p.editingEntryId)
 
+  const openBulkImport = () => {
+    if (p.loadingForm) return
+    p.setShowBulkForm(true)
+    p.setError("")
+    if (p.accounts.length && !p.bulkAccountId) {
+      p.setBulkAccountId(
+        p.accounts.find((a) => a.isDefault)?.id || p.accounts[0]!.id,
+      )
+    }
+  }
+
   const exportCsv = async () => {
     setExporting(true)
     try {
@@ -593,7 +605,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                 type="button"
                 onClick={openLogDialog}
                 disabled={p.loadingForm || !p.allocation}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50"
                 style={{
                   background: TOKENS.primary,
                   color: TOKENS.surface,
@@ -602,6 +614,19 @@ export function IncomePageBento(p: UseIncomePageResult) {
               >
                 <Plus className="h-4 w-4" strokeWidth={2.5} />
                 Log new income
+              </button>
+
+              <button
+                type="button"
+                onClick={openBulkImport}
+                disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50"
+                style={{
+                  borderColor: TOKENS.outlineGhost,
+                  color: TOKENS.onSurfaceMuted,
+                }}
+              >
+                Bulk import
               </button>
 
             </div>
@@ -1016,6 +1041,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
               />
             </>
           )}
+
+        <IncomeBulkDialog p={p} />
 
         <ConfirmDialog
           open={p.deleteEntryId !== null}

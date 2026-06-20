@@ -1,10 +1,22 @@
 import { PrismaClient } from '@prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
+import {
+  isAccelerateDatabaseUrl,
+  resolvePrismaDatabaseUrl,
+  warnAboutMisconfiguredDatabaseUrl,
+} from '@/lib/database-url'
 
-const createPrismaClient = () =>
-  new PrismaClient({
+const createPrismaClient = () => {
+  const url = resolvePrismaDatabaseUrl()
+  warnAboutMisconfiguredDatabaseUrl(process.env.DATABASE_URL ?? url)
+
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  }).$extends(withAccelerate())
+    datasources: { db: { url } },
+  })
+
+  return isAccelerateDatabaseUrl(url) ? client.$extends(withAccelerate()) : client
+}
 
 type PrismaClientSingleton = ReturnType<typeof createPrismaClient>
 

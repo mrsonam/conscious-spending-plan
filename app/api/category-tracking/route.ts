@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
+import { reconcileTrackingDisplayToLiquid } from "@/lib/category-tracking-shared"
 import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
 import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
 import { listCategoryBucketTransfersForMonth } from "@/lib/category-bucket-transfer-api"
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
       startOfMonth = def.startOfMonth
       endOfMonth = def.endOfMonth
     }
-    
+
     const [
       currentMonthCategoryBalances,
       currentMonthExpenses,
@@ -116,7 +117,6 @@ export async function GET(request: Request) {
         where: {
           userId: session.user.id,
           date: { gte: startOfMonth, lte: endOfMonth },
-          excludeFromAllocation: false,
         },
         select: {
           amount: true,
@@ -196,9 +196,21 @@ export async function GET(request: Request) {
       currentMonth,
       currentYear,
       currency,
-      tracking
+      tracking,
+      toD(savingsCtx.availableMinor),
+      toD(savingsCtx.assignedToGoalsMinor),
     )
-    tracking = planVsLiquid.tracking
+
+    const { month: nowMonth, year: nowYear } = getCurrentMonthYear()
+    const isCurrentMonth = currentMonth === nowMonth && currentYear === nowYear
+    const heroDeployable =
+      isCurrentMonth && planVsLiquid.liquidTotal > 0
+        ? planVsLiquid.liquidTotal
+        : planVsLiquid.deployable
+
+    if (isCurrentMonth && planVsLiquid.liquidTotal > 0) {
+      tracking = reconcileTrackingDisplayToLiquid(tracking, planVsLiquid.liquidTotal)
+    }
 
     const totalIncomeMinor = incomeEntriesForMonth.reduce(
       (sum, e) => addMinor(sum, coerceMinor(e.amount)),
@@ -224,6 +236,7 @@ export async function GET(request: Request) {
         savingsGeneralAvailable: toD(savingsCtx.availableMinor),
         savingsAssignedToGoals: toD(savingsCtx.assignedToGoalsMinor),
         bucketTransfers,
+        heroDeployable,
         planVsLiquid: {
           liquidTotal: planVsLiquid.liquidTotal,
           deployable: planVsLiquid.deployable,

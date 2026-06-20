@@ -18,9 +18,6 @@ export type CategoryKey = FundCategory
 
 export type IncomeAllocationMinor = Record<CategoryKey, MinorAmount>
 
-/** Practical upper bound for categories without a monthly cap. */
-const UNBOUNDED_ROOM = 1n << 120n
-
 function allocateCategory(
   fundAllocation: FundAllocation,
   category: CategoryKey,
@@ -65,74 +62,6 @@ function assignmentTotal(amounts: IncomeAllocationMinor): MinorAmount {
   )
 }
 
-function roomUnderCap(
-  category: CategoryKey,
-  amounts: IncomeAllocationMinor,
-  fundAllocation: FundAllocation,
-  getAllocatedFromIncomeSoFar: (cat: CategoryKey) => MinorAmount
-): MinorAmount {
-  const cap = categoryCap(fundAllocation, category)
-  if (cap == null) return UNBOUNDED_ROOM
-  const assigned = addMinor(
-    getAllocatedFromIncomeSoFar(category),
-    amounts[category]
-  )
-  return cap > assigned ? cap - assigned : 0n
-}
-
-/** Spread a pool across categories with remaining cap room, weighted by target %. */
-function distributePoolByTargetWeights(
-  amounts: IncomeAllocationMinor,
-  pool: MinorAmount,
-  fundAllocation: FundAllocation,
-  incomeMinor: MinorAmount,
-  getAllocatedFromIncomeSoFar: (cat: CategoryKey) => MinorAmount
-): MinorAmount {
-  let remaining = pool
-
-  while (remaining > 0n) {
-    let weightSum = 0n
-    const eligible: CategoryKey[] = []
-
-    for (const cat of FUND_CATEGORIES) {
-      const room = roomUnderCap(
-        cat,
-        amounts,
-        fundAllocation,
-        getAllocatedFromIncomeSoFar
-      )
-      if (room <= 0n) continue
-      const target = allocateCategory(fundAllocation, cat, incomeMinor)
-      if (target <= 0n) continue
-      eligible.push(cat)
-      weightSum = addMinor(weightSum, target)
-    }
-
-    if (eligible.length === 0 || weightSum === 0n) break
-
-    let distributedThisPass = 0n
-    for (const cat of eligible) {
-      const room = roomUnderCap(
-        cat,
-        amounts,
-        fundAllocation,
-        getAllocatedFromIncomeSoFar
-      )
-      const target = allocateCategory(fundAllocation, cat, incomeMinor)
-      const ideal = (remaining * target) / weightSum
-      const give = ideal > room ? room : ideal
-      if (give <= 0n) continue
-      amounts[cat] = addMinor(amounts[cat], give)
-      distributedThisPass = addMinor(distributedThisPass, give)
-    }
-
-    if (distributedThisPass === 0n) break
-    remaining -= distributedThisPass
-  }
-
-  return remaining
-}
-
 export type IncomeEntryAllocationSource = {
   excludeFromAllocation?: boolean | null
   amount: bigint
@@ -140,6 +69,25 @@ export type IncomeEntryAllocationSource = {
   allocationSavings?: bigint | null
   allocationInvestment?: bigint | null
   allocationGuiltFreeSpending?: bigint | null
+}
+
+/** Income excluded from the fund plan still lands in the savings bucket. */
+export function excludedIncomeSavingsAllocationMinor(
+  incomeMinor: MinorAmount
+): IncomeAllocationMinor {
+  return {
+    fixedCosts: 0n,
+    savings: incomeMinor,
+    investment: 0n,
+    guiltFreeSpending: 0n,
+  }
+}
+
+function savingsFromExcludedEntry(entry: IncomeEntryAllocationSource): MinorAmount {
+  if (entry.allocationSavings != null) {
+    return coerceMinor(entry.allocationSavings)
+  }
+  return coerceMinor(entry.amount)
 }
 
 /** Sum prior income-entry allocations for cap checks on the next entry. */
@@ -156,7 +104,13 @@ export function buildAllocatedSoFarFromEntries(
   }
 
   for (const entry of entries) {
-    if (entry.excludeFromAllocation) continue
+    if (entry.excludeFromAllocation) {
+      allocatedSoFar.savings = addMinor(
+        allocatedSoFar.savings,
+        savingsFromExcludedEntry(entry)
+      )
+      continue
+    }
 
     const hasStored =
       entry.allocationFixedCosts != null ||
@@ -238,13 +192,7 @@ export function computeIncomeAllocationsMinor(
   }
 
   if (excessPool > 0n) {
-    distributePoolByTargetWeights(
-      amounts,
-      excessPool,
-      fundAllocation,
-      incomeMinor,
-      getAllocatedFromIncomeSoFar
-    )
+    amounts.savings = addMinor(amounts.savings, excessPool)
   }
 
   const unallocated = subtractMinor(incomeMinor, assignmentTotal(amounts))

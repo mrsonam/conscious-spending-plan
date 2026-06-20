@@ -78,7 +78,7 @@ function sum(allocResult: ReturnType<typeof alloc>): bigint {
   assert.equal(result.guiltFreeSpending, income(20))
 }
 
-// Investment cap excess redistributes proportionally (not all to savings)
+// Investment cap excess goes straight to savings (not other pillars)
 {
   const cappedPlan = {
     ...plan40202020,
@@ -86,24 +86,23 @@ function sum(allocResult: ReturnType<typeof alloc>): bigint {
   }
   const result = alloc(500, cappedPlan, () => income(100))
   assert.equal(result.investment, income(50))
-  assert.equal(result.savings, income(112.5))
-  assert.equal(result.guiltFreeSpending, income(112.5))
-  assert.equal(result.fixedCosts, income(225))
+  assert.equal(result.savings, income(150))
+  assert.equal(result.guiltFreeSpending, income(100))
+  assert.equal(result.fixedCosts, income(200))
   assert.equal(sum(result), income(500))
-  assert.notEqual(result.savings, income(150))
 }
 
-// Savings cap excess does not flow back into savings
+// Savings cap excess also returns to savings
 {
   const cappedPlan = {
     ...plan40202020,
     savingsCap: income(250),
   }
   const result = alloc(500, cappedPlan, () => income(200))
-  assert.equal(result.savings, income(50))
-  assert.equal(result.investment, income(112.5))
-  assert.equal(result.guiltFreeSpending, income(112.5))
-  assert.equal(result.fixedCosts, income(225))
+  assert.equal(result.savings, income(100))
+  assert.equal(result.investment, income(100))
+  assert.equal(result.guiltFreeSpending, income(100))
+  assert.equal(result.fixedCosts, income(200))
   assert.equal(sum(result), income(500))
 }
 
@@ -131,6 +130,23 @@ function sum(allocResult: ReturnType<typeof alloc>): bigint {
   const result = alloc(500, cappedPlan, (cat) => prior[cat])
   assert.equal(result.investment, income(100))
   assert.equal(sum(result), income(500))
+}
+
+// Excluded-from-budget income credits the savings bucket only
+{
+  const prior = buildAllocatedSoFarFromEntries(
+    [
+      {
+        amount: income(500),
+        excludeFromAllocation: true,
+        allocationSavings: income(500),
+      },
+    ],
+    plan40202020,
+    CURRENCY
+  )
+  assert.equal(prior.savings, income(500))
+  assert.equal(prior.fixedCosts, 0n)
 }
 
 console.log("income-allocation.test.ts: all assertions passed")

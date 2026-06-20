@@ -51,10 +51,16 @@ export function CategoryTrackingPillarSection({
           const deployed =
             cat.key === "investment" ? data.transferred : data.spent
           const envelopeHeadroom = netPillarHeadroom(data)
+          const savingsBucketTotal = savingsGeneralAvailable + savingsAssignedToGoals
           const displayAmount =
             cat.key === "savings"
-              ? savingsSpendableAmount(data, savingsGeneralAvailable)
-              : envelopeHeadroom
+              ? (data.displayRemaining ??
+                savingsSpendableAmount(
+                  data,
+                  savingsAssignedToGoals,
+                  savingsGeneralAvailable
+                ))
+              : (data.displayRemaining ?? envelopeHeadroom)
           const usageBase =
             cat.key === "investment"
               ? data.available > 0
@@ -118,19 +124,19 @@ export function CategoryTrackingPillarSection({
                   <span>Envelope</span>
                   <span style={{ color: TOKENS.onSurface }}>{formatCurrency(data.allocated)}</span>
                 </div>
+                {cat.key === "savings" && (
+                  <div className="flex justify-between">
+                    <span>Total in savings</span>
+                    <span style={{ color: TOKENS.onSurface }}>
+                      {formatCurrency(savingsBucketTotal)}
+                    </span>
+                  </div>
+                )}
                 {cat.key === "savings" && savingsAssignedToGoals > 0 && (
                   <div className="flex justify-between">
                     <span>In saving goals</span>
                     <span style={{ color: TOKENS.secondary }}>
-                      {formatCurrency(savingsAssignedToGoals)}
-                    </span>
-                  </div>
-                )}
-                {cat.key === "savings" && envelopeHeadroom !== displayAmount && (
-                  <div className="flex justify-between">
-                    <span>Envelope headroom</span>
-                    <span style={{ color: TOKENS.onSurface }}>
-                      {formatCurrency(envelopeHeadroom)}
+                      −{formatCurrency(savingsAssignedToGoals)}
                     </span>
                   </div>
                 )}

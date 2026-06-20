@@ -18,6 +18,8 @@ export interface CategoryTrackingRow {
   remaining: number
   overspent: number
   overspentFromTransfer?: number
+  /** When set, UI shows this instead of envelope headroom (liquid reconciliation). */
+  displayRemaining?: number
 }
 
 export const FUND_KEYS = [
@@ -99,25 +101,40 @@ export function netPillarHeadroom(
 }
 
 /**
- * Savings you can still spend or move — envelope headroom capped by the general
- * pool after saving-goal assignments (same rule as bucket transfers).
+ * Savings you can still spend or move — total in the savings bucket minus
+ * amounts assigned to saving goals, capped by envelope headroom after spend.
  */
 export function savingsSpendableAmount(
   row: Pick<CategoryTrackingRow, "remaining" | "overspent">,
+  savingsAssignedToGoals: number,
   savingsGeneralAvailable: number
 ): number {
   const headroom = netPillarHeadroom(row)
-  const general = Math.max(0, savingsGeneralAvailable)
-  return Math.round(Math.min(headroom, general) * 100) / 100
+  const bucketTotal =
+    Math.round((Math.max(0, savingsGeneralAvailable) + Math.max(0, savingsAssignedToGoals)) * 100) /
+    100
+  const afterGoals = Math.max(
+    0,
+    Math.round((bucketTotal - Math.max(0, savingsAssignedToGoals)) * 100) / 100
+  )
+  return Math.round(Math.min(headroom, afterGoals) * 100) / 100
 }
 
-function pillarDeployableAmount(
+function pillarDisplayRemaining(
   key: TrackingFundKey,
   row: CategoryTrackingRow,
-  savingsGeneralAvailable?: number
+  savingsGeneralAvailable?: number,
+  savingsAssignedToGoals?: number
 ): number {
+  if (row.displayRemaining != null) {
+    return row.displayRemaining
+  }
   if (key === "savings" && savingsGeneralAvailable != null) {
-    return savingsSpendableAmount(row, savingsGeneralAvailable)
+    return savingsSpendableAmount(
+      row,
+      savingsAssignedToGoals ?? 0,
+      savingsGeneralAvailable
+    )
   }
   return netPillarHeadroom(row)
 }
@@ -125,14 +142,54 @@ function pillarDeployableAmount(
 /** Deployable balance across all pillars (can be negative when net overspent). */
 export function sumDeployableBalance(
   tracking: Record<string, CategoryTrackingRow>,
-  savingsGeneralAvailable?: number
+  savingsGeneralAvailable?: number,
+  savingsAssignedToGoals?: number
 ): number {
   return Math.round(
     FUND_KEYS.reduce((sum, key) => {
       const row = tracking[key]
-      return sum + (row ? pillarDeployableAmount(key, row, savingsGeneralAvailable) : 0)
+      return (
+        sum +
+        (row
+          ? pillarDisplayRemaining(key, row, savingsGeneralAvailable, savingsAssignedToGoals)
+          : 0)
+      )
     }, 0) * 100
   ) / 100
+}
+
+/**
+ * For the current month, assign any unallocated liquid to savings so pillar
+ * residuals sum to the non-investment account balance (display only).
+ */
+export function reconcileTrackingDisplayToLiquid(
+  tracking: Record<string, CategoryTrackingRow>,
+  liquidTotal: number,
+): Record<string, CategoryTrackingRow> {
+  if (liquidTotal <= 0) return tracking
+
+  const fixed = netPillarHeadroom(tracking.fixedCosts ?? { remaining: 0, overspent: 0 })
+  const investment = netPillarHeadroom(tracking.investment ?? { remaining: 0, overspent: 0 })
+  const guilt = netPillarHeadroom(tracking.guiltFreeSpending ?? { remaining: 0, overspent: 0 })
+  const otherSum = Math.round((fixed + investment + guilt) * 100) / 100
+  const savingsDisplay = Math.round((liquidTotal - otherSum) * 100) / 100
+
+  const next: Record<string, CategoryTrackingRow> = { ...tracking }
+
+  if (tracking.fixedCosts) {
+    next.fixedCosts = { ...tracking.fixedCosts, displayRemaining: fixed }
+  }
+  if (tracking.investment) {
+    next.investment = { ...tracking.investment, displayRemaining: investment }
+  }
+  if (tracking.guiltFreeSpending) {
+    next.guiltFreeSpending = { ...tracking.guiltFreeSpending, displayRemaining: guilt }
+  }
+  if (tracking.savings) {
+    next.savings = { ...tracking.savings, displayRemaining: savingsDisplay }
+  }
+
+  return next
 }
 
 /** Elapsed fraction of selected month for pace (0–1). Past months = 1, future = 0. */

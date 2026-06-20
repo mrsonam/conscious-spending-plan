@@ -29,7 +29,7 @@ import {
   isInCurrentMonth,
   normalizeIncomeEntryFromApi,
 } from "@/lib/income-optimistic"
-import { toastSuccess } from "@/lib/app-toast"
+import { toastLoading, toastSuccess, toastUpdate } from "@/lib/app-toast"
 import {
   fetchJsonAndCache,
   invalidateIncomeDataCaches,
@@ -91,6 +91,11 @@ export function useIncomePage(
   const [allocateToBudget, setAllocateToBudget] = useState(true)
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [showBulkForm, setShowBulkForm] = useState(false)
+  const [bulkText, setBulkText] = useState("")
+  const [bulkAccountId, setBulkAccountId] = useState("")
+  const [bulkAllocateToBudget, setBulkAllocateToBudget] = useState(true)
+  const [submittingBulk, setSubmittingBulk] = useState(false)
   const [incomeStats, setIncomeStats] = useState<IncomePageStats>(EMPTY_INCOME_STATS)
 
   const summaryFetchGenRef = useRef(0)
@@ -131,6 +136,10 @@ export function useIncomePage(
     } else if (accountsList.length > 0) {
       setSelectedAccountId(accountsList[0].id)
     }
+    setBulkAccountId((prev) => {
+      if (prev && accountsList.some((acc) => acc.id === prev)) return prev
+      return defaultAccount?.id ?? accountsList[0]?.id ?? ""
+    })
   }, [])
 
   const fetchIncomeSummary = useCallback(
@@ -805,6 +814,107 @@ export function useIncomePage(
     setBreakdown(null)
   }, [])
 
+  const parseBulkDate = (raw: string | undefined): string | null => {
+    if (!raw || !raw.trim()) return null
+    const s = raw.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (dmy) {
+      const [, d, m, y] = dmy
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`
+    }
+    return null
+  }
+
+  const parseAllocateFlag = (raw: string | undefined): boolean | null => {
+    if (!raw || !raw.trim()) return null
+    const s = raw.trim().toLowerCase()
+    if (["false", "no", "n", "0"].includes(s)) return false
+    if (["true", "yes", "y", "1"].includes(s)) return true
+    return null
+  }
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    if (!allocation) {
+      setError("Please configure your fund allocation settings first.")
+      return
+    }
+
+    const today = new Date().toISOString().split("T")[0]!
+    const lines = bulkText
+      .split(/\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    if (lines.length === 0) {
+      setError(
+        "Paste at least one line. Columns: date, amount, description, allocate (optional).",
+      )
+      return
+    }
+
+    const rows = lines.map((line) => {
+      const parts = line.split(/[\t,]/).map((p) => p.trim())
+      const parsedDate = parseBulkDate(parts[0])
+      const amt = parseMoneyInput(parts[1], currencyCode)
+      const desc = parts[2] || null
+      const allocateFromRow = parseAllocateFlag(parts[3])
+      return {
+        amount: Number.isFinite(amt) ? amt : 0,
+        description: desc,
+        date: parsedDate ?? today,
+        allocateToBudget: allocateFromRow ?? bulkAllocateToBudget,
+      }
+    })
+
+    if (rows.some((r) => r.amount <= 0)) {
+      setError("Every line must have a valid positive amount in column 2.")
+      return
+    }
+
+    const rowCount = rows.length
+    const toastId = toastLoading(`Importing ${rowCount} income entr${rowCount === 1 ? "y" : "ies"}…`)
+    setBulkText("")
+    setShowBulkForm(false)
+
+    void (async () => {
+      setSubmittingBulk(true)
+      try {
+        const response = await fetch("/api/income-entries/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            accountId: bulkAccountId || undefined,
+            entries: rows,
+          }),
+        })
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || "Bulk import failed")
+        }
+        toastUpdate(
+          toastId,
+          `${data.created} income entr${data.created === 1 ? "y" : "ies"} imported. Total: ${(data.total ?? 0).toFixed(2)}`,
+          "success",
+        )
+        await reconcileIncomeData({ silent: true })
+      } catch (err) {
+        toastUpdate(
+          toastId,
+          err instanceof Error ? err.message : "Bulk import failed",
+          "error",
+        )
+        setError(err instanceof Error ? err.message : "Bulk import failed")
+        await reconcileIncomeData({ silent: true })
+      } finally {
+        setSubmittingBulk(false)
+      }
+    })()
+  }
+
   return {
     allocation,
     accounts,
@@ -847,6 +957,16 @@ export function useIncomePage(
     handleSubmit,
     formatDate,
     handleDeleteEntry,
+    showBulkForm,
+    setShowBulkForm,
+    bulkText,
+    setBulkText,
+    bulkAccountId,
+    setBulkAccountId,
+    bulkAllocateToBudget,
+    setBulkAllocateToBudget,
+    submittingBulk,
+    handleBulkSubmit,
   }
 }
 

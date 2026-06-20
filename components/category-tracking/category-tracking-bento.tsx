@@ -34,6 +34,7 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
     totalAllocated,
     totalSpent,
     totalRemaining,
+    pillarRemaining,
     overallUsage,
     elapsed,
     categoryDistribution,
@@ -83,8 +84,8 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
   const hasTracking = tracking != null
   const showInitialLoad = loading && !hasTracking
   const runwayPct =
-    totalAllocated > 0 ? (totalRemaining / totalAllocated) * 100 : 0
-  const isOverDeployed = totalRemaining < 0
+    totalAllocated > 0 ? (pillarRemaining / totalAllocated) * 100 : 0
+  const isOverDeployed = pillarRemaining < 0
 
   return (
     <div className="space-y-6 sm:space-y-8">

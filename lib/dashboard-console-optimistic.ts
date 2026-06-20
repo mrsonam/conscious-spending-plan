@@ -138,7 +138,7 @@ export function patchDashboardForIncomeLog(
       : state.accounts
 
   let categoryTracking = state.categoryTracking
-  if (input.allocateToBudget && isInCurrentMonth(input.date)) {
+  if (isInCurrentMonth(input.date)) {
     categoryTracking = patchTrackingAllocated(categoryTracking, slice)
   }
 

@@ -2,21 +2,9 @@ import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import {
-  ensureMonthlyCategoryBalances,
-  getIncomeEntriesForMonthByDate,
-  schedulePersistPreviousMonthClosing,
-} from "@/lib/monthly-tracking"
-import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
-import {
-  buildAllocatedSoFarFromEntries,
-  computeIncomeAllocationsMinor,
-  incomeAllocationToApi,
-  type CategoryKey,
-  type IncomeAllocationMinor,
-} from "@/lib/income-allocation"
-import { applySavingGoalCreditsForIncome } from "@/lib/saving-goal-credits-server"
-import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
+import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
+import { incomeAllocationToApi, excludedIncomeSavingsAllocationMinor } from "@/lib/income-allocation"
+import { logIncomeEntryForUser } from "@/lib/log-income-entry-server"
 import { currencyFromSession } from "@/lib/user-currency"
 
 export async function POST(request: Request) {
@@ -32,127 +20,33 @@ export async function POST(request: Request) {
       income,
       description,
       date,
-      periodStart,
-      periodEnd,
       accountId,
       allocateToBudget = true,
     } = await request.json()
 
-    let incomeMinor: bigint
-    try {
-      incomeMinor = parseMoneyFromApi(income, currency)
-    } catch {
-      return NextResponse.json(
-        { error: "Valid income amount is required" },
-        { status: 400 }
-      )
-    }
-    if (incomeMinor <= 0n) {
-      return NextResponse.json(
-        { error: "Valid income amount is required" },
-        { status: 400 }
-      )
-    }
-
-    const incomeDate = date ? new Date(date + "T12:00:00") : new Date()
-    const targetMonth = incomeDate.getMonth() + 1
-    const targetYear = incomeDate.getFullYear()
-
-    const fundAllocation = await prisma.fundAllocation.findUnique({
-      where: { userId: session.user.id },
+    const result = await logIncomeEntryForUser(session.user.id, currency, {
+      amount: income,
+      description,
+      date,
+      accountId,
+      allocateToBudget,
     })
 
-    if (!fundAllocation) {
-      return NextResponse.json(
-        { error: "Fund allocation not found" },
-        { status: 404 }
-      )
-    }
-
-    await ensurePreTrackingSavingsBalances(session.user.id)
-    await ensureMonthlyCategoryBalances(
-      session.user.id,
-      targetMonth,
-      targetYear
-    )
-
-    const priorMonthEntries = await getIncomeEntriesForMonthByDate(
-      session.user.id,
-      targetMonth,
-      targetYear
-    )
-    const allocatedSoFar = buildAllocatedSoFarFromEntries(
-      priorMonthEntries,
-      fundAllocation,
-      currency
-    )
-    const getAllocatedFromIncomeSoFar = (cat: CategoryKey) =>
-      allocatedSoFar[cat]
-
-    let alloc: IncomeAllocationMinor = {
-      fixedCosts: 0n,
-      savings: 0n,
-      investment: 0n,
-      guiltFreeSpending: 0n,
-    }
-
-    if (allocateToBudget) {
-      alloc = computeIncomeAllocationsMinor(
-        incomeMinor,
-        fundAllocation,
-        currency,
-        getAllocatedFromIncomeSoFar
-      )
-    }
+    schedulePersistPreviousMonthClosing(session.user.id)
 
     let depositAccount = null
-    if (accountId) {
+    if (result.depositAccountId) {
       depositAccount = await prisma.account.findFirst({
-        where: { id: accountId, userId: session.user.id },
-      })
-    } else {
-      depositAccount = await prisma.account.findFirst({
-        where: { userId: session.user.id, isDefault: true },
+        where: { id: result.depositAccountId, userId: session.user.id },
       })
     }
 
-    const incomeEntry = await prisma.incomeEntry.create({
-      data: {
-        userId: session.user.id,
-        amount: incomeMinor,
-        description: description || null,
-        date: date ? new Date(date) : new Date(),
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
-        accountId: depositAccount?.id || null,
-        excludeFromAllocation: !allocateToBudget,
-        ...(allocateToBudget && {
-          allocationFixedCosts: alloc.fixedCosts,
-          allocationSavings: alloc.savings,
-          allocationInvestment: alloc.investment,
-          allocationGuiltFreeSpending: alloc.guiltFreeSpending,
-        }),
-      },
-    })
-
-    if (!allocateToBudget) {
-      if (depositAccount) {
-        await prisma.account.update({
-          where: { id: depositAccount.id },
-          data: { balance: { increment: incomeMinor } },
-        })
-      }
-
-      const incomeDollars = serializeMoneyForApi(incomeMinor, currency)
+    if (!result.allocateToBudget) {
+      const savingsAlloc = excludedIncomeSavingsAllocationMinor(result.incomeMinor)
       return moneyJsonResponse(
         {
-          income: incomeDollars,
-          fixedCosts: 0,
-          savings: 0,
-          investment: 0,
-          guiltFreeSpending: 0,
-          total: incomeDollars,
-          incomeEntryId: incomeEntry.id,
+          ...incomeAllocationToApi(result.incomeMinor, savingsAlloc, currency),
+          incomeEntryId: result.entryId,
           depositedToAccount: depositAccount?.id || null,
           depositedToAccountName: depositAccount
             ? `${depositAccount.name} (${depositAccount.bankName})`
@@ -160,103 +54,35 @@ export async function POST(request: Request) {
           isCashAccount: depositAccount?.accountType === "cash",
           isExcludedFromAllocation: true,
         },
-        currency
-      )
-    }
-
-    const incrementBalance = async (category: string, delta: bigint) => {
-      const incrementValue = delta
-      const existing = await prisma.categoryBalance.findFirst({
-        where: {
-          userId: session.user.id,
-          category,
-          month: targetMonth,
-          year: targetYear,
-        },
-      })
-
-      if (existing) {
-        await prisma.categoryBalance.update({
-          where: { id: existing.id },
-          data: { balance: { increment: incrementValue } },
-        })
-      } else {
-        await prisma.categoryBalance.create({
-          data: {
-            userId: session.user.id,
-            category,
-            balance: incrementValue,
-            month: targetMonth,
-            year: targetYear,
-          },
-        })
-      }
-    }
-
-    await Promise.all([
-      incrementBalance("fixedCosts", alloc.fixedCosts),
-      incrementBalance("investment", alloc.investment),
-      incrementBalance("guiltFreeSpending", alloc.guiltFreeSpending),
-      incrementBalance("savings", alloc.savings),
-    ])
-
-    let savingGoalBreakdown: {
-      generalSavings: number
-      goalCredits: Record<string, number>
-    } | null = null
-
-    if (alloc.savings > 0n) {
-      const goalResult = await applySavingGoalCreditsForIncome(prisma, {
-        userId: session.user.id,
-        incomeEntryId: incomeEntry.id,
-        savingsAllocationMinor: alloc.savings,
-      })
-      const goalCreditsApi: Record<string, number> = {}
-      for (const [goalId, amount] of Object.entries(goalResult.goalCredits)) {
-        if (amount > 0n) {
-          goalCreditsApi[goalId] = serializeMoneyForApi(amount, currency)
-        }
-      }
-      savingGoalBreakdown = {
-        generalSavings: serializeMoneyForApi(
-          goalResult.generalSavingsMinor,
-          currency
-        ),
-        goalCredits: goalCreditsApi,
-      }
-    }
-
-    if (depositAccount) {
-      await prisma.account.update({
-        where: { id: depositAccount.id },
-        data: { balance: { increment: incomeMinor } },
-      })
-    } else if (!accountId) {
-      console.warn(
-        "No default account set for user. Income not deposited to any account."
+        currency,
       )
     }
 
     const breakdown = {
-      ...incomeAllocationToApi(incomeMinor, alloc, currency),
-      incomeEntryId: incomeEntry.id,
+      ...incomeAllocationToApi(result.incomeMinor, result.alloc, currency),
+      incomeEntryId: result.entryId,
       depositedToAccount: depositAccount?.id || null,
       depositedToAccountName: depositAccount
         ? `${depositAccount.name} (${depositAccount.bankName})`
         : null,
       isCashAccount: depositAccount?.accountType === "cash",
       isExcludedFromAllocation: false,
-      ...(savingGoalBreakdown && { savingGoalBreakdown }),
     }
-
-    schedulePersistPreviousMonthClosing(session.user.id)
 
     return moneyJsonResponse(breakdown, currency)
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "Valid income amount is required") {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
+      if (error.message === "Fund allocation not found") {
+        return NextResponse.json({ error: error.message }, { status: 404 })
+      }
+    }
     console.error("Error calculating breakdown:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

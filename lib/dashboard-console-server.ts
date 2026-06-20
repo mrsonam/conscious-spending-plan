@@ -219,7 +219,6 @@ async function loadCategoryTracking(
       where: {
         userId,
         date: { gte: startOfMonth, lte: endOfMonth },
-        excludeFromAllocation: false,
       },
       select: {
         amount: true,

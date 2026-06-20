@@ -9,7 +9,7 @@ import {
   applySavingGoalCreditsForIncome,
   reverseSavingGoalCreditsForIncome,
 } from "@/lib/saving-goal-credits-server"
-import { incomeAllocationToApi } from "@/lib/income-allocation"
+import { incomeAllocationToApi, excludedIncomeSavingsAllocationMinor } from "@/lib/income-allocation"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { mapIncomeEntryToApi } from "@/lib/money-serialize"
 import { coerceMinor } from "@/lib/money"
@@ -93,10 +93,10 @@ export async function updateIncomeEntryForUser(
         ...(effectiveAllocateToBudget
           ? {}
           : {
-              allocationFixedCosts: null,
-              allocationSavings: null,
-              allocationInvestment: null,
-              allocationGuiltFreeSpending: null,
+              allocationFixedCosts: 0n,
+              allocationSavings: input.incomeMinor,
+              allocationInvestment: 0n,
+              allocationGuiltFreeSpending: 0n,
             }),
       },
     })
@@ -109,21 +109,18 @@ export async function updateIncomeEntryForUser(
     }
   })
 
-  const monthsToReallocate = new Set<string>()
-  if (!existing.excludeFromAllocation) {
-    monthsToReallocate.add(monthKey(oldMonth, oldYear))
-  }
-  if (effectiveAllocateToBudget) {
-    monthsToReallocate.add(monthKey(newMonth, newYear))
-  }
+  const monthsToSync = new Set<string>([
+    monthKey(oldMonth, oldYear),
+    monthKey(newMonth, newYear),
+  ])
 
   // Fire background job immediately — the main transaction has already committed.
   schedulePersistPreviousMonthClosing(userId)
 
   try {
-    if (monthsToReallocate.size > 0) {
+    if (monthsToSync.size > 0) {
       await ensurePreTrackingSavingsBalances(userId)
-      for (const key of monthsToReallocate) {
+      for (const key of monthsToSync) {
         const [yearStr, monthStr] = key.split("-")
         const year = Number(yearStr)
         const month = Number(monthStr)
@@ -132,27 +129,25 @@ export async function updateIncomeEntryForUser(
       }
     }
 
-    if (effectiveAllocateToBudget) {
-      const updated = await prisma.incomeEntry.findUnique({
-        where: { id: entryId },
-        select: { allocationSavings: true },
+    const updated = await prisma.incomeEntry.findUnique({
+      where: { id: entryId },
+      select: { allocationSavings: true },
+    })
+    const savingsAlloc = effectiveAllocateToBudget
+      ? coerceMinor(updated?.allocationSavings ?? 0n)
+      : input.incomeMinor
+    if (savingsAlloc > 0n) {
+      await applySavingGoalCreditsForIncome(prisma, {
+        userId,
+        incomeEntryId: entryId,
+        savingsAllocationMinor: savingsAlloc,
       })
-      const savingsAlloc = coerceMinor(updated?.allocationSavings ?? 0n)
-      if (savingsAlloc > 0n) {
-        await applySavingGoalCreditsForIncome(prisma, {
-          userId,
-          incomeEntryId: entryId,
-          savingsAllocationMinor: savingsAlloc,
-        })
-      }
     }
   } catch (allocationError) {
-    // The main transaction committed and reversed old credits. If reallocation
-    // failed, restore credits to the pre-edit amount so goal balances are not
-    // silently zeroed. existing.allocationSavings holds the pre-edit value
-    // because the transaction only clears allocation fields for excluded entries.
-    const priorSavingsAlloc = coerceMinor(existing.allocationSavings ?? 0n)
-    if (priorSavingsAlloc > 0n && !existing.excludeFromAllocation) {
+    const priorSavingsAlloc = existing.excludeFromAllocation
+      ? existingAmount
+      : coerceMinor(existing.allocationSavings ?? 0n)
+    if (priorSavingsAlloc > 0n) {
       try {
         await applySavingGoalCreditsForIncome(prisma, {
           userId,
@@ -182,16 +177,12 @@ export async function updateIncomeEntryForUser(
 
   if (saved.excludeFromAllocation) {
     const incomeDollars = serializeMoneyForApi(incomeMinor, currency)
+    const savingsAlloc = excludedIncomeSavingsAllocationMinor(incomeMinor)
     return {
       status: 200 as const,
       entry: mapIncomeEntryToApi(saved as unknown as Record<string, unknown>, currency),
       breakdown: {
-        income: incomeDollars,
-        fixedCosts: 0,
-        savings: 0,
-        investment: 0,
-        guiltFreeSpending: 0,
-        total: incomeDollars,
+        ...incomeAllocationToApi(incomeMinor, savingsAlloc, currency),
         incomeEntryId: saved.id,
         depositedToAccountName: depositAccount
           ? `${depositAccount.name} (${depositAccount.bankName})`

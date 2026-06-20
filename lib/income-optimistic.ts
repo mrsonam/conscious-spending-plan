@@ -142,7 +142,7 @@ export function computeOptimisticBreakdown(
     return {
       income: incomeAmount,
       fixedCosts: 0,
-      savings: 0,
+      savings: incomeAmount,
       investment: 0,
       guiltFreeSpending: 0,
       total: incomeAmount,

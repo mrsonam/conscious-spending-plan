@@ -1,11 +1,14 @@
 import type { CategoryTrackingValue } from "@/lib/category-tracking-calculation"
 import { type TrackingCategory } from "@/lib/category-tracking-calculation"
 import { sumDeployableBalance } from "@/lib/category-tracking-shared"
-import { ensureMonthClosing, getCurrentMonthYear } from "@/lib/monthly-tracking"
+import { getCurrentMonthYear } from "@/lib/monthly-tracking"
 import { addMinor, coerceMinor, dollarsToMinor } from "@/lib/money"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
 import { PRE_TRACKING_SAVINGS_ACCOUNT_TYPES } from "@/lib/pre-tracking-savings"
+
+/** Max liquid vs pillar gap auto-corrected on the savings envelope (dollars). */
+export const MAX_LIQUID_GAP_AUTO_ADJUST = 100
 
 /** Sum of checking, savings, and cash account balances. */
 export async function sumLiquidAccountsMinor(userId: string): Promise<bigint> {
@@ -19,49 +22,22 @@ export async function sumLiquidAccountsMinor(userId: string): Promise<bigint> {
 
   return accounts.reduce(
     (sum, account) => addMinor(sum, coerceMinor(account.balance)),
-    0n
+    0n,
   )
 }
 
-function absMinor(value: bigint): bigint {
-  return value < 0n ? -value : value
-}
-
-function patchSavingsAfterReconcile(
-  tracking: Record<TrackingCategory, CategoryTrackingValue>,
-  gapDollars: number
-): Record<TrackingCategory, CategoryTrackingValue> {
-  const savings = tracking.savings
-  if (!savings) return tracking
-
-  const available = round2(savings.available + gapDollars)
-  const net = available - savings.spent - savings.transferred
-
-  return {
-    ...tracking,
-    savings: {
-      ...savings,
-      available,
-      remaining: round2(Math.max(0, net)),
-      overspent: round2(net < 0 ? Math.abs(net) : 0),
-    },
-  }
-}
-
-function round2(value: number) {
-  return Math.round(value * 100) / 100
-}
-
 /**
- * Nudge the current month's savings envelope so deployable headroom matches liquid cash.
- * Only runs for the calendar month being viewed when it is also the current month.
+ * Read-only comparison of liquid cash vs pillar deployable headroom.
+ * Does not mutate envelopes — display and diagnostics only.
  */
 export async function reconcilePlanToLiquid(
   userId: string,
   month: number,
   year: number,
   currency: string,
-  tracking: Record<TrackingCategory, CategoryTrackingValue>
+  tracking: Record<TrackingCategory, CategoryTrackingValue>,
+  savingsGeneralAvailable?: number,
+  savingsAssignedToGoals?: number,
 ): Promise<{
   tracking: Record<TrackingCategory, CategoryTrackingValue>
   liquidTotal: number
@@ -70,58 +46,70 @@ export async function reconcilePlanToLiquid(
   adjusted: boolean
 }> {
   const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
+  const deployable = sumDeployableBalance(
+    tracking,
+    savingsGeneralAvailable,
+    savingsAssignedToGoals,
+  )
   const now = getCurrentMonthYear()
-  const deployableBefore = sumDeployableBalance(tracking)
+  const isCurrentMonth = month === now.month && year === now.year
 
-  if (month !== now.month || year !== now.year) {
+  if (!isCurrentMonth) {
     return {
       tracking,
       liquidTotal: 0,
-      deployable: deployableBefore,
+      deployable,
       gap: 0,
       adjusted: false,
     }
   }
 
   const liquidMinor = await sumLiquidAccountsMinor(userId)
-  const deployableMinor = dollarsToMinor(deployableBefore, currency)
-  const gapMinor = liquidMinor - deployableMinor
+  const liquidTotal = toD(liquidMinor)
+  const gapMinor = liquidMinor - dollarsToMinor(deployable, currency)
 
-  if (gapMinor === 0n) {
-    return {
-      tracking,
-      liquidTotal: toD(liquidMinor),
-      deployable: deployableBefore,
-      gap: 0,
-      adjusted: false,
-    }
+  return {
+    tracking,
+    liquidTotal,
+    deployable,
+    gap: toD(gapMinor),
+    adjusted: false,
+  }
+}
+
+/**
+ * Nudge the current-month savings envelope so pillar headroom sums to liquid.
+ * gapDollars = liquid − deployable (negative when pillars exceed liquid).
+ */
+export async function applyLiquidGapToSavingsEnvelope(
+  userId: string,
+  month: number,
+  year: number,
+  currency: string,
+  gapDollars: number,
+): Promise<{ applied: boolean; adjustment: number }> {
+  const adjustment = Math.round(gapDollars * 100) / 100
+  if (Math.abs(adjustment) < 0.001 || Math.abs(adjustment) > MAX_LIQUID_GAP_AUTO_ADJUST) {
+    return { applied: false, adjustment: 0 }
   }
 
-  const maxAutoGap = dollarsToMinor(100, currency)
-  if (absMinor(gapMinor) > maxAutoGap) {
-    return {
-      tracking,
-      liquidTotal: toD(liquidMinor),
-      deployable: deployableBefore,
-      gap: toD(gapMinor),
-      adjusted: false,
-    }
-  }
-
-  const savingsRow = await prisma.categoryBalance.findFirst({
-    where: { userId, category: "savings", month, year },
+  const row = await prisma.categoryBalance.findUnique({
+    where: {
+      userId_category_month_year: {
+        userId,
+        category: "savings",
+        month,
+        year,
+      },
+    },
+    select: { balance: true },
   })
-  const currentSavingsMinor = coerceMinor(savingsRow?.balance ?? 0n)
-  const nextSavingsMinor = addMinor(currentSavingsMinor, gapMinor)
 
-  if (nextSavingsMinor < 0n) {
-    return {
-      tracking,
-      liquidTotal: toD(liquidMinor),
-      deployable: deployableBefore,
-      gap: toD(gapMinor),
-      adjusted: false,
-    }
+  const currentMinor = coerceMinor(row?.balance ?? 0n)
+  const adjustmentMinor = dollarsToMinor(adjustment, currency)
+  const nextMinor = addMinor(currentMinor, adjustmentMinor)
+  if (nextMinor < 0n) {
+    return { applied: false, adjustment: 0 }
   }
 
   await prisma.categoryBalance.upsert({
@@ -138,23 +126,12 @@ export async function reconcilePlanToLiquid(
       category: "savings",
       month,
       year,
-      balance: nextSavingsMinor,
+      balance: nextMinor,
     },
     update: {
-      balance: nextSavingsMinor,
+      balance: nextMinor,
     },
   })
 
-  await ensureMonthClosing(userId, month, year)
-
-  const gapDollars = toD(gapMinor)
-  const patched = patchSavingsAfterReconcile(tracking, gapDollars)
-
-  return {
-    tracking: patched,
-    liquidTotal: toD(liquidMinor),
-    deployable: sumDeployableBalance(patched),
-    gap: gapDollars,
-    adjusted: true,
-  }
+  return { applied: true, adjustment }
 }

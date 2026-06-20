@@ -68,7 +68,6 @@ export async function computeEnvelopeBalancesMinor(
           gte: new Date(year, month - 1, 1),
           lte: new Date(year, month, 0, 23, 59, 59, 999),
         },
-        excludeFromAllocation: false,
       },
       select: {
         amount: true,

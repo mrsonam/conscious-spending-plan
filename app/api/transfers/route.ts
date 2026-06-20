@@ -10,6 +10,7 @@ import {
   mapMoneyListToApi,
 } from "@/lib/money-serialize"
 import { currencyFromSession } from "@/lib/user-currency"
+import { refreshTrackingChainFromMonth } from "@/lib/category-tracking-refresh"
 
 export async function POST(request: Request) {
   try {
@@ -122,6 +123,18 @@ export async function POST(request: Request) {
         currency,
         ACCOUNT_MONEY_FIELDS
       )
+    }
+
+    const transferDate = date ? new Date(date) : new Date()
+    try {
+      await refreshTrackingChainFromMonth(
+        session.user.id,
+        currency,
+        transferDate.getMonth() + 1,
+        transferDate.getFullYear(),
+      )
+    } catch (refreshErr) {
+      console.error("Failed to refresh category tracking after transfer:", refreshErr)
     }
 
     return moneyJsonResponse({ transfer }, currency, { status: 201 })

@@ -79,7 +79,6 @@ async function loadMonthTrackingSnapshot(
       where: {
         userId,
         date: { gte: startOfMonth, lte: endOfMonth },
-        excludeFromAllocation: false,
       },
       select: {
         amount: true,

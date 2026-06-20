@@ -47,6 +47,13 @@ type TrackingApiPayload = {
   savingsGeneralAvailable?: number
   savingsAssignedToGoals?: number
   bucketTransfers?: CategoryBucketTransferApiRow[]
+  heroDeployable?: number
+  planVsLiquid?: {
+    liquidTotal?: number
+    deployable?: number
+    gap?: number
+    adjusted?: boolean
+  }
 }
 
 type HistoryApiPayload = {
@@ -63,9 +70,9 @@ const HISTORY_MAX_AGE_MS = 120_000
 function periodCacheKeys(month: number, year: number) {
   const periodKey = `${year}-${month}`
   return {
-    summary: `category-tracking:v4:summary:${periodKey}`,
-    expenses: `category-tracking:v4:expenses:${periodKey}`,
-    history: `category-tracking:v4:history`,
+    summary: `category-tracking:v8:summary:${periodKey}`,
+    expenses: `category-tracking:v8:expenses:${periodKey}`,
+    history: `category-tracking:v8:history`,
   }
 }
 
@@ -89,6 +96,7 @@ export function useCategoryTrackingPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [transferError, setTransferError] = useState<string | null>(null)
+  const [heroDeployable, setHeroDeployable] = useState<number | null>(null)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -100,6 +108,7 @@ export function useCategoryTrackingPage() {
     setSavingsGeneralAvailable(data.savingsGeneralAvailable ?? 0)
     setSavingsAssignedToGoals(data.savingsAssignedToGoals ?? 0)
     setBucketTransfers(data.bucketTransfers ?? [])
+    setHeroDeployable(data.heroDeployable ?? data.planVsLiquid?.liquidTotal ?? null)
   }, [])
 
   useLayoutEffect(() => {
@@ -132,7 +141,7 @@ export function useCategoryTrackingPage() {
   const fetchData = useCallback(
     async (opts?: { bypassCache?: boolean }) => {
       if (opts?.bypassCache) {
-        invalidateCachedJson("category-tracking:v4:")
+        invalidateCachedJson("category-tracking:v8:")
       }
 
       const seq = ++loadSeq.current
@@ -256,9 +265,11 @@ export function useCategoryTrackingPage() {
   const totalSpent = tracking
     ? FUND_KEYS.reduce((s, k) => s + (tracking[k]?.spent ?? 0), 0)
     : 0
-  const totalRemaining = tracking
-    ? sumDeployableBalance(tracking, savingsGeneralAvailable)
+  const pillarRemaining = tracking
+    ? sumDeployableBalance(tracking, savingsGeneralAvailable, savingsAssignedToGoals)
     : 0
+  const totalRemaining =
+    heroDeployable != null && heroDeployable > 0 ? heroDeployable : pillarRemaining
   const overallUsage = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
 
   const elapsed = getMonthElapsedFraction(selectedMonth, selectedYear)
@@ -380,7 +391,7 @@ export function useCategoryTrackingPage() {
           toastError(data.error ?? "Transfer failed")
           return
         }
-        invalidateCachedJson("category-tracking:v4:")
+        invalidateCachedJson("category-tracking:v8:")
         await fetchData({ bypassCache: true })
       } catch {
         if (snapshot.tracking) setTracking(snapshot.tracking)
@@ -439,6 +450,7 @@ export function useCategoryTrackingPage() {
     totalAllocated,
     totalSpent,
     totalRemaining,
+    pillarRemaining,
     overallUsage,
     elapsed,
     categoryDistribution,
