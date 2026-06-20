@@ -19,6 +19,14 @@ export type BasiqTransaction = {
 
 const BASIQ_BASE_URL = "https://au-api.basiq.io"
 
+const BASIQ_ID_RE = /^[a-f0-9-]{36}$/i
+
+function assertBasiqId(value: string, label: string): void {
+  if (!BASIQ_ID_RE.test(value)) {
+    throw new Error(`Invalid ${label}: expected UUID, got "${value}"`)
+  }
+}
+
 let cachedToken: { token: string; expiresAt: number } | null = null
 
 async function getAccessToken(): Promise<string> {
@@ -76,6 +84,7 @@ export async function createBasiqUser(email: string): Promise<string> {
 }
 
 export async function createConsentUrl(basiqUserId: string): Promise<string> {
+  assertBasiqId(basiqUserId, "basiqUserId")
   const res = await basiqFetch(`/users/${basiqUserId}/auth_link`, {
     method: "POST",
     body: JSON.stringify({ mobile: false }),
@@ -89,6 +98,7 @@ export async function createConsentUrl(basiqUserId: string): Promise<string> {
 }
 
 export async function getBasiqAccounts(basiqUserId: string): Promise<BasiqAccount[]> {
+  assertBasiqId(basiqUserId, "basiqUserId")
   const res = await basiqFetch(`/users/${basiqUserId}/accounts`)
   if (!res.ok) {
     const text = await res.text()
@@ -117,6 +127,8 @@ export async function getBasiqTransactions(
   accountId: string,
   since?: Date
 ): Promise<BasiqTransaction[]> {
+  assertBasiqId(basiqUserId, "basiqUserId")
+  assertBasiqId(accountId, "accountId")
   let filter = `account.id.eq('${accountId}')`
   if (since) {
     filter += `,transaction.postDate.gt('${since.toISOString().split("T")[0]}')`
@@ -169,6 +181,7 @@ export async function registerBasiqWebhook(webhookUrl: string): Promise<void> {
 export async function getBasiqConnections(
   basiqUserId: string
 ): Promise<Array<{ id: string; institution: { id: string; name: string }; status: string }>> {
+  assertBasiqId(basiqUserId, "basiqUserId")
   const res = await basiqFetch(`/users/${basiqUserId}/connections`)
   if (!res.ok) return []
   const data = (await res.json()) as {
