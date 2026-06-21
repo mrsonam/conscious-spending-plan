@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { registerBasiqWebhook } from "@/lib/basiq-client"
+import {
+  getBasiqAccounts,
+  getBasiqConnections,
+  registerBasiqWebhook,
+} from "@/lib/basiq-client"
 
 type Mapping = {
   basiqAccountId: string
@@ -19,24 +23,40 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { mappings, basiqUserId, connections } = body as {
-      mappings: Mapping[]
-      basiqUserId: string
-      connections: Array<{ id: string; institution: { id: string; name: string } }>
+    const { mappings } = body as { mappings: Mapping[] }
+
+    if (!mappings?.length) {
+      return NextResponse.json({ error: "Mappings required" }, { status: 400 })
     }
 
-    if (!mappings?.length || !basiqUserId) {
-      return NextResponse.json({ error: "Mappings and basiqUserId required" }, { status: 400 })
+    const existingConn = await prisma.basiqConnection.findFirst({
+      where: { userId: session.user.id },
+    })
+    if (!existingConn) {
+      return NextResponse.json({ error: "No Basiq connection found — connect first" }, { status: 400 })
     }
+    const basiqUserId = existingConn.basiqUserId
+
+    const [verifiedAccounts, verifiedConnections] = await Promise.all([
+      getBasiqAccounts(basiqUserId),
+      getBasiqConnections(basiqUserId),
+    ])
+
+    const validBasiqAccountIds = new Set(verifiedAccounts.map((a) => a.id))
 
     await prisma.$transaction(async (tx) => {
       for (const m of mappings) {
+        if (!validBasiqAccountIds.has(m.basiqAccountId)) {
+          throw new Error(`Invalid basiqAccountId: ${m.basiqAccountId}`)
+        }
+
         if (m.createNew) {
+          const basiqAcc = verifiedAccounts.find((a) => a.id === m.basiqAccountId)
           await tx.account.create({
             data: {
               userId: session.user.id,
-              name: m.name ?? "Bank Account",
-              bankName: "CommBank",
+              name: m.name ?? basiqAcc?.name ?? "Bank Account",
+              bankName: basiqAcc?.institution ?? "CommBank",
               accountType: m.accountType ?? "checking",
               basiqAccountId: m.basiqAccountId,
             },
@@ -52,7 +72,7 @@ export async function POST(request: Request) {
         }
       }
 
-      for (const conn of connections ?? []) {
+      for (const conn of verifiedConnections) {
         await tx.basiqConnection.upsert({
           where: {
             userId_connectionId: {
@@ -69,7 +89,7 @@ export async function POST(request: Request) {
             status: "active",
           },
           update: {
-            status: "active",
+            status: conn.status === "active" ? "active" : conn.status,
           },
         })
       }

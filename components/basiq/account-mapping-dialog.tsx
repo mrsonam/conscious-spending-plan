@@ -87,8 +87,6 @@ export function AccountMappingDialog({
     setSaving(true)
     try {
       const body = {
-        basiqUserId,
-        connections,
         mappings: mappings.map((m) => {
           const basiqAcc = basiqAccounts.find((a) => a.id === m.basiqAccountId)
           if (m.target === "__new__") {
