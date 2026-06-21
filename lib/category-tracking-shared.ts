@@ -126,15 +126,17 @@ function pillarDisplayRemaining(
   savingsGeneralAvailable?: number,
   savingsAssignedToGoals?: number
 ): number {
+  if (key === "savings") {
+    const goals = Math.max(0, savingsAssignedToGoals ?? 0)
+    const total =
+      row.displayRemaining ??
+      (savingsGeneralAvailable != null
+        ? savingsGeneralAvailable + goals
+        : netPillarHeadroom(row))
+    return Math.max(0, Math.round((total - goals) * 100) / 100)
+  }
   if (row.displayRemaining != null) {
     return row.displayRemaining
-  }
-  if (key === "savings" && savingsGeneralAvailable != null) {
-    return savingsSpendableAmount(
-      row,
-      savingsAssignedToGoals ?? 0,
-      savingsGeneralAvailable
-    )
   }
   return netPillarHeadroom(row)
 }

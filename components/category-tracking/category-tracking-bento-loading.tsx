@@ -8,7 +8,7 @@ import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { TRACKING_FUND_CATEGORIES, type TrackingFundKey } from "@/lib/category-tracking-shared"
 import { BENTO } from "@/lib/app-routes"
-import { TrendingDown, Wallet, Calendar, Activity, History } from "lucide-react"
+import { TrendingDown, Calendar, Activity, History } from "lucide-react"
 import {
   CategoryTrackingSegmentedBlocks,
   categoryTrackingConsoleField,
@@ -376,96 +376,6 @@ export function CategoryTrackingBentoLoading({
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div
-            className="rounded-xl border p-5"
-            style={{
-              background: TOKENS.surfaceContainer,
-              borderColor: TOKENS.outlineGhost,
-              boxShadow: CARD_INSET,
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Deployment pressure
-                </p>
-                <p className="mt-1 text-xs italic" style={{ color: TOKENS.onSurfaceMuted }}>
-                  Where outflows landed this month
-                </p>
-              </div>
-              <TrendingDown className="h-5 w-5 shrink-0" style={{ color: ERROR_SOFT }} />
-            </div>
-            <ul className="mt-4 space-y-3">
-              {TRACKING_FUND_CATEGORIES.slice(0, 4).map((cat) => (
-                <li key={cat.key}>
-                  <div className="flex justify-between text-xs">
-                    <span style={{ color: TOKENS.onSurface }}>{cat.label}</span>
-                    <span className="tabular-nums font-semibold" style={{ color: TOKENS.onSurface }}>
-                      <ScramblePercentValue
-                        className="inline text-xs font-bold"
-                        min={8}
-                        max={92}
-                        suffixClassName="text-xs font-bold"
-                      />
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: "55%", backgroundColor: cat.colorHex }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div
-            className="rounded-xl border p-5"
-            style={{
-              background: TOKENS.surfaceContainer,
-              borderColor: TOKENS.outlineGhost,
-              boxShadow: CARD_INSET,
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Envelope integrity
-                </p>
-                <p className="mt-1 text-xs italic" style={{ color: TOKENS.onSurfaceMuted }}>
-                  Unspent vs total envelopes
-                </p>
-              </div>
-              <Wallet className="h-5 w-5 shrink-0" style={{ color: TOKENS.secondary }} />
-            </div>
-            <p className="mt-3 text-2xl font-black tabular-nums" style={{ color: TOKENS.primary }}>
-              <ScramblePercentValue
-                className="text-2xl font-black"
-                min={12}
-                max={88}
-                suffixClassName="text-2xl font-black"
-              />
-            </p>
-            <CategoryTrackingSegmentedBlocks
-              percent={58}
-              activeColor={TOKENS.secondary}
-              label="Envelope integrity loading"
-            />
-            <div className="mt-4 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider">
-              <span style={{ color: TOKENS.onSurfaceMuted }}>Target band</span>
-              <span style={{ color: TOKENS.primary }}>Healthy buffer</span>
             </div>
           </div>
         </div>

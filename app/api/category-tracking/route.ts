@@ -253,9 +253,10 @@ export async function GET(request: Request) {
     )
   } catch (error) {
     console.error("Error fetching category tracking:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    const message =
+      process.env.NODE_ENV !== "production" && error instanceof Error
+        ? error.message
+        : "Internal server error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

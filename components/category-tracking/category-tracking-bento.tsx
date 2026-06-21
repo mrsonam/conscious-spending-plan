@@ -9,17 +9,14 @@ import { CategoryTrackingCommandSection } from "@/components/category-tracking/c
 import { CategoryTrackingErrorSection } from "@/components/category-tracking/category-tracking-error-section"
 import { CategoryTrackingHeroSection } from "@/components/category-tracking/category-tracking-hero-section"
 import { CategoryTrackingHistorySection } from "@/components/category-tracking/category-tracking-history-section"
-import { CategoryTrackingLedgerSection } from "@/components/category-tracking/category-tracking-ledger-section"
 import { CategoryTrackingPillarSection } from "@/components/category-tracking/category-tracking-pillar-section"
 import { CategoryTrackingBucketTransfersSection } from "@/components/category-tracking/category-tracking-bucket-transfers-section"
-import { CategoryTrackingPressureSection } from "@/components/category-tracking/category-tracking-pressure-section"
 import { CategoryTrackingBucketTransferDialog } from "@/components/category-tracking/category-tracking-bucket-transfer-dialog"
 
 export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
   const {
     tracking,
     totalIncomeForMonth,
-    expenses,
     history,
     loading,
     selectedMonth,
@@ -39,8 +36,6 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
     elapsed,
     categoryDistribution,
     allocationMix,
-    spendShare,
-    expenseTypeRollup,
     momSpend,
     refreshing,
     savingsGeneralAvailable,
@@ -164,8 +159,6 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
               spendMixTotal={spendMixTotal}
             />
 
-            <CategoryTrackingPressureSection spendShare={spendShare} runwayPct={runwayPct} />
-
             <CategoryTrackingPillarSection
               tracking={tracking}
               bucketTransferFlow={bucketTransferFlow}
@@ -186,12 +179,6 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
             <CategoryTrackingHistorySection
               recentMonthRows={recentMonthRows}
               formatCurrency={formatCurrency}
-            />
-            <CategoryTrackingLedgerSection
-              expenses={expenses}
-              expenseTypeRollup={expenseTypeRollup}
-              formatCurrency={formatCurrency}
-              formatDate={formatDate}
             />
           </div>
         </>

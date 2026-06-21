@@ -46,10 +46,10 @@ export function prefetchRouteData(href: string) {
       break
     case BENTO.categoryTracking:
       warmIfMissing(
-        `category-tracking:v4:summary:${year}-${month}`,
+        `category-tracking:v9:summary:${year}-${month}`,
         `/api/category-tracking?month=${month}&year=${year}&t=${t}`,
       )
-      warmIfMissing("category-tracking:v4:history", `/api/category-tracking/history?t=${t}`)
+      warmIfMissing("category-tracking:v9:history", `/api/category-tracking/history?t=${t}`)
       break
     case BENTO.savingGoals:
       warmIfMissing("saving-goals:page", `/api/saving-goals?t=${t}`)

@@ -54,12 +54,14 @@ export function CategoryTrackingPillarSection({
           const savingsBucketTotal = savingsGeneralAvailable + savingsAssignedToGoals
           const displayAmount =
             cat.key === "savings"
-              ? (data.displayRemaining ??
-                savingsSpendableAmount(
-                  data,
-                  savingsAssignedToGoals,
-                  savingsGeneralAvailable
-                ))
+              ? Math.max(
+                  0,
+                  Math.round(
+                    ((data.displayRemaining ?? savingsBucketTotal) -
+                      Math.max(0, savingsAssignedToGoals)) *
+                      100
+                  ) / 100
+                )
               : (data.displayRemaining ?? envelopeHeadroom)
           const usageBase =
             cat.key === "investment"

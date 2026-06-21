@@ -3,7 +3,6 @@ import {
   isFundCategory,
   type CategoryBucketTransferApiRow,
 } from "@/lib/category-bucket-transfer-shared"
-import { ensureCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
 import { isMissingCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
@@ -17,8 +16,7 @@ export async function listCategoryBucketTransfersForMonth(
   year: number,
   currency: string
 ): Promise<CategoryBucketTransferApiRow[]> {
-  await ensureCategoryBucketTransferTable()
-
+  // Read path: never run DDL here — ensure runs on transfer writes only.
   try {
     const rows = await prisma.categoryBucketTransfer.findMany({
       where: { userId, month, year },

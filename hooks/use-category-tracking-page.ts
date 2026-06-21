@@ -12,7 +12,6 @@ import {
   type CategoryTrackingRow,
   FUND_KEYS,
   TRACKING_FUND_CATEGORIES,
-  expenseTypeLabel,
   getMonthElapsedFraction,
   sumDeployableBalance,
   trackingFundShort,
@@ -30,16 +29,6 @@ import {
   cloneCategoryTrackingState,
   createOptimisticBucketTransferId,
 } from "@/lib/category-bucket-transfer-optimistic"
-
-export type CategoryTrackingExpense = {
-  id: string
-  amount: number
-  description?: string | null
-  date: string
-  category?: string | null
-  expenseCategory?: string | null
-  account?: { name?: string; bankName?: string }
-}
 
 type TrackingApiPayload = {
   tracking: Record<string, CategoryTrackingRow>
@@ -64,15 +53,13 @@ type HistoryApiPayload = {
 }
 
 const SUMMARY_MAX_AGE_MS = 60_000
-const EXPENSES_MAX_AGE_MS = 45_000
 const HISTORY_MAX_AGE_MS = 120_000
 
 function periodCacheKeys(month: number, year: number) {
   const periodKey = `${year}-${month}`
   return {
-    summary: `category-tracking:v8:summary:${periodKey}`,
-    expenses: `category-tracking:v8:expenses:${periodKey}`,
-    history: `category-tracking:v8:history`,
+    summary: `category-tracking:v9:summary:${periodKey}`,
+    history: `category-tracking:v9:history`,
   }
 }
 
@@ -87,7 +74,6 @@ export function useCategoryTrackingPage() {
   const [savingsGeneralAvailable, setSavingsGeneralAvailable] = useState(0)
   const [savingsAssignedToGoals, setSavingsAssignedToGoals] = useState(0)
   const [bucketTransfers, setBucketTransfers] = useState<CategoryBucketTransferApiRow[]>([])
-  const [expenses, setExpenses] = useState<CategoryTrackingExpense[]>([])
   const [history, setHistory] = useState<Record<
     string,
     Array<{ month: string; allocated: number; spent: number; remaining: number }>
@@ -114,18 +100,11 @@ export function useCategoryTrackingPage() {
   useLayoutEffect(() => {
     const keys = periodCacheKeys(selectedMonth, selectedYear)
     const peekSummary = peekCachedJson<TrackingApiPayload>(keys.summary, SUMMARY_MAX_AGE_MS)
-    const peekExpenses = peekCachedJson<{ expenses?: CategoryTrackingExpense[] }>(
-      keys.expenses,
-      EXPENSES_MAX_AGE_MS,
-    )
     const peekHistory = peekCachedJson<HistoryApiPayload>(keys.history, HISTORY_MAX_AGE_MS)
 
     if (peekSummary) {
       applySummaryPayload(peekSummary)
       setLoading(false)
-    }
-    if (peekExpenses) {
-      setExpenses(peekExpenses.expenses || [])
     }
     if (peekHistory) {
       setHistory(peekHistory.history)
@@ -141,22 +120,14 @@ export function useCategoryTrackingPage() {
   const fetchData = useCallback(
     async (opts?: { bypassCache?: boolean }) => {
       if (opts?.bypassCache) {
-        invalidateCachedJson("category-tracking:v8:")
+        invalidateCachedJson("category-tracking:v9:")
       }
 
       const seq = ++loadSeq.current
       const t = Date.now()
       const keys = periodCacheKeys(selectedMonth, selectedYear)
 
-      const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1)
-      const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
-      const expensesPath = `/api/expenses?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&category=fixedCosts,investment,savings,guiltFreeSpending&t=${t}`
-
       const peekSummary = peekCachedJson<TrackingApiPayload>(keys.summary, SUMMARY_MAX_AGE_MS)
-      const peekExpenses = peekCachedJson<{ expenses?: CategoryTrackingExpense[] }>(
-        keys.expenses,
-        EXPENSES_MAX_AGE_MS,
-      )
       const peekHistory = peekCachedJson<HistoryApiPayload>(keys.history, HISTORY_MAX_AGE_MS)
 
       if (peekSummary) {
@@ -167,49 +138,39 @@ export function useCategoryTrackingPage() {
         setLoading(true)
         setRefreshing(false)
       }
-      if (peekExpenses) {
-        setExpenses(peekExpenses.expenses || [])
-      }
       if (peekHistory) {
         setHistory(peekHistory.history)
       }
 
-      try {
-        const summaryData = await fetchJsonAndCache<TrackingApiPayload>(
-          keys.summary,
-          `/api/category-tracking?month=${selectedMonth}&year=${selectedYear}&t=${t}`,
-        )
-
-        if (seq !== loadSeq.current) return
-
-        applySummaryPayload(summaryData)
-        setLoading(false)
-        setRefreshing(false)
-      } catch (e) {
-        console.error("Error fetching category tracking summary:", e)
-        if (seq !== loadSeq.current) return
-        if (!peekSummary) {
-          setTracking(null)
-          setTotalIncomeForMonth(null)
-        }
-        setLoading(false)
-        setRefreshing(false)
-        return
-      }
-
-      void Promise.all([
-        fetchJsonAndCache<{ expenses?: CategoryTrackingExpense[] }>(keys.expenses, expensesPath),
-        fetchJsonAndCache<HistoryApiPayload>(keys.history, `/api/category-tracking/history?t=${t}`),
-      ])
-        .then(([expensesData, historyData]) => {
+      void fetchJsonAndCache<TrackingApiPayload>(
+        keys.summary,
+        `/api/category-tracking?month=${selectedMonth}&year=${selectedYear}&t=${t}`,
+      )
+        .then((summaryData) => {
           if (seq !== loadSeq.current) return
-          setExpenses(expensesData.expenses || [])
+          applySummaryPayload(summaryData)
+          setLoading(false)
+          setRefreshing(false)
+        })
+        .catch((e) => {
+          console.error("Error fetching category tracking summary:", e)
+          if (seq !== loadSeq.current) return
+          if (!peekSummary) {
+            setTracking(null)
+            setTotalIncomeForMonth(null)
+          }
+          setLoading(false)
+          setRefreshing(false)
+        })
+
+      void fetchJsonAndCache<HistoryApiPayload>(keys.history, `/api/category-tracking/history?t=${t}`)
+        .then((historyData) => {
+          if (seq !== loadSeq.current) return
           setHistory(historyData.history)
         })
         .catch((e) => {
-          console.error("Error fetching category tracking secondary data:", e)
+          console.error("Error fetching category tracking history:", e)
           if (seq !== loadSeq.current) return
-          if (!peekExpenses) setExpenses([])
           if (!peekHistory) setHistory(null)
         })
     },
@@ -294,34 +255,6 @@ export function useCategoryTrackingPage() {
     }))
   }, [tracking, totalIncomeForMonth])
 
-  const spendShare = useMemo(() => {
-    if (!tracking || totalSpent <= 0) return []
-    return TRACKING_FUND_CATEGORIES.map((c) => ({
-      key: c.key,
-      label: c.label,
-      pct: ((tracking[c.key]?.spent ?? 0) / totalSpent) * 100,
-      amount: tracking[c.key]?.spent ?? 0,
-      color: c.colorHex,
-    })).filter((x) => x.amount > 0)
-  }, [tracking, totalSpent])
-
-  const expenseTypeRollup = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const e of expenses) {
-      if (e.category === "investment") continue
-      const k = e.expenseCategory?.trim() || "other"
-      m.set(k, (m.get(k) ?? 0) + e.amount)
-    }
-    return [...m.entries()]
-      .map(([key, amount]) => ({
-        key,
-        label: expenseTypeLabel(key),
-        amount,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 10)
-  }, [expenses])
-
   const bucketTransferFlow = useMemo(
     () => bucketTransferFlowByCategory(bucketTransfers),
     [bucketTransfers],
@@ -391,7 +324,7 @@ export function useCategoryTrackingPage() {
           toastError(data.error ?? "Transfer failed")
           return
         }
-        invalidateCachedJson("category-tracking:v8:")
+        invalidateCachedJson("category-tracking:v9:")
         await fetchData({ bypassCache: true })
       } catch {
         if (snapshot.tracking) setTracking(snapshot.tracking)
@@ -434,7 +367,6 @@ export function useCategoryTrackingPage() {
     status,
     tracking,
     totalIncomeForMonth,
-    expenses,
     history,
     loading,
     refreshing,
@@ -455,8 +387,6 @@ export function useCategoryTrackingPage() {
     elapsed,
     categoryDistribution,
     allocationMix,
-    spendShare,
-    expenseTypeRollup,
     momSpend,
     savingsGeneralAvailable,
     savingsAssignedToGoals,
