@@ -4,7 +4,9 @@ import { useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { InvestmentAnalyticsSection } from "@/components/investments/investment-analytics-section"
 import { InvestmentChartRiskSection } from "@/components/investments/investment-chart-risk-section"
+import { InvestmentDeleteDialog } from "@/components/investments/investment-delete-dialog"
 import { InvestmentDividendDialog } from "@/components/investments/investment-dividend-dialog"
+import { InvestmentEditDialog } from "@/components/investments/investment-edit-dialog"
 import { InvestmentHoldingsSection } from "@/components/investments/investment-holdings-section"
 import { InvestmentLogDialog } from "@/components/investments/investment-log-dialog"
 import { InvestmentPanelToolbar } from "@/components/investments/investment-panel-toolbar"
@@ -127,6 +129,18 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
         searchQuery={p.searchQuery}
         marketPrices={p.marketPrices}
         formatCurrency={p.formatCurrency}
+        onEditPurchase={(purchase, accountId, holdingName) => {
+          p.setMessage(null)
+          p.startEditPurchase(purchase, accountId, holdingName)
+        }}
+        onDeletePurchase={(purchase, accountId, holdingName) => {
+          p.setConfirmDeletePurchase({
+            id: purchase.id,
+            accountId,
+            holdingName,
+            amount: purchase.amount,
+          })
+        }}
       />
 
       <InvestmentPanelToolbar
@@ -231,6 +245,48 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
           p.setDividendDate(v)
           p.clearFieldError("divDate")
         }}
+      />
+
+      <InvestmentEditDialog
+        open={p.editingPurchase !== null}
+        onOpenChange={(open) => {
+          if (!open) p.setEditingPurchase(null)
+        }}
+        holdingName={p.editingPurchase?.holdingName ?? ""}
+        formatCurrency={p.formatCurrency}
+        submitting={p.submittingEdit}
+        onSubmit={p.handleUpdatePurchase}
+        fieldErrors={p.fieldErrors}
+        pricePerUnit={p.editPricePerUnit}
+        onPricePerUnitChange={(v) => {
+          p.setEditPricePerUnit(v)
+          p.clearFieldError("logPrice")
+        }}
+        numberOfShares={p.editNumberOfShares}
+        onNumberOfSharesChange={(v) => {
+          p.setEditNumberOfShares(v)
+          p.clearFieldError("logShares")
+        }}
+        brokerageFee={p.editBrokerageFee}
+        onBrokerageFeeChange={p.setEditBrokerageFee}
+        date={p.editDate}
+        onDateChange={(v) => {
+          p.setEditDate(v)
+          p.clearFieldError("logDate")
+        }}
+        calculatedTotal={p.editCalculatedTotal}
+      />
+
+      <InvestmentDeleteDialog
+        open={p.confirmDeletePurchase !== null}
+        onOpenChange={(open) => {
+          if (!open) p.setConfirmDeletePurchase(null)
+        }}
+        holdingName={p.confirmDeletePurchase?.holdingName ?? ""}
+        amount={p.confirmDeletePurchase?.amount ?? 0}
+        formatCurrency={p.formatCurrency}
+        submitting={p.submittingDelete}
+        onConfirm={p.handleDeletePurchase}
       />
     </div>
   )

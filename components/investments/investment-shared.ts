@@ -3,7 +3,15 @@ export interface InvestmentPurchase {
   pricePerUnit: number | null
   numberOfShares: string | null
   amount: number
+  brokerageFee: number
   date: string
+}
+
+export interface EditingPurchase {
+  purchaseId: string
+  accountId: string
+  holdingName: string
+  originalAmount: number
 }
 
 export interface InvestmentHolding {

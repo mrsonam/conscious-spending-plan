@@ -31,6 +31,7 @@ function upsertHolding(
   shares: number,
   cost: number,
   pricePerUnit: number,
+  brokerageFee: number,
   date: string
 ): InvestmentHolding[] {
   const existing = holdings.find(
@@ -50,6 +51,7 @@ function upsertHolding(
             pricePerUnit,
             numberOfShares: String(shares),
             amount: cost,
+            brokerageFee,
             date,
           },
         ],
@@ -76,6 +78,7 @@ function upsertHolding(
               pricePerUnit,
               numberOfShares: String(shares),
               amount: cost,
+              brokerageFee,
               date,
             },
           ],
@@ -107,6 +110,7 @@ export function applyOptimisticInvestmentPurchase(
       input.numberOfShares,
       cost,
       input.pricePerUnit,
+      input.brokerageFee,
       input.date
     )
     return {
@@ -114,6 +118,108 @@ export function applyOptimisticInvestmentPurchase(
       balance: roundMoney(acc.balance - cost),
       investedAmount: roundMoney(acc.investedAmount + cost),
       totalValue: roundMoney(acc.totalValue + cost),
+      holdings,
+    }
+  })
+}
+
+function recalcHolding(h: InvestmentHolding): InvestmentHolding {
+  const totalShares = h.purchases.reduce(
+    (sum, p) => roundMoney(sum + Number(p.numberOfShares ?? 0)),
+    0
+  )
+  const totalAmount = h.purchases.reduce(
+    (sum, p) => roundMoney(sum + p.amount),
+    0
+  )
+  const averagePrice =
+    totalShares > 0 ? roundMoney(totalAmount / totalShares) : h.averagePrice
+  const dates = h.purchases.map((p) => p.date).sort()
+  return {
+    ...h,
+    totalShares,
+    totalAmount,
+    averagePrice,
+    firstPurchaseDate: dates[0] ?? h.firstPurchaseDate,
+    lastPurchaseDate: dates[dates.length - 1] ?? h.lastPurchaseDate,
+  }
+}
+
+export function applyOptimisticPurchaseUpdate(
+  accounts: InvestmentAccountSummary[],
+  accountId: string,
+  purchaseId: string,
+  input: {
+    pricePerUnit: number
+    numberOfShares: number
+    brokerageFee: number
+    date: string
+  }
+): InvestmentAccountSummary[] {
+  const newCost = roundMoney(
+    input.pricePerUnit * input.numberOfShares + input.brokerageFee
+  )
+
+  return accounts.map((acc) => {
+    if (acc.id !== accountId) return acc
+
+    let balanceDelta = 0
+    const holdings = acc.holdings.map((h) => {
+      const idx = h.purchases.findIndex((p) => p.id === purchaseId)
+      if (idx === -1) return h
+
+      const oldAmount = h.purchases[idx].amount
+      balanceDelta = roundMoney(oldAmount - newCost)
+
+      const updatedPurchases = h.purchases.map((p) =>
+        p.id === purchaseId
+          ? {
+              ...p,
+              pricePerUnit: input.pricePerUnit,
+              numberOfShares: String(input.numberOfShares),
+              amount: newCost,
+              brokerageFee: input.brokerageFee,
+              date: input.date,
+            }
+          : p
+      )
+      return recalcHolding({ ...h, purchases: updatedPurchases })
+    })
+
+    return {
+      ...acc,
+      balance: roundMoney(acc.balance + balanceDelta),
+      investedAmount: roundMoney(acc.investedAmount - balanceDelta),
+      holdings,
+    }
+  })
+}
+
+export function applyOptimisticPurchaseDelete(
+  accounts: InvestmentAccountSummary[],
+  accountId: string,
+  purchaseId: string
+): InvestmentAccountSummary[] {
+  return accounts.map((acc) => {
+    if (acc.id !== accountId) return acc
+
+    let refundAmount = 0
+    const holdings = acc.holdings
+      .map((h) => {
+        const idx = h.purchases.findIndex((p) => p.id === purchaseId)
+        if (idx === -1) return h
+
+        refundAmount = h.purchases[idx].amount
+        const remaining = h.purchases.filter((p) => p.id !== purchaseId)
+        if (remaining.length === 0) return null
+        return recalcHolding({ ...h, purchases: remaining })
+      })
+      .filter((h): h is InvestmentHolding => h !== null)
+
+    return {
+      ...acc,
+      balance: roundMoney(acc.balance + refundAmount),
+      investedAmount: roundMoney(acc.investedAmount - refundAmount),
       holdings,
     }
   })

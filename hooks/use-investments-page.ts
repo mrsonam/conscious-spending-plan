@@ -10,8 +10,10 @@ import {
 import {
   type InvestmentAccountSummary,
   type InvestmentHolding,
+  type InvestmentPurchase,
   type InvestmentsApiPayload,
   type RecentDividendRow,
+  type EditingPurchase,
   type ChartRange,
 } from "@/components/investments/investment-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
@@ -21,6 +23,8 @@ import { toastError, toastSuccess } from "@/lib/app-toast"
 import {
   applyOptimisticDividend,
   applyOptimisticInvestmentPurchase,
+  applyOptimisticPurchaseUpdate,
+  applyOptimisticPurchaseDelete,
   cloneInvestmentState,
 } from "@/lib/investment-optimistic"
 
@@ -85,6 +89,19 @@ export function useInvestmentsPage(status: string) {
   const [dividendDate, setDividendDate] = useState("")
   const [submittingDividend, setSubmittingDividend] = useState(false)
   const [chartRange, setChartRange] = useState<ChartRange>("3M")
+  const [editingPurchase, setEditingPurchase] = useState<EditingPurchase | null>(null)
+  const [editPricePerUnit, setEditPricePerUnit] = useState("")
+  const [editNumberOfShares, setEditNumberOfShares] = useState("")
+  const [editBrokerageFee, setEditBrokerageFee] = useState("")
+  const [editDate, setEditDate] = useState("")
+  const [submittingEdit, setSubmittingEdit] = useState(false)
+  const [submittingDelete, setSubmittingDelete] = useState(false)
+  const [confirmDeletePurchase, setConfirmDeletePurchase] = useState<{
+    id: string
+    accountId: string
+    holdingName: string
+    amount: number
+  } | null>(null)
 
   const clearFieldError = useCallback(
     (key: InvestmentLogFieldKey | InvestmentDividendFieldKey) => {
@@ -335,6 +352,148 @@ export function useInvestmentsPage(status: string) {
     })()
 
     return true
+  }
+
+  const startEditPurchase = useCallback(
+    (purchase: InvestmentPurchase, accountId: string, holdingName: string) => {
+      setEditingPurchase({
+        purchaseId: purchase.id,
+        accountId,
+        holdingName,
+        originalAmount: purchase.amount,
+      })
+      setEditPricePerUnit(purchase.pricePerUnit != null ? String(purchase.pricePerUnit) : "")
+      setEditNumberOfShares(purchase.numberOfShares ?? "")
+      setEditBrokerageFee(purchase.brokerageFee ? String(purchase.brokerageFee) : "")
+      setEditDate(
+        purchase.date
+          ? new Date(purchase.date).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0]
+      )
+      setFieldErrors({})
+    },
+    []
+  )
+
+  const editCalculatedTotal = useMemo(() => {
+    const price = tryParseMoneyInput(editPricePerUnit, currencyCode)
+    const shares = parseFloat(editNumberOfShares)
+    const fee = editBrokerageFee ? tryParseMoneyInput(editBrokerageFee, currencyCode) : 0
+    if (price === null || Number.isNaN(shares) || price <= 0 || shares <= 0)
+      return ""
+    const total = price * shares + (fee === null || fee < 0 ? 0 : fee)
+    return total.toFixed(2)
+  }, [editPricePerUnit, editNumberOfShares, editBrokerageFee, currencyCode])
+
+  const handleUpdatePurchase = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPurchase) return false
+    setMessage(null)
+
+    const nextErrors: InvestmentFieldErrors = {}
+    const numPrice = tryParseMoneyInput(editPricePerUnit, currencyCode)
+    let sharesStr = ""
+    try {
+      sharesStr = parseSharesInput(editNumberOfShares)
+    } catch {
+      nextErrors.logShares = "Enter a valid share count."
+    }
+    const numFee = editBrokerageFee ? tryParseMoneyInput(editBrokerageFee, currencyCode) ?? 0 : 0
+    if (numPrice === null || numPrice <= 0) {
+      nextErrors.logPrice = "Enter a valid price per unit."
+    }
+    if (!editDate) {
+      nextErrors.logDate = "Select the investment date."
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      return false
+    }
+    setFieldErrors({})
+
+    const sharesNum = Number.parseFloat(sharesStr)
+    const snapshot = cloneInvestmentState(accounts, dividendYtd, dividendAllTime, recentDividends)
+
+    setAccounts(
+      applyOptimisticPurchaseUpdate(accounts, editingPurchase.accountId, editingPurchase.purchaseId, {
+        pricePerUnit: numPrice!,
+        numberOfShares: sharesNum,
+        brokerageFee: numFee > 0 ? numFee : 0,
+        date: editDate,
+      })
+    )
+    toastSuccess("Purchase updated.")
+    setEditingPurchase(null)
+
+    void (async () => {
+      setSubmittingEdit(true)
+      try {
+        const res = await fetch(`/api/investments/${editingPurchase.purchaseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pricePerUnit: numPrice!,
+            numberOfShares: sharesStr,
+            brokerageFee: numFee > 0 ? numFee : 0,
+            date: editDate,
+          }),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setAccounts(snapshot.accounts)
+          setMessage({ type: "error", text: data.error || "Failed to update purchase." })
+          toastError(data.error || "Failed to update purchase.")
+          return
+        }
+        invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+        invalidateCategoryTrackingAndDashboardCaches()
+        await refetchAccounts()
+      } catch {
+        setAccounts(snapshot.accounts)
+        setMessage({ type: "error", text: "Something went wrong while saving." })
+        toastError("Something went wrong while saving.")
+      } finally {
+        setSubmittingEdit(false)
+      }
+    })()
+
+    return true
+  }
+
+  const handleDeletePurchase = () => {
+    if (!confirmDeletePurchase) return
+
+    const { id: purchaseId, accountId } = confirmDeletePurchase
+    const snapshot = cloneInvestmentState(accounts, dividendYtd, dividendAllTime, recentDividends)
+
+    setAccounts(applyOptimisticPurchaseDelete(accounts, accountId, purchaseId))
+    toastSuccess("Purchase deleted. Funds returned to account.")
+    setConfirmDeletePurchase(null)
+
+    void (async () => {
+      setSubmittingDelete(true)
+      try {
+        const res = await fetch(`/api/investments/${purchaseId}`, {
+          method: "DELETE",
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          setAccounts(snapshot.accounts)
+          setMessage({ type: "error", text: data.error || "Failed to delete purchase." })
+          toastError(data.error || "Failed to delete purchase.")
+          return
+        }
+        invalidateCachedJson(INVESTMENTS_CACHE_KEY)
+        invalidateCategoryTrackingAndDashboardCaches()
+        await refetchAccounts()
+      } catch {
+        setAccounts(snapshot.accounts)
+        setMessage({ type: "error", text: "Something went wrong while deleting." })
+        toastError("Something went wrong while deleting.")
+      } finally {
+        setSubmittingDelete(false)
+      }
+    })()
   }
 
   const totalInvested = useMemo(
@@ -842,6 +1001,24 @@ export function useInvestmentsPage(status: string) {
     fetchMarketPrices,
     handleSubmit,
     chartSubtitle,
+    editingPurchase,
+    setEditingPurchase,
+    editPricePerUnit,
+    setEditPricePerUnit,
+    editNumberOfShares,
+    setEditNumberOfShares,
+    editBrokerageFee,
+    setEditBrokerageFee,
+    editDate,
+    setEditDate,
+    editCalculatedTotal,
+    submittingEdit,
+    submittingDelete,
+    startEditPurchase,
+    handleUpdatePurchase,
+    confirmDeletePurchase,
+    setConfirmDeletePurchase,
+    handleDeletePurchase,
   }
 }
 

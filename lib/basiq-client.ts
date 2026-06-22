@@ -85,16 +85,24 @@ export async function createBasiqUser(email: string): Promise<string> {
 
 export async function createConsentUrl(basiqUserId: string): Promise<string> {
   assertBasiqId(basiqUserId, "basiqUserId")
-  const res = await basiqFetch(`/users/${basiqUserId}/auth_link`, {
+  const apiKey = process.env.BASIQ_API_KEY
+  if (!apiKey) throw new Error("BASIQ_API_KEY not set")
+
+  const res = await fetch(`${BASIQ_BASE_URL}/token`, {
     method: "POST",
-    body: JSON.stringify({ mobile: false }),
+    headers: {
+      Authorization: `Basic ${apiKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "basiq-version": "3.0",
+    },
+    body: `scope=CLIENT_ACCESS&userId=${basiqUserId}`,
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Failed to create consent URL: ${text}`)
+    throw new Error(`Failed to create client token: ${text}`)
   }
-  const data = (await res.json()) as { links: { public: string } }
-  return data.links.public
+  const data = (await res.json()) as { access_token: string }
+  return `https://consent.basiq.io/home?token=${data.access_token}&action=connect`
 }
 
 export async function getBasiqAccounts(basiqUserId: string): Promise<BasiqAccount[]> {

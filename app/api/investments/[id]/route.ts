@@ -1,0 +1,154 @@
+import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { computeHoldingAmountMinor } from "@/lib/investment-money"
+import { currencyFromSession } from "@/lib/user-currency"
+import { serializeMoneyForApi } from "@/lib/money-api"
+import { sharesToApiString } from "@/lib/shares"
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const currency = currencyFromSession(session.user.displayCurrency)
+    const { id } = await params
+
+    const existing = await prisma.investmentHolding.findFirst({
+      where: { id, userId: session.user.id },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Investment holding not found" },
+        { status: 404 }
+      )
+    }
+
+    const body = await request.json()
+    const { pricePerUnit, numberOfShares, brokerageFee, date } = body
+
+    let computed
+    try {
+      computed = computeHoldingAmountMinor(
+        { numberOfShares, pricePerUnit, brokerageFee },
+        currency
+      )
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Invalid investment data"
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+
+    const balanceDelta = existing.amount - computed.amountMinor
+
+    const result = await prisma.$transaction(async (tx) => {
+      const account = await tx.account.findFirst({
+        where: {
+          id: existing.accountId,
+          userId: session.user.id,
+          accountType: "investment",
+        },
+      })
+      if (!account) {
+        throw new Error("Investment account not found")
+      }
+
+      if (balanceDelta < 0n && account.balance < -balanceDelta) {
+        throw new Error(
+          "Insufficient funds in investment account for this change."
+        )
+      }
+
+      await tx.account.update({
+        where: { id: account.id },
+        data: { balance: { increment: balanceDelta } },
+      })
+
+      const holding = await tx.investmentHolding.update({
+        where: { id },
+        data: {
+          amount: computed.amountMinor,
+          pricePerUnit: computed.pricePerUnitMinor,
+          numberOfShares: computed.numberOfShares,
+          brokerageFee: computed.brokerageFeeMinor,
+          ...(date != null && { date: new Date(date) }),
+        },
+      })
+
+      return { account, holding }
+    })
+
+    return NextResponse.json({
+      holding: {
+        ...result.holding,
+        amount: serializeMoneyForApi(result.holding.amount, currency),
+        pricePerUnit:
+          result.holding.pricePerUnit != null
+            ? serializeMoneyForApi(result.holding.pricePerUnit, currency)
+            : null,
+        brokerageFee:
+          result.holding.brokerageFee != null
+            ? serializeMoneyForApi(result.holding.brokerageFee, currency)
+            : null,
+        numberOfShares: sharesToApiString(result.holding.numberOfShares),
+      },
+    })
+  } catch (error) {
+    console.error("Error updating investment holding:", error)
+    const message =
+      error instanceof Error ? error.message : "Internal server error"
+    const status =
+      message === "Investment account not found"
+        ? 404
+        : message.startsWith("Insufficient funds")
+          ? 400
+          : 500
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+
+    const existing = await prisma.investmentHolding.findFirst({
+      where: { id, userId: session.user.id },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Investment holding not found" },
+        { status: 404 }
+      )
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.account.update({
+        where: { id: existing.accountId },
+        data: { balance: { increment: existing.amount } },
+      })
+
+      await tx.investmentHolding.delete({ where: { id } })
+    })
+
+    return NextResponse.json({ message: "Investment holding deleted" })
+  } catch (error) {
+    console.error("Error deleting investment holding:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
