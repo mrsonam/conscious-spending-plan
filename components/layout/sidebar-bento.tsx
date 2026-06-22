@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { X, Menu, LogOut, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { buildSidebarNavigationGroups } from "@/lib/sidebar-nav"
 import { CSP_OPEN_SIDEBAR_EVENT, NAV_ITEM_TOUR_IDS } from "@/lib/product-tour"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
@@ -153,14 +153,35 @@ export function SidebarBento() {
     return () => window.removeEventListener(CSP_OPEN_SIDEBAR_EVENT, open)
   }, [])
 
+  const sidebarScrollY = useRef(0)
+
   useEffect(() => {
     if (isMobileOpen) {
+      sidebarScrollY.current = window.scrollY
+      document.body.style.position = "fixed"
+      document.body.style.top = `-${sidebarScrollY.current}px`
+      document.body.style.left = "0"
+      document.body.style.right = "0"
       document.body.style.overflow = "hidden"
     } else {
-      document.body.style.overflow = "unset"
+      const y = sidebarScrollY.current
+      document.body.style.position = ""
+      document.body.style.top = ""
+      document.body.style.left = ""
+      document.body.style.right = ""
+      document.body.style.overflow = ""
+      window.scrollTo(0, y)
     }
     return () => {
-      document.body.style.overflow = "unset"
+      if (document.body.style.position === "fixed") {
+        const y = sidebarScrollY.current
+        document.body.style.position = ""
+        document.body.style.top = ""
+        document.body.style.left = ""
+        document.body.style.right = ""
+        document.body.style.overflow = ""
+        window.scrollTo(0, y)
+      }
     }
   }, [isMobileOpen])
 

@@ -174,14 +174,35 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
     setMounted(true)
   }, [])
 
+  const savedScrollY = React.useRef(0)
+
   React.useEffect(() => {
     if (open) {
+      savedScrollY.current = window.scrollY
+      document.body.style.position = "fixed"
+      document.body.style.top = `-${savedScrollY.current}px`
+      document.body.style.left = "0"
+      document.body.style.right = "0"
       document.body.style.overflow = "hidden"
     } else {
+      const y = savedScrollY.current
+      document.body.style.position = ""
+      document.body.style.top = ""
+      document.body.style.left = ""
+      document.body.style.right = ""
       document.body.style.overflow = ""
+      window.scrollTo(0, y)
     }
     return () => {
-      document.body.style.overflow = ""
+      if (document.body.style.position === "fixed") {
+        const y = savedScrollY.current
+        document.body.style.position = ""
+        document.body.style.top = ""
+        document.body.style.left = ""
+        document.body.style.right = ""
+        document.body.style.overflow = ""
+        window.scrollTo(0, y)
+      }
     }
   }, [open])
 
