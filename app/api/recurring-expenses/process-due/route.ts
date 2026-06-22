@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server"
-import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { coerceMinor } from "@/lib/money"
-import { getUserDisplayCurrency } from "@/lib/user-currency"
+
+const MAX_CATCHUP_DAYS = 90
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 function startOfDay(date: Date): Date {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   return d
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * MS_PER_DAY)
 }
 
 function isWithinRange(date: Date, start: Date, end?: Date | null): boolean {
@@ -21,73 +26,153 @@ function isWithinRange(date: Date, start: Date, end?: Date | null): boolean {
   return d >= s
 }
 
-function isDueToday(recurring: { frequency: string; startDate: Date; endDate: Date | null }, today: Date): boolean {
-  const start = startOfDay(recurring.startDate)
-  const t = startOfDay(today)
+type RecurringSchedule = {
+  frequency: string
+  startDate: Date
+  endDate: Date | null
+}
 
-  if (!isWithinRange(t, start, recurring.endDate)) {
-    return false
-  }
+function getDueDatesBetween(
+  recurring: RecurringSchedule,
+  afterDate: Date,
+  upToDate: Date,
+): Date[] {
+  const start = startOfDay(recurring.startDate)
+  const after = startOfDay(afterDate)
+  const upTo = startOfDay(upToDate)
+  const dates: Date[] = []
+
+  if (upTo < start) return dates
 
   switch (recurring.frequency) {
     case "weekly": {
-      const msPerDay = 24 * 60 * 60 * 1000
-      const diffDays = Math.floor((t.getTime() - start.getTime()) / msPerDay)
-      return diffDays >= 0 && diffDays % 7 === 0
+      const diffMs = after.getTime() - start.getTime()
+      const diffDays = Math.floor(diffMs / MS_PER_DAY)
+      const weeksElapsed = Math.max(0, Math.ceil(diffDays / 7))
+      let candidate = new Date(start.getTime() + weeksElapsed * 7 * MS_PER_DAY)
+      candidate = startOfDay(candidate)
+      if (candidate.getTime() <= after.getTime()) {
+        candidate = startOfDay(addDays(candidate, 7))
+      }
+      while (candidate.getTime() <= upTo.getTime()) {
+        if (isWithinRange(candidate, start, recurring.endDate)) {
+          dates.push(startOfDay(candidate))
+        }
+        candidate = startOfDay(addDays(candidate, 7))
+      }
+      break
     }
     case "monthly": {
-      return t.getDate() === start.getDate()
+      const targetDay = start.getDate()
+      let year = after.getFullYear()
+      let month = after.getMonth()
+      let candidate = startOfDay(new Date(year, month, targetDay))
+      if (candidate.getTime() <= after.getTime()) {
+        month++
+        if (month > 11) {
+          month = 0
+          year++
+        }
+      }
+      for (let i = 0; i < 100; i++) {
+        candidate = startOfDay(new Date(year, month, targetDay))
+        if (candidate.getDate() !== targetDay) {
+          month++
+          if (month > 11) {
+            month = 0
+            year++
+          }
+          continue
+        }
+        if (candidate.getTime() > upTo.getTime()) break
+        if (isWithinRange(candidate, start, recurring.endDate)) {
+          dates.push(new Date(candidate))
+        }
+        month++
+        if (month > 11) {
+          month = 0
+          year++
+        }
+      }
+      break
     }
     case "yearly": {
-      return (
-        t.getMonth() === start.getMonth() &&
-        t.getDate() === start.getDate()
-      )
+      const targetMonth = start.getMonth()
+      const targetDay = start.getDate()
+      let year = after.getFullYear()
+      let candidate = startOfDay(new Date(year, targetMonth, targetDay))
+      if (candidate.getTime() <= after.getTime()) {
+        year++
+      }
+      for (let i = 0; i < 100; i++) {
+        candidate = startOfDay(new Date(year, targetMonth, targetDay))
+        if (candidate.getTime() > upTo.getTime()) break
+        if (isWithinRange(candidate, start, recurring.endDate)) {
+          dates.push(new Date(candidate))
+        }
+        year++
+      }
+      break
     }
-    default:
-      return false
   }
+
+  return dates
 }
 
-export async function POST(request: Request) {
-  try {
-    const authHeader = request.headers.get("authorization")
-    const isCron = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+async function processRecurringExpenses(userId?: string) {
+  const today = startOfDay(new Date())
+  const earliestCatchup = startOfDay(addDays(today, -MAX_CATCHUP_DAYS))
 
-    let sessionUserId: string | null = null
-    let currency = "USD"
-    if (!isCron) {
-      const session = await auth()
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const recurringList = await prisma.recurringExpense.findMany({
+    where: {
+      ...(userId ? { userId } : {}),
+      isActive: true,
+    },
+    include: { account: true },
+  })
+
+  const created: { id: string; dates: string[] }[] = []
+  const skippedInsufficient: {
+    id: string
+    description: string | null
+    dates: string[]
+  }[] = []
+  let alreadyLogged = 0
+  let nothingDue = 0
+
+  for (const recurring of recurringList) {
+    const lastRun = recurring.lastRunAt
+      ? startOfDay(recurring.lastRunAt)
+      : null
+
+    // If never processed, only check today (no retroactive bulk catch-up).
+    // If last processed, catch up from that date to today.
+    const catchupFrom = lastRun
+      ? lastRun < earliestCatchup
+        ? earliestCatchup
+        : lastRun
+      : addDays(today, -1)
+
+    const dueDates = getDueDatesBetween(recurring, catchupFrom, today)
+    if (dueDates.length === 0) {
+      nothingDue++
+      if (!lastRun) {
+        await prisma.recurringExpense.update({
+          where: { id: recurring.id },
+          data: { lastRunAt: today },
+        })
       }
-      sessionUserId = session.user.id
-      currency = await getUserDisplayCurrency(session.user.id)
+      continue
     }
 
-    const url = new URL(request.url)
-    const dateParam = url.searchParams.get("date")
-    const today = startOfDay(dateParam ? new Date(dateParam) : new Date())
+    const amountMinor = coerceMinor(recurring.amount)
+    const createdDates: string[] = []
+    const insufficientDates: string[] = []
 
-    const recurringList = await prisma.recurringExpense.findMany({
-      where: {
-        ...(isCron ? {} : { userId: sessionUserId as string }),
-        isActive: true,
-      },
-      include: {
-        account: true,
-      },
-    })
-
-    const processedIds: string[] = []
-    const skippedInsufficient: string[] = []
-
-    for (const recurring of recurringList) {
-      if (!isDueToday(recurring, today)) {
-        continue
-      }
-
-      const amountMinor = coerceMinor(recurring.amount)
+    for (const dueDate of dueDates) {
+      const dayStart = startOfDay(dueDate)
+      const dayEnd = new Date(dayStart.getTime() + MS_PER_DAY)
+      const dateStr = dayStart.toISOString().split("T")[0]!
 
       const existing = await prisma.expense.findFirst({
         where: {
@@ -97,30 +182,26 @@ export async function POST(request: Request) {
           description: recurring.description,
           category: recurring.category,
           expenseCategory: recurring.expenseCategory,
-          date: {
-            gte: today,
-            lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
-          },
+          date: { gte: dayStart, lt: dayEnd },
         },
       })
-
       if (existing) {
+        alreadyLogged++
         continue
       }
 
       const account = await prisma.account.findFirst({
         where: { id: recurring.accountId, userId: recurring.userId },
       })
-      if (!account) {
-        continue
-      }
+      if (!account) continue
+
       if (coerceMinor(account.balance) < amountMinor) {
-        skippedInsufficient.push(recurring.id)
+        insufficientDates.push(dateStr)
         continue
       }
 
-      const expense = await prisma.$transaction(async (tx) => {
-        const created = await tx.expense.create({
+      await prisma.$transaction(async (tx) => {
+        await tx.expense.create({
           data: {
             userId: recurring.userId,
             accountId: recurring.accountId,
@@ -128,37 +209,92 @@ export async function POST(request: Request) {
             description: recurring.description,
             category: recurring.category,
             expenseCategory: recurring.expenseCategory,
-            date: today,
-          },
-          include: {
-            account: { select: { id: true, name: true, bankName: true } },
+            date: dayStart,
           },
         })
         await tx.account.update({
           where: { id: recurring.accountId },
           data: { balance: { decrement: amountMinor } },
         })
-        return created
       })
 
-      if (expense) {
-        processedIds.push(recurring.id)
-      }
+      createdDates.push(dateStr)
     }
 
-    return moneyJsonResponse(
-      {
-        processedCount: processedIds.length,
-        processedIds,
-        skippedInsufficient,
-      },
-      currency
+    await prisma.recurringExpense.update({
+      where: { id: recurring.id },
+      data: { lastRunAt: today },
+    })
+
+    if (createdDates.length > 0) {
+      created.push({ id: recurring.id, dates: createdDates })
+    }
+    if (insufficientDates.length > 0) {
+      skippedInsufficient.push({
+        id: recurring.id,
+        description: recurring.description,
+        dates: insufficientDates,
+      })
+    }
+  }
+
+  const processedCount = created.reduce((sum, p) => sum + p.dates.length, 0)
+
+  if (skippedInsufficient.length > 0) {
+    console.warn(
+      `Recurring expenses skipped (insufficient balance): ${JSON.stringify(skippedInsufficient)}`,
     )
+  }
+
+  return {
+    totalChecked: recurringList.length,
+    processedCount,
+    alreadyLogged,
+    nothingDue,
+    created,
+    skippedInsufficient,
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const authHeader = request.headers.get("authorization")
+    if (
+      !process.env.CRON_SECRET ||
+      authHeader !== `Bearer ${process.env.CRON_SECRET}`
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const result = await processRecurringExpenses()
+    console.log(
+      `Cron [recurring-expenses]: checked ${result.totalChecked} recurring expense(s) — ${result.processedCount} created, ${result.skippedInsufficient.length} skipped (insufficient balance), ${result.alreadyLogged} already logged, ${result.nothingDue} not due`,
+    )
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("Cron error processing recurring expenses:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST() {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const result = await processRecurringExpenses(session.user.id)
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Error processing due recurring expenses:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

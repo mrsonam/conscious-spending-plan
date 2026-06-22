@@ -245,6 +245,7 @@ model RecurringExpense {
   startDate       DateTime      @default(now())
   endDate         DateTime?
   isActive        Boolean       @default(true)
+  lastRunAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   subscription    Subscription?
