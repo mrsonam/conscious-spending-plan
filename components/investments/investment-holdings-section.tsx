@@ -78,14 +78,14 @@ export function InvestmentHoldingsSection({
       </p>
 
       <div className="mt-4 space-y-4">
-        {accounts.map((acc) => {
+        {accounts.map((acc, idx) => {
           const filtered = acc.holdings.filter((h) =>
             matchesSearch(searchQuery, h.name, acc.name, acc.bankName),
           )
 
           return (
             <article
-              key={acc.id}
+              key={`${acc.id}-${idx}`}
               className="rounded-xl border p-4"
               style={{
                 borderColor: TOKENS.outlineGhost,
