@@ -6,10 +6,12 @@ import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 
-const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
-  baseURL: "https://integrate.api.nvidia.com/v1",
-})
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: "https://integrate.api.nvidia.com/v1",
+  })
+}
 
 const ANOMALY_PROMPT = `You are a financial fraud and anomaly detection system. Analyze the user's recent transactions and flag anything unusual.
 
@@ -123,7 +125,7 @@ export async function GET() {
       context += `  ${date} | ${cat} | ${e.description ?? "No description"} | $${amt.toFixed(2)}\n`
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "minimaxai/minimax-m2.7",
       messages: [
         { role: "system", content: ANOMALY_PROMPT },

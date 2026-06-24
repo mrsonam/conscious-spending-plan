@@ -117,10 +117,12 @@ Guidelines:
 - Never make up financial data
 - Do not use markdown headers, keep it conversational`
 
-const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
-  baseURL: "https://integrate.api.nvidia.com/v1",
-})
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: "https://integrate.api.nvidia.com/v1",
+  })
+}
 
 export async function POST(request: Request) {
   try {
@@ -245,7 +247,7 @@ export async function POST(request: Request) {
 
     const systemMessage = `${SYSTEM_PROMPT}\n\n${financialContext}`
 
-    const stream = await openai.chat.completions.create({
+    const stream = await getOpenAI().chat.completions.create({
       model: "minimaxai/minimax-m2.7",
       messages: [
         { role: "system", content: systemMessage },

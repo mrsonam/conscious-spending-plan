@@ -6,10 +6,12 @@ import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 
-const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
-  baseURL: "https://integrate.api.nvidia.com/v1",
-})
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: "https://integrate.api.nvidia.com/v1",
+  })
+}
 
 const INSIGHT_PROMPT = `You are a financial analyst. Analyze the user's financial data and return exactly 4 actionable insights as a JSON array.
 
@@ -184,7 +186,7 @@ export async function GET() {
       context += "\nNote: No financial data is available yet. Provide 4 general personal finance tips as insights instead.\n"
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "minimaxai/minimax-m2.7",
       messages: [
         { role: "system", content: INSIGHT_PROMPT },

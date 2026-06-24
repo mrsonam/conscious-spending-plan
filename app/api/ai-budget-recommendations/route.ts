@@ -6,10 +6,12 @@ import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 
-const openai = new OpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,
-  baseURL: "https://integrate.api.nvidia.com/v1",
-})
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.NVIDIA_API_KEY,
+    baseURL: "https://integrate.api.nvidia.com/v1",
+  })
+}
 
 const RECOMMENDATION_PROMPT = `You are a financial advisor. Analyze the user's actual spending vs their budget allocation and suggest optimizations.
 
@@ -199,7 +201,7 @@ export async function GET() {
       context += "\nNote: No financial data is available yet. Suggest a standard 50/20/10/20 allocation with general reasoning.\n"
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "minimaxai/minimax-m2.7",
       messages: [
         { role: "system", content: RECOMMENDATION_PROMPT },
