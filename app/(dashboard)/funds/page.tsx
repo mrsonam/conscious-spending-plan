@@ -4,6 +4,7 @@ import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { FundsPageBento } from "@/components/funds/funds-page-bento"
+import { BudgetRecommendations } from "@/components/ai-chat/budget-recommendations"
 
 export default function BentoFundsPage() {
   const { session, status, isSessionPending } = useHydratedSession()
@@ -39,6 +40,7 @@ export default function BentoFundsPage() {
        
       />
       <div className="mx-auto max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+        <BudgetRecommendations />
         <FundsPageBento />
       </div>
     </>

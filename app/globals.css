@@ -986,3 +986,27 @@ html[data-csp-dashboard-theme="console"] .skeleton-base,
   font-size: 11px !important;
   fill: #374151 !important;
 }
+
+/* AI Chat markdown styling */
+.ai-chat-markdown p { margin: 0; }
+.ai-chat-markdown p + p { margin-top: 0.5em; }
+.ai-chat-markdown strong { font-weight: 600; color: #5de4c2; }
+.ai-chat-markdown em { font-style: italic; }
+.ai-chat-markdown ul, .ai-chat-markdown ol { margin: 0.4em 0; padding-left: 1.2em; }
+.ai-chat-markdown li { margin: 0.15em 0; }
+.ai-chat-markdown li::marker { color: #5de4c280; }
+.ai-chat-markdown code {
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.ai-chat-markdown pre {
+  margin: 0.4em 0;
+  padding: 0.5em 0.75em;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+}
+.ai-chat-markdown pre code { padding: 0; background: none; }
+.ai-chat-markdown a { color: #5de4c2; text-decoration: underline; }

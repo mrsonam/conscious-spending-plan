@@ -7,6 +7,7 @@ import { ProductTourProvider } from "@/components/product-tour/product-tour-prov
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { DashboardConsoleWarmup } from "@/components/layout/dashboard-console-warmup"
 import { QuickExpenseProvider } from "@/components/layout/quick-expense-provider"
+import { AiChatButton } from "@/components/ai-chat/ai-chat-button"
 import { Toaster } from "@/components/ui/sonner"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <AiChatButton />
       </QuickExpenseProvider>
     </CommandPaletteProvider>
       </ProductTourProvider>
