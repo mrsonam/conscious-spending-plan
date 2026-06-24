@@ -125,12 +125,14 @@ export function buildPulseMetrics({
   investmentAccounts,
   accounts,
   marketPrices,
+  superBalance = 0,
 }: {
   breakdownTotal: number
   totalExpenses: number
   investmentAccounts: InvestmentAccount[]
   accounts: Account[]
   marketPrices: Record<string, number>
+  superBalance?: number
 }): PulseMetrics {
   const n = new Date()
   const startOfMonth = new Date(n.getFullYear(), n.getMonth(), 1).getTime()
@@ -193,7 +195,8 @@ export function buildPulseMetrics({
     avgDailySpending,
     cashBalance,
     investmentValue,
-    netWorth: cashBalance + investmentValue,
+    superBalance,
+    netWorth: cashBalance + investmentValue + superBalance,
   }
 }
 

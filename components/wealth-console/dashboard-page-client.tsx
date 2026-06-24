@@ -77,6 +77,7 @@ export default function DashboardPageClient() {
   const [savingGoals, setSavingGoals] = useState(
     EMPTY_DASHBOARD_CONSOLE.savingGoals,
   )
+  const [superBalance, setSuperBalance] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const payloadSetters = useMemo(
@@ -94,6 +95,7 @@ export default function DashboardPageClient() {
       setLoanSummary,
       setSubscriptionDash,
       setSavingGoals,
+      setSuperBalance,
     }),
     [],
   )
@@ -316,6 +318,7 @@ export default function DashboardPageClient() {
       loanSummary={loanSummary}
       subscriptionDash={subscriptionDash}
       savingGoals={savingGoals}
+      superBalance={superBalance}
       loading={showLoading || (isSessionPending && breakdown == null)}
       onActivityLogged={refreshConsole}
       onOptimisticIncomeLog={applyOptimisticIncomeLog}

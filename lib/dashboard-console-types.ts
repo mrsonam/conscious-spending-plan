@@ -38,6 +38,7 @@ export type DashboardConsolePayload = {
     percent: number
     status: string
   }>
+  superBalance: number
 }
 
 /** Fast path — above-the-fold dashboard widgets. */
@@ -53,10 +54,10 @@ export type DashboardConsoleCorePayload = Pick<
   | "ytd"
 >
 
-/** Deferred — trajectory, investments, loans, subscriptions, goals. */
+/** Deferred — trajectory, investments, loans, subscriptions, goals, super. */
 export type DashboardConsoleSecondaryPayload = Pick<
   DashboardConsolePayload,
-  "history" | "investmentAccounts" | "loans" | "subscriptionDash" | "savingGoals"
+  "history" | "investmentAccounts" | "loans" | "subscriptionDash" | "savingGoals" | "superBalance"
 >
 
 export function mergeDashboardConsolePayload(
@@ -88,4 +89,5 @@ export const EMPTY_DASHBOARD_CONSOLE: DashboardConsolePayload = {
     upcoming: [],
   },
   savingGoals: [],
+  superBalance: 0,
 }

@@ -71,6 +71,7 @@ export function useWealthConsoleDerived({
   incomeChangePct: number | null
   lastMonthExpenses: number
   marketPrices: Record<string, number>
+  superBalance?: number
   loading: boolean
   savingGoals?: Array<{
     id: string
@@ -96,8 +97,9 @@ export function useWealthConsoleDerived({
         investmentAccounts,
         accounts,
         marketPrices,
+        superBalance: superBalance ?? 0,
       }),
-    [breakdown?.total, totalExpenses, investmentAccounts, accounts, marketPrices],
+    [breakdown?.total, totalExpenses, investmentAccounts, accounts, marketPrices, superBalance],
   )
 
   const investmentAllocated =
@@ -219,6 +221,7 @@ export function useWealthConsoleDashboard(
     incomeChangePct: props.incomeChangePct,
     lastMonthExpenses: props.lastMonthExpenses,
     marketPrices: props.marketPrices,
+    superBalance: props.superBalance,
     loading: props.loading,
     savingGoals: props.savingGoals,
   })
@@ -248,5 +251,6 @@ export type WealthConsoleViewProps = {
     percent: number
     status: string
   }>
+  superBalance: number
   loading: boolean
 }

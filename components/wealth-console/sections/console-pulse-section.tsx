@@ -161,6 +161,28 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                           </p>
                         </div>
                       </div>
+                      {pulseMetrics.superBalance > 0 && (
+                        <div
+                          className="mt-4 border-t pt-4"
+                          style={{ borderColor: TOKENS.outlineGhost }}
+                        >
+                          <p
+                            className="text-[10px] font-semibold uppercase tracking-wider"
+                            style={consoleMicroLabel}
+                          >
+                            Super · retirement
+                          </p>
+                          <div className="mt-2 text-xl sm:text-2xl">
+                            <MajorFigureCurrency
+                              amount={pulseMetrics.superBalance}
+                              variant="neutral"
+                              colorMain="#60a5fa"
+                              colorDecimal={TOKENS.onSurfaceMuted}
+                              className="font-bold!"
+                            />
+                          </div>
+                        </div>
+                      )}
                       {loanSummary && loanSummary.activeCount > 0 && (
                         <div
                           className="mt-4 flex items-end justify-between gap-3 border-t pt-4"

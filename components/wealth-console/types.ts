@@ -86,6 +86,7 @@ export type PulseMetrics = {
   avgDailySpending: number
   cashBalance: number
   investmentValue: number
+  superBalance: number
   netWorth: number
 }
 

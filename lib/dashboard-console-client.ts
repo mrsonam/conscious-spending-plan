@@ -59,6 +59,7 @@ export type ConsolePayloadSetters = {
   setLoanSummary: (v: LoanSummary | null) => void
   setSubscriptionDash: (v: DashboardConsolePayload["subscriptionDash"]) => void
   setSavingGoals: (v: DashboardConsolePayload["savingGoals"]) => void
+  setSuperBalance: (v: number) => void
 }
 
 export function applyConsoleCorePayload(
@@ -84,6 +85,7 @@ export function applyConsoleSecondaryPayload(
   setters.setLoanSummary(loanSummaryFromPayload({ loans: payload.loans } as DashboardConsolePayload))
   setters.setSubscriptionDash(payload.subscriptionDash)
   setters.setSavingGoals(payload.savingGoals ?? [])
+  setters.setSuperBalance(payload.superBalance ?? 0)
 }
 
 export function applyConsolePayload(
@@ -137,6 +139,7 @@ export function initialStateFromConsole(payload: DashboardConsolePayload) {
     loanSummary: loanSummaryFromPayload(payload),
     subscriptionDash: payload.subscriptionDash,
     savingGoals: payload.savingGoals ?? [],
+    superBalance: payload.superBalance ?? 0,
     loading: payload.breakdown == null,
   }
 }

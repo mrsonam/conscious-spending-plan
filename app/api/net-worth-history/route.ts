@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const now = new Date()
 
   // Fetch all required data in parallel
-  const [accounts, allIncome, allExpenses, allHoldings, allLoans] = await Promise.all([
+  const [accounts, allIncome, allExpenses, allHoldings, allLoans, superAccounts] = await Promise.all([
     prisma.account.findMany({ where: { userId }, select: { balance: true } }),
     prisma.incomeEntry.findMany({ where: { userId }, select: { amount: true, date: true } }),
     prisma.expense.findMany({ where: { userId }, select: { amount: true, date: true } }),
@@ -32,6 +32,10 @@ export async function GET(req: Request) {
     prisma.loan.findMany({
       where: { userId, status: "active" },
       select: { amount: true, repaidAmount: true, date: true },
+    }),
+    prisma.superannuationAccount.findMany({
+      where: { userId },
+      select: { balance: true },
     }),
   ])
 
@@ -70,7 +74,10 @@ export async function GET(req: Request) {
       .filter((l) => new Date(l.date).getTime() <= endMs)
       .reduce((s, l) => s + Math.max(0, Number(l.amount) - Number(l.repaidAmount)), 0)
 
-    const netWorth = cashValue + investmentValue + loanValue
+    // Super: current balance (no time-travel — super balances are updated manually)
+    const superValue = superAccounts.reduce((s, a) => s + Number(a.balance), 0)
+
+    const netWorth = cashValue + investmentValue + loanValue + superValue
 
     return {
       month,
@@ -79,6 +86,7 @@ export async function GET(req: Request) {
       cashValue: toD(cashValue),
       investmentValue: toD(investmentValue),
       loanValue: toD(loanValue),
+      superValue: toD(superValue),
       netWorth: toD(netWorth),
     }
   })

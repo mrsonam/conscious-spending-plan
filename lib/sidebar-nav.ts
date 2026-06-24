@@ -14,6 +14,7 @@ import {
   Zap,
   Target,
   LineChart,
+  Shield,
 } from "lucide-react"
 import { BENTO } from "@/lib/app-routes"
 
@@ -63,6 +64,7 @@ const SIDEBAR_NAV_GROUPS: SidebarNavGroup[] = [
     label: "Balance sheet",
     items: [
       { name: "Investments", href: BENTO.investments, icon: TrendingUp },
+      { name: "Super", href: BENTO.superannuation, icon: Shield },
       { name: "Accounts", href: BENTO.accounts, icon: CreditCard },
       { name: "Loans", href: BENTO.loans, icon: HandCoins },
     ],

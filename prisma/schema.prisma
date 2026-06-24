@@ -38,6 +38,8 @@ model User {
   apiTokens                ApiToken[]
   netWorthSnapshots        NetWorthSnapshot[]
   basiqConnections         BasiqConnection[]
+  superannuationAccounts   SuperannuationAccount[]
+  superContributions       SuperannuationContribution[]
   defaultAccountId         String?
   /// "classic" | "console" — which dashboard experience to load by default
   dashboardTheme           String                   @default("console")
@@ -435,11 +437,46 @@ model NetWorthSnapshot {
   cashValue       BigInt   @default(0)
   investmentValue BigInt   @default(0)
   loanValue       BigInt   @default(0)
+  superValue      BigInt   @default(0)
   netWorth        BigInt   @default(0)
   recordedAt      DateTime @default(now())
 
   @@unique([userId, month, year])
   @@index([userId])
+}
+
+model SuperannuationAccount {
+  id            String                      @id @default(cuid())
+  userId        String
+  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String // e.g. "AustralianSuper", "REST Super"
+  fundType      String? // e.g. "Balanced", "Growth", "High Growth"
+  provider      String? // Fund provider / trustee
+  memberNumber  String?
+  employerName  String?
+  balance       BigInt                      @default(0) // Current balance in minor units
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+  contributions SuperannuationContribution[]
+
+  @@index([userId])
+}
+
+model SuperannuationContribution {
+  id              String                @id @default(cuid())
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  superAccountId  String
+  superAccount    SuperannuationAccount @relation(fields: [superAccountId], references: [id], onDelete: Cascade)
+  amount          BigInt
+  type            String // "employer", "salary_sacrifice", "personal", "government"
+  date            DateTime              @default(now())
+  description     String?
+  createdAt       DateTime              @default(now())
+
+  @@index([userId])
+  @@index([superAccountId])
+  @@index([userId, date])
 }
 
 model BasiqConnection {

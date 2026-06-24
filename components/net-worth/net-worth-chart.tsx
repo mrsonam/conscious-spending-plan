@@ -18,6 +18,7 @@ export type NetWorthSnapshot = {
   cashValue: number
   investmentValue: number
   loanValue: number
+  superValue?: number
   netWorth: number
 }
 
@@ -37,6 +38,7 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
   const cash = payload.find((p) => p.dataKey === "cashValue")
   const inv = payload.find((p) => p.dataKey === "investmentValue")
   const loan = payload.find((p) => p.dataKey === "loanValue")
+  const superVal = payload.find((p) => p.dataKey === "superValue")
 
   return (
     <div
@@ -61,6 +63,12 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
           <div className="flex justify-between gap-4 text-[12px]">
             <span style={{ color: TOKENS.onSurfaceMuted }}>Invested</span>
             <span className="tabular-nums">{formatCurrency(inv.value)}</span>
+          </div>
+        )}
+        {superVal && superVal.value > 0 && (
+          <div className="flex justify-between gap-4 text-[12px]">
+            <span style={{ color: TOKENS.onSurfaceMuted }}>Super</span>
+            <span className="tabular-nums">{formatCurrency(superVal.value)}</span>
           </div>
         )}
         {loan && loan.value > 0 && (
@@ -117,6 +125,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
           <Area dataKey="cashValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="investmentValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="loanValue" stroke="none" fill="none" legendType="none" />
+          <Area dataKey="superValue" stroke="none" fill="none" legendType="none" />
           {/* Main net worth line */}
           <Area
             type="monotone"
@@ -134,7 +143,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
       <table className="sr-only">
         <caption>Net worth by month</caption>
         <thead>
-          <tr><th>Month</th><th>Net Worth</th><th>Cash</th><th>Invested</th><th>Loans</th></tr>
+          <tr><th>Month</th><th>Net Worth</th><th>Cash</th><th>Invested</th><th>Super</th><th>Loans</th></tr>
         </thead>
         <tbody>
           {data.map((d) => (
@@ -143,6 +152,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
               <td>{formatCurrency(d.netWorth)}</td>
               <td>{formatCurrency(d.cashValue)}</td>
               <td>{formatCurrency(d.investmentValue)}</td>
+              <td>{formatCurrency(d.superValue ?? 0)}</td>
               <td>{formatCurrency(d.loanValue)}</td>
             </tr>
           ))}

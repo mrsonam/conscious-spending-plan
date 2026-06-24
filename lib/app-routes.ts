@@ -11,6 +11,7 @@ export const BENTO = {
   funds: "/funds",
   savingGoals: "/saving-goals",
   investments: "/investments",
+  superannuation: "/superannuation",
   accounts: "/accounts",
   loans: "/loans",
   profile: "/profile",

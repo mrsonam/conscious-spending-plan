@@ -694,7 +694,7 @@ export async function loadDashboardConsoleSecondaryData(
   userId: string,
   currency: string,
 ): Promise<DashboardConsoleSecondaryPayload> {
-  const [history, investmentAccounts, loansRows, subscriptionDash, savingGoalsRows] =
+  const [history, investmentAccounts, loansRows, subscriptionDash, savingGoalsRows, superAccounts] =
     await Promise.all([
       loadCategoryHistory(userId, currency),
       loadDashboardInvestments(userId, currency),
@@ -705,6 +705,10 @@ export async function loadDashboardConsoleSecondaryData(
       }),
       loadSubscriptionDash(userId, currency),
       loadSavingGoalsForDashboard(userId, currency),
+      prisma.superannuationAccount.findMany({
+        where: { userId },
+        select: { balance: true },
+      }),
     ])
 
   const loans = mapMoneyListToApi(
@@ -713,12 +717,18 @@ export async function loadDashboardConsoleSecondaryData(
     LOAN_MONEY_FIELDS,
   ) as unknown as DashboardConsoleSecondaryPayload["loans"]
 
+  const superBalance = superAccounts.reduce(
+    (s, a) => s + minorSumToDollars([a.balance], currency),
+    0,
+  )
+
   return {
     history,
     investmentAccounts,
     loans,
     subscriptionDash,
     savingGoals: savingGoalsRows,
+    superBalance,
   }
 }
 
