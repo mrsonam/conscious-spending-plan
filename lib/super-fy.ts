@@ -5,16 +5,16 @@ export type FYAccount = {
 
 export function getFY(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date
-  const month = d.getMonth() // 0-indexed; June = 5, July = 6
-  const year = d.getFullYear()
+  const month = d.getUTCMonth() // 0-indexed; June = 5, July = 6
+  const year = d.getUTCFullYear()
   return month >= 6 ? `FY${year + 1}` : `FY${year}`
 }
 
 export function getFYBounds(fyLabel: string): { start: Date; end: Date } {
   const year = parseInt(fyLabel.replace("FY", ""), 10)
   return {
-    start: new Date(year - 1, 6, 1, 0, 0, 0, 0),       // 1 Jul of prior year
-    end: new Date(year, 5, 30, 23, 59, 59, 999),         // 30 Jun of FY year
+    start: new Date(Date.UTC(year - 1, 6, 1)),                    // 1 Jul UTC
+    end: new Date(Date.UTC(year, 5, 30, 23, 59, 59, 999)),         // 30 Jun UTC
   }
 }
 

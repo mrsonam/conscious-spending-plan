@@ -20,7 +20,6 @@ export async function GET() {
     include: {
       contributions: {
         orderBy: { date: "desc" },
-        take: 50,
       },
     },
     orderBy: { createdAt: "desc" },
