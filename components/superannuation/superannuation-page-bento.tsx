@@ -29,7 +29,7 @@ import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 import { tryParseMoneyInput } from "@/lib/money-input"
-import { getFY, getFYBounds, currentFY } from "@/lib/super-fy"
+import { getFY, getFYBounds, currentFY, deriveTotalFYBalance } from "@/lib/super-fy"
 
 type Contribution = {
   id: string
@@ -143,6 +143,11 @@ export function SuperannuationPageBento() {
   }, [accounts])
 
   const fyBounds = useMemo(() => getFYBounds(selectedFY), [selectedFY])
+
+  const fyBalance = useMemo(
+    () => deriveTotalFYBalance(accounts, selectedFY),
+    [accounts, selectedFY],
+  )
 
   useEffect(() => {
     setExpandedAccounts(new Set())
@@ -634,6 +639,58 @@ export function SuperannuationPageBento() {
               {fy}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* ── FY opening / closing summary ── */}
+      {accounts.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Opening Balance
+            </p>
+            <p
+              className="mt-1 text-[15px] font-bold tabular-nums"
+              style={{ color: TOKENS.onSurface }}
+            >
+              {formatCurrency(fyBalance.opening)}
+            </p>
+          </div>
+          <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>→</span>
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              {selectedFY === currentFY() ? "Current Balance" : "Closing Balance"}
+            </p>
+            <p
+              className="mt-1 text-[15px] font-bold tabular-nums"
+              style={{ color: TOKENS.onSurface }}
+            >
+              {formatCurrency(fyBalance.closing)}
+            </p>
+          </div>
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Net Change
+            </p>
+            <p
+              className="mt-1 text-[15px] font-bold tabular-nums"
+              style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}
+            >
+              {fyBalance.net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(fyBalance.net))}
+            </p>
+          </div>
         </div>
       )}
 
