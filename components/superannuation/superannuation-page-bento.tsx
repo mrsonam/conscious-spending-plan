@@ -724,14 +724,14 @@ export function SuperannuationPageBento() {
         <div className="rounded-xl border p-4 sm:p-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Total Contributions</p>
           <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: TOKENS.primary }}>{formatCurrency(totalContributions)}</p>
-          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>All-time recorded</p>
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>FY contributions</p>
         </div>
         <div className="rounded-xl border p-4 sm:p-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Fees & Taxes</p>
           <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: totalDeductions < 0 ? "#f87171" : TOKENS.onSurface }}>
             {totalDeductions < 0 ? `−${formatCurrency(Math.abs(totalDeductions))}` : formatCurrency(0)}
           </p>
-          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>Total deductions</p>
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>FY deductions</p>
         </div>
       </div>
 
