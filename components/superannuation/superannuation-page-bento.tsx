@@ -29,7 +29,7 @@ import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 import { tryParseMoneyInput } from "@/lib/money-input"
-import { getFY, getFYBounds, currentFY } from "@/lib/super-fy"
+import { getFY, getFYBounds, currentFY, deriveTotalFYBalance } from "@/lib/super-fy"
 
 type Contribution = {
   id: string
@@ -57,6 +57,7 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   salary_sacrifice: "Salary Sacrifice",
   personal: "Personal",
   government: "Govt Co-contribution",
+  investment: "Investment Return",
   fee: "Admin Fee",
   tax: "Govt Tax",
 }
@@ -66,6 +67,7 @@ const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
   salary_sacrifice: "#a78bfa",
   personal: TOKENS.primary,
   government: "#fbbf24",
+  investment: "#34d399",
   fee: "#f87171",
   tax: "#fb923c",
 }
@@ -147,6 +149,11 @@ export function SuperannuationPageBento() {
   const computedTotalBalance = useMemo(
     () => accounts.reduce((s, a) => s + a.contributions.reduce((cs, c) => cs + c.amount, 0), 0),
     [accounts],
+  )
+
+  const fyBalance = useMemo(
+    () => deriveTotalFYBalance(accounts, selectedFY),
+    [accounts, selectedFY],
   )
 
   useEffect(() => {
@@ -662,43 +669,39 @@ export function SuperannuationPageBento() {
         </div>
       )}
 
-      {/* ── FY balance summary ── */}
-      {accounts.length > 0 && (() => {
-        const fyNet = totalContributions + totalDeductions
-        return (
-          <div
-            className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
-            style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-          >
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Contributions
-              </p>
-              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.primary }}>
-                +{formatCurrency(totalContributions)}
-              </p>
-            </div>
-            <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>−</span>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Fees & Taxes
-              </p>
-              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: "#f87171" }}>
-                {formatCurrency(Math.abs(totalDeductions))}
-              </p>
-            </div>
-            <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>=</span>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                {selectedFY} Balance
-              </p>
-              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: fyNet >= 0 ? TOKENS.onSurface : "#f87171" }}>
-                {formatCurrency(fyNet)}
-              </p>
-            </div>
+      {/* ── FY opening / closing summary ── */}
+      {accounts.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Opening Balance
+            </p>
+            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+              {formatCurrency(fyBalance.opening)}
+            </p>
           </div>
-        )
-      })()}
+          <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>→</span>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              {selectedFY === currentFY() ? "Current Balance" : "Closing Balance"}
+            </p>
+            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
+              {formatCurrency(fyBalance.closing)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              Net Change
+            </p>
+            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}>
+              {fyBalance.net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(fyBalance.net))}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Stat cards ── */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -976,6 +979,7 @@ export function SuperannuationPageBento() {
                   <option value="salary_sacrifice">Salary Sacrifice</option>
                   <option value="personal">Personal</option>
                   <option value="government">Govt Co-contribution</option>
+                  <option value="investment">Investment Return</option>
                 </select>
               </label>
               <label className={labelClass}>

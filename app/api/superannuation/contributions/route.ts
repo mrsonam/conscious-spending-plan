@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Amount is required" }, { status: 400 })
   }
 
-  const validTypes = ["employer", "salary_sacrifice", "personal", "government", "fee", "tax"]
+  const validTypes = ["employer", "salary_sacrifice", "personal", "government", "investment", "fee", "tax"]
   const contribType = body.type ?? "employer"
   if (!validTypes.includes(contribType)) {
     return NextResponse.json({ error: "Invalid contribution type" }, { status: 400 })

@@ -1,5 +1,4 @@
 export type FYAccount = {
-  balance: number
   contributions: { amount: number; date: string }[]
 }
 
@@ -32,11 +31,14 @@ export function deriveTotalFYBalance(
   let closingTotal = 0
 
   for (const account of accounts) {
+    // Derive current balance from all contributions (not stored DB balance)
+    const currentBalance = account.contributions.reduce((s, c) => s + c.amount, 0)
+
     // closing = current balance minus everything contributed AFTER this FY ended
     const afterFYSum = account.contributions
       .filter((c) => new Date(c.date) > end)
       .reduce((s, c) => s + c.amount, 0)
-    const closing = account.balance - afterFYSum
+    const closing = currentBalance - afterFYSum
 
     // opening = closing minus everything contributed DURING this FY
     const inFYSum = account.contributions
