@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     }),
     prisma.superannuationAccount.findMany({
       where: { userId },
-      select: { balance: true },
+      select: { contributions: { select: { amount: true } } },
     }),
   ])
 
@@ -74,8 +74,9 @@ export async function GET(req: Request) {
       .filter((l) => new Date(l.date).getTime() <= endMs)
       .reduce((s, l) => s + Math.max(0, Number(l.amount) - Number(l.repaidAmount)), 0)
 
-    // Super: current balance (no time-travel — super balances are updated manually)
-    const superValue = superAccounts.reduce((s, a) => s + Number(a.balance), 0)
+    // Super: sum of all contributions (no time-travel — derived same way as the super page)
+    const superValue = superAccounts.reduce((s, a) =>
+      s + a.contributions.reduce((cs, c) => cs + Number(c.amount), 0), 0)
 
     const netWorth = cashValue + investmentValue + loanValue + superValue
 

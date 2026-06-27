@@ -152,13 +152,6 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                               />
                             )}
                           </div>
-                          <p
-                            className="mt-2 text-[10px] leading-snug"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            Uses live quotes when ticker symbols resolve; otherwise
-                            cost basis.
-                          </p>
                         </div>
                       </div>
                       {pulseMetrics.superBalance > 0 && (

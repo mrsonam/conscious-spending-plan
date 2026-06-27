@@ -27,9 +27,46 @@ type Props = {
   formatCurrency: (n: number) => string
 }
 
-function CustomTooltip({ active, payload, label, formatCurrency }: {
+const BREAKDOWN_COLORS = {
+  cash: TOKENS.secondary,
+  invested: "#a78bfa",
+  super: "#fb923c",
+  loans: TOKENS.loss,
+}
+
+function TooltipRow({
+  label,
+  value,
+  color,
+  formatCurrency,
+}: {
+  label: string
+  value: number
+  color: string
+  formatCurrency: (n: number) => string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-[12px]">
+      <span className="flex items-center gap-1.5">
+        <span
+          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ background: color }}
+        />
+        <span style={{ color: TOKENS.onSurfaceMuted }}>{label}</span>
+      </span>
+      <span className="tabular-nums">{formatCurrency(value)}</span>
+    </div>
+  )
+}
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  formatCurrency,
+}: {
   active?: boolean
-  payload?: { value: number; dataKey: string; color: string }[]
+  payload?: { value: number; dataKey: string }[]
   label?: string
   formatCurrency: (n: number) => string
 }) {
@@ -42,8 +79,12 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
 
   return (
     <div
-      className="min-w-[180px] rounded-2xl border p-3 text-[13px] shadow-xl"
-      style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+      className="min-w-[190px] rounded-2xl border p-3 text-[13px] shadow-xl"
+      style={{
+        background: TOKENS.surfaceContainer,
+        borderColor: TOKENS.outlineGhost,
+        color: TOKENS.onSurface,
+      }}
     >
       <p className="mb-2 font-semibold">{label}</p>
       {nw && (
@@ -52,30 +93,18 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
           <span className="tabular-nums font-semibold">{formatCurrency(nw.value)}</span>
         </div>
       )}
-      <div className="mt-1.5 space-y-0.5 border-t pt-1.5" style={{ borderColor: TOKENS.outlineGhost }}>
+      <div className="mt-1.5 space-y-1 border-t pt-1.5" style={{ borderColor: TOKENS.outlineGhost }}>
         {cash && (
-          <div className="flex justify-between gap-4 text-[12px]">
-            <span style={{ color: TOKENS.onSurfaceMuted }}>Cash</span>
-            <span className="tabular-nums">{formatCurrency(cash.value)}</span>
-          </div>
+          <TooltipRow label="Cash" value={cash.value} color={BREAKDOWN_COLORS.cash} formatCurrency={formatCurrency} />
         )}
         {inv && (
-          <div className="flex justify-between gap-4 text-[12px]">
-            <span style={{ color: TOKENS.onSurfaceMuted }}>Invested</span>
-            <span className="tabular-nums">{formatCurrency(inv.value)}</span>
-          </div>
+          <TooltipRow label="Invested" value={inv.value} color={BREAKDOWN_COLORS.invested} formatCurrency={formatCurrency} />
         )}
         {superVal && superVal.value > 0 && (
-          <div className="flex justify-between gap-4 text-[12px]">
-            <span style={{ color: TOKENS.onSurfaceMuted }}>Super</span>
-            <span className="tabular-nums">{formatCurrency(superVal.value)}</span>
-          </div>
+          <TooltipRow label="Super" value={superVal.value} color={BREAKDOWN_COLORS.super} formatCurrency={formatCurrency} />
         )}
         {loan && loan.value > 0 && (
-          <div className="flex justify-between gap-4 text-[12px]">
-            <span style={{ color: TOKENS.onSurfaceMuted }}>Loans out</span>
-            <span className="tabular-nums">{formatCurrency(loan.value)}</span>
-          </div>
+          <TooltipRow label="Loans out" value={loan.value} color={BREAKDOWN_COLORS.loans} formatCurrency={formatCurrency} />
         )}
       </div>
     </div>
@@ -83,10 +112,18 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
 }
 
 export function NetWorthChart({ data, formatCurrency }: Props) {
-  const allValues = data.flatMap((d) => [d.netWorth])
+  const allValues = data.map((d) => d.netWorth)
   const minVal = Math.min(...allValues, 0)
   const maxVal = Math.max(...allValues, 0)
   const padding = Math.max((maxVal - minVal) * 0.15, 1000)
+
+  const fmtAxis = (v: number) => {
+    const abs = Math.abs(v)
+    const sign = v < 0 ? "-" : ""
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`
+    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}k`
+    return formatCurrency(v)
+  }
 
   return (
     <>
@@ -109,11 +146,11 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
             tickLine={false}
           />
           <YAxis
-            tickFormatter={(v) => formatCurrency(v)}
+            tickFormatter={fmtAxis}
             tick={{ fill: TOKENS.onSurfaceMuted, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            width={72}
+            width={60}
             domain={[Math.floor(minVal - padding), Math.ceil(maxVal + padding)]}
           />
           <Tooltip
@@ -121,7 +158,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
               <CustomTooltip {...props} formatCurrency={formatCurrency} />
             )}
           />
-          {/* Hidden stacked series for tooltip data */}
+          {/* Hidden series — exist only to populate tooltip payload */}
           <Area dataKey="cashValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="investmentValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="loanValue" stroke="none" fill="none" legendType="none" />
@@ -133,7 +170,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
             stroke={TOKENS.primary}
             strokeWidth={2.5}
             fill="url(#nwGrad)"
-            dot={{ fill: TOKENS.primary, r: 4, strokeWidth: 0 }}
+            dot={false}
             activeDot={{ r: 5, fill: TOKENS.primary, strokeWidth: 0 }}
           />
         </AreaChart>
@@ -143,7 +180,14 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
       <table className="sr-only">
         <caption>Net worth by month</caption>
         <thead>
-          <tr><th>Month</th><th>Net Worth</th><th>Cash</th><th>Invested</th><th>Super</th><th>Loans</th></tr>
+          <tr>
+            <th>Month</th>
+            <th>Net Worth</th>
+            <th>Cash</th>
+            <th>Invested</th>
+            <th>Super</th>
+            <th>Loans</th>
+          </tr>
         </thead>
         <tbody>
           {data.map((d) => (

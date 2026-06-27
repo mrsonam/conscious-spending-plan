@@ -168,18 +168,24 @@ export function SuperannuationPageBento() {
   const [formEmployerName, setFormEmployerName] = useState("")
   const [formBalance, setFormBalance] = useState("")
 
+  // Returns today's date in YYYY-MM-DD using local time (not UTC, which drifts behind for +ve offsets like AEST)
+  const localToday = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  }
+
   // Contribution form
   const [contribAccountId, setContribAccountId] = useState("")
   const [contribAmount, setContribAmount] = useState("")
   const [contribType, setContribType] = useState("employer")
-  const [contribDate, setContribDate] = useState(new Date().toISOString().split("T")[0])
+  const [contribDate, setContribDate] = useState(localToday)
   const [contribDescription, setContribDescription] = useState("")
 
   // Deduction form
   const [deductAccountId, setDeductAccountId] = useState("")
   const [deductAmount, setDeductAmount] = useState("")
   const [deductType, setDeductType] = useState("fee")
-  const [deductDate, setDeductDate] = useState(new Date().toISOString().split("T")[0])
+  const [deductDate, setDeductDate] = useState(localToday)
   const [deductDescription, setDeductDescription] = useState("")
 
   const load = useCallback(async () => {
@@ -227,7 +233,7 @@ export function SuperannuationPageBento() {
     setContribAccountId(accounts[0]?.id ?? "")
     setContribAmount("")
     setContribType("employer")
-    setContribDate(new Date().toISOString().split("T")[0])
+    setContribDate(localToday())
     setContribDescription("")
     setContribModalOpen(true)
   }
@@ -236,7 +242,7 @@ export function SuperannuationPageBento() {
     setDeductAccountId(accounts[0]?.id ?? "")
     setDeductAmount("")
     setDeductType("fee")
-    setDeductDate(new Date().toISOString().split("T")[0])
+    setDeductDate(localToday())
     setDeductDescription("")
     setDeductionModalOpen(true)
   }
@@ -672,22 +678,22 @@ export function SuperannuationPageBento() {
       {/* ── FY opening / closing summary ── */}
       {accounts.length > 0 && (
         <div
-          className="grid grid-cols-3 rounded-xl border px-5 py-4"
+          className="grid grid-cols-3 rounded-xl border py-5 text-center sm:py-6"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Opening Balance</p>
-            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.opening)}</p>
+          <div className="px-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Opening Balance</p>
+            <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.opening)}</p>
           </div>
-          <div className="border-l pl-5" style={{ borderColor: TOKENS.outlineGhost }}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+          <div className="border-l px-4" style={{ borderColor: TOKENS.outlineGhost }}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
               {selectedFY === currentFY() ? "Current Balance" : "Closing Balance"}
             </p>
-            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.closing)}</p>
+            <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.closing)}</p>
           </div>
-          <div className="border-l pl-5" style={{ borderColor: TOKENS.outlineGhost }}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Net Change</p>
-            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}>
+          <div className="border-l px-4" style={{ borderColor: TOKENS.outlineGhost }}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Net Change</p>
+            <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}>
               {fyBalance.net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(fyBalance.net))}
             </p>
           </div>

@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { TrendingUp, TrendingDown } from "lucide-react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { NetWorthChart, type NetWorthSnapshot } from "./net-worth-chart"
 
 const RANGE_OPTIONS = [
-  { label: "6 months", value: 6 },
-  { label: "12 months", value: 12 },
-  { label: "24 months", value: 24 },
+  { label: "6M", value: 6 },
+  { label: "12M", value: 12 },
+  { label: "24M", value: 24 },
 ]
 
 function SkeletonPulse() {
@@ -53,6 +54,12 @@ export function NetWorthBento() {
   useEffect(() => { load(months) }, [months, load])
 
   const latest = data?.[data.length - 1]
+  const prev = data && data.length >= 2 ? data[data.length - 2] : null
+  const delta = latest && prev ? latest.netWorth - prev.netWorth : null
+  const deltaPct = delta !== null && prev && prev.netWorth !== 0
+    ? (delta / Math.abs(prev.netWorth)) * 100
+    : null
+  const isUp = delta !== null && delta >= 0
 
   return (
     <div
@@ -64,20 +71,48 @@ export function NetWorthBento() {
       }}
     >
       {/* Header */}
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-[15px] font-semibold" style={{ color: TOKENS.onSurface }}>
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
             Net worth
-          </h2>
-          <p className="mt-0.5 text-[12px]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Cash + investments + loans out — recorded monthly
           </p>
-          {latest && !loading && (
-            <p className="mt-2 text-2xl font-black tabular-nums" style={{ color: TOKENS.primary }}>
-              {formatCurrency(latest.netWorth)}
-            </p>
-          )}
+
+          {loading ? (
+            <div className="mt-3 h-10 w-40 animate-pulse rounded-lg" style={{ background: TOKENS.surfaceHigh }} />
+          ) : latest ? (
+            <>
+              <p
+                className="mt-2 text-3xl font-black tabular-nums tracking-tight sm:text-4xl"
+                style={{ color: TOKENS.onSurface }}
+              >
+                {formatCurrency(latest.netWorth)}
+              </p>
+
+              {delta !== null && (
+                <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium tabular-nums">
+                  {isUp
+                    ? <TrendingUp className="h-3.5 w-3.5 shrink-0" style={{ color: TOKENS.primary }} />
+                    : <TrendingDown className="h-3.5 w-3.5 shrink-0" style={{ color: TOKENS.loss }} />
+                  }
+                  <span style={{ color: isUp ? TOKENS.primary : TOKENS.loss }}>
+                    {isUp ? "+" : "−"}{formatCurrency(Math.abs(delta))}
+                    {deltaPct !== null && ` · ${Math.abs(deltaPct).toFixed(1)}%`}
+                  </span>
+                  <span style={{ color: TOKENS.onSurfaceMuted }}>vs last month</span>
+                </div>
+              )}
+            </>
+          ) : null}
+
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+            Cash · Investments · Super
+          </p>
         </div>
+
+        {/* Range selector */}
         <div
           className="flex rounded-xl border p-0.5"
           style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surface }}
@@ -87,10 +122,10 @@ export function NetWorthBento() {
               key={opt.value}
               type="button"
               onClick={() => setMonths(opt.value)}
-              className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+              className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors"
               style={{
                 background: months === opt.value ? TOKENS.surfaceHigh : "transparent",
-                color: months === opt.value ? TOKENS.onSurface : TOKENS.onSurfaceMuted,
+                color: months === opt.value ? TOKENS.primary : TOKENS.onSurfaceMuted,
                 boxShadow: months === opt.value ? CARD_INSET : "none",
               }}
             >

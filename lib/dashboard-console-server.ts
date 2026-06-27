@@ -707,7 +707,7 @@ export async function loadDashboardConsoleSecondaryData(
       loadSavingGoalsForDashboard(userId, currency),
       prisma.superannuationAccount.findMany({
         where: { userId },
-        select: { balance: true },
+        select: { contributions: { select: { amount: true } } },
       }),
     ])
 
@@ -717,10 +717,10 @@ export async function loadDashboardConsoleSecondaryData(
     LOAN_MONEY_FIELDS,
   ) as unknown as DashboardConsoleSecondaryPayload["loans"]
 
-  const superBalance = superAccounts.reduce(
-    (s, a) => s + minorSumToDollars([a.balance], currency),
-    0,
-  )
+  const superBalance = superAccounts.reduce((acc, account) => {
+    const total = account.contributions.reduce((s, c) => s + c.amount, 0n)
+    return acc + minorSumToDollars(total, currency)
+  }, 0)
 
   return {
     history,
