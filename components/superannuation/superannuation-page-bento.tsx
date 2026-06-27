@@ -29,7 +29,7 @@ import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 import { tryParseMoneyInput } from "@/lib/money-input"
-import { getFY, getFYBounds, currentFY, deriveTotalFYBalance } from "@/lib/super-fy"
+import { getFY, getFYBounds, currentFY } from "@/lib/super-fy"
 
 type Contribution = {
   id: string
@@ -144,9 +144,9 @@ export function SuperannuationPageBento() {
 
   const fyBounds = useMemo(() => getFYBounds(selectedFY), [selectedFY])
 
-  const fyBalance = useMemo(
-    () => deriveTotalFYBalance(accounts, selectedFY),
-    [accounts, selectedFY],
+  const computedTotalBalance = useMemo(
+    () => accounts.reduce((s, a) => s + a.contributions.reduce((cs, c) => cs + c.amount, 0), 0),
+    [accounts],
   )
 
   useEffect(() => {
@@ -602,7 +602,7 @@ export function SuperannuationPageBento() {
               </p>
             </div>
             <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl" style={{ color: TOKENS.onSurface }}>
-              {formatCurrency(totalBalance)}
+              {formatCurrency(computedTotalBalance)}
             </p>
           </div>
 
@@ -662,57 +662,43 @@ export function SuperannuationPageBento() {
         </div>
       )}
 
-      {/* ── FY opening / closing summary ── */}
-      {accounts.length > 0 && (
-        <div
-          className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-        >
-          <div>
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              Opening Balance
-            </p>
-            <p
-              className="mt-1 text-[15px] font-bold tabular-nums"
-              style={{ color: TOKENS.onSurface }}
-            >
-              {formatCurrency(fyBalance.opening)}
-            </p>
+      {/* ── FY balance summary ── */}
+      {accounts.length > 0 && (() => {
+        const fyNet = totalContributions + totalDeductions
+        return (
+          <div
+            className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
+            style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+          >
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Contributions
+              </p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.primary }}>
+                +{formatCurrency(totalContributions)}
+              </p>
+            </div>
+            <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>−</span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Fees & Taxes
+              </p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: "#f87171" }}>
+                {formatCurrency(Math.abs(totalDeductions))}
+              </p>
+            </div>
+            <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>=</span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                {selectedFY} Balance
+              </p>
+              <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: fyNet >= 0 ? TOKENS.onSurface : "#f87171" }}>
+                {formatCurrency(fyNet)}
+              </p>
+            </div>
           </div>
-          <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>→</span>
-          <div>
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              {selectedFY === currentFY() ? "Current Balance" : "Closing Balance"}
-            </p>
-            <p
-              className="mt-1 text-[15px] font-bold tabular-nums"
-              style={{ color: TOKENS.onSurface }}
-            >
-              {formatCurrency(fyBalance.closing)}
-            </p>
-          </div>
-          <div>
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              Net Change
-            </p>
-            <p
-              className="mt-1 text-[15px] font-bold tabular-nums"
-              style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}
-            >
-              {fyBalance.net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(fyBalance.net))}
-            </p>
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Stat cards ── */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -739,6 +725,7 @@ export function SuperannuationPageBento() {
       {(
         <div className="space-y-4">
           {accounts.map((account) => {
+            const accountBalance = account.contributions.reduce((s, c) => s + c.amount, 0)
             const sorted = [...account.contributions]
               .filter((c) => {
                 const d = new Date(c.date)
@@ -785,7 +772,7 @@ export function SuperannuationPageBento() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-xl font-bold tabular-nums tracking-tight sm:text-2xl" style={{ color: TOKENS.onSurface }}>
-                      {formatCurrency(account.balance)}
+                      {formatCurrency(accountBalance)}
                     </p>
                     <div className="flex gap-1">
                       <button
