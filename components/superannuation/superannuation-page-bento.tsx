@@ -29,6 +29,7 @@ import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 import { tryParseMoneyInput } from "@/lib/money-input"
+import { getFY, getFYBounds, currentFY } from "@/lib/super-fy"
 
 type Contribution = {
   id: string
@@ -128,6 +129,24 @@ export function SuperannuationPageBento() {
 
   // Expanded rows per account (show all toggle)
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+
+  const [selectedFY, setSelectedFY] = useState<string>(() => currentFY())
+
+  const availableFYs = useMemo(() => {
+    const fySet = new Set<string>([currentFY()])
+    for (const account of accounts) {
+      for (const c of account.contributions) {
+        fySet.add(getFY(c.date))
+      }
+    }
+    return Array.from(fySet).sort()
+  }, [accounts])
+
+  const fyBounds = useMemo(() => getFYBounds(selectedFY), [selectedFY])
+
+  useEffect(() => {
+    setExpandedAccounts(new Set())
+  }, [selectedFY])
 
   // Account form
   const [formName, setFormName] = useState("")
@@ -590,6 +609,33 @@ export function SuperannuationPageBento() {
           </div>
         </div>
       </section>
+
+      {/* ── FY tab bar ── */}
+      {availableFYs.length > 1 && (
+        <div
+          className="flex gap-1 rounded-xl border p-1"
+          style={{ background: TOKENS.surface, borderColor: TOKENS.outlineGhost }}
+        >
+          {availableFYs.map((fy) => (
+            <button
+              key={fy}
+              type="button"
+              onClick={() => setSelectedFY(fy)}
+              className={cn(
+                "flex-1 rounded-lg px-4 py-2 text-[12px] font-semibold transition-colors",
+                consoleFocus,
+              )}
+              style={
+                selectedFY === fy
+                  ? { background: "#60a5fa20", color: "#60a5fa" }
+                  : { color: TOKENS.onSurfaceMuted }
+              }
+            >
+              {fy}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Stat cards ── */}
       <div className="grid gap-3 sm:grid-cols-3">
