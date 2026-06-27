@@ -358,12 +358,32 @@ export function SuperannuationPageBento() {
   }
 
   const totalContributions = useMemo(() =>
-    accounts.reduce((sum, a) => sum + a.contributions.reduce((s, c) => s + (c.amount > 0 ? c.amount : 0), 0), 0),
-    [accounts])
+    accounts.reduce(
+      (sum, a) =>
+        sum +
+        a.contributions
+          .filter((c) => {
+            const d = new Date(c.date)
+            return d >= fyBounds.start && d <= fyBounds.end && c.amount > 0
+          })
+          .reduce((s, c) => s + c.amount, 0),
+      0,
+    ),
+    [accounts, fyBounds])
 
   const totalDeductions = useMemo(() =>
-    accounts.reduce((sum, a) => sum + a.contributions.reduce((s, c) => s + (c.amount < 0 ? c.amount : 0), 0), 0),
-    [accounts])
+    accounts.reduce(
+      (sum, a) =>
+        sum +
+        a.contributions
+          .filter((c) => {
+            const d = new Date(c.date)
+            return d >= fyBounds.start && d <= fyBounds.end && c.amount < 0
+          })
+          .reduce((s, c) => s + c.amount, 0),
+      0,
+    ),
+    [accounts, fyBounds])
 
   if (loading) {
     const shimmer = "rgba(218,226,253,0.06)"
@@ -719,9 +739,12 @@ export function SuperannuationPageBento() {
       {(
         <div className="space-y-4">
           {accounts.map((account) => {
-            const sorted = [...account.contributions].sort(
-              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-            )
+            const sorted = [...account.contributions]
+              .filter((c) => {
+                const d = new Date(c.date)
+                return d >= fyBounds.start && d <= fyBounds.end
+              })
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             const isExpanded = expandedAccounts.has(account.id)
             const visible = isExpanded ? sorted : sorted.slice(0, ROWS_DEFAULT)
             const hasMore = sorted.length > ROWS_DEFAULT
