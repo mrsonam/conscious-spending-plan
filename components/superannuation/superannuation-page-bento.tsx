@@ -8,10 +8,21 @@ import {
   Trash2,
   Building2,
   DollarSign,
+  MinusCircle,
   ChevronDown,
   ChevronUp,
-  X,
 } from "lucide-react"
+import {
+  ScrambleCurrencyValue,
+  ScrambleIntegerValue,
+} from "@/components/ui/scramble-number"
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
@@ -44,7 +55,9 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   employer: "Employer (SG)",
   salary_sacrifice: "Salary Sacrifice",
   personal: "Personal",
-  government: "Government Co-contribution",
+  government: "Govt Co-contribution",
+  fee: "Admin Fee",
+  tax: "Govt Tax",
 }
 
 const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
@@ -52,20 +65,51 @@ const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
   salary_sacrifice: "#a78bfa",
   personal: TOKENS.primary,
   government: "#fbbf24",
+  fee: "#f87171",
+  tax: "#fb923c",
 }
 
-function AccountCardSkeleton() {
+const DEDUCTION_TYPES = new Set(["fee", "tax"])
+const ROWS_DEFAULT = 10
+
+const fieldClass =
+  "w-full rounded-lg border bg-transparent px-3 py-2.5 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
+const labelClass = "block space-y-1.5"
+const labelTextClass = "text-[11px] font-semibold uppercase tracking-[0.15em]"
+const selectClass =
+  "w-full rounded-lg border px-3 py-2.5 text-[13px] outline-none"
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-2xl border p-5"
-      style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost }}
+    <span className={labelTextClass} style={{ color: TOKENS.onSurfaceMuted }}>
+      {children}
+    </span>
+  )
+}
+
+function ModalSubmitButton({
+  submitting,
+  disabled,
+  label,
+  loadingLabel,
+}: {
+  submitting: boolean
+  disabled?: boolean
+  label: string
+  loadingLabel?: string
+}) {
+  return (
+    <button
+      type="submit"
+      disabled={submitting || disabled}
+      className={cn(
+        "mt-2 w-full rounded-xl px-5 py-3 text-[13px] font-semibold transition-colors disabled:opacity-40",
+        consoleFocus,
+      )}
+      style={{ background: "#60a5fa", color: "#050a14" }}
     >
-      <div className="space-y-3">
-        <div className="h-5 w-40 animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
-        <div className="h-8 w-28 animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
-        <div className="h-3 w-32 animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
-      </div>
-    </div>
+      {submitting ? (loadingLabel ?? "Saving…") : label}
+    </button>
   )
 }
 
@@ -74,14 +118,18 @@ export function SuperannuationPageBento() {
   const [accounts, setAccounts] = useState<SuperAccount[]>([])
   const [totalBalance, setTotalBalance] = useState(0)
   const [loading, setLoading] = useState(true)
-
-  const [showAddAccount, setShowAddAccount] = useState(false)
-  const [editingAccount, setEditingAccount] = useState<SuperAccount | null>(null)
-  const [showContribution, setShowContribution] = useState(false)
-  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Add/edit account form
+  // Modal visibility
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
+  const [contribModalOpen, setContribModalOpen] = useState(false)
+  const [deductionModalOpen, setDeductionModalOpen] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<SuperAccount | null>(null)
+
+  // Expanded rows per account (show all toggle)
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+
+  // Account form
   const [formName, setFormName] = useState("")
   const [formFundType, setFormFundType] = useState("")
   const [formProvider, setFormProvider] = useState("")
@@ -95,6 +143,13 @@ export function SuperannuationPageBento() {
   const [contribType, setContribType] = useState("employer")
   const [contribDate, setContribDate] = useState(new Date().toISOString().split("T")[0])
   const [contribDescription, setContribDescription] = useState("")
+
+  // Deduction form
+  const [deductAccountId, setDeductAccountId] = useState("")
+  const [deductAmount, setDeductAmount] = useState("")
+  const [deductType, setDeductType] = useState("fee")
+  const [deductDate, setDeductDate] = useState(new Date().toISOString().split("T")[0])
+  const [deductDescription, setDeductDescription] = useState("")
 
   const load = useCallback(async () => {
     try {
@@ -119,7 +174,11 @@ export function SuperannuationPageBento() {
     setFormEmployerName("")
     setFormBalance("")
     setEditingAccount(null)
-    setShowAddAccount(false)
+  }
+
+  const openAddAccount = () => {
+    resetAccountForm()
+    setAccountModalOpen(true)
   }
 
   const openEditAccount = (account: SuperAccount) => {
@@ -130,16 +189,32 @@ export function SuperannuationPageBento() {
     setFormMemberNumber(account.memberNumber ?? "")
     setFormEmployerName(account.employerName ?? "")
     setFormBalance(String(account.balance))
-    setShowAddAccount(true)
+    setAccountModalOpen(true)
+  }
+
+  const openContrib = () => {
+    setContribAccountId(accounts[0]?.id ?? "")
+    setContribAmount("")
+    setContribType("employer")
+    setContribDate(new Date().toISOString().split("T")[0])
+    setContribDescription("")
+    setContribModalOpen(true)
+  }
+
+  const openDeduction = () => {
+    setDeductAccountId(accounts[0]?.id ?? "")
+    setDeductAmount("")
+    setDeductType("fee")
+    setDeductDate(new Date().toISOString().split("T")[0])
+    setDeductDescription("")
+    setDeductionModalOpen(true)
   }
 
   const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formName.trim()) return
     setSubmitting(true)
-
     const balance = tryParseMoneyInput(formBalance, currencyCode)
-
     try {
       if (editingAccount) {
         const res = await fetch("/api/superannuation", {
@@ -155,11 +230,7 @@ export function SuperannuationPageBento() {
             balance: balance ?? editingAccount.balance,
           }),
         })
-        if (!res.ok) {
-          const data = (await res.json()) as { error?: string }
-          toastError(data.error || "Failed to update account")
-          return
-        }
+        if (!res.ok) { toastError((await res.json() as { error?: string }).error || "Failed to update"); return }
         toastSuccess("Super account updated")
       } else {
         const res = await fetch("/api/superannuation", {
@@ -174,517 +245,480 @@ export function SuperannuationPageBento() {
             balance: balance ?? 0,
           }),
         })
-        if (!res.ok) {
-          const data = (await res.json()) as { error?: string }
-          toastError(data.error || "Failed to create account")
-          return
-        }
+        if (!res.ok) { toastError((await res.json() as { error?: string }).error || "Failed to create"); return }
         toastSuccess("Super account added")
       }
+      setAccountModalOpen(false)
       resetAccountForm()
       await load()
-    } catch {
-      toastError("Something went wrong")
-    } finally {
-      setSubmitting(false)
-    }
+    } catch { toastError("Something went wrong") }
+    finally { setSubmitting(false) }
   }
 
   const handleDeleteAccount = async (id: string) => {
     try {
       const res = await fetch(`/api/superannuation?id=${id}`, { method: "DELETE" })
-      if (!res.ok) {
-        toastError("Failed to delete account")
-        return
-      }
+      if (!res.ok) { toastError("Failed to delete account"); return }
       toastSuccess("Super account deleted")
       await load()
-    } catch {
-      toastError("Something went wrong")
-    }
+    } catch { toastError("Something went wrong") }
   }
 
   const handleAddContribution = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!contribAccountId || !contribAmount) return
     setSubmitting(true)
-
-    const amount = tryParseMoneyInput(contribAmount, currencyCode)
-    if (amount === null || amount <= 0) {
+    const parsed = tryParseMoneyInput(contribAmount, currencyCode)
+    if (parsed === null || parsed === 0) {
       toastError("Enter a valid amount")
       setSubmitting(false)
       return
     }
-
     try {
       const res = await fetch("/api/superannuation/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           superAccountId: contribAccountId,
-          amount,
+          amount: Math.abs(parsed),
           type: contribType,
           date: contribDate,
           description: contribDescription.trim(),
         }),
       })
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string }
-        toastError(data.error || "Failed to add contribution")
-        return
-      }
+      if (!res.ok) { toastError((await res.json() as { error?: string }).error || "Failed to record"); return }
       toastSuccess("Contribution recorded")
-      setContribAmount("")
-      setContribDescription("")
-      setContribDate(new Date().toISOString().split("T")[0])
-      setShowContribution(false)
+      setContribModalOpen(false)
       await load()
-    } catch {
-      toastError("Something went wrong")
-    } finally {
+    } catch { toastError("Something went wrong") }
+    finally { setSubmitting(false) }
+  }
+
+  const handleAddDeduction = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!deductAccountId || !deductAmount) return
+    setSubmitting(true)
+    const parsed = tryParseMoneyInput(deductAmount, currencyCode)
+    if (parsed === null || parsed === 0) {
+      toastError("Enter a valid amount")
       setSubmitting(false)
+      return
     }
+    try {
+      const res = await fetch("/api/superannuation/contributions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          superAccountId: deductAccountId,
+          amount: -Math.abs(parsed),
+          type: deductType,
+          date: deductDate,
+          description: deductDescription.trim(),
+        }),
+      })
+      if (!res.ok) { toastError((await res.json() as { error?: string }).error || "Failed to record"); return }
+      toastSuccess("Deduction recorded")
+      setDeductionModalOpen(false)
+      await load()
+    } catch { toastError("Something went wrong") }
+    finally { setSubmitting(false) }
   }
 
   const handleDeleteContribution = async (id: string) => {
     try {
       const res = await fetch(`/api/superannuation/contributions?id=${id}`, { method: "DELETE" })
-      if (!res.ok) {
-        toastError("Failed to delete contribution")
-        return
-      }
-      toastSuccess("Contribution deleted")
+      if (!res.ok) { toastError("Failed to delete"); return }
+      toastSuccess("Entry deleted")
       await load()
-    } catch {
-      toastError("Something went wrong")
-    }
+    } catch { toastError("Something went wrong") }
   }
 
-  const totalContributions = useMemo(() => {
-    return accounts.reduce(
-      (sum, a) => sum + a.contributions.reduce((s, c) => s + c.amount, 0),
-      0,
-    )
-  }, [accounts])
+  const totalContributions = useMemo(() =>
+    accounts.reduce((sum, a) => sum + a.contributions.reduce((s, c) => s + (c.amount > 0 ? c.amount : 0), 0), 0),
+    [accounts])
 
-  const contributionsByType = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const a of accounts) {
-      for (const c of a.contributions) {
-        map[c.type] = (map[c.type] ?? 0) + c.amount
-      }
-    }
-    return map
-  }, [accounts])
+  const totalDeductions = useMemo(() =>
+    accounts.reduce((sum, a) => sum + a.contributions.reduce((s, c) => s + (c.amount < 0 ? c.amount : 0), 0), 0),
+    [accounts])
 
   if (loading) {
+    const shimmer = "rgba(218,226,253,0.06)"
     return (
-      <div className="space-y-4">
-        <div className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/5" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <AccountCardSkeleton />
-          <AccountCardSkeleton />
-        </div>
-      </div>
-    )
-  }
+      <div className="space-y-6 sm:space-y-8" aria-busy="true" aria-label="Loading superannuation">
 
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Summary strip */}
-      <section
-        className="rounded-2xl border p-5 sm:p-6"
-        style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl"
-              style={{ background: "#60a5fa20" }}
-            >
-              <Shield className="h-5 w-5" style={{ color: "#60a5fa" }} />
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Total Super Balance
-              </p>
-              <p className="text-2xl font-bold tabular-nums tracking-tight" style={{ color: TOKENS.onSurface }}>
-                {formatCurrency(totalBalance)}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="text-right">
-              <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Accounts
-              </p>
-              <p className="text-lg font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
-                {accounts.length}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Total Contributions
-              </p>
-              <p className="text-lg font-semibold tabular-nums" style={{ color: TOKENS.primary }}>
-                {formatCurrency(totalContributions)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => { resetAccountForm(); setShowAddAccount(true) }}
-          className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
-          style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.primary }}
-        >
-          <Plus className="h-4 w-4" /> Add Super Account
-        </button>
-        {accounts.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { setShowContribution(true); setContribAccountId(accounts[0].id) }}
-            className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
-            style={{ borderColor: TOKENS.outlineGhost, color: "#60a5fa" }}
-          >
-            <DollarSign className="h-4 w-4" /> Record Contribution
-          </button>
-        )}
-      </div>
-
-      {/* Add/Edit Account Dialog */}
-      {showAddAccount && (
-        <section
-          className="rounded-2xl border p-5 sm:p-6"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.primary + "40", boxShadow: CARD_INSET }}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold" style={{ color: TOKENS.onSurface }}>
-              {editingAccount ? "Edit Super Account" : "Add Super Account"}
-            </h3>
-            <button type="button" onClick={resetAccountForm} className="rounded-lg p-1.5" style={{ color: TOKENS.onSurfaceMuted }}>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <form onSubmit={handleSaveAccount} className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Fund Name *</span>
-              <input
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="e.g. AustralianSuper"
-                required
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Investment Option</span>
-              <input
-                value={formFundType}
-                onChange={(e) => setFormFundType(e.target.value)}
-                placeholder="e.g. Balanced, High Growth"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Employer</span>
-              <input
-                value={formEmployerName}
-                onChange={(e) => setFormEmployerName(e.target.value)}
-                placeholder="e.g. Acme Corp"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Member Number</span>
-              <input
-                value={formMemberNumber}
-                onChange={(e) => setFormMemberNumber(e.target.value)}
-                placeholder="Optional"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Provider / Trustee</span>
-              <input
-                value={formProvider}
-                onChange={(e) => setFormProvider(e.target.value)}
-                placeholder="Optional"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Current Balance</span>
-              <input
-                value={formBalance}
-                onChange={(e) => setFormBalance(e.target.value)}
-                placeholder="0.00"
-                type="text"
-                inputMode="decimal"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] tabular-nums outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={submitting || !formName.trim()}
-                className={cn("rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-40", consoleFocus)}
-                style={{ background: "#60a5fa", color: "#050a14" }}
-              >
-                {submitting ? "Saving..." : editingAccount ? "Update Account" : "Add Account"}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {/* Record Contribution Dialog */}
-      {showContribution && (
-        <section
-          className="rounded-2xl border p-5 sm:p-6"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.primary + "40", boxShadow: CARD_INSET }}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold" style={{ color: TOKENS.onSurface }}>
-              Record Contribution
-            </h3>
-            <button type="button" onClick={() => setShowContribution(false)} className="rounded-lg p-1.5" style={{ color: TOKENS.onSurfaceMuted }}>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <form onSubmit={handleAddContribution} className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Super Account *</span>
-              <select
-                value={contribAccountId}
-                onChange={(e) => setContribAccountId(e.target.value)}
-                required
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Contribution Type *</span>
-              <select
-                value={contribType}
-                onChange={(e) => setContribType(e.target.value)}
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
-              >
-                <option value="employer">Employer (SG)</option>
-                <option value="salary_sacrifice">Salary Sacrifice</option>
-                <option value="personal">Personal</option>
-                <option value="government">Government Co-contribution</option>
-              </select>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Amount *</span>
-              <input
-                value={contribAmount}
-                onChange={(e) => setContribAmount(e.target.value)}
-                placeholder="0.00"
-                required
-                type="text"
-                inputMode="decimal"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] tabular-nums outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Date *</span>
-              <input
-                value={contribDate}
-                onChange={(e) => setContribDate(e.target.value)}
-                type="date"
-                required
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <label className="space-y-1.5 sm:col-span-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>Description</span>
-              <input
-                value={contribDescription}
-                onChange={(e) => setContribDescription(e.target.value)}
-                placeholder="e.g. June 2026 SG contribution"
-                className="w-full rounded-lg border bg-transparent px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
-                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className={cn("rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-40", consoleFocus)}
-                style={{ background: "#60a5fa", color: "#050a14" }}
-              >
-                {submitting ? "Saving..." : "Record Contribution"}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      {/* Contribution breakdown by type */}
-      {Object.keys(contributionsByType).length > 0 && (
+        {/* Hero skeleton */}
         <section
           className="rounded-2xl border p-5 sm:p-6"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
-          <h3 className="mb-4 text-[13px] font-semibold uppercase tracking-[0.15em]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Contributions by Type
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Object.entries(contributionsByType).map(([type, total]) => {
-              const color = CONTRIBUTION_TYPE_COLORS[type] ?? TOKENS.primary
-              return (
-                <div
-                  key={type}
-                  className="rounded-xl border px-4 py-3"
-                  style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surface }}
-                >
-                  <p className="text-[11px] font-medium" style={{ color }}>
-                    {CONTRIBUTION_TYPE_LABELS[type] ?? type}
-                  </p>
-                  <p className="mt-1 text-lg font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
-                    {formatCurrency(total)}
-                  </p>
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "#60a5fa10" }}>
+                  <Shield className="h-5 w-5" style={{ color: "#60a5fa40" }} />
                 </div>
-              )
-            })}
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Total Super Balance
+                </p>
+              </div>
+              <div className="mt-3">
+                <ScrambleCurrencyValue
+                  variant="neutral"
+                  min={4000}
+                  max={120000}
+                  className="text-3xl font-bold! sm:text-4xl!"
+                  decimalEm={0.55}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {["Add Account", "Record Contribution", "Record Fee / Tax"].map((label) => (
+                <div
+                  key={label}
+                  className="h-10 animate-pulse rounded-xl border px-4"
+                  style={{ borderColor: TOKENS.outlineGhost, background: shimmer, minWidth: "9rem" }}
+                />
+              ))}
+            </div>
           </div>
         </section>
-      )}
 
-      {/* Account cards */}
-      {accounts.length === 0 ? (
+        {/* Stat cards skeleton */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Active Accounts", integer: true },
+            { label: "Total Contributions", integer: false },
+            { label: "Fees & Taxes", integer: false },
+          ].map(({ label, integer }) => (
+            <div
+              key={label}
+              className="rounded-xl border p-4 sm:p-5"
+              style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                {label}
+              </p>
+              <div className="mt-2">
+                {integer ? (
+                  <ScrambleIntegerValue min={1} max={5} className="text-xl font-bold! sm:text-2xl!" />
+                ) : (
+                  <ScrambleCurrencyValue variant="neutral" min={500} max={12000} className="text-xl font-bold! sm:text-2xl!" decimalEm={0.5} />
+                )}
+              </div>
+              <div className="mt-2 h-3 w-24 animate-pulse rounded" style={{ background: shimmer }} />
+            </div>
+          ))}
+        </div>
+
+        {/* Account card skeleton */}
         <section
-          className="flex flex-col items-center justify-center rounded-2xl border py-16"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost }}
+          className="overflow-hidden rounded-xl border"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
-          <Shield className="mb-3 h-10 w-10" style={{ color: TOKENS.onSurfaceMuted }} />
-          <p className="text-[15px] font-semibold" style={{ color: TOKENS.onSurface }}>
-            No super accounts yet
-          </p>
-          <p className="mt-1 text-[13px]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Add your superannuation fund to start tracking your retirement balance.
-          </p>
+          {/* Account header */}
+          <div className="flex items-center justify-between gap-4 p-4 sm:p-5">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 animate-pulse rounded-xl" style={{ background: shimmer }} />
+              <div>
+                <div className="h-4 w-32 animate-pulse rounded" style={{ background: shimmer }} />
+                <div className="mt-1.5 h-3 w-52 animate-pulse rounded" style={{ background: shimmer }} />
+              </div>
+            </div>
+            <div className="h-8 w-28 animate-pulse rounded-lg" style={{ background: shimmer }} />
+          </div>
+
+          {/* Table header */}
+          <div
+            className="grid grid-cols-[84px_1fr_auto] gap-3 border-t border-b px-5 py-2"
+            style={{ borderColor: TOKENS.outlineGhost }}
+          >
+            {["Date", "Description", "Amount"].map((h) => (
+              <span key={h} className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {/* Table rows */}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[84px_1fr_auto] items-center gap-3 border-b px-5 py-3 last:border-b-0"
+              style={{ borderColor: TOKENS.outlineGhost, opacity: 1 - i * 0.12 }}
+            >
+              <div className="h-3 w-16 animate-pulse rounded" style={{ background: shimmer }} />
+              <div>
+                <div className="h-5 w-24 animate-pulse rounded" style={{ background: shimmer }} />
+                <div className="mt-1 h-3 w-36 animate-pulse rounded" style={{ background: shimmer }} />
+              </div>
+              <div className="h-4 w-16 animate-pulse rounded" style={{ background: shimmer }} />
+            </div>
+          ))}
         </section>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+      </div>
+    )
+  }
+
+  if (accounts.length === 0) {
+    return (
+      <>
+        <section
+          className="rounded-xl border p-10 text-center"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <div
+            className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl"
+            style={{ background: "#60a5fa10", border: `1px solid ${TOKENS.outlineGhost}` }}
+          >
+            <Shield className="h-7 w-7" style={{ color: "#60a5fa" }} />
+          </div>
+          <h2 className="mt-4 text-xl font-bold" style={{ color: TOKENS.onSurface }}>No super accounts yet</h2>
+          <p className="mx-auto mt-2 max-w-xl text-[13px] leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+            Add your superannuation fund to start tracking your retirement balance and contributions.
+          </p>
+          <button
+            type="button"
+            onClick={openAddAccount}
+            className={cn("mt-6 inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
+            style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.primary }}
+          >
+            <Plus className="h-4 w-4" /> Add Super Account
+          </button>
+        </section>
+
+        {/* Account modal still needs to be available in empty state */}
+        <Dialog open={accountModalOpen} onOpenChange={(o) => { setAccountModalOpen(o); if (!o) resetAccountForm() }}>
+          <DialogContent
+            className="border p-0 shadow-2xl"
+            style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)" }}
+          >
+            <DialogClose onClose={() => { setAccountModalOpen(false); resetAccountForm() }} />
+            <div className="p-6 sm:p-8">
+              <DialogHeader>
+                <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>Add Super Account</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSaveAccount} className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className={labelClass}>
+                  <FieldLabel>Fund Name *</FieldLabel>
+                  <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g. AustralianSuper" required
+                    className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <label className={labelClass}>
+                  <FieldLabel>Investment Option</FieldLabel>
+                  <input value={formFundType} onChange={(e) => setFormFundType(e.target.value)} placeholder="e.g. High Growth"
+                    className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <label className={labelClass}>
+                  <FieldLabel>Employer</FieldLabel>
+                  <input value={formEmployerName} onChange={(e) => setFormEmployerName(e.target.value)} placeholder="e.g. Acme Corp"
+                    className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <label className={labelClass}>
+                  <FieldLabel>Member Number</FieldLabel>
+                  <input value={formMemberNumber} onChange={(e) => setFormMemberNumber(e.target.value)} placeholder="Optional"
+                    className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <label className={labelClass}>
+                  <FieldLabel>Provider / Trustee</FieldLabel>
+                  <input value={formProvider} onChange={(e) => setFormProvider(e.target.value)} placeholder="Optional"
+                    className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <label className={labelClass}>
+                  <FieldLabel>Current Balance</FieldLabel>
+                  <input value={formBalance} onChange={(e) => setFormBalance(e.target.value)} placeholder="0.00" type="text" inputMode="decimal"
+                    className={cn(fieldClass, "tabular-nums")} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+                </label>
+                <div className="sm:col-span-2">
+                  <ModalSubmitButton submitting={submitting} disabled={!formName.trim()} label="Add Account" />
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
+
+  return (
+    <div className="space-y-6 sm:space-y-8">
+
+      {/* ── Hero ── */}
+      <section
+        className="rounded-2xl border p-5 sm:p-6"
+        style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+      >
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "#60a5fa20" }}>
+                <Shield className="h-5 w-5" style={{ color: "#60a5fa" }} />
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Total Super Balance
+              </p>
+            </div>
+            <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl" style={{ color: TOKENS.onSurface }}>
+              {formatCurrency(totalBalance)}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={openAddAccount}
+              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
+              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.primary }}
+            >
+              <Plus className="h-4 w-4" /> Add Account
+            </button>
+            <button
+              type="button"
+              onClick={openContrib}
+              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
+              style={{ borderColor: TOKENS.outlineGhost, color: "#60a5fa" }}
+            >
+              <DollarSign className="h-4 w-4" /> Record Contribution
+            </button>
+            <button
+              type="button"
+              onClick={openDeduction}
+              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
+              style={{ borderColor: TOKENS.outlineGhost, color: "#f87171" }}
+            >
+              <MinusCircle className="h-4 w-4" /> Record Fee / Tax
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Stat cards ── */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border p-4 sm:p-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Active Accounts</p>
+          <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: TOKENS.onSurface }}>{accounts.length}</p>
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>Superannuation funds</p>
+        </div>
+        <div className="rounded-xl border p-4 sm:p-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Total Contributions</p>
+          <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: TOKENS.primary }}>{formatCurrency(totalContributions)}</p>
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>All-time recorded</p>
+        </div>
+        <div className="rounded-xl border p-4 sm:p-5" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>Fees & Taxes</p>
+          <p className="mt-2 text-xl font-bold tabular-nums sm:text-2xl" style={{ color: totalDeductions < 0 ? "#f87171" : TOKENS.onSurface }}>
+            {totalDeductions < 0 ? `−${formatCurrency(Math.abs(totalDeductions))}` : formatCurrency(0)}
+          </p>
+          <p className="mt-2 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>Total deductions</p>
+        </div>
+      </div>
+
+      {/* ── Account cards ── */}
+      {(
+        <div className="space-y-4">
           {accounts.map((account) => {
-            const isExpanded = expandedAccountId === account.id
+            const sorted = [...account.contributions].sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+            )
+            const isExpanded = expandedAccounts.has(account.id)
+            const visible = isExpanded ? sorted : sorted.slice(0, ROWS_DEFAULT)
+            const hasMore = sorted.length > ROWS_DEFAULT
+
             return (
               <section
                 key={account.id}
-                className="rounded-2xl border"
+                className="overflow-hidden rounded-xl border"
                 style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
               >
-                {/* Card header */}
-                <div className="flex items-start justify-between p-5">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex h-8 w-8 items-center justify-center rounded-lg"
-                        style={{ background: "#60a5fa18" }}
-                      >
-                        <Shield className="h-4 w-4" style={{ color: "#60a5fa" }} />
+                {/* Account header */}
+                <div className="flex items-center justify-between gap-4 p-4 sm:p-5">
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "#60a5fa18" }}>
+                      <Shield className="h-5 w-5" style={{ color: "#60a5fa" }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-[14px] font-semibold" style={{ color: TOKENS.onSurface }}>{account.name}</p>
+                        {account.memberNumber && (
+                          <span
+                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+                            style={{ background: "rgba(218,226,253,0.07)", color: TOKENS.onSurfaceMuted }}
+                          >
+                            #{account.memberNumber}
+                          </span>
+                        )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[14px] font-semibold" style={{ color: TOKENS.onSurface }}>
-                          {account.name}
-                        </p>
-                        {account.fundType && (
-                          <p className="truncate text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                            {account.fundType}
-                          </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                        {account.fundType && <span className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>{account.fundType}</span>}
+                        {account.employerName && (
+                          <span className="flex items-center gap-1 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                            <Building2 className="h-3 w-3" /> {account.employerName}
+                          </span>
                         )}
                       </div>
                     </div>
-                    <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight" style={{ color: TOKENS.onSurface }}>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xl font-bold tabular-nums tracking-tight sm:text-2xl" style={{ color: TOKENS.onSurface }}>
                       {formatCurrency(account.balance)}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                      {account.employerName && (
-                        <span className="flex items-center gap-1 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                          <Building2 className="h-3 w-3" /> {account.employerName}
-                        </span>
-                      )}
-                      {account.memberNumber && (
-                        <span className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                          #{account.memberNumber}
-                        </span>
-                      )}
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditAccount(account)}
+                        className="rounded-lg p-2 transition-colors hover:bg-white/[0.06]"
+                        style={{ color: TOKENS.onSurfaceMuted }}
+                        aria-label={`Edit ${account.name}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAccount(account.id)}
+                        className="rounded-lg p-2 transition-colors hover:bg-white/[0.06]"
+                        style={{ color: TOKENS.loss }}
+                        aria-label={`Delete ${account.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditAccount(account)}
-                      className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.06]"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                      title="Edit account"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAccount(account.id)}
-                      className="rounded-lg p-1.5 transition-colors hover:bg-white/[0.06]"
-                      style={{ color: TOKENS.loss }}
-                      title="Delete account"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 </div>
 
-                {/* Contributions toggle */}
-                <button
-                  type="button"
-                  onClick={() => setExpandedAccountId(isExpanded ? null : account.id)}
-                  className="flex w-full items-center justify-between border-t px-5 py-3 text-[12px] font-medium transition-colors hover:bg-white/[0.02]"
-                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
-                >
-                  <span>{account.contributions.length} contribution{account.contributions.length !== 1 ? "s" : ""}</span>
-                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
-
-                {/* Contributions list */}
-                {isExpanded && account.contributions.length > 0 && (
+                {/* Transaction table */}
+                {sorted.length > 0 && (
                   <div className="border-t" style={{ borderColor: TOKENS.outlineGhost }}>
-                    {account.contributions.map((c) => {
+                    {/* Table header */}
+                    <div
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b px-5 py-2"
+                      style={{ borderColor: TOKENS.outlineGhost }}
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Date</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Description</span>
+                      <span className="text-right text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Amount</span>
+                    </div>
+
+                    {visible.map((c) => {
                       const color = CONTRIBUTION_TYPE_COLORS[c.type] ?? TOKENS.primary
+                      const isDeduction = DEDUCTION_TYPES.has(c.type)
                       return (
                         <div
                           key={c.id}
-                          className="flex items-center justify-between border-b px-5 py-2.5 last:border-b-0"
+                          className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b px-5 py-3 last:border-b-0 hover:bg-white/[0.02]"
                           style={{ borderColor: TOKENS.outlineGhost }}
                         >
-                          <div className="min-w-0 flex-1">
+                          {/* Date */}
+                          <span className="w-[84px] shrink-0 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+                            {new Date(c.date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "2-digit" })}
+                          </span>
+
+                          {/* Badge + description */}
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span
-                                className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase"
-                                style={{ background: color + "18", color }}
+                                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                                style={{ background: color + "20", color }}
                               >
                                 {CONTRIBUTION_TYPE_LABELS[c.type] ?? c.type}
-                              </span>
-                              <span className="text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
-                                {new Date(c.date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                               </span>
                             </div>
                             {c.description && (
@@ -693,16 +727,23 @@ export function SuperannuationPageBento() {
                               </p>
                             )}
                           </div>
+
+                          {/* Amount + delete */}
                           <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-semibold tabular-nums" style={{ color: TOKENS.primary }}>
-                              +{formatCurrency(c.amount)}
+                            <span
+                              className="min-w-[72px] text-right text-[13px] font-semibold tabular-nums"
+                              style={{ color: isDeduction ? "#f87171" : TOKENS.primary }}
+                            >
+                              {isDeduction
+                                ? `−${formatCurrency(Math.abs(c.amount))}`
+                                : `+${formatCurrency(c.amount)}`}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleDeleteContribution(c.id)}
-                              className="rounded p-1 transition-colors hover:bg-white/[0.06]"
+                              className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/[0.06]"
                               style={{ color: TOKENS.onSurfaceMuted }}
-                              title="Delete contribution"
+                              aria-label="Delete entry"
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
@@ -710,6 +751,29 @@ export function SuperannuationPageBento() {
                         </div>
                       )
                     })}
+
+                    {/* Show more / less toggle */}
+                    {hasMore && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedAccounts((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(account.id)) next.delete(account.id)
+                            else next.add(account.id)
+                            return next
+                          })
+                        }
+                        className="flex w-full items-center justify-center gap-1.5 border-t py-3 text-[12px] font-medium transition-colors hover:bg-white/[0.02]"
+                        style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+                      >
+                        {isExpanded ? (
+                          <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
+                        ) : (
+                          <><ChevronDown className="h-3.5 w-3.5" /> Show all {sorted.length} entries</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
@@ -717,6 +781,178 @@ export function SuperannuationPageBento() {
           })}
         </div>
       )}
+
+      {/* ── Modal: Add / Edit Account ── */}
+      <Dialog open={accountModalOpen} onOpenChange={(o) => { setAccountModalOpen(o); if (!o) resetAccountForm() }}>
+        <DialogContent
+          className="border p-0 shadow-2xl"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)" }}
+        >
+          <DialogClose onClose={() => { setAccountModalOpen(false); resetAccountForm() }} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>
+                {editingAccount ? "Edit Super Account" : "Add Super Account"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSaveAccount} className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className={labelClass}>
+                <FieldLabel>Fund Name *</FieldLabel>
+                <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g. AustralianSuper" required
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Investment Option</FieldLabel>
+                <input value={formFundType} onChange={(e) => setFormFundType(e.target.value)} placeholder="e.g. High Growth"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Employer</FieldLabel>
+                <input value={formEmployerName} onChange={(e) => setFormEmployerName(e.target.value)} placeholder="e.g. Acme Corp"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Member Number</FieldLabel>
+                <input value={formMemberNumber} onChange={(e) => setFormMemberNumber(e.target.value)} placeholder="Optional"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Provider / Trustee</FieldLabel>
+                <input value={formProvider} onChange={(e) => setFormProvider(e.target.value)} placeholder="Optional"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Current Balance</FieldLabel>
+                <input value={formBalance} onChange={(e) => setFormBalance(e.target.value)} placeholder="0.00" type="text" inputMode="decimal"
+                  className={cn(fieldClass, "tabular-nums")} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <div className="sm:col-span-2">
+                <ModalSubmitButton submitting={submitting} disabled={!formName.trim()}
+                  label={editingAccount ? "Update Account" : "Add Account"} />
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Record Contribution ── */}
+      <Dialog open={contribModalOpen} onOpenChange={setContribModalOpen}>
+        <DialogContent
+          className="border p-0 shadow-2xl"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(218,226,253,0.06)" }}
+        >
+          <DialogClose onClose={() => setContribModalOpen(false)} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>Record Contribution</DialogTitle>
+              <p className="text-[13px]" style={{ color: TOKENS.onSurfaceMuted }}>Employer SG, salary sacrifice, or personal contributions.</p>
+            </DialogHeader>
+            <form onSubmit={handleAddContribution} className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className={labelClass}>
+                <FieldLabel>Super Account *</FieldLabel>
+                <select value={contribAccountId} onChange={(e) => setContribAccountId(e.target.value)} required
+                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Type *</FieldLabel>
+                <select value={contribType} onChange={(e) => setContribType(e.target.value)}
+                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
+                  <option value="employer">Employer (SG)</option>
+                  <option value="salary_sacrifice">Salary Sacrifice</option>
+                  <option value="personal">Personal</option>
+                  <option value="government">Govt Co-contribution</option>
+                </select>
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Amount *</FieldLabel>
+                <input value={contribAmount} onChange={(e) => setContribAmount(e.target.value)} placeholder="0.00" required type="text" inputMode="decimal"
+                  className={cn(fieldClass, "tabular-nums")} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Date *</FieldLabel>
+                <input value={contribDate} onChange={(e) => setContribDate(e.target.value)} type="date" required
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={cn(labelClass, "sm:col-span-2")}>
+                <FieldLabel>Description</FieldLabel>
+                <input value={contribDescription} onChange={(e) => setContribDescription(e.target.value)} placeholder="e.g. June 2026 SG contribution"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <div className="sm:col-span-2">
+                <ModalSubmitButton submitting={submitting} label="Record Contribution" />
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Record Fee / Tax ── */}
+      <Dialog open={deductionModalOpen} onOpenChange={setDeductionModalOpen}>
+        <DialogContent
+          className="border p-0 shadow-2xl"
+          style={{ background: TOKENS.surfaceContainer, borderColor: "#f8717130", boxShadow: "0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(248,113,113,0.08)" }}
+        >
+          <DialogClose onClose={() => setDeductionModalOpen(false)} />
+          <div className="p-6 sm:p-8">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "#f8717120" }}>
+                  <MinusCircle className="h-4.5 w-4.5" style={{ color: "#f87171" }} />
+                </div>
+                <DialogTitle className="text-xl" style={{ color: TOKENS.onSurface }}>Record Fee / Tax</DialogTitle>
+              </div>
+              <p className="text-[13px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Admin fees and government taxes deducted from your account.
+              </p>
+            </DialogHeader>
+            <form onSubmit={handleAddDeduction} className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className={labelClass}>
+                <FieldLabel>Super Account *</FieldLabel>
+                <select value={deductAccountId} onChange={(e) => setDeductAccountId(e.target.value)} required
+                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Type *</FieldLabel>
+                <select value={deductType} onChange={(e) => setDeductType(e.target.value)}
+                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
+                  <option value="fee">Admin Fee</option>
+                  <option value="tax">Government Tax</option>
+                </select>
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Amount *</FieldLabel>
+                <input value={deductAmount} onChange={(e) => setDeductAmount(e.target.value)} placeholder="0.00" required type="text" inputMode="decimal"
+                  className={cn(fieldClass, "tabular-nums")} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={labelClass}>
+                <FieldLabel>Date *</FieldLabel>
+                <input value={deductDate} onChange={(e) => setDeductDate(e.target.value)} type="date" required
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <label className={cn(labelClass, "sm:col-span-2")}>
+                <FieldLabel>Description</FieldLabel>
+                <input value={deductDescription} onChange={(e) => setDeductDescription(e.target.value)} placeholder="e.g. Monthly admin fee"
+                  className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
+              </label>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={cn("mt-2 w-full rounded-xl px-5 py-3 text-[13px] font-semibold transition-colors disabled:opacity-40", consoleFocus)}
+                  style={{ background: "#f87171", color: "#1a0000" }}
+                >
+                  {submitting ? "Saving…" : "Record Deduction"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

@@ -59,6 +59,7 @@ export function useWealthConsoleDerived({
   incomeChangePct,
   lastMonthExpenses,
   marketPrices,
+  superBalance,
   loading,
   savingGoals = [],
 }: {
