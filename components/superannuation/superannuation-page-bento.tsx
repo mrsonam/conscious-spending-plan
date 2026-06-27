@@ -669,32 +669,28 @@ export function SuperannuationPageBento() {
         </div>
       )}
 
-      {/* ── FY balance summary ── */}
+      {/* ── FY opening / closing summary ── */}
       {accounts.length > 0 && (
         <div
-          className="flex flex-wrap items-center gap-4 rounded-xl border px-5 py-4"
+          className="flex flex-wrap items-center gap-6 rounded-xl border px-5 py-4"
           style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
         >
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Opening Balance</p>
             <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.opening)}</p>
           </div>
-          <span style={{ color: TOKENS.onSurfaceMuted }}>+</span>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Contributions</p>
-            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.primary }}>{formatCurrency(totalContributions)}</p>
-          </div>
-          <span style={{ color: TOKENS.onSurfaceMuted }}>−</span>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Fees & Taxes</p>
-            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: "#f87171" }}>{formatCurrency(Math.abs(totalDeductions))}</p>
-          </div>
-          <span style={{ color: TOKENS.onSurfaceMuted }}>=</span>
+          <span className="text-lg" style={{ color: TOKENS.onSurfaceMuted }}>→</span>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>
               {selectedFY === currentFY() ? "Current Balance" : "Closing Balance"}
             </p>
             <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>{formatCurrency(fyBalance.closing)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: TOKENS.onSurfaceMuted }}>Net Change</p>
+            <p className="mt-1 text-[15px] font-bold tabular-nums" style={{ color: fyBalance.net >= 0 ? TOKENS.primary : "#f87171" }}>
+              {fyBalance.net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(fyBalance.net))}
+            </p>
           </div>
         </div>
       )}
