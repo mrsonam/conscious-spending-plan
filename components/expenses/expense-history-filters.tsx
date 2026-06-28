@@ -23,6 +23,7 @@ type ExpenseHistoryFiltersProps = {
 
 export function ExpenseHistoryFilters({ p }: ExpenseHistoryFiltersProps) {
   const hasFilters =
+    p.filterSearch ||
     p.filterStartDate ||
     p.filterEndDate ||
     p.filterFundCategory ||
@@ -46,6 +47,7 @@ export function ExpenseHistoryFilters({ p }: ExpenseHistoryFiltersProps) {
           <button
             type="button"
             onClick={() => {
+              p.setFilterSearch("")
               p.setFilterStartDate("")
               p.setFilterEndDate("")
               p.setFilterFundCategory("")

@@ -6,6 +6,7 @@ export type ExpenseListFilters = {
   fundCategory?: string
   expenseCategory?: string
   accountId?: string
+  search?: string
 }
 
 const FUND_KEYS = [
@@ -28,7 +29,7 @@ export function createOptimisticExpenseId(): string {
 export function expenseMatchesListFilters(
   expense: Pick<
     ExpenseEntry,
-    "accountId" | "category" | "expenseCategory" | "date"
+    "accountId" | "category" | "expenseCategory" | "date" | "description"
   >,
   filters: ExpenseListFilters,
 ): boolean {
@@ -40,6 +41,10 @@ export function expenseMatchesListFilters(
   }
   if (filters.startDate && day < filters.startDate) return false
   if (filters.endDate && day > filters.endDate) return false
+  if (filters.search) {
+    const q = filters.search.toLowerCase()
+    if (!expense.description?.toLowerCase().includes(q)) return false
+  }
   return true
 }
 

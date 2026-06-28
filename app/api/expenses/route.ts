@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     const categoryParam = searchParams.get("category")
     const expenseCategoryParam = searchParams.get("expenseCategory")
     const accountIdParam = searchParams.get("accountId")
+    const searchParam = searchParams.get("search")?.trim() || null
 
     const where: Prisma.ExpenseWhereInput = {
       userId: session.user.id,
@@ -62,6 +63,10 @@ export async function GET(request: Request) {
     // Support filtering by account id
     if (accountIdParam) {
       where.accountId = accountIdParam
+    }
+
+    if (searchParam) {
+      where.description = { contains: searchParam, mode: "insensitive" }
     }
 
     const pageParam = searchParams.get("page")

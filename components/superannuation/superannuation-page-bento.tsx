@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { DateInput } from "@/components/ui/date-input"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
@@ -986,7 +987,7 @@ export function SuperannuationPageBento() {
               </label>
               <label className={labelClass}>
                 <FieldLabel>Date *</FieldLabel>
-                <input value={contribDate} onChange={(e) => setContribDate(e.target.value)} type="date" required
+                <DateInput value={contribDate} onChange={(e) => setContribDate(e.target.value)} required
                   className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
               </label>
               <label className={cn(labelClass, "sm:col-span-2")}>
@@ -1044,7 +1045,7 @@ export function SuperannuationPageBento() {
               </label>
               <label className={labelClass}>
                 <FieldLabel>Date *</FieldLabel>
-                <input value={deductDate} onChange={(e) => setDeductDate(e.target.value)} type="date" required
+                <DateInput value={deductDate} onChange={(e) => setDeductDate(e.target.value)} required
                   className={fieldClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }} />
               </label>
               <label className={cn(labelClass, "sm:col-span-2")}>

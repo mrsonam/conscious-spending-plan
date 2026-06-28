@@ -37,6 +37,21 @@ export function ExpensePageBento(p: UseExpensePageResult) {
     }
   }, [recurringOpen, p.showRecurringForm, p.ensureRecurringLoaded])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "s" && e.key !== "S") return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+      const el = document.getElementById("expense-search")
+      if (!el) return
+      e.preventDefault()
+      ;(el as HTMLInputElement).focus()
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [])
+
   const submitLog = async (e: React.FormEvent) => {
     const ok = await p.handleSubmit(e)
     if (ok) setLogOpen(false)

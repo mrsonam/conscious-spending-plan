@@ -1,7 +1,7 @@
 "use client"
 
 import type { RefObject } from "react"
-import { Download, Filter, Pencil, TrendingDown, Trash2 } from "lucide-react"
+import { Download, Filter, Pencil, Search, TrendingDown, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
@@ -12,6 +12,7 @@ import {
   fundLabel,
 } from "@/components/expenses/expense-shared"
 import {
+  expenseConsoleField,
   EXPENSE_HISTORY_FILTERS_ID,
 } from "@/components/expenses/expense-console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
@@ -101,6 +102,39 @@ export function ExpenseHistorySection({
         className="border-t px-5 py-5 sm:px-7"
         style={{ borderColor: TOKENS.outlineGhost }}
       >
+        {/* Search — always visible */}
+        <div className="relative mb-4">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          />
+          <input
+            type="text"
+            id="expense-search"
+            value={p.filterSearch}
+            onChange={(e) => p.setFilterSearch(e.target.value)}
+            placeholder="Search transactions..."
+            aria-label="Search expenses"
+            className={cn(expenseConsoleField, "pl-9", p.filterSearch ? "pr-8" : "")}
+            style={{
+              background: TOKENS.surfaceLow,
+              borderColor: TOKENS.outlineGhost,
+              color: TOKENS.onSurface,
+            }}
+          />
+          {p.filterSearch ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => p.setFilterSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full opacity-50 transition-opacity hover:opacity-100"
+              style={{ color: TOKENS.onSurface }}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          ) : null}
+        </div>
+
         {filtersOpen ? (
           <div
             id={EXPENSE_HISTORY_FILTERS_ID}

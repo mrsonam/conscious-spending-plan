@@ -124,6 +124,8 @@ export function useExpensePage(
   const [filterFundCategory, setFilterFundCategory] = useState("")
   const [filterExpenseCategory, setFilterExpenseCategory] = useState("")
   const [filterAccountId, setFilterAccountId] = useState("")
+  const [filterSearch, setFilterSearch] = useState("")
+  const [debouncedFilterSearch, setDebouncedFilterSearch] = useState("")
 
   const [recurring, setRecurring] = useState<RecurringExpense[]>([])
   const [loadingRecurring, setLoadingRecurring] = useState(false)
@@ -290,6 +292,7 @@ export function useExpensePage(
         if (filterExpenseCategory)
           params.append("expenseCategory", filterExpenseCategory)
         if (filterAccountId) params.append("accountId", filterAccountId)
+        if (debouncedFilterSearch) params.append("search", debouncedFilterSearch)
         params.set("page", String(page))
         params.set("limit", String(CONSOLE_TABLE_PAGE_SIZE))
         params.set("includeSummary", "false")
@@ -331,6 +334,7 @@ export function useExpensePage(
       filterFundCategory,
       filterExpenseCategory,
       filterAccountId,
+      debouncedFilterSearch,
       applyExpenseListPayload,
     ],
   )
@@ -342,12 +346,14 @@ export function useExpensePage(
       fundCategory: string
       expenseCategory: string
       accountId: string
+      search: string
     } => ({
       startDate: filterStartDate,
       endDate: filterEndDate,
       fundCategory: filterFundCategory,
       expenseCategory: filterExpenseCategory,
       accountId: filterAccountId,
+      search: debouncedFilterSearch,
     }),
     [
       filterStartDate,
@@ -355,6 +361,7 @@ export function useExpensePage(
       filterFundCategory,
       filterExpenseCategory,
       filterAccountId,
+      debouncedFilterSearch,
     ],
   )
 
@@ -498,6 +505,12 @@ export function useExpensePage(
   }, [status, reconcileExpenseData, fetchRecurring])
 
   useEffect(() => {
+    if (!filterSearch) { setDebouncedFilterSearch(""); return }
+    const id = setTimeout(() => setDebouncedFilterSearch(filterSearch), 300)
+    return () => clearTimeout(id)
+  }, [filterSearch])
+
+  useEffect(() => {
     if (status === "authenticated" && hasLoadedExpenses) {
       setExpensesPage(1)
       void fetchExpenses(1)
@@ -508,6 +521,7 @@ export function useExpensePage(
     filterFundCategory,
     filterExpenseCategory,
     filterAccountId,
+    debouncedFilterSearch,
     status,
     hasLoadedExpenses,
     fetchExpenses,
@@ -1141,6 +1155,8 @@ export function useExpensePage(
     date,
     setDate,
     submitting,
+    filterSearch,
+    setFilterSearch,
     filterStartDate,
     setFilterStartDate,
     filterEndDate,

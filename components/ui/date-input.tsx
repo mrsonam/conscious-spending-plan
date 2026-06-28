@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format, isValid, parseISO, startOfDay } from "date-fns"
-import { Calendar as CalendarLucide } from "lucide-react"
+import { Calendar as CalendarLucide, X } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { INPUT_CLASSNAME } from "@/components/ui/input"
@@ -18,6 +18,10 @@ export interface DateInputProps
   wrapperClassName?: string
   popoverClassName?: string
   popoverStyle?: React.CSSProperties
+  /** Earliest year shown in the year dropdown (default: current year − 10) */
+  fromYear?: number
+  /** Latest year shown in the year dropdown (default: current year + 5) */
+  toYear?: number
 }
 
 const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
@@ -38,6 +42,8 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       style,
       popoverClassName,
       popoverStyle,
+      fromYear,
+      toYear,
     },
     ref
   ) => {
@@ -45,6 +51,10 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     const hiddenRef = React.useRef<HTMLInputElement | null>(null)
 
     React.useImperativeHandle(ref, () => hiddenRef.current as HTMLInputElement)
+
+    const now = new Date()
+    const yearFrom = fromYear ?? now.getFullYear() - 10
+    const yearTo = toYear ?? now.getFullYear() + 5
 
     const selectedDate = React.useMemo(() => {
       if (!value) return undefined
@@ -59,6 +69,13 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           currentTarget: { value: next },
         } as React.ChangeEvent<HTMLInputElement>)
       }
+    }
+
+    const handleToday = () => {
+      const d = new Date()
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      emit(todayStr)
+      setOpen(false)
     }
 
     const disabledDays = React.useMemo(() => {
@@ -78,6 +95,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     }, [min, max])
 
     const display = selectedDate ? format(selectedDate, "MMM d, yyyy") : ""
+    const hasValue = !!selectedDate && !disabled
 
     return (
       <div className={cn("relative w-full min-w-0", wrapperClassName)}>
@@ -100,12 +118,14 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               aria-required={required}
               aria-expanded={open}
               aria-haspopup="dialog"
+              aria-label={selectedDate ? `${display} — click to change` : "Pick a date"}
               onFocus={onFocus as React.FocusEventHandler<HTMLButtonElement>}
               onBlur={onBlur as React.FocusEventHandler<HTMLButtonElement>}
               style={style}
               className={cn(
                 INPUT_CLASSNAME,
-                "date-input-trigger relative pr-10 text-left tabular-nums",
+                "date-input-trigger relative text-left tabular-nums",
+                hasValue ? "pr-16" : "pr-10",
                 disabled && "cursor-not-allowed opacity-50",
                 className
               )}
@@ -118,15 +138,12 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               >
                 {selectedDate ? display : "Pick a date"}
               </span>
-              <CalendarLucide className="date-input-calendar-icon pointer-events-none absolute right-2 top-1/2 z-2 h-4 w-4 -translate-y-1/2 opacity-70 text-current" />
+              <CalendarLucide className="date-input-calendar-icon pointer-events-none absolute right-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 opacity-50 text-current" />
             </button>
           </PopoverTrigger>
           <PopoverContent
             align="start"
-            className={cn(
-              "date-input-popover-content w-auto border-gray-200 p-0 shadow-lg",
-              popoverClassName,
-            )}
+            className={cn("date-input-popover-content w-auto p-0 shadow-xl", popoverClassName)}
             style={popoverStyle}
             data-date-input-popover="true"
           >
@@ -139,10 +156,44 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               }}
               defaultMonth={selectedDate ?? new Date()}
               disabled={disabledDays}
+              captionLayout="dropdown"
+              startMonth={new Date(yearFrom, 0)}
+              endMonth={new Date(yearTo, 11)}
               initialFocus
             />
+            <div className="flex items-center justify-between border-t border-black/10 px-3 py-2">
+              <button
+                type="button"
+                onClick={handleToday}
+                className="rounded px-1.5 py-1 text-xs font-semibold opacity-50 transition-opacity hover:opacity-100"
+              >
+                Today
+              </button>
+              {hasValue && (
+                <button
+                  type="button"
+                  onClick={() => { emit(""); setOpen(false) }}
+                  className="rounded px-1.5 py-1 text-xs opacity-40 transition-opacity hover:opacity-70"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </PopoverContent>
         </Popover>
+
+        {/* × quick-clear — sits outside the trigger to avoid invalid button-in-button nesting */}
+        {hasValue && (
+          <button
+            type="button"
+            aria-label="Clear date"
+            tabIndex={-1}
+            onClick={(e) => { e.preventDefault(); emit("") }}
+            className="date-input-clear absolute right-8 top-1/2 z-10 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full opacity-40 transition-opacity hover:opacity-90 text-current"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
     )
   }
