@@ -3,6 +3,7 @@
  */
 export const BENTO = {
   dashboard: "/dashboard",
+  insights: "/insights",
   income: "/income",
   expenses: "/expenses",
   subscriptions: "/subscriptions",

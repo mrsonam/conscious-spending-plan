@@ -15,6 +15,7 @@ import {
   Target,
   LineChart,
   Shield,
+  Sparkles,
 } from "lucide-react"
 import { BENTO } from "@/lib/app-routes"
 
@@ -33,6 +34,7 @@ const SIDEBAR_NAV_GROUPS: SidebarNavGroup[] = [
     label: "Overview",
     items: [
       { name: "Dashboard", href: BENTO.dashboard, icon: LayoutDashboard },
+      { name: "Insights", href: BENTO.insights, icon: Sparkles },
     ],
   },
   {

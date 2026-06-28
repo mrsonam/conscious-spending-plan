@@ -153,29 +153,39 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                             )}
                           </div>
                         </div>
-                      </div>
-                      {pulseMetrics.superBalance > 0 && (
-                        <div
-                          className="mt-4 border-t pt-4"
-                          style={{ borderColor: TOKENS.outlineGhost }}
-                        >
-                          <p
-                            className="text-[10px] font-semibold uppercase tracking-wider"
-                            style={consoleMicroLabel}
+                        {pulseMetrics.superBalance > 0 && (
+                          <div
+                            className="mt-4 border-t pt-4"
+                            style={{ borderColor: TOKENS.outlineGhost }}
                           >
-                            Super · retirement
-                          </p>
-                          <div className="mt-2 text-xl sm:text-2xl">
-                            <MajorFigureCurrency
-                              amount={pulseMetrics.superBalance}
-                              variant="neutral"
-                              colorMain="#60a5fa"
-                              colorDecimal={TOKENS.onSurfaceMuted}
-                              className="font-bold!"
-                            />
+                            <p
+                              className="text-[10px] font-semibold uppercase tracking-wider"
+                              style={consoleMicroLabel}
+                            >
+                              Super · retirement
+                            </p>
+                            <div className="mt-2 text-xl sm:text-2xl">
+                              {showNetWorthSkeleton ? (
+                                <ScrambleCurrencyValue
+                                  min={500}
+                                  max={20000}
+                                  className="font-bold!"
+                                  colorMain={TOKENS.secondary}
+                                  colorDecimal={TOKENS.onSurfaceMuted}
+                                />
+                              ) : (
+                                <MajorFigureCurrency
+                                  amount={pulseMetrics.superBalance}
+                                  variant="neutral"
+                                  colorMain={TOKENS.secondary}
+                                  colorDecimal={TOKENS.onSurfaceMuted}
+                                  className="font-bold!"
+                                />
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       {loanSummary && loanSummary.activeCount > 0 && (
                         <div
                           className="mt-4 flex items-end justify-between gap-3 border-t pt-4"

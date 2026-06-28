@@ -26,8 +26,6 @@ import { useSession } from "next-auth/react"
 import { PendingReviewBar } from "@/components/basiq/pending-review-bar"
 import { TransactionReview } from "@/components/basiq/transaction-review"
 import { useBasiq } from "@/hooks/use-basiq"
-import { SmartInsights } from "@/components/ai-chat/smart-insights"
-import { AnomalyDetection } from "@/components/ai-chat/anomaly-detection"
 
 const ConsolePulseSection = dynamic(
   () =>
@@ -123,10 +121,6 @@ export function WealthConsoleView(
               onLogExpense={openLogExpense}
             />
             <ConsoleBudgetAlertsStrip alerts={vm.spendingAlerts} />
-            <div className="mb-8 space-y-4 sm:mb-10 sm:space-y-6">
-              <SmartInsights />
-              <AnomalyDetection />
-            </div>
             <ConsoleOverviewSection vm={vm}>
               <ConsolePulseSection vm={vm} />
             </ConsoleOverviewSection>
