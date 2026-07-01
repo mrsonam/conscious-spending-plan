@@ -9,6 +9,9 @@ import { ConsolePulsePlaceholder } from "@/components/wealth-console/console-pul
 import { ConsoleQuickActions } from "@/components/wealth-console/console-quick-actions"
 import { AddExpenseModal } from "@/components/modals/add-expense-modal"
 import { AddIncomeModal } from "@/components/modals/add-income-modal"
+import { TransferModal } from "@/components/modals/transfer-modal"
+import { AddSuperContributionModal } from "@/components/modals/add-super-contribution-modal"
+import { AddInvestmentModal } from "@/components/modals/add-investment-modal"
 import {
   useWealthConsoleDashboard,
   type WealthConsoleViewProps,
@@ -73,9 +76,15 @@ export function WealthConsoleView(
 
   const [incomeOpen, setIncomeOpen] = useState(false)
   const [expenseOpen, setExpenseOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [superOpen, setSuperOpen] = useState(false)
+  const [investmentOpen, setInvestmentOpen] = useState(false)
 
   const openLogIncome = useCallback(() => setIncomeOpen(true), [])
   const openLogExpense = useCallback(() => setExpenseOpen(true), [])
+  const openTransfer = useCallback(() => setTransferOpen(true), [])
+  const openLogSuper = useCallback(() => setSuperOpen(true), [])
+  const openLogInvestment = useCallback(() => setInvestmentOpen(true), [])
 
   const { status } = useSession()
   const basiq = useBasiq(status)
@@ -115,15 +124,17 @@ export function WealthConsoleView(
                 Loading dashboard data
               </p>
             ) : null}
+            <ConsoleBudgetAlertsStrip alerts={vm.spendingAlerts} />
+            <ConsoleOverviewSection vm={vm} />
             <ConsoleQuickActions
-              className="mb-8 sm:mb-10"
+              className="mt-8 mb-8 sm:mt-10 sm:mb-10"
               onLogIncome={openLogIncome}
               onLogExpense={openLogExpense}
+              onTransfer={openTransfer}
+              onLogSuper={openLogSuper}
+              onLogInvestment={openLogInvestment}
             />
-            <ConsoleBudgetAlertsStrip alerts={vm.spendingAlerts} />
-            <ConsoleOverviewSection vm={vm}>
-              <ConsolePulseSection vm={vm} />
-            </ConsoleOverviewSection>
+            <ConsolePulseSection vm={vm} />
             <ConsolePillarDetailSection vm={vm} />
             <ConsoleAccountsSection vm={vm} />
           </>
@@ -143,6 +154,21 @@ export function WealthConsoleView(
         onSuccess={handleActivityLogged}
         onOptimisticApply={onOptimisticExpenseLog}
         onOptimisticRollback={onOptimisticRollback}
+      />
+      <TransferModal
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        onSuccess={handleActivityLogged}
+      />
+      <AddSuperContributionModal
+        open={superOpen}
+        onOpenChange={setSuperOpen}
+        onSuccess={handleActivityLogged}
+      />
+      <AddInvestmentModal
+        open={investmentOpen}
+        onOpenChange={setInvestmentOpen}
+        onSuccess={handleActivityLogged}
       />
 
       <TransactionReview

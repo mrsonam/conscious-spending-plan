@@ -50,21 +50,6 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                 className="scroll-mt-28 space-y-10 lg:space-y-14"
               >
                 <h2 className="sr-only">Operational pulse</h2>
-                <div className="lg:ml-[min(5vw,3rem)] lg:max-w-2xl">
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                    style={{ color: TOKENS.onSurfaceMutedElevated }}
-                  >
-                    Operational intelligence
-                  </p>
-                  <p
-                    className="mt-3 text-sm leading-relaxed sm:text-[0.9375rem]"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    Budget load includes this month&apos;s investment purchases.
-                    Net worth uses live quotes when symbols resolve.
-                  </p>
-                </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
                   <div className="flex flex-col gap-4 lg:col-span-5">

@@ -54,6 +54,7 @@ interface Account {
   bankName: string
   balance: number
   accountType: string
+  isDefault: boolean
 }
 
 interface AddExpenseModalProps {
@@ -106,9 +107,11 @@ export function AddExpenseModal({
       fetch("/api/accounts").then((res) => {
         if (res.ok) {
           res.json().then((data) => {
-            setAccounts(data.accounts || [])
-            if (data.accounts?.length > 0) {
-              setAccountId(data.accounts[0].id)
+            const list: Account[] = data.accounts || []
+            setAccounts(list)
+            if (list.length > 0) {
+              const def = list.find((a) => a.isDefault) ?? list[0]
+              setAccountId(def.id)
             }
           })
         }

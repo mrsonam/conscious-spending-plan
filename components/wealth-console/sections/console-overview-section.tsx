@@ -15,7 +15,7 @@ export function ConsoleOverviewSection({
   children,
 }: {
   vm: WealthConsoleDashboardVM
-  children: ReactNode
+  children?: ReactNode
 }) {
   const { formatCurrency } = useFormatCurrency()
   const {

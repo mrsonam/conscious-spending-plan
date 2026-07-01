@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useEffect, useRef, useState } from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -52,15 +53,38 @@ export function AppSelect({
   "aria-describedby": ariaDescribedBy,
 }: AppSelectProps) {
   const inner = toInner(value)
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // Use a native capture-phase listener so it fires before any React stopPropagation
+  // calls on parent elements (e.g. the custom Dialog sheet's onClick handler).
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (contentRef.current?.contains(target)) return
+      setOpen(false)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true })
+    return () => document.removeEventListener("pointerdown", handlePointerDown, { capture: true })
+  }, [open])
 
   return (
     <SelectPrimitive.Root
+      open={open}
+      onOpenChange={setOpen}
       value={inner}
       onValueChange={(v) => onValueChange(toOuter(v))}
       disabled={disabled}
       name={name}
+      modal={false}
     >
       <SelectPrimitive.Trigger
+        ref={triggerRef}
         id={id}
         className={cn(
           "flex h-10 w-full shrink-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-base font-medium tabular-nums outline-none transition-[box-shadow] [color-scheme:dark] sm:text-sm",
@@ -82,6 +106,7 @@ export function AppSelect({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
+          ref={contentRef}
           position="popper"
           sideOffset={4}
           className="z-[310] max-h-[min(320px,70dvh)] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-xl border border-[rgba(218,226,253,0.12)] bg-[#131b2e] py-1 text-[#dae2fd] shadow-lg"
