@@ -205,7 +205,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         "startingFunds",
         editingAccount
           ? requirePositiveMoney(startingFunds, "Current balance", currencyCode)
-          : startingFunds.trim() === ""
+          : startingFunds.trim() === "" || parseFloat(startingFunds) === 0
             ? null
             : requirePositiveMoney(startingFunds, "Starting balance", currencyCode),
       ],
