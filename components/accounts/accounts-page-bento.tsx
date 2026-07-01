@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
@@ -65,6 +66,7 @@ function typeLabel(t: string) {
 
 export function AccountsPageBento() {
   const { status } = useSession()
+  const router = useRouter()
   const {
     accounts,
     loadingAccounts,
@@ -448,18 +450,18 @@ export function AccountsPageBento() {
                 return (
                   <tr
                     key={a.id}
+                    className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
                     style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}
+                    onClick={() => router.push(`/accounts/${a.id}`)}
                   >
                     <td className="px-2 py-3">
-                      <Link href={`/accounts/${a.id}`} className="group block">
-                        <div className="font-semibold transition-colors group-hover:underline" style={{ color: TOKENS.onSurface }}>
-                          {a.bankName}
-                        </div>
-                        <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                          {a.name}
-                          {a.isDefault ? " · Default" : ""}
-                        </div>
-                      </Link>
+                      <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                        {a.bankName}
+                      </div>
+                      <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                        {a.name}
+                        {a.isDefault ? " · Default" : ""}
+                      </div>
                     </td>
                     <td className="px-2 py-3" style={{ color: TOKENS.secondary }}>
                       {typeLabel(a.accountType)}
@@ -483,7 +485,7 @@ export function AccountsPageBento() {
                     >
                       {formatCurrency(a.balance)}
                     </td>
-                    <td className="px-2 py-3 text-right">
+                    <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex justify-end gap-1">
                         <Link
                           href={`/accounts/${a.id}`}
