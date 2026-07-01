@@ -174,7 +174,7 @@ export function AccountDetailView({ id }: { id: string }) {
   return (
     <div className="min-h-screen pb-20" style={{ background: TOKENS.surface, color: TOKENS.onSurface }}>
       {/* Top bar */}
-      <div className="mx-auto max-w-2xl px-4 pt-6 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={() => router.back()}
@@ -186,7 +186,7 @@ export function AccountDetailView({ id }: { id: string }) {
         </button>
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-6 px-4 pt-4 sm:px-6">
+      <div className="mx-auto max-w-7xl space-y-6 px-4 pt-4 sm:px-6 lg:px-8">
         {loading && (
           <div className="space-y-4">
             <div className="h-7 w-40 animate-pulse rounded-lg" style={{ background: TOKENS.surfaceContainer }} />
