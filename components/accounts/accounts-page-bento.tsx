@@ -451,13 +451,15 @@ export function AccountsPageBento() {
                     style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}
                   >
                     <td className="px-2 py-3">
-                      <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
-                        {a.bankName}
-                      </div>
-                      <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                        {a.name}
-                        {a.isDefault ? " · Default" : ""}
-                      </div>
+                      <Link href={`/accounts/${a.id}`} className="group block">
+                        <div className="font-semibold transition-colors group-hover:underline" style={{ color: TOKENS.onSurface }}>
+                          {a.bankName}
+                        </div>
+                        <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                          {a.name}
+                          {a.isDefault ? " · Default" : ""}
+                        </div>
+                      </Link>
                     </td>
                     <td className="px-2 py-3" style={{ color: TOKENS.secondary }}>
                       {typeLabel(a.accountType)}
