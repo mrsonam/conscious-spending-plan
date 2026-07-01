@@ -38,6 +38,7 @@ import { AccountsPageBentoLoading } from "@/components/accounts/accounts-page-be
 import {
   ArrowRightLeft,
   Building2,
+  Eye,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -482,6 +483,14 @@ export function AccountsPageBento() {
                     </td>
                     <td className="px-2 py-3 text-right">
                       <div className="inline-flex justify-end gap-1">
+                        <Link
+                          href={`/accounts/${a.id}`}
+                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.04]"
+                          style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+                          aria-label="View details"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
                         <button
                           type="button"
                           onClick={() => {
