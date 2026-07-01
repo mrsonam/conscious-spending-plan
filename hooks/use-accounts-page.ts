@@ -46,6 +46,11 @@ export interface AccountRow {
   balance: number
   startingFunds: number
   isDefault: boolean
+  accountNumber?: string | null
+  bsb?: string | null
+  cardLastFour?: string | null
+  cardExpiry?: string | null
+  cardType?: string | null
 }
 
 export const ACCOUNT_FUND_CATEGORIES = [
@@ -83,6 +88,11 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const [accountType, setAccountType] = useState("checking")
   const [startingFunds, setStartingFunds] = useState("")
   const [isDefault, setIsDefault] = useState(false)
+  const [accountNumber, setAccountNumber] = useState("")
+  const [bsb, setBsb] = useState("")
+  const [cardLastFour, setCardLastFour] = useState("")
+  const [cardExpiry, setCardExpiry] = useState("")
+  const [cardType, setCardType] = useState("")
 
   const [fromAccountId, setFromAccountId] = useState("")
   const [toAccountId, setToAccountId] = useState("")
@@ -172,6 +182,11 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setAccountType("checking")
     setStartingFunds("")
     setIsDefault(false)
+    setAccountNumber("")
+    setBsb("")
+    setCardLastFour("")
+    setCardExpiry("")
+    setCardType("")
     setEditingAccount(null)
     setShowAddForm(false)
   }, [])
@@ -185,6 +200,11 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setStartingFunds(
       Number.isFinite(account.balance) ? String(account.balance) : "0",
     )
+    setAccountNumber(account.accountNumber || "")
+    setBsb(account.bsb || "")
+    setCardLastFour(account.cardLastFour || "")
+    setCardExpiry(account.cardExpiry || "")
+    setCardType(account.cardType || "")
     setShowAddForm(true)
   }, [])
 
@@ -263,27 +283,25 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     toastSuccess(wasEditing ? "Account updated!" : "Account created!")
     resetForm()
 
+    const isCash = accountType === "cash"
+    const detailsPayload = isCash
+      ? { accountNumber: null, bsb: null, cardLastFour: null, cardExpiry: null, cardType: null }
+      : {
+          accountNumber: accountNumber.trim() || null,
+          bsb: bsb.trim() || null,
+          cardLastFour: cardLastFour.trim() || null,
+          cardExpiry: cardExpiry.trim() || null,
+          cardType: cardType.trim() || null,
+        }
+
     const savePayload = wasEditing
       ? {
           method: "PUT" as const,
-          body: {
-            id: editId,
-            name,
-            bankName,
-            accountType,
-            isDefault,
-            balance,
-          },
+          body: { id: editId, name, bankName, accountType, isDefault, balance, ...detailsPayload },
         }
       : {
           method: "POST" as const,
-          body: {
-            name,
-            bankName,
-            accountType,
-            startingFunds: balance,
-            isDefault,
-          },
+          body: { name, bankName, accountType, startingFunds: balance, isDefault, ...detailsPayload },
         }
 
     void (async () => {
@@ -481,6 +499,16 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setStartingFunds,
     isDefault,
     setIsDefault,
+    accountNumber,
+    setAccountNumber,
+    bsb,
+    setBsb,
+    cardLastFour,
+    setCardLastFour,
+    cardExpiry,
+    setCardExpiry,
+    cardType,
+    setCardType,
     fromAccountId,
     setFromAccountId,
     toAccountId,

@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, bankName, accountType, startingFunds, isDefault } =
+    const { name, bankName, accountType, startingFunds, isDefault, accountNumber, bsb, cardLastFour, cardExpiry, cardType } =
       await request.json()
     const currency = currencyFromSession(session.user.displayCurrency)
     let startingMinor = 0n
@@ -104,6 +104,11 @@ export async function POST(request: Request) {
         startingFunds: startingMinor,
         balance: startingMinor,
         isDefault: isDefault || false,
+        accountNumber: accountNumber || null,
+        bsb: bsb || null,
+        cardLastFour: cardLastFour || null,
+        cardExpiry: cardExpiry || null,
+        cardType: cardType || null,
       },
     })
 
@@ -140,13 +145,18 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, name, bankName, accountType, isDefault, balance } = await request.json() as {
+    const { id, name, bankName, accountType, isDefault, balance, accountNumber, bsb, cardLastFour, cardExpiry, cardType } = await request.json() as {
       id?: string
       name?: string
       bankName?: string
       accountType?: string
       isDefault?: boolean
       balance?: unknown
+      accountNumber?: string | null
+      bsb?: string | null
+      cardLastFour?: string | null
+      cardExpiry?: string | null
+      cardType?: string | null
     }
 
     if (!id) {
@@ -197,6 +207,11 @@ export async function PUT(request: Request) {
         ...(accountType && { accountType }),
         ...(isDefault !== undefined && { isDefault }),
         ...(balanceMinor !== undefined && { balance: balanceMinor }),
+        ...(accountNumber !== undefined && { accountNumber }),
+        ...(bsb !== undefined && { bsb }),
+        ...(cardLastFour !== undefined && { cardLastFour }),
+        ...(cardExpiry !== undefined && { cardExpiry }),
+        ...(cardType !== undefined && { cardType }),
       },
     })
 

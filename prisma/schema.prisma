@@ -146,6 +146,11 @@ model Account {
   updatedAt           DateTime             @updatedAt
   basiqAccountId      String?
   lastSyncedAt        DateTime?
+  accountNumber       String?
+  bsb                 String?
+  cardLastFour        String?
+  cardExpiry          String?
+  cardType            String?
   outgoingTransfers   Transfer[]           @relation("FromAccount")
   incomingTransfers   Transfer[]           @relation("ToAccount")
   expenses            Expense[]

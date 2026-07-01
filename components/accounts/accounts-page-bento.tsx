@@ -90,6 +90,16 @@ export function AccountsPageBento() {
     setStartingFunds,
     isDefault,
     setIsDefault,
+    accountNumber,
+    setAccountNumber,
+    bsb,
+    setBsb,
+    cardLastFour,
+    setCardLastFour,
+    cardExpiry,
+    setCardExpiry,
+    cardType,
+    setCardType,
     fromAccountId,
     setFromAccountId,
     toAccountId,
@@ -633,6 +643,118 @@ export function AccountsPageBento() {
                 />
                 Default for income deposits
               </label>
+
+              {accountType !== "cash" && (
+                <>
+                  <div
+                    className="border-t pt-5"
+                    style={{ borderColor: TOKENS.outlineGhost }}
+                  >
+                    <p
+                      className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                      style={{ color: TOKENS.onSurfaceMutedElevated }}
+                    >
+                      Account details
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                          BSB
+                        </Label>
+                        <Input
+                          value={bsb}
+                          onChange={(e) => setBsb(e.target.value)}
+                          disabled={savingAccount}
+                          placeholder="000-000"
+                          maxLength={7}
+                          className={cn(consoleField, "mt-1 border-transparent")}
+                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Account number
+                        </Label>
+                        <Input
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          disabled={savingAccount}
+                          placeholder="123456789"
+                          className={cn(consoleField, "mt-1 border-transparent")}
+                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className="border-t pt-5"
+                    style={{ borderColor: TOKENS.outlineGhost }}
+                  >
+                    <p
+                      className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                      style={{ color: TOKENS.onSurfaceMutedElevated }}
+                    >
+                      Card details
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div>
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Card type
+                        </Label>
+                        <AppSelect
+                          value={cardType}
+                          onValueChange={setCardType}
+                          disabled={savingAccount}
+                          className={cn(consoleField, "mt-1 border-transparent")}
+                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                          placeholder="None"
+                          options={[
+                            { value: "", label: "None" },
+                            { value: "visa", label: "Visa" },
+                            { value: "mastercard", label: "Mastercard" },
+                            { value: "amex", label: "Amex" },
+                            { value: "eftpos", label: "eftpos" },
+                          ]}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Last 4 digits
+                        </Label>
+                        <Input
+                          value={cardLastFour}
+                          onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                          disabled={savingAccount}
+                          placeholder="1234"
+                          maxLength={4}
+                          inputMode="numeric"
+                          className={cn(consoleField, "mt-1 border-transparent")}
+                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Expiry
+                        </Label>
+                        <Input
+                          value={cardExpiry}
+                          onChange={(e) => {
+                            let v = e.target.value.replace(/\D/g, "").slice(0, 4)
+                            if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2)
+                            setCardExpiry(v)
+                          }}
+                          disabled={savingAccount}
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          className={cn(consoleField, "mt-1 border-transparent")}
+                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
               </fieldset>
               <button
                 type="submit"
