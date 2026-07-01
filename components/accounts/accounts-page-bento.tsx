@@ -39,7 +39,7 @@ import { AccountsPageBentoLoading } from "@/components/accounts/accounts-page-be
 import {
   ArrowRightLeft,
   Building2,
-  Eye,
+  ChevronRight,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -450,17 +450,27 @@ export function AccountsPageBento() {
                 return (
                   <tr
                     key={a.id}
-                    className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
+                    className="group cursor-pointer transition-colors duration-150 ease-out hover:bg-white/[0.05]"
                     style={{ borderBottom: `1px solid color-mix(in srgb, ${TOKENS.outlineGhost} 55%, transparent)` }}
                     onClick={() => router.push(`/accounts/${a.id}`)}
                   >
-                    <td className="px-2 py-3">
-                      <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
-                        {a.bankName}
-                      </div>
-                      <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                        {a.name}
-                        {a.isDefault ? " · Default" : ""}
+                    {/* Left accent bar on hover */}
+                    <td className="border-l-2 border-l-transparent py-3 pl-2 pr-2 transition-[border-color] duration-150 group-hover:border-l-[#4edea3]">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                            {a.bankName}
+                          </div>
+                          <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                            {a.name}
+                            {a.isDefault ? " · Default" : ""}
+                          </div>
+                        </div>
+                        <ChevronRight
+                          className="ml-1 h-3.5 w-3.5 shrink-0 translate-x-0 opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
+                          style={{ color: "#4edea3" }}
+                          aria-hidden
+                        />
                       </div>
                     </td>
                     <td className="px-2 py-3" style={{ color: TOKENS.secondary }}>
@@ -486,22 +496,14 @@ export function AccountsPageBento() {
                       {formatCurrency(a.balance)}
                     </td>
                     <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="inline-flex justify-end gap-1">
-                        <Link
-                          href={`/accounts/${a.id}`}
-                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.04]"
-                          style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
-                          aria-label="View details"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Link>
+                      <div className="inline-flex justify-end gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => {
                             setMessage(null)
                             startEdit(a)
                           }}
-                          className="rounded-lg border p-1.5"
+                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.06]"
                           style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary }}
                           aria-label="Edit"
                         >
@@ -510,7 +512,7 @@ export function AccountsPageBento() {
                         <button
                           type="button"
                           onClick={() => handleDelete(a.id)}
-                          className="rounded-lg border p-1.5"
+                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.06]"
                           style={{ borderColor: TOKENS.outlineGhost, color: ERROR_SOFT }}
                           aria-label="Delete"
                         >
