@@ -39,7 +39,6 @@ import { AccountsPageBentoLoading } from "@/components/accounts/accounts-page-be
 import {
   ArrowRightLeft,
   Building2,
-  ChevronRight,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -456,21 +455,12 @@ export function AccountsPageBento() {
                   >
                     {/* Left accent bar on hover */}
                     <td className="border-l-2 border-l-transparent py-3 pl-2 pr-2 transition-[border-color] duration-150 group-hover:border-l-[#4edea3]">
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0">
-                          <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
-                            {a.bankName}
-                          </div>
-                          <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                            {a.name}
-                            {a.isDefault ? " · Default" : ""}
-                          </div>
-                        </div>
-                        <ChevronRight
-                          className="ml-1 h-3.5 w-3.5 shrink-0 translate-x-0 opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
-                          style={{ color: "#4edea3" }}
-                          aria-hidden
-                        />
+                      <div className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                        {a.bankName}
+                      </div>
+                      <div className="text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                        {a.name}
+                        {a.isDefault ? " · Default" : ""}
                       </div>
                     </td>
                     <td className="px-2 py-3" style={{ color: TOKENS.secondary }}>
@@ -496,7 +486,7 @@ export function AccountsPageBento() {
                       {formatCurrency(a.balance)}
                     </td>
                     <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="inline-flex justify-end gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
+                      <div className="inline-flex justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => {
