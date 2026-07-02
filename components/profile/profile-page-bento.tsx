@@ -6,6 +6,7 @@ import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { Coins, Compass, Mail, Shield, User } from "lucide-react"
 import { useProductTour } from "@/components/product-tour/product-tour-provider"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
+import { RebuildTrackingSection } from "@/components/profile/rebuild-tracking-section"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import {
@@ -254,6 +255,12 @@ export function ProfilePageBento() {
             <Compass className="h-4 w-4" />
             Replay tour
           </Button>
+        </section>
+        <section
+          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
+          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
+        >
+          <RebuildTrackingSection />
         </section>
         <section
           className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
