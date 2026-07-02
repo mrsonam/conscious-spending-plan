@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { formatMinor } from "@/lib/money"
 import { normalizeDisplayCurrency } from "@/lib/display-currency"
 
 const CATS = ["fixedCosts", "savings", "investment", "guiltFreeSpending"] as const
 type Cat = (typeof CATS)[number]
 
-function fmtMinor(n: bigint, currency: string) {
-  return formatMinor(n, currency)
-}
-
 function round2(n: number) {
   return Math.round(n * 100) / 100
+}
+
+// All BigInt minor-unit values → display dollars
+function minorToDollars(n: bigint | null | undefined): number {
+  return Number(n ?? 0n) / 100
 }
 
 export async function GET() {
@@ -84,14 +84,14 @@ export async function GET() {
   const monthSummaries = []
 
   for (const [key, data] of [...months.entries()].sort()) {
-    const totalIncome = data.income.reduce((s: number, e: { amount: bigint }) => s + Number(e.amount) / 100, 0)
+    const totalIncome = data.income.reduce((s: number, e: typeof incomeEntries[number]) => s + minorToDollars(e.amount), 0)
 
     // allocated per category from income entry fields
     const allocated: Record<Cat, number> = { fixedCosts: 0, savings: 0, investment: 0, guiltFreeSpending: 0 }
     let incomeWithoutAllocation = 0
     for (const e of data.income) {
       if (e.excludeFromAllocation) {
-        allocated.savings += Number(e.amount) / 100
+        allocated.savings += minorToDollars(e.amount)
         continue
       }
       if (
@@ -103,19 +103,19 @@ export async function GET() {
         incomeWithoutAllocation++
         continue
       }
-      allocated.fixedCosts += Number(e.allocationFixedCosts ?? 0n) / 100
-      allocated.savings += Number(e.allocationSavings ?? 0n) / 100
-      allocated.investment += Number(e.allocationInvestment ?? 0n) / 100
-      allocated.guiltFreeSpending += Number(e.allocationGuiltFreeSpending ?? 0n) / 100
+      allocated.fixedCosts += minorToDollars(e.allocationFixedCosts)
+      allocated.savings += minorToDollars(e.allocationSavings)
+      allocated.investment += minorToDollars(e.allocationInvestment)
+      allocated.guiltFreeSpending += minorToDollars(e.allocationGuiltFreeSpending)
     }
 
     const totalAllocated = Object.values(allocated).reduce((s, v) => s + v, 0)
 
-    // envelope balances per category
+    // envelope balances per category (balance is BigInt minor units)
     const envelopes: Record<Cat, number> = { fixedCosts: 0, savings: 0, investment: 0, guiltFreeSpending: 0 }
     for (const b of data.balances) {
       if (CATS.includes(b.category as Cat)) {
-        envelopes[b.category as Cat] += b.balance ?? 0
+        envelopes[b.category as Cat] += minorToDollars(b.balance)
       }
     }
     const totalEnvelopes = Object.values(envelopes).reduce((s, v) => s + v, 0)
@@ -126,7 +126,7 @@ export async function GET() {
     for (const e of data.expenses) {
       const cat = e.category as Cat
       if (CATS.includes(cat)) {
-        spent[cat] += Number(e.amount) / 100
+        spent[cat] += minorToDollars(e.amount)
       } else {
         expensesUncategorised.push(
           `${e.description ?? "—"} (${e.category ?? "no category"}, $${(Number(e.amount) / 100).toFixed(2)})`
@@ -182,10 +182,10 @@ export async function GET() {
     totalExpenses: expenses.length,
     uncategorisedExpenses: uncategorised.map((e: typeof expenses[number]) => ({
       id: e.id,
-      date: e.date,
+      date: e.date.toISOString(),
       description: e.description,
       category: e.category,
-      amount: round2(Number(e.amount) / 100),
+      amount: round2(minorToDollars(e.amount)),
     })),
     months: monthSummaries,
   })
