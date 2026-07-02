@@ -24,7 +24,7 @@ export async function GET() {
 
     const accounts = await prisma.account.findMany({
       where: { userId: session.user.id },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     })
 
     const currency = currencyFromSession(session.user.displayCurrency)
