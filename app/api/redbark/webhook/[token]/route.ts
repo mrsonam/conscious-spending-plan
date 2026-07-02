@@ -35,6 +35,11 @@ type RedbarkPayload = {
   }
 }
 
+// Redbark may send a GET to validate the endpoint URL is reachable
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -51,15 +56,22 @@ export async function POST(
     })
 
     if (!connection) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 })
+      // Return 200 so Redbark doesn't disable the endpoint — just ignore unknown tokens
+      console.warn(`Redbark webhook: unknown token ${token}`)
+      return NextResponse.json({ ok: true, skipped: "unknown token" })
     }
 
     if (!connection.webhookSecret) {
-      return NextResponse.json({ error: "Signing secret not configured" }, { status: 403 })
+      // Secret not yet configured — acknowledge receipt without processing
+      console.info(`Redbark webhook: signing secret not yet configured for token ${token}`)
+      return NextResponse.json({ ok: true, skipped: "secret not configured" })
     }
 
     if (!verifySignature(rawBody, signature, timestamp, connection.webhookSecret)) {
-      console.warn(`Redbark webhook: invalid signature for token ${token}`)
+      console.warn(
+        `Redbark webhook: invalid signature for token ${token}`,
+        { signature, timestamp, bodyLength: rawBody.length }
+      )
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
     }
 
