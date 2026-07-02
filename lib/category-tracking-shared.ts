@@ -164,10 +164,12 @@ export function sumDeployableBalance(
  * For the current month, assign any unallocated liquid to savings so pillar
  * residuals sum to the non-investment account balance (display only).
  */
-export function reconcileTrackingDisplayToLiquid(
-  tracking: Record<string, CategoryTrackingRow>,
+export function reconcileTrackingDisplayToLiquid<
+  T extends Partial<Record<string, CategoryTrackingRow>>,
+>(
+  tracking: T,
   liquidTotal: number,
-): Record<string, CategoryTrackingRow> {
+): T {
   if (liquidTotal <= 0) return tracking
 
   const fixed = netPillarHeadroom(tracking.fixedCosts ?? { remaining: 0, overspent: 0 })
@@ -176,7 +178,7 @@ export function reconcileTrackingDisplayToLiquid(
   const otherSum = Math.round((fixed + investment + guilt) * 100) / 100
   const savingsDisplay = Math.round((liquidTotal - otherSum) * 100) / 100
 
-  const next: Record<string, CategoryTrackingRow> = { ...tracking }
+  const next: Record<string, CategoryTrackingRow | undefined> = { ...tracking }
 
   if (tracking.fixedCosts) {
     next.fixedCosts = { ...tracking.fixedCosts, displayRemaining: fixed }
@@ -191,7 +193,7 @@ export function reconcileTrackingDisplayToLiquid(
     next.savings = { ...tracking.savings, displayRemaining: savingsDisplay }
   }
 
-  return next
+  return next as T
 }
 
 /** Elapsed fraction of selected month for pace (0–1). Past months = 1, future = 0. */

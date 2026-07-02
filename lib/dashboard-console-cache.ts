@@ -81,6 +81,7 @@ function mergeCachedConsoleParts(
       loans: [],
       subscriptionDash: EMPTY_DASHBOARD_CONSOLE.subscriptionDash,
       savingGoals: [],
+      superBalance: 0,
     },
   )
 }
@@ -379,6 +380,7 @@ export function peekDashboardSecondarySnapshot(): DashboardSecondarySnapshot {
       upcoming: subscriptionsData?.upcoming ?? [],
     },
     savingGoals: [],
+    superBalance: 0,
   }
 
   return {

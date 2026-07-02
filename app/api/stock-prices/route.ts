@@ -25,6 +25,12 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+    if (symbols.length > 50 || symbols.some((s) => typeof s !== "string" || s.length > 12)) {
+      return NextResponse.json(
+        { error: "Symbols must be up to 50 ticker strings" },
+        { status: 400 }
+      )
+    }
 
     // Get API key from environment variable
     const apiKey = process.env.ALPHA_VANTAGE_API_KEY || process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY

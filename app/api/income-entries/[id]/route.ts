@@ -56,7 +56,13 @@ export async function PATCH(
     }
 
     const incomeDate = new Date(date + "T12:00:00")
-    if (Number.isNaN(incomeDate.getTime())) {
+    const periodStartDate = new Date(periodStart)
+    const periodEndDate = new Date(periodEnd)
+    if (
+      Number.isNaN(incomeDate.getTime()) ||
+      Number.isNaN(periodStartDate.getTime()) ||
+      Number.isNaN(periodEndDate.getTime())
+    ) {
       return NextResponse.json({ error: "Invalid date" }, { status: 400 })
     }
 
@@ -67,8 +73,8 @@ export async function PATCH(
         incomeMinor,
         description: description ?? null,
         date: incomeDate,
-        periodStart: new Date(periodStart),
-        periodEnd: new Date(periodEnd),
+        periodStart: periodStartDate,
+        periodEnd: periodEndDate,
         accountId: accountId ?? null,
         allocateToBudget: typeof allocateToBudget === "boolean" ? allocateToBudget : undefined,
       },

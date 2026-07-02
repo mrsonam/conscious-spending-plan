@@ -7,6 +7,7 @@ import {
   validatePasswordForCreate,
 } from "@/lib/password-policy"
 import { defaultFundAllocationNestedCreate } from "@/lib/fund-allocation-fields"
+import { routeErrorResponse } from "@/lib/route-error"
 
 export async function POST(req: Request) {
   let body: unknown
@@ -54,31 +55,42 @@ export async function POST(req: Request) {
     trimmedName = n.length > 0 ? n : null
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: { id: true },
-  })
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    })
 
-  if (existing) {
-    return NextResponse.json(
-      { error: "An account with this email already exists." },
-      { status: 409 }
-    )
-  }
+    if (existing) {
+      return NextResponse.json(
+        { error: "An account with this email already exists." },
+        { status: 409 }
+      )
+    }
 
-  const hashed = await bcrypt.hash(password, 12)
+    const hashed = await bcrypt.hash(password, 12)
 
-  await prisma.user.create({
-    data: {
-      email: normalizedEmail,
-      password: hashed,
-      name: trimmedName,
-      dashboardTheme: "console",
-      fundAllocation: {
-        create: defaultFundAllocationNestedCreate(),
+    await prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        password: hashed,
+        name: trimmedName,
+        dashboardTheme: "console",
+        fundAllocation: {
+          create: defaultFundAllocationNestedCreate(),
+        },
       },
-    },
-  })
+    })
 
-  return NextResponse.json({ ok: true }, { status: 201 })
+    return NextResponse.json({ ok: true }, { status: 201 })
+  } catch (error) {
+    // Unique-constraint race: two signups with the same email at once.
+    if ((error as { code?: string })?.code === "P2002") {
+      return NextResponse.json(
+        { error: "An account with this email already exists." },
+        { status: 409 }
+      )
+    }
+    return routeErrorResponse(error, "Error registering user")
+  }
 }

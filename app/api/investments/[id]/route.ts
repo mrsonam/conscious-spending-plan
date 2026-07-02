@@ -58,16 +58,23 @@ export async function PATCH(
         throw new Error("Investment account not found")
       }
 
-      if (balanceDelta < 0n && account.balance < -balanceDelta) {
-        throw new Error(
-          "Insufficient funds in investment account for this change."
-        )
+      if (balanceDelta < 0n) {
+        // Atomic check-and-decrement so concurrent edits can't overdraw.
+        const updated = await tx.account.updateMany({
+          where: { id: account.id, balance: { gte: -balanceDelta } },
+          data: { balance: { decrement: -balanceDelta } },
+        })
+        if (updated.count === 0) {
+          throw new Error(
+            "Insufficient funds in investment account for this change."
+          )
+        }
+      } else if (balanceDelta > 0n) {
+        await tx.account.update({
+          where: { id: account.id },
+          data: { balance: { increment: balanceDelta } },
+        })
       }
-
-      await tx.account.update({
-        where: { id: account.id },
-        data: { balance: { increment: balanceDelta } },
-      })
 
       const holding = await tx.investmentHolding.update({
         where: { id },
@@ -102,13 +109,14 @@ export async function PATCH(
     console.error("Error updating investment holding:", error)
     const message =
       error instanceof Error ? error.message : "Internal server error"
-    const status =
-      message === "Investment account not found"
-        ? 404
-        : message.startsWith("Insufficient funds")
-          ? 400
-          : 500
-    return NextResponse.json({ error: message }, { status })
+    // Only expose known, user-facing messages; anything else stays generic.
+    if (message === "Investment account not found") {
+      return NextResponse.json({ error: message }, { status: 404 })
+    }
+    if (message.startsWith("Insufficient funds")) {
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 

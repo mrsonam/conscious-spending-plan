@@ -105,7 +105,15 @@ export async function POST(request: Request) {
     }
 
     const loan = await prisma.$transaction(async (tx) => {
-      const createdLoan = await tx.loan.create({
+      // Atomic check-and-decrement: WHERE balance >= amount prevents overdraft
+      // under concurrent requests (the pre-check above is only a fast path).
+      const updated = await tx.account.updateMany({
+        where: { id: accountId, balance: { gte: amountMinor } },
+        data: { balance: { decrement: amountMinor } },
+      })
+      if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
+
+      return tx.loan.create({
         data: {
           userId: session.user.id,
           accountId,
@@ -121,13 +129,6 @@ export async function POST(request: Request) {
           },
         },
       })
-
-      await tx.account.update({
-        where: { id: accountId },
-        data: { balance: { decrement: amountMinor } },
-      })
-
-      return createdLoan
     })
 
     return moneyJsonResponse(
@@ -142,6 +143,9 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
     console.error("Error creating loan:", error)
     return NextResponse.json(
       { error: "Internal server error" },

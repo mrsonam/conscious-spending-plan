@@ -39,7 +39,7 @@ function income(dollars: number): bigint {
 function alloc(
   amountDollars: number,
   fundAllocation: FundAllocation = plan40202020,
-  getAllocated = () => 0n
+  getAllocated: (cat: keyof ReturnType<typeof buildAllocatedSoFarFromEntries>) => bigint = () => 0n
 ) {
   return computeIncomeAllocationsMinor(
     income(amountDollars),

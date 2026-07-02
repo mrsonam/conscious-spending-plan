@@ -81,7 +81,6 @@ export function AppSelect({
       onValueChange={(v) => onValueChange(toOuter(v))}
       disabled={disabled}
       name={name}
-      modal={false}
     >
       <SelectPrimitive.Trigger
         ref={triggerRef}

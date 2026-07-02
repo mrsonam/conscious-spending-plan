@@ -6,7 +6,7 @@ import {
   warnAboutMisconfiguredDatabaseUrl,
 } from '@/lib/database-url'
 
-const createPrismaClient = () => {
+const createPrismaClient = (): PrismaClient => {
   const url = resolvePrismaDatabaseUrl()
   warnAboutMisconfiguredDatabaseUrl(process.env.DATABASE_URL ?? url)
 
@@ -15,7 +15,13 @@ const createPrismaClient = () => {
     datasources: { db: { url } },
   })
 
-  return isAccelerateDatabaseUrl(url) ? client.$extends(withAccelerate()) : client
+  // The Accelerate extension only changes the wire protocol; no call site uses
+  // Accelerate-specific options, so expose the base client type. Returning the
+  // union `PrismaClient | ExtendedClient` breaks contextual typing of
+  // `$transaction` callbacks in every route.
+  return (
+    isAccelerateDatabaseUrl(url) ? client.$extends(withAccelerate()) : client
+  ) as PrismaClient
 }
 
 type PrismaClientSingleton = ReturnType<typeof createPrismaClient>

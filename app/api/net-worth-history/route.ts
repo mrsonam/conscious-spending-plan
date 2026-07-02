@@ -4,12 +4,14 @@ import { prisma } from "@/lib/prisma"
 import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
+import { routeErrorResponse } from "@/lib/route-error"
 
 export const dynamic = "force-dynamic"
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 export async function GET(req: Request) {
+  try {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -95,4 +97,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ snapshots }, {
     headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" },
   })
+  } catch (error) {
+    return routeErrorResponse(error, "Error building net worth history")
+  }
 }

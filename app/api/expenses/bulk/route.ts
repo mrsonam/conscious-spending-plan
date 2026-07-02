@@ -108,6 +108,14 @@ export async function POST(request: Request) {
 
     const result = await prisma.$transaction(
       async (tx) => {
+        // Atomic check-and-decrement: WHERE balance >= total prevents overdraft
+        // under concurrent requests (the pre-check above is only a fast path).
+        const updated = await tx.account.updateMany({
+          where: { id: accountId, balance: { gte: totalMinor } },
+          data: { balance: { decrement: totalMinor } },
+        })
+        if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
+
         const created = await Promise.all(
           rows.map((r) =>
             tx.expense.create({
@@ -132,11 +140,6 @@ export async function POST(request: Request) {
           )
         )
 
-        await tx.account.update({
-          where: { id: accountId },
-          data: { balance: { decrement: totalMinor } },
-        })
-
         return { created, totalMinor }
       },
       { timeout: 60000 }
@@ -156,6 +159,9 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Bulk expenses error:", error)

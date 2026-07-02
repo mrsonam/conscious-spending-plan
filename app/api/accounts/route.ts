@@ -88,30 +88,33 @@ export async function POST(request: Request) {
       )
     }
 
-    // If setting as default, unset other defaults
-    if (isDefault) {
-      await prisma.account.updateMany({
-        where: { userId: session.user.id, isDefault: true },
-        data: { isDefault: false },
-      })
-    }
+    // Swap defaults and create atomically so a failed create can't leave the
+    // user without any default account.
+    const account = await prisma.$transaction(async (tx) => {
+      if (isDefault) {
+        await tx.account.updateMany({
+          where: { userId: session.user.id, isDefault: true },
+          data: { isDefault: false },
+        })
+      }
 
-    const account = await prisma.account.create({
-      data: {
-        userId: session.user.id,
-        name,
-        bankName,
-        accountType,
-        startingFunds: startingMinor,
-        balance: startingMinor,
-        isDefault: isDefault || false,
-        accountNumber: accountNumber || null,
-        bsb: bsb || null,
-        cardLastFour: derivedCardLastFour,
-        cardExpiry: cardExpiry || null,
-        cardType: cardType || null,
-        cardHolderName: cardHolderName || null,
-      },
+      return tx.account.create({
+        data: {
+          userId: session.user.id,
+          name,
+          bankName,
+          accountType,
+          startingFunds: startingMinor,
+          balance: startingMinor,
+          isDefault: isDefault || false,
+          accountNumber: accountNumber || null,
+          bsb: bsb || null,
+          cardLastFour: derivedCardLastFour,
+          cardExpiry: cardExpiry || null,
+          cardType: cardType || null,
+          cardHolderName: cardHolderName || null,
+        },
+      })
     })
 
     return moneyJsonResponse(
@@ -181,14 +184,6 @@ export async function PUT(request: Request) {
       )
     }
 
-    // If setting as default, unset other defaults
-    if (isDefault) {
-      await prisma.account.updateMany({
-        where: { userId: session.user.id, isDefault: true },
-        data: { isDefault: false },
-      })
-    }
-
     const currency = currencyFromSession(session.user.displayCurrency)
     let balanceMinor: bigint | undefined
     if (balance !== undefined && balance !== null) {
@@ -202,21 +197,32 @@ export async function PUT(request: Request) {
       }
     }
 
-    const account = await prisma.account.update({
-      where: { id },
-      data: {
-        ...(name && { name }),
-        ...(bankName && { bankName }),
-        ...(accountType && { accountType }),
-        ...(isDefault !== undefined && { isDefault }),
-        ...(balanceMinor !== undefined && { balance: balanceMinor }),
-        ...(accountNumber !== undefined && { accountNumber }),
-        ...(bsb !== undefined && { bsb }),
-        ...(cardLastFour !== undefined && { cardLastFour }),
-        ...(cardExpiry !== undefined && { cardExpiry }),
-        ...(cardType !== undefined && { cardType }),
-        ...(cardHolderName !== undefined && { cardHolderName }),
-      },
+    // Swap defaults and update atomically so a failed update can't leave the
+    // user without any default account.
+    const account = await prisma.$transaction(async (tx) => {
+      if (isDefault) {
+        await tx.account.updateMany({
+          where: { userId: session.user.id, isDefault: true, id: { not: id } },
+          data: { isDefault: false },
+        })
+      }
+
+      return tx.account.update({
+        where: { id },
+        data: {
+          ...(name && { name }),
+          ...(bankName && { bankName }),
+          ...(accountType && { accountType }),
+          ...(isDefault !== undefined && { isDefault }),
+          ...(balanceMinor !== undefined && { balance: balanceMinor }),
+          ...(accountNumber !== undefined && { accountNumber }),
+          ...(bsb !== undefined && { bsb }),
+          ...(cardLastFour !== undefined && { cardLastFour }),
+          ...(cardExpiry !== undefined && { cardExpiry }),
+          ...(cardType !== undefined && { cardType }),
+          ...(cardHolderName !== undefined && { cardHolderName }),
+        },
+      })
     })
 
     return moneyJsonResponse(
@@ -230,6 +236,8 @@ export async function PUT(request: Request) {
       currency
     )
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error updating account:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -277,6 +285,8 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ message: "Account deleted successfully" })
   } catch (error) {
+    const dbErr = getDbErrorResponse(error)
+    if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
     console.error("Error deleting account:", error)
     return NextResponse.json(
       { error: "Internal server error" },

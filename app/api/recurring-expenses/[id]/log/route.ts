@@ -29,6 +29,9 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}))
     const date = body.date ? new Date(body.date) : new Date()
+    if (Number.isNaN(date.getTime())) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 })
+    }
     const amountMinor = coerceMinor(recurring.amount)
 
     const account = await prisma.account.findFirst({
@@ -45,7 +48,15 @@ export async function POST(
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const expense = await tx.expense.create({
+      // Atomic check-and-decrement: WHERE balance >= amount prevents overdraft
+      // under concurrent requests (the pre-check above is only a fast path).
+      const updated = await tx.account.updateMany({
+        where: { id: recurring.accountId, balance: { gte: amountMinor } },
+        data: { balance: { decrement: amountMinor } },
+      })
+      if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
+
+      return tx.expense.create({
         data: {
           userId: session.user.id,
           accountId: recurring.accountId,
@@ -59,11 +70,6 @@ export async function POST(
           account: { select: { id: true, name: true, bankName: true } },
         },
       })
-      await tx.account.update({
-        where: { id: recurring.accountId },
-        data: { balance: { decrement: amountMinor } },
-      })
-      return expense
     })
 
     return moneyJsonResponse(
@@ -78,6 +84,9 @@ export async function POST(
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
     console.error("Error logging recurring expense:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

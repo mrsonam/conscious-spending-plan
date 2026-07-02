@@ -200,7 +200,13 @@ async function processRecurringExpenses(userId?: string) {
         continue
       }
 
-      await prisma.$transaction(async (tx) => {
+      const createdOk = await prisma.$transaction(async (tx) => {
+        // Atomic check-and-decrement so concurrent runs can't overdraw.
+        const updated = await tx.account.updateMany({
+          where: { id: recurring.accountId, balance: { gte: amountMinor } },
+          data: { balance: { decrement: amountMinor } },
+        })
+        if (updated.count === 0) return false
         await tx.expense.create({
           data: {
             userId: recurring.userId,
@@ -212,11 +218,13 @@ async function processRecurringExpenses(userId?: string) {
             date: dayStart,
           },
         })
-        await tx.account.update({
-          where: { id: recurring.accountId },
-          data: { balance: { decrement: amountMinor } },
-        })
+        return true
       })
+
+      if (!createdOk) {
+        insufficientDates.push(dateStr)
+        continue
+      }
 
       createdDates.push(dateStr)
     }

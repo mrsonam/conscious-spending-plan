@@ -138,15 +138,35 @@ export async function POST(request: Request) {
       )
     }
 
-    const { messages } = (await request.json()) as {
-      messages: { role: string; content: string }[]
+    let parsedBody: unknown
+    try {
+      parsedBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
+    const rawMessages = (parsedBody as { messages?: unknown })?.messages
 
-    if (!messages?.length) {
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
       return NextResponse.json(
         { error: "No messages provided" },
         { status: 400 },
       )
+    }
+
+    // Only accept user/assistant turns with bounded string content — the
+    // system prompt is always built server-side and can't be overridden.
+    const MAX_CONTENT_CHARS = 8_000
+    const messages: { role: "user" | "assistant"; content: string }[] = []
+    for (const m of rawMessages) {
+      const role = (m as { role?: unknown })?.role
+      const content = (m as { content?: unknown })?.content
+      if ((role !== "user" && role !== "assistant") || typeof content !== "string") {
+        return NextResponse.json(
+          { error: "Messages must have role 'user' or 'assistant' and string content" },
+          { status: 400 },
+        )
+      }
+      messages.push({ role, content: content.slice(0, MAX_CONTENT_CHARS) })
     }
 
     const currency = currencyFromSession(session.user.displayCurrency)

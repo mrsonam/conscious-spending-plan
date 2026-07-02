@@ -54,8 +54,8 @@ type Props = {
 
 function CustomTooltip({ active, payload, label, formatCurrency }: {
   active?: boolean
-  payload?: { name: string; value: number; color: string; dataKey: string }[]
-  label?: string
+  payload?: readonly { name: string; value: number; color: string; dataKey: string }[]
+  label?: string | number
   formatCurrency: (n: number) => string
 }) {
   if (!active || !payload?.length) return null

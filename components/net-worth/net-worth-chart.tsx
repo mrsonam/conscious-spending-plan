@@ -66,8 +66,8 @@ function CustomTooltip({
   formatCurrency,
 }: {
   active?: boolean
-  payload?: { value: number; dataKey: string }[]
-  label?: string
+  payload?: readonly { value: number; dataKey: string }[]
+  label?: string | number
   formatCurrency: (n: number) => string
 }) {
   if (!active || !payload?.length) return null

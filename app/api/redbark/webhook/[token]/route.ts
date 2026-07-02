@@ -75,14 +75,22 @@ export async function POST(
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
     }
 
-    const payload = JSON.parse(rawBody) as RedbarkPayload
+    let payload: RedbarkPayload
+    try {
+      payload = JSON.parse(rawBody) as RedbarkPayload
+    } catch {
+      // Signature was valid but body isn't JSON — acknowledge so Redbark
+      // doesn't disable the endpoint over a malformed delivery.
+      console.warn(`Redbark webhook: non-JSON body for token ${token}`)
+      return NextResponse.json({ ok: true, skipped: "malformed body" })
+    }
 
     // Only handle bank transaction syncs (not brokerage trades)
-    if (payload.type !== "transactions.synced") {
+    if (payload?.type !== "transactions.synced") {
       return NextResponse.json({ ok: true, skipped: "unsupported event type" })
     }
 
-    const transactions = [...(payload.data.new ?? []), ...(payload.data.updated ?? [])]
+    const transactions = [...(payload.data?.new ?? []), ...(payload.data?.updated ?? [])]
     if (transactions.length === 0) {
       return NextResponse.json({ ok: true, created: 0, skipped: 0, errors: 0 })
     }

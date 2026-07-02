@@ -1,11 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typescript: {
-    // Pre-existing implicit-any errors across API routes — suppressed to restore
-    // build parity with cached deployments. Fix incrementally as routes are touched.
-    ignoreBuildErrors: true,
-  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

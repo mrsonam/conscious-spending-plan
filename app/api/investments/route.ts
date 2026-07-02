@@ -61,16 +61,17 @@ export async function POST(request: Request) {
         throw new Error("Investment account not found")
       }
 
-      if (investmentAccount.balance < computed.amountMinor) {
+      // Atomic check-and-decrement: WHERE balance >= amount prevents overdraft
+      // under concurrent requests.
+      const updated = await tx.account.updateMany({
+        where: { id: investmentAccount.id, balance: { gte: computed.amountMinor } },
+        data: { balance: { decrement: computed.amountMinor } },
+      })
+      if (updated.count === 0) {
         throw new Error(
           "Insufficient funds in investment account. Transfer money to this account first using the Transfer functionality."
         )
       }
-
-      await tx.account.update({
-        where: { id: investmentAccount.id },
-        data: { balance: { decrement: computed.amountMinor } },
-      })
 
       const holding = await tx.investmentHolding.create({
         data: {
@@ -120,13 +121,14 @@ export async function POST(request: Request) {
     console.error("Error creating investment:", error)
     const message =
       error instanceof Error ? error.message : "Internal server error"
-    const status =
-      message === "Investment account not found"
-        ? 404
-        : message.startsWith("Insufficient funds")
-          ? 400
-          : 500
-    return NextResponse.json({ error: message }, { status })
+    // Only expose known, user-facing messages; anything else stays generic.
+    if (message === "Investment account not found") {
+      return NextResponse.json({ error: message }, { status: 404 })
+    }
+    if (message.startsWith("Insufficient funds")) {
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 

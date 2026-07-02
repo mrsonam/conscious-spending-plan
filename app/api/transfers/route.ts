@@ -77,11 +77,19 @@ export async function POST(request: Request) {
       )
     }
 
+    const transferDate = date ? new Date(date) : new Date()
+    if (Number.isNaN(transferDate.getTime())) {
+      return NextResponse.json({ error: "Invalid date" }, { status: 400 })
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      await tx.account.update({
-        where: { id: fromAccountId },
+      // Atomic check-and-decrement: WHERE balance >= amount prevents overdraft
+      // under concurrent requests (the pre-check above is only a fast path).
+      const updated = await tx.account.updateMany({
+        where: { id: fromAccountId, balance: { gte: amountMinor } },
         data: { balance: { decrement: amountMinor } },
       })
+      if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
 
       await tx.account.update({
         where: { id: toAccountId },
@@ -96,7 +104,7 @@ export async function POST(request: Request) {
           amount: amountMinor,
           description: description || null,
           category: category || null,
-          date: date ? new Date(date) : new Date(),
+          date: transferDate,
         },
         include: {
           fromAccount: true,
@@ -125,7 +133,6 @@ export async function POST(request: Request) {
       )
     }
 
-    const transferDate = date ? new Date(date) : new Date()
     try {
       await refreshTrackingChainFromMonth(
         session.user.id,
@@ -139,6 +146,9 @@ export async function POST(request: Request) {
 
     return moneyJsonResponse({ transfer }, currency, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json({ error: "Insufficient funds" }, { status: 400 })
+    }
     console.error("Error creating transfer:", error)
     return NextResponse.json(
       { error: "Internal server error" },

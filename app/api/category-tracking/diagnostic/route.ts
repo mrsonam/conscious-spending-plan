@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { normalizeDisplayCurrency } from "@/lib/display-currency"
+import { routeErrorResponse } from "@/lib/route-error"
 
 const CATS = ["fixedCosts", "savings", "investment", "guiltFreeSpending"] as const
 type Cat = (typeof CATS)[number]
@@ -16,6 +17,7 @@ function minorToDollars(n: bigint | null | undefined): number {
 }
 
 export async function GET() {
+  try {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -189,4 +191,7 @@ export async function GET() {
     })),
     months: monthSummaries,
   })
+  } catch (error) {
+    return routeErrorResponse(error, "Error running category tracking diagnostic")
+  }
 }
