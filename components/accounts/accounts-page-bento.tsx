@@ -169,6 +169,7 @@ export function AccountsPageBento() {
       rows = rows.filter((a) => a.accountType === "credit")
     }
     rows.sort((a, b) => {
+      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1
       if (sortBy === "name") {
         return a.bankName.localeCompare(b.bankName) || a.name.localeCompare(b.name)
       }
