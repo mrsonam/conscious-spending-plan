@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
+import { randomBytes } from "node:crypto"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { normalizeDashboardTheme } from "./dashboard-theme"
@@ -51,16 +52,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         })
 
-        if (!user) {
-          return null
-        }
-
+        // Always run a bcrypt compare so response time doesn't reveal
+        // whether the email exists (dummy hash when there is no user).
+        const passwordHash =
+          user?.password ??
+          "$2b$12$qbcW7qz9ziTCKV2M/1Y0r.6BNCrzFOq4Dq4sISTS.fawUlzvBT246"
         const isPasswordValid = await bcrypt.compare(
           credentials.password as string,
-          user.password
+          passwordHash
         )
 
-        if (!isPasswordValid) {
+        if (!user || !isPasswordValid) {
           return null
         }
 
@@ -94,8 +96,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!existingUser) {
           // Create new user with Google OAuth
-          // Generate a random password since Google users don't need one
-          const randomPassword = await bcrypt.hash(Math.random().toString(36), 10)
+          // Generate an unguessable placeholder password (never used to log in)
+          const randomPassword = await bcrypt.hash(randomBytes(32).toString("hex"), 10)
 
           const googleEmail = normalizeEmail(user.email)
           
