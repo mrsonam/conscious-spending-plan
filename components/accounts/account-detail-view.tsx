@@ -86,99 +86,201 @@ function typeAccent(accountType: string): string {
   return m[accountType] ?? TOKENS.secondary
 }
 
-function cardGradient(cardType: string | null | undefined, accountType: string) {
-  if (cardType === "visa") return "linear-gradient(135deg, #0a1628 0%, #0d47a1 55%, #0a2040 100%)"
-  if (cardType === "mastercard") return "linear-gradient(135deg, #1a0808 0%, #7b1010 50%, #c0392b 100%)"
-  if (cardType === "amex") return "linear-gradient(135deg, #0a1a10 0%, #00572a 55%, #007a32 100%)"
-  if (cardType === "eftpos") return "linear-gradient(135deg, #0f0f2d 0%, #2d1b6e 55%, #180f3d 100%)"
-  if (accountType === "credit") return "linear-gradient(135deg, #1a0820 0%, #4a1060 55%, #2d0a40 100%)"
-  return "linear-gradient(135deg, #0d1424 0%, #1a2f54 55%, #0f1a2e 100%)"
+// ─── card colour + contrast system ──────────────────────────────────────────
+
+type CardTheme = { bg: string; textDark: boolean }
+
+function cardTheme(cardType: string | null | undefined, accountType: string): CardTheme {
+  const themes: Record<string, CardTheme> = {
+    visa:       { bg: "#1434CB",  textDark: false },
+    mastercard: { bg: "#C8F026",  textDark: true  },
+    amex:       { bg: "#007A3D",  textDark: false },
+    eftpos:     { bg: "#5B21B6",  textDark: false },
+  }
+  if (cardType && themes[cardType]) return themes[cardType]
+  const fallbacks: Record<string, CardTheme> = {
+    credit:     { bg: "#2D1060",  textDark: false },
+    savings:    { bg: "#2563EB",  textDark: false },
+    investment: { bg: "#D97706",  textDark: true  },
+  }
+  return fallbacks[accountType] ?? { bg: "#4edea3", textDark: true }
 }
 
-function cardNetworkLabel(cardType: string | null | undefined) {
-  if (!cardType) return null
-  const labels: Record<string, string> = {
-    visa: "VISA",
-    mastercard: "Mastercard",
-    amex: "AMEX",
-    eftpos: "eftpos",
-  }
-  return labels[cardType] ?? cardType
+function cardTypeLabel(cardType: string | null | undefined, accountType: string): string {
+  if (accountType === "credit") return "Credit Card"
+  if (cardType === "visa" || cardType === "mastercard" || cardType === "eftpos") return "Debit Card"
+  if (accountType === "savings") return "Savings"
+  if (accountType === "investment") return "Investment"
+  return "Transaction"
+}
+
+// ─── card network logos (SVG) ────────────────────────────────────────────────
+
+function MastercardLogo() {
+  return (
+    <svg width="52" height="32" viewBox="0 0 52 32" fill="none" aria-label="Mastercard">
+      <circle cx="19" cy="16" r="14" fill="#EB001B" />
+      <circle cx="33" cy="16" r="14" fill="#F79E1B" />
+      <path
+        d="M26 4.535a14 14 0 0 1 0 22.93A14 14 0 0 1 26 4.535z"
+        fill="#FF5F00"
+      />
+    </svg>
+  )
+}
+
+function VisaLogo({ dark }: { dark: boolean }) {
+  return (
+    <svg width="60" height="20" viewBox="0 0 60 20" fill="none" aria-label="Visa">
+      <text
+        x="0" y="18"
+        fontFamily="Arial, sans-serif"
+        fontSize="24"
+        fontWeight="900"
+        fontStyle="italic"
+        fill={dark ? "#1434CB" : "white"}
+        letterSpacing="-1"
+      >
+        VISA
+      </text>
+    </svg>
+  )
+}
+
+function AmexLogo({ dark }: { dark: boolean }) {
+  const fg = dark ? "#006FCF" : "white"
+  return (
+    <svg width="56" height="22" viewBox="0 0 56 22" fill="none" aria-label="American Express">
+      <text
+        x="0" y="17"
+        fontFamily="Arial, sans-serif"
+        fontSize="16"
+        fontWeight="800"
+        letterSpacing="2"
+        fill={fg}
+      >
+        AMEX
+      </text>
+    </svg>
+  )
+}
+
+function EftposLogo({ dark }: { dark: boolean }) {
+  const fg = dark ? "#007A8C" : "#7FFFD4"
+  return (
+    <svg width="60" height="22" viewBox="0 0 60 22" fill="none" aria-label="eftpos">
+      <text
+        x="0" y="17"
+        fontFamily="Arial, sans-serif"
+        fontSize="15"
+        fontWeight="700"
+        letterSpacing="1"
+        fill={fg}
+      >
+        eftpos
+      </text>
+    </svg>
+  )
+}
+
+function NetworkLogo({ cardType, dark }: { cardType: string | null | undefined; dark: boolean }) {
+  if (cardType === "mastercard") return <MastercardLogo />
+  if (cardType === "visa") return <VisaLogo dark={dark} />
+  if (cardType === "amex") return <AmexLogo dark={dark} />
+  if (cardType === "eftpos") return <EftposLogo dark={dark} />
+  return null
 }
 
 // ─── bank card visual ────────────────────────────────────────────────────────
 
 function BankCard({ account }: { account: AccountDetail }) {
-  const network = cardNetworkLabel(account.cardType)
+  const { formatCurrency } = useFormatCurrency()
+  const theme = cardTheme(account.cardType, account.accountType)
+  const dark = theme.textDark
+  const ink = dark ? "rgba(0,0,0,ALPHA)" : "rgba(255,255,255,ALPHA)"
+  const t = (a: number) => ink.replace("ALPHA", String(a))
+
+  const hasLogo = !!account.cardType
+
   return (
     <div
       className="relative w-full select-none overflow-hidden rounded-2xl"
       style={{
         aspectRatio: "1.586 / 1",
-        background: cardGradient(account.cardType, account.accountType),
-        boxShadow:
-          "0 32px 80px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
+        background: theme.bg,
+        boxShadow: dark
+          ? "0 24px 64px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.2)"
+          : "0 24px 64px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.35)",
       }}
     >
+      {/* noise texture */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "linear-gradient(108deg, transparent 35%, rgba(255,255,255,0.07) 48%, rgba(255,255,255,0.03) 53%, transparent 65%)",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
+          backgroundSize: "180px",
+          opacity: dark ? 0.07 : 0.05,
+          mixBlendMode: "overlay",
         }}
       />
+
+      {/* sheen */}
       <div
-        className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(255,255,255,0.09) 0%, transparent 70%)" }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%)" }}
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `linear-gradient(115deg, transparent 30%, ${t(0.12)} 50%, ${t(0.04)} 55%, transparent 70%)`,
+        }}
       />
 
-      <p className="absolute left-6 top-5 text-[13px] font-semibold tracking-wide text-white/90">
-        {account.bankName}
-      </p>
-
-      {network && (
-        <p className="absolute right-6 top-5 text-sm font-black italic tracking-tight text-white/85">
-          {network}
+      {/* top row: logo + card type */}
+      <div className="absolute left-6 right-6 top-5 flex items-start justify-between">
+        {hasLogo ? (
+          <NetworkLogo cardType={account.cardType} dark={dark} />
+        ) : (
+          <p className="text-[13px] font-semibold tracking-wide" style={{ color: t(0.75) }}>
+            {account.bankName}
+          </p>
+        )}
+        <p className="text-[11px] font-semibold tracking-wide" style={{ color: t(0.6) }}>
+          {cardTypeLabel(account.cardType, account.accountType)}
         </p>
-      )}
-
-      <div className="absolute left-6" style={{ top: "30%" }}>
-        <div
-          className="relative h-9 w-12 rounded-[5px]"
-          style={{
-            background: "linear-gradient(135deg, #c8922a 0%, #f5d96b 40%, #d4a030 70%, #b8831e 100%)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.3)",
-          }}
-        >
-          <div className="absolute inset-x-1.5 top-[0.72rem] h-px bg-yellow-900/35" />
-          <div className="absolute inset-y-1.5 left-[0.72rem] w-px bg-yellow-900/35" />
-          <div className="absolute inset-x-1.5 bottom-[0.72rem] h-px bg-yellow-900/20" />
-          <div className="absolute inset-y-1.5 right-[0.72rem] w-px bg-yellow-900/20" />
-        </div>
       </div>
 
+      {/* card number */}
       <p
-        className="absolute left-6 font-mono text-base tracking-[0.24em] text-white/90 sm:text-lg"
-        style={{ bottom: "28%" }}
+        className="absolute left-6 right-6 font-mono tracking-[0.22em]"
+        style={{
+          top: "44%",
+          color: t(0.85),
+          fontSize: "clamp(13px, 2.4vw, 17px)",
+          letterSpacing: "0.26em",
+        }}
       >
         {account.cardLastFour
-          ? `•••• •••• •••• ${account.cardLastFour}`
-          : "•••• •••• •••• ••••"}
+          ? `• • • •  • • • •  • • • •  ${account.cardLastFour}`
+          : "• • • •  • • • •  • • • •  ••••"}
       </p>
 
-      <div className="absolute bottom-5 left-6">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/45">Expires</p>
-        <p className="mt-0.5 font-mono text-[13px] text-white/90">{account.cardExpiry || "MM/YY"}</p>
-      </div>
-
-      <div className="absolute bottom-5 right-6 text-right">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/65">
-          {account.cardHolderName || account.name}
-        </p>
+      {/* bottom row */}
+      <div className="absolute bottom-5 left-6 right-6 flex items-end justify-between">
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em]" style={{ color: t(0.45) }}>
+            Total Balance
+          </p>
+          <p className="mt-0.5 text-xl font-black tabular-nums sm:text-2xl" style={{ color: t(0.9) }}>
+            {formatCurrency(account.balance)}
+          </p>
+        </div>
+        {account.cardExpiry && (
+          <div className="text-right">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: t(0.45) }}>
+              Valid Thru
+            </p>
+            <p className="mt-0.5 font-mono text-[13px] font-semibold" style={{ color: t(0.85) }}>
+              {account.cardExpiry}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1079,7 +1181,7 @@ export function AccountDetailView({ id }: { id: string }) {
                           Card details
                         </p>
                       </div>
-                      <DetailRow label="Network" value={cardNetworkLabel(account.cardType)} />
+                      <DetailRow label="Network" value={account.cardType ?? null} />
                       <DetailRow label="Cardholder" value={account.cardHolderName} />
                       <DetailRow
                         label="Card number"
