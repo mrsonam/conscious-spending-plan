@@ -51,6 +51,7 @@ export interface AccountRow {
   cardLastFour?: string | null
   cardExpiry?: string | null
   cardType?: string | null
+  cardHolderName?: string | null
 }
 
 export const ACCOUNT_FUND_CATEGORIES = [
@@ -93,6 +94,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
   const [cardLastFour, setCardLastFour] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardType, setCardType] = useState("")
+  const [cardNumber, setCardNumber] = useState("")
+  const [cardHolderName, setCardHolderName] = useState("")
 
   const [fromAccountId, setFromAccountId] = useState("")
   const [toAccountId, setToAccountId] = useState("")
@@ -187,6 +190,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setCardLastFour("")
     setCardExpiry("")
     setCardType("")
+    setCardNumber("")
+    setCardHolderName("")
     setEditingAccount(null)
     setShowAddForm(false)
   }, [])
@@ -205,6 +210,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setCardLastFour(account.cardLastFour || "")
     setCardExpiry(account.cardExpiry || "")
     setCardType(account.cardType || "")
+    setCardNumber("")
+    setCardHolderName(account.cardHolderName || "")
     setShowAddForm(true)
   }, [])
 
@@ -284,14 +291,16 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     resetForm()
 
     const isCash = accountType === "cash"
+    const derivedCardLastFour = cardNumber.replace(/\s/g, "").slice(-4) || cardLastFour.trim() || null
     const detailsPayload = isCash
-      ? { accountNumber: null, bsb: null, cardLastFour: null, cardExpiry: null, cardType: null }
+      ? { accountNumber: null, bsb: null, cardLastFour: null, cardExpiry: null, cardType: null, cardHolderName: null }
       : {
           accountNumber: accountNumber.trim() || null,
           bsb: bsb.trim() || null,
-          cardLastFour: cardLastFour.trim() || null,
+          cardLastFour: derivedCardLastFour,
           cardExpiry: cardExpiry.trim() || null,
           cardType: cardType.trim() || null,
+          cardHolderName: cardHolderName.trim() || null,
         }
 
     const savePayload = wasEditing
@@ -509,6 +518,10 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setCardExpiry,
     cardType,
     setCardType,
+    cardNumber,
+    setCardNumber,
+    cardHolderName,
+    setCardHolderName,
     fromAccountId,
     setFromAccountId,
     toAccountId,

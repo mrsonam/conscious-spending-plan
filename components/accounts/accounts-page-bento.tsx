@@ -102,6 +102,10 @@ export function AccountsPageBento() {
     setCardExpiry,
     cardType,
     setCardType,
+    cardNumber,
+    setCardNumber,
+    cardHolderName,
+    setCardHolderName,
     fromAccountId,
     setFromAccountId,
     toAccountId,
@@ -702,59 +706,95 @@ export function AccountsPageBento() {
                     >
                       Card details
                     </p>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div>
-                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                          Card type
-                        </Label>
-                        <AppSelect
-                          value={cardType}
-                          onValueChange={setCardType}
-                          disabled={savingAccount}
-                          className={cn(consoleField, "mt-1 border-transparent")}
-                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-                          placeholder="None"
-                          options={[
-                            { value: "", label: "None" },
-                            { value: "visa", label: "Visa" },
-                            { value: "mastercard", label: "Mastercard" },
-                            { value: "amex", label: "Amex" },
-                            { value: "eftpos", label: "eftpos" },
-                          ]}
-                        />
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                            Card type
+                          </Label>
+                          <AppSelect
+                            value={cardType}
+                            onValueChange={setCardType}
+                            disabled={savingAccount}
+                            className={cn(consoleField, "mt-1 border-transparent")}
+                            style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                            placeholder="None"
+                            options={[
+                              { value: "", label: "None" },
+                              { value: "visa", label: "Visa" },
+                              { value: "mastercard", label: "Mastercard" },
+                              { value: "amex", label: "Amex" },
+                              { value: "eftpos", label: "eftpos" },
+                            ]}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                            Cardholder name
+                          </Label>
+                          <Input
+                            value={cardHolderName}
+                            onChange={(e) => setCardHolderName(e.target.value)}
+                            disabled={savingAccount}
+                            placeholder="Name on card"
+                            className={cn(consoleField, "mt-1 border-transparent")}
+                            style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                          />
+                        </div>
                       </div>
                       <div>
                         <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                          Last 4 digits
+                          Card number
                         </Label>
                         <Input
-                          value={cardLastFour}
-                          onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                          disabled={savingAccount}
-                          placeholder="1234"
-                          maxLength={4}
-                          inputMode="numeric"
-                          className={cn(consoleField, "mt-1 border-transparent")}
-                          style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                          Expiry
-                        </Label>
-                        <Input
-                          value={cardExpiry}
+                          value={cardNumber}
                           onChange={(e) => {
-                            let v = e.target.value.replace(/\D/g, "").slice(0, 4)
-                            if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2)
-                            setCardExpiry(v)
+                            const digits = e.target.value.replace(/\D/g, "").slice(0, 16)
+                            const formatted = digits.replace(/(.{4})/g, "$1 ").trim()
+                            setCardNumber(formatted)
                           }}
                           disabled={savingAccount}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          className={cn(consoleField, "mt-1 border-transparent")}
+                          placeholder="XXXX XXXX XXXX XXXX"
+                          maxLength={19}
+                          inputMode="numeric"
+                          className={cn(consoleField, "mt-1 border-transparent font-mono tracking-widest")}
                           style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                         />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                            Expiry
+                          </Label>
+                          <Input
+                            value={cardExpiry}
+                            onChange={(e) => {
+                              let v = e.target.value.replace(/\D/g, "").slice(0, 4)
+                              if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2)
+                              setCardExpiry(v)
+                            }}
+                            disabled={savingAccount}
+                            placeholder="MM/YY"
+                            maxLength={5}
+                            className={cn(consoleField, "mt-1 border-transparent")}
+                            style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
+                            Last 4 digits
+                          </Label>
+                          <Input
+                            value={cardNumber ? cardNumber.replace(/\s/g, "").slice(-4) : cardLastFour}
+                            onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            disabled={savingAccount || !!cardNumber}
+                            placeholder={cardNumber ? "Auto" : "1234"}
+                            maxLength={4}
+                            inputMode="numeric"
+                            className={cn(consoleField, "mt-1 border-transparent")}
+                            style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: cardNumber ? TOKENS.onSurfaceMuted : TOKENS.onSurface }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -65,8 +65,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, bankName, accountType, startingFunds, isDefault, accountNumber, bsb, cardLastFour, cardExpiry, cardType } =
+    const { name, bankName, accountType, startingFunds, isDefault, accountNumber, bsb, cardLastFour: rawCardLastFour, cardExpiry, cardType, cardHolderName } =
       await request.json()
+    const derivedCardLastFour = rawCardLastFour || null
     const currency = currencyFromSession(session.user.displayCurrency)
     let startingMinor = 0n
     if (startingFunds != null && startingFunds !== "") {
@@ -106,9 +107,10 @@ export async function POST(request: Request) {
         isDefault: isDefault || false,
         accountNumber: accountNumber || null,
         bsb: bsb || null,
-        cardLastFour: cardLastFour || null,
+        cardLastFour: derivedCardLastFour,
         cardExpiry: cardExpiry || null,
         cardType: cardType || null,
+        cardHolderName: cardHolderName || null,
       },
     })
 
@@ -145,7 +147,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { id, name, bankName, accountType, isDefault, balance, accountNumber, bsb, cardLastFour, cardExpiry, cardType } = await request.json() as {
+    const { id, name, bankName, accountType, isDefault, balance, accountNumber, bsb, cardLastFour, cardExpiry, cardType, cardHolderName } = await request.json() as {
       id?: string
       name?: string
       bankName?: string
@@ -157,6 +159,7 @@ export async function PUT(request: Request) {
       cardLastFour?: string | null
       cardExpiry?: string | null
       cardType?: string | null
+      cardHolderName?: string | null
     }
 
     if (!id) {
@@ -212,6 +215,7 @@ export async function PUT(request: Request) {
         ...(cardLastFour !== undefined && { cardLastFour }),
         ...(cardExpiry !== undefined && { cardExpiry }),
         ...(cardType !== undefined && { cardType }),
+        ...(cardHolderName !== undefined && { cardHolderName }),
       },
     })
 
