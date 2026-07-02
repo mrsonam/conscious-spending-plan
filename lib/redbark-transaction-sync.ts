@@ -91,20 +91,30 @@ export async function syncRedbarkTransactions(
         const amountMinor = dollarsToMinor(amountDollars, currency)
         const { category, expenseCategory } = mapCdrCategory(tx.category)
 
-        await prisma.expense.create({
-          data: {
-            userId,
-            accountId: account.id,
-            amount: amountMinor,
-            description: tx.merchant_name ?? tx.description,
-            category,
-            expenseCategory,
-            date: new Date(txDate),
-            externalId,
-            source: "redbark",
-            syncStatus: "pending_review",
-          },
-        })
+        // Create the expense and decrement the balance together, mirroring the
+        // manual expense flow (income sync already increments via
+        // logIncomeEntryForUser). No sufficient-funds guard: the bank says the
+        // money already left the account.
+        await prisma.$transaction([
+          prisma.expense.create({
+            data: {
+              userId,
+              accountId: account.id,
+              amount: amountMinor,
+              description: tx.merchant_name ?? tx.description,
+              category,
+              expenseCategory,
+              date: new Date(txDate),
+              externalId,
+              source: "redbark",
+              syncStatus: "pending_review",
+            },
+          }),
+          prisma.account.update({
+            where: { id: account.id },
+            data: { balance: { decrement: amountMinor } },
+          }),
+        ])
         created++
       }
 

@@ -214,25 +214,30 @@ export async function PATCH(request: Request) {
     }
 
     const updatedLoan = await prisma.$transaction(async (tx) => {
-      const loanUpdate = await tx.loan.update({
-        where: { id: loan.id },
+      // Atomic status flip: a concurrent repayment of the same loan matches
+      // zero rows here, so the account can't be credited twice.
+      const flipped = await tx.loan.updateMany({
+        where: { id: loan.id, status: { not: "repaid" } },
         data: {
           repaidAmount: loan.amount,
           status: "repaid",
         },
-        include: {
-          account: {
-            select: { id: true, name: true, bankName: true },
-          },
-        },
       })
+      if (flipped.count === 0) throw new Error("ALREADY_REPAID")
 
       await tx.account.update({
         where: { id: creditAccountId },
         data: { balance: { increment: outstanding } },
       })
 
-      return loanUpdate
+      return tx.loan.findUniqueOrThrow({
+        where: { id: loan.id },
+        include: {
+          account: {
+            select: { id: true, name: true, bankName: true },
+          },
+        },
+      })
     })
 
     return moneyJsonResponse(
@@ -246,6 +251,12 @@ export async function PATCH(request: Request) {
       currency
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "ALREADY_REPAID") {
+      return NextResponse.json(
+        { error: "Loan is already marked as repaid" },
+        { status: 400 }
+      )
+    }
     console.error("Error updating loan:", error)
     return NextResponse.json(
       { error: "Internal server error" },

@@ -88,12 +88,20 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
   const { fieldErrors, setFieldErrors, clearFieldError, clearFieldErrors } =
     useFormFieldErrors<TransferFieldKey>()
 
+  // Default the date each time the modal opens (adjust-during-render, no effect).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) setTransferDate(new Date().toISOString().split("T")[0])
+  }
+
   useEffect(() => {
     if (open) {
-      setTransferDate(new Date().toISOString().split("T")[0])
-      fetch("/api/accounts").then((res) => {
-        if (res.ok) res.json().then((data) => setAccounts(data.accounts || []))
-      })
+      fetch("/api/accounts")
+        .then((res) => {
+          if (res.ok) res.json().then((data) => setAccounts(data.accounts || []))
+        })
+        .catch((error) => console.error("Failed to load accounts:", error))
     }
   }, [open])
 

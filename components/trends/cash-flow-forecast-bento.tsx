@@ -30,9 +30,7 @@ export function CashFlowForecastBento() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback((d: number) => {
-    setLoading(true)
-    setError(null)
+  const fetchForecast = useCallback((d: number) => {
     fetch(`/api/cash-flow-forecast?days=${d}&lookback=${d}`)
       .then((r) => r.json())
       .then((json) => {
@@ -46,9 +44,17 @@ export function CashFlowForecastBento() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Range change comes from a click handler, so sync setState is fine there.
+  const changeDays = useCallback((d: number) => {
+    setDays(d)
+    setLoading(true)
+    setError(null)
+  }, [])
+
   useEffect(() => {
-    load(days)
-  }, [days, load])
+    // State already initializes to (or was reset to) loading — fetch only.
+    fetchForecast(days)
+  }, [days, fetchForecast])
 
   const endForecast =
     timeline?.[timeline.length - 1]?.forecastBalance ?? 0
@@ -90,7 +96,7 @@ export function CashFlowForecastBento() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setDays(opt.value)}
+              onClick={() => changeDays(opt.value)}
               className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
               style={{
                 background:

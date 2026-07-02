@@ -25,6 +25,12 @@ export async function POST(request: Request) {
     const month =
       monthParam != null ? parseInt(monthParam, 10) : undefined
     const year = yearParam != null ? parseInt(yearParam, 10) : undefined
+    if (
+      (month !== undefined && (!Number.isInteger(month) || month < 1 || month > 12)) ||
+      (year !== undefined && (!Number.isInteger(year) || year < 2000 || year > 2100))
+    ) {
+      return NextResponse.json({ error: "Invalid month or year" }, { status: 400 })
+    }
 
     const result = await reallocateMonthIncomeForUser(
       session.user.id,

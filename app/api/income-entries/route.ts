@@ -26,7 +26,7 @@ function sumAllocationsForMonth(
   fundAllocation: NonNullable<Awaited<ReturnType<typeof prisma.fundAllocation.findUnique>>>,
   currency: string
 ): { totals: IncomeAllocationMinor; totalIncome: bigint } {
-  let totals: IncomeAllocationMinor = {
+  const totals: IncomeAllocationMinor = {
     fixedCosts: 0n,
     savings: 0n,
     investment: 0n,

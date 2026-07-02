@@ -209,25 +209,32 @@ export async function PATCH(request: Request) {
     }
 
     const updatedBorrowedLoan = await prisma.$transaction(async (tx) => {
-      const loanUpdate = await tx.borrowedLoan.update({
-        where: { id: borrowedLoan.id },
+      // Atomic status flip: a concurrent repayment of the same loan matches
+      // zero rows here, so the account can't be debited twice.
+      const flipped = await tx.borrowedLoan.updateMany({
+        where: { id: borrowedLoan.id, status: { not: "repaid" } },
         data: {
           repaidAmount: borrowedLoan.amount,
           status: "repaid",
         },
+      })
+      if (flipped.count === 0) throw new Error("ALREADY_REPAID")
+
+      // Atomic check-and-decrement so the repayment can't overdraw the account.
+      const debited = await tx.account.updateMany({
+        where: { id: debitAccountId, balance: { gte: outstanding } },
+        data: { balance: { decrement: outstanding } },
+      })
+      if (debited.count === 0) throw new Error("INSUFFICIENT_FUNDS")
+
+      return tx.borrowedLoan.findUniqueOrThrow({
+        where: { id: borrowedLoan.id },
         include: {
           account: {
             select: { id: true, name: true, bankName: true },
           },
         },
       })
-
-      await tx.account.update({
-        where: { id: debitAccountId },
-        data: { balance: { decrement: outstanding } },
-      })
-
-      return loanUpdate
     })
 
     return moneyJsonResponse(
@@ -241,6 +248,18 @@ export async function PATCH(request: Request) {
       currency
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "ALREADY_REPAID") {
+      return NextResponse.json(
+        { error: "Borrowed loan is already marked as repaid" },
+        { status: 400 }
+      )
+    }
+    if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
+      return NextResponse.json(
+        { error: "Insufficient funds in the account to repay this loan" },
+        { status: 400 }
+      )
+    }
     console.error("Error updating borrowed loan:", error)
     return NextResponse.json(
       { error: "Internal server error" },

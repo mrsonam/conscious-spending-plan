@@ -37,6 +37,12 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+    if (rawExpenses.length > 500) {
+      return NextResponse.json(
+        { error: "At most 500 expenses can be imported at once" },
+        { status: 400 }
+      )
+    }
 
     let accountId = bodyAccountId
     if (!accountId) {

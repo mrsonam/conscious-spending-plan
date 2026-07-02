@@ -40,8 +40,14 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+    if (rawEntries.length > 500) {
+      return NextResponse.json(
+        { error: "At most 500 entries can be imported at once" },
+        { status: 400 },
+      )
+    }
 
-    let accountId = bodyAccountId
+    const accountId = bodyAccountId
     if (accountId) {
       const account = await prisma.account.findFirst({
         where: { id: accountId, userId: session.user.id },

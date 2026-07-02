@@ -68,6 +68,8 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
         if (data.needsTour || data.isDemoAccount || searchParams.get("tour") === "1") {
           window.setTimeout(() => setTourActive(true), 400)
         }
+      } catch (error) {
+        console.error("Product tour status check failed:", error)
       } finally {
         if (!cancelled) setChecked(true)
       }

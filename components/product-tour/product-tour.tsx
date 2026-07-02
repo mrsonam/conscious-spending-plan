@@ -313,6 +313,8 @@ export function ProductTour({ active, onComplete }: Props) {
   )
 
   useEffect(() => {
+    // Canonical client-mount flag for createPortal; must flip after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
   }, [])
 
@@ -324,6 +326,8 @@ export function ProductTour({ active, onComplete }: Props) {
   useLayoutEffect(() => {
     if (!active) return
 
+    // Hide, measure DOM, then reveal: must run before paint to avoid flicker.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContentVisible(false)
     measureStep(step)
 
@@ -361,6 +365,8 @@ export function ProductTour({ active, onComplete }: Props) {
 
   useEffect(() => {
     if (active) {
+      // Tour reset is coupled to body scroll-lock and rAF timing.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStepIndex(0)
       setMotionReady(false)
       setRect(collapsedSpotlightRect())

@@ -108,8 +108,11 @@ export async function POST(request: Request) {
     )
   } catch (error: unknown) {
     console.error("Error recording dividend:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    const status = message === "Investment account not found" ? 404 : 500
-    return NextResponse.json({ error: message }, { status })
+    const message = error instanceof Error ? error.message : ""
+    // Only expose known, user-facing messages; anything else stays generic.
+    if (message === "Investment account not found") {
+      return NextResponse.json({ error: message }, { status: 404 })
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

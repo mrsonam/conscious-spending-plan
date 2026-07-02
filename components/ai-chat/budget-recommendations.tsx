@@ -71,9 +71,7 @@ export function BudgetRecommendations() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
+  const fetchRecommendations = useCallback(() => {
     fetch("/api/ai-budget-recommendations")
       .then((r) => r.json())
       .then((json) => {
@@ -84,9 +82,17 @@ export function BudgetRecommendations() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Retry from the error state (event handler, so sync setState is fine here).
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetchRecommendations()
+  }, [fetchRecommendations])
+
   useEffect(() => {
-    load()
-  }, [load])
+    // State already initializes to loading — kick off the request only.
+    fetchRecommendations()
+  }, [fetchRecommendations])
 
   return (
     <section

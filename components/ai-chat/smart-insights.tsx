@@ -71,9 +71,7 @@ export function SmartInsights() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
+  const fetchInsights = useCallback(() => {
     fetch("/api/ai-insights")
       .then((r) => r.json())
       .then((json) => {
@@ -84,9 +82,17 @@ export function SmartInsights() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Retry from the error state (event handler, so sync setState is fine here).
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetchInsights()
+  }, [fetchInsights])
+
   useEffect(() => {
-    load()
-  }, [load])
+    // State already initializes to loading — kick off the request only.
+    fetchInsights()
+  }, [fetchInsights])
 
   return (
     <section

@@ -368,6 +368,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
       a.download = `income-export-${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Income CSV export failed:", error)
     } finally {
       setExporting(false)
     }

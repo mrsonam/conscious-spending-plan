@@ -152,7 +152,7 @@ export function computeOptimisticBreakdown(
     }
   }
 
-  let fixedCosts = categorySlice(
+  const fixedCosts = categorySlice(
     incomeAmount,
     allocation.fixedCostsType,
     allocation.fixedCostsValue,
@@ -162,12 +162,12 @@ export function computeOptimisticBreakdown(
     allocation.savingsType,
     allocation.savingsValue,
   )
-  let investment = categorySlice(
+  const investment = categorySlice(
     incomeAmount,
     allocation.investmentType,
     allocation.investmentValue,
   )
-  let guiltFreeSpending = categorySlice(
+  const guiltFreeSpending = categorySlice(
     incomeAmount,
     allocation.guiltFreeSpendingType,
     allocation.guiltFreeSpendingValue,

@@ -81,9 +81,7 @@ export function AnomalyDetection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
+  const fetchAnomalies = useCallback(() => {
     fetch("/api/ai-anomaly-detection")
       .then((r) => r.json())
       .then((json) => {
@@ -94,9 +92,17 @@ export function AnomalyDetection() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Retry from the error state (event handler, so sync setState is fine here).
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetchAnomalies()
+  }, [fetchAnomalies])
+
   useEffect(() => {
-    load()
-  }, [load])
+    // State already initializes to loading — kick off the request only.
+    fetchAnomalies()
+  }, [fetchAnomalies])
 
   return (
     <section

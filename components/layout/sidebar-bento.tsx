@@ -119,6 +119,9 @@ export function SidebarBento() {
     try {
       if (typeof window === "undefined") return
       if (window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1") {
+        // Must run post-hydration: a lazy initializer reading localStorage
+        // would render different markup on server vs client and break hydration.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCollapsed(true)
       }
     } catch {
@@ -143,9 +146,12 @@ export function SidebarBento() {
     [session?.user?.dashboardTheme]
   )
 
-  useEffect(() => {
+  // Close the mobile drawer on navigation (adjust-during-render, no effect).
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setIsMobileOpen(false)
-  }, [pathname])
+  }
 
   useEffect(() => {
     const open = () => setIsMobileOpen(true)

@@ -27,9 +27,7 @@ export function SpendingTrendsBento() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback((m: number) => {
-    setLoading(true)
-    setError(null)
+  const fetchTrends = useCallback((m: number) => {
     fetch(`/api/spending-trends?months=${m}`)
       .then((r) => r.json())
       .then((json) => {
@@ -40,9 +38,17 @@ export function SpendingTrendsBento() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Range change comes from a click handler, so sync setState is fine there.
+  const changeMonths = useCallback((m: number) => {
+    setMonths(m)
+    setLoading(true)
+    setError(null)
+  }, [])
+
   useEffect(() => {
-    load(months)
-  }, [months, load])
+    // State already initializes to (or was reset to) loading — fetch only.
+    fetchTrends(months)
+  }, [months, fetchTrends])
 
   return (
     <div
@@ -71,7 +77,7 @@ export function SpendingTrendsBento() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setMonths(opt.value)}
+              onClick={() => changeMonths(opt.value)}
               className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
               style={{
                 background: months === opt.value ? TOKENS.surfaceHigh : "transparent",

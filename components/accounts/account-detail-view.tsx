@@ -953,22 +953,22 @@ export function AccountDetailView({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
 
+  const [redbarkAccountId, setRedbarkAccountId] = useState<string | null | undefined>(undefined)
+
   useEffect(() => {
     fetch(`/api/accounts/${id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.account) setAccount(data.account)
-        else setError("Account not found")
+        if (data.account) {
+          setAccount(data.account)
+          setRedbarkAccountId(data.account.redbarkAccountId)
+        } else {
+          setError("Account not found")
+        }
       })
       .catch(() => setError("Failed to load account"))
       .finally(() => setLoading(false))
   }, [id])
-
-  const [redbarkAccountId, setRedbarkAccountId] = useState<string | null | undefined>(undefined)
-
-  useEffect(() => {
-    if (account) setRedbarkAccountId(account.redbarkAccountId)
-  }, [account])
 
   const hasCardDetails = !!(account?.cardLastFour || account?.cardExpiry || account?.cardType || account?.cardHolderName)
   const hasAccountDetails = !!(account?.bsb || account?.accountNumber)

@@ -58,7 +58,7 @@ export function nextChargeDate(
     return cur
   }
 
-  let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate())
   cur.setHours(0, 0, 0, 0)
   while (cur.getTime() <= fromT) {
     cur.setFullYear(cur.getFullYear() + 1)

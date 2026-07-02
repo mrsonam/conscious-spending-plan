@@ -160,14 +160,17 @@ export async function fetchJsonAndCache<T>(
     promise,
   })
 
-  promise.finally(() => {
+  // Note: .finally() would create a derived promise that re-rejects unhandled;
+  // use .then(cb, cb) so cleanup runs on both paths without a new rejection.
+  const clearInflight = () => {
     const entry = clientFetchCache.get(key) as CacheEntry<T> | undefined
     if (!entry || entry.promise !== promise) return
     clientFetchCache.set(key, {
       data: entry.data,
       updatedAt: entry.updatedAt,
     })
-  })
+  }
+  promise.then(clearInflight, clearInflight)
 
   try {
     return await promise

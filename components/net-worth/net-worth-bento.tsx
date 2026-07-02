@@ -38,9 +38,7 @@ export function NetWorthBento() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback((m: number) => {
-    setLoading(true)
-    setError(null)
+  const fetchHistory = useCallback((m: number) => {
     fetch(`/api/net-worth-history?months=${m}`)
       .then((r) => r.json())
       .then((json) => {
@@ -51,7 +49,17 @@ export function NetWorthBento() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load(months) }, [months, load])
+  // Range change comes from a click handler, so sync setState is fine there.
+  const changeMonths = useCallback((m: number) => {
+    setMonths(m)
+    setLoading(true)
+    setError(null)
+  }, [])
+
+  useEffect(() => {
+    // State already initializes to (or was reset to) loading — fetch only.
+    fetchHistory(months)
+  }, [months, fetchHistory])
 
   const latest = data?.[data.length - 1]
   const prev = data && data.length >= 2 ? data[data.length - 2] : null
@@ -121,7 +129,7 @@ export function NetWorthBento() {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setMonths(opt.value)}
+              onClick={() => changeMonths(opt.value)}
               className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors"
               style={{
                 background: months === opt.value ? TOKENS.surfaceHigh : "transparent",
