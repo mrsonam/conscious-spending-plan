@@ -14,6 +14,11 @@ import { BENTO } from "@/lib/app-routes"
 import { prefetchDashboardConsole } from "@/lib/dashboard-console-cache"
 import { prefetchRouteData } from "@/lib/route-data-warmup"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
+import {
+  SHELL_HEADER_BAND_CLASS,
+  SHELL_HEADER_INNER_CLASS,
+  shellHeaderBorderStyle,
+} from "@/components/layout/shell-header-zone"
 
 const SIDEBAR_COLLAPSED_KEY = "csp-wealth-console-sidebar-collapsed"
 
@@ -249,15 +254,16 @@ export function SidebarBento() {
           {/* Brand */}
           <div
             className={cn(
-              "shrink-0 border-b pb-4 pt-5",
-              railCollapsed ? "px-2 sm:px-2" : "px-4 sm:px-5"
+              SHELL_HEADER_BAND_CLASS,
+              railCollapsed ? "px-2 sm:px-2" : "px-4 sm:px-5",
             )}
-            style={{ borderColor: TOKENS.outlineGhost }}
+            style={shellHeaderBorderStyle}
           >
             <div
               className={cn(
-                "flex items-start justify-between gap-2",
-                railCollapsed && "lg:flex-col lg:items-center"
+                SHELL_HEADER_INNER_CLASS,
+                "gap-2",
+                railCollapsed && "lg:flex-col lg:items-center",
               )}
             >
               <div
@@ -273,7 +279,7 @@ export function SidebarBento() {
                   wordmark={railCollapsed ? "none" : "short"}
                   eyebrow={railCollapsed ? undefined : "Wealth Console"}
                   className={cn(
-                    "items-start",
+                    "items-center",
                     railCollapsed && "lg:justify-center",
                   )}
                   onClick={() => setIsMobileOpen(false)}

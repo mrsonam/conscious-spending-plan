@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import {
-  ArrowLeft,
   CheckCircle2,
   CreditCard,
   Landmark,
@@ -953,8 +951,13 @@ function Skeleton() {
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-export function AccountDetailView({ id }: { id: string }) {
-  const router = useRouter()
+export function AccountDetailView({
+  id,
+  onAccountChange,
+}: {
+  id: string
+  onAccountChange?: (name: string | null) => void
+}) {
   const { formatCurrency } = useFormatCurrency()
   const [account, setAccount] = useState<AccountDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -978,6 +981,10 @@ export function AccountDetailView({ id }: { id: string }) {
       .finally(() => setLoading(false))
   }, [id])
 
+  useEffect(() => {
+    onAccountChange?.(account?.name ?? null)
+  }, [account, onAccountChange])
+
   const hasCardDetails = !!(account?.cardLastFour || account?.cardExpiry || account?.cardType || account?.cardHolderName)
   const hasAccountDetails = !!(account?.bsb || account?.accountNumber)
   const isCash = account?.accountType === "cash"
@@ -986,21 +993,7 @@ export function AccountDetailView({ id }: { id: string }) {
   const netPositive = netChange >= 0
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: TOKENS.surface, color: TOKENS.onSurface }}>
-      {/* Back button */}
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/[0.06]"
-          style={{ color: TOKENS.onSurfaceMuted }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Accounts
-        </button>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+    <>
         {loading && <Skeleton />}
 
         {error && (
@@ -1241,7 +1234,6 @@ export function AccountDetailView({ id }: { id: string }) {
             />
           </>
         )}
-      </div>
-    </div>
+    </>
   )
 }

@@ -9,6 +9,11 @@ import {
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import {
+  SHELL_HEADER_INNER_CLASS,
+  SHELL_HEADER_STICKY_BAND_CLASS,
+  shellHeaderBorderStyle,
+} from "@/components/layout/shell-header-zone"
+import {
   consoleHeroFigureClass,
   consoleHeroFigureInnerClass,
 } from "@/components/wealth-console/console-ui"
@@ -21,25 +26,21 @@ type DashboardRouteLoadingProps = {
 function RouteHeaderSkeleton() {
   return (
     <header
-      className="sticky top-0 z-30 border-b px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] sm:px-6 lg:pl-6"
+      className={`sticky top-0 z-30 px-4 sm:px-6 lg:pl-6 ${SHELL_HEADER_STICKY_BAND_CLASS}`}
       style={{
         background: `color-mix(in srgb, ${TOKENS.surface} 96%, transparent)`,
-        borderColor: TOKENS.outlineGhost,
+        ...shellHeaderBorderStyle,
       }}
     >
-      <div className="flex items-start justify-between gap-3 pl-12 sm:pl-14 lg:pl-0">
-        <div className="min-w-0 flex-1 space-y-2.5">
+      <div className={`${SHELL_HEADER_INNER_CLASS} pl-12 sm:pl-14 lg:pl-0`}>
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
           <div
-            className="h-6 w-36 max-w-[55%] animate-pulse rounded-md sm:w-44"
-            style={{ background: TOKENS.surfaceHigh }}
-          />
-          <div
-            className="h-3.5 w-full max-w-md animate-pulse rounded-md"
+            className="h-5 w-36 max-w-[55%] animate-pulse rounded-md sm:w-44"
             style={{ background: TOKENS.surfaceHigh }}
           />
         </div>
         <div
-          className="flex h-8 shrink-0 items-center gap-2 rounded-lg border px-2.5 sm:px-3"
+          className="flex h-9 shrink-0 items-center gap-2 rounded-lg border px-2.5 sm:px-3"
           style={{
             borderColor: TOKENS.outlineGhost,
             background: `color-mix(in srgb, ${TOKENS.surfaceHigh} 70%, transparent)`,

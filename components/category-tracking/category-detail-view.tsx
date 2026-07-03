@@ -1,8 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { AppSelect } from "@/components/ui/app-select"
@@ -99,7 +98,6 @@ export function CategoryDetailView({
   category: string
   p: UseCategoryDetailPageResult
 }) {
-  const router = useRouter()
   const [page, setPage] = useState(1)
 
   const {
@@ -150,20 +148,7 @@ export function CategoryDetailView({
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: TOKENS.surface, color: TOKENS.onSurface }}>
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={() => router.push("/category-tracking")}
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/6"
-          style={{ color: TOKENS.onSurfaceMuted }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Category tracking
-        </button>
-      </div>
-
-      <div className="mx-auto max-w-7xl space-y-4 px-4 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
+    <>
         {loading && !currentRow ? (
           <div className="space-y-4" aria-busy="true" aria-label="Loading category">
             <section className="px-1 py-2 sm:px-2">
@@ -597,7 +582,6 @@ export function CategoryDetailView({
             </section>
           </>
         )}
-      </div>
-    </div>
+    </>
   )
 }
