@@ -80,6 +80,7 @@ function mergeCachedConsoleParts(
       investmentAccounts: [],
       loans: [],
       subscriptionDash: EMPTY_DASHBOARD_CONSOLE.subscriptionDash,
+      recentTransactions: [],
       savingGoals: [],
       superBalance: 0,
     },
@@ -248,7 +249,7 @@ export type DashboardSecondarySnapshot = {
       provider: string | null
       amount: number
       date: string
-      kind: "renewal" | "trial"
+      kind: "renewal" | "trial" | "bill"
     }>
   }
 }
@@ -379,6 +380,7 @@ export function peekDashboardSecondarySnapshot(): DashboardSecondarySnapshot {
       monthlyActiveTotal: subscriptionsData?.monthlyActiveTotal ?? 0,
       upcoming: subscriptionsData?.upcoming ?? [],
     },
+    recentTransactions: [],
     savingGoals: [],
     superBalance: 0,
   }

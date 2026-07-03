@@ -21,6 +21,8 @@ import type {
   PulseMetrics,
   SpendingAlert,
   SubscriptionDashboardSnapshot,
+  DashboardRecentTransaction,
+  DashboardSavingGoal,
   TrajectoryPoint,
   YtdSummary,
 } from "@/components/wealth-console/types"
@@ -224,7 +226,7 @@ export function useWealthConsoleDashboard(
     marketPrices: props.marketPrices,
     superBalance: props.superBalance,
     loading: props.loading,
-    savingGoals: props.savingGoals,
+    savingGoals: props.savingGoals ?? [],
   })
   return { ...props, ...derived }
 }
@@ -243,15 +245,12 @@ export type WealthConsoleViewProps = {
   lastMonthExpenses: number
   marketPrices: Record<string, number>
   loanSummary: LoanSummary | null
-  subscriptionDash: SubscriptionDashboardSnapshot
-  savingGoals: Array<{
-    id: string
-    name: string
-    current: number
-    target: number | null
-    percent: number
-    status: string
-  }>
+  /** null while the secondary payload is still loading. */
+  subscriptionDash: SubscriptionDashboardSnapshot | null
+  /** null while the secondary payload is still loading. */
+  recentTransactions: DashboardRecentTransaction[] | null
+  /** null while the secondary payload is still loading. */
+  savingGoals: DashboardSavingGoal[] | null
   superBalance: number
   loading: boolean
 }

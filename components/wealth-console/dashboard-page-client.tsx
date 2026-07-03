@@ -42,7 +42,10 @@ import type {
   Account,
   Breakdown,
   CategoryTracking,
+  DashboardRecentTransaction,
+  DashboardSavingGoal,
   Expense,
+  SubscriptionDashboardSnapshot,
   InvestmentAccount,
   LoanSummary,
   TrajectoryPoint,
@@ -71,12 +74,16 @@ export default function DashboardPageClient() {
   const [trajectorySeries, setTrajectorySeries] = useState<TrajectoryPoint[]>([])
   const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
   const [loanSummary, setLoanSummary] = useState<LoanSummary | null>(null)
-  const [subscriptionDash, setSubscriptionDash] = useState(
-    EMPTY_DASHBOARD_CONSOLE.subscriptionDash,
-  )
-  const [savingGoals, setSavingGoals] = useState(
-    EMPTY_DASHBOARD_CONSOLE.savingGoals,
-  )
+  // null = secondary payload not loaded yet (card shows a skeleton).
+  const [subscriptionDash, setSubscriptionDash] =
+    useState<SubscriptionDashboardSnapshot | null>(null)
+  // null = secondary payload not loaded yet (card shows a skeleton);
+  // [] = loaded and genuinely empty.
+  const [recentTransactions, setRecentTransactions] =
+    useState<DashboardRecentTransaction[] | null>(null)
+  // null = secondary payload not loaded yet (card shows a skeleton).
+  const [savingGoals, setSavingGoals] =
+    useState<DashboardSavingGoal[] | null>(null)
   const [superBalance, setSuperBalance] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -94,6 +101,7 @@ export default function DashboardPageClient() {
       setTrajectorySeries,
       setLoanSummary,
       setSubscriptionDash,
+      setRecentTransactions,
       setSavingGoals,
       setSuperBalance,
     }),
@@ -317,6 +325,7 @@ export default function DashboardPageClient() {
       marketPrices={marketPrices}
       loanSummary={loanSummary}
       subscriptionDash={subscriptionDash}
+      recentTransactions={recentTransactions}
       savingGoals={savingGoals}
       superBalance={superBalance}
       loading={showLoading || (isSessionPending && breakdown == null)}

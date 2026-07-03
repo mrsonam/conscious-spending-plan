@@ -2,6 +2,7 @@ import type {
   Account,
   Breakdown,
   CategoryTracking,
+  DashboardRecentTransaction,
   Expense,
   InvestmentAccount,
   YtdSummary,
@@ -27,9 +28,10 @@ export type DashboardConsolePayload = {
       provider: string | null
       amount: number
       date: string
-      kind: "renewal" | "trial"
+      kind: "renewal" | "trial" | "bill"
     }>
   }
+  recentTransactions: DashboardRecentTransaction[]
   savingGoals: Array<{
     id: string
     name: string
@@ -54,10 +56,16 @@ export type DashboardConsoleCorePayload = Pick<
   | "ytd"
 >
 
-/** Deferred — trajectory, investments, loans, subscriptions, goals, super. */
+/** Deferred — trajectory, investments, loans, subscriptions, recent activity, goals, super. */
 export type DashboardConsoleSecondaryPayload = Pick<
   DashboardConsolePayload,
-  "history" | "investmentAccounts" | "loans" | "subscriptionDash" | "savingGoals" | "superBalance"
+  | "history"
+  | "investmentAccounts"
+  | "loans"
+  | "subscriptionDash"
+  | "recentTransactions"
+  | "savingGoals"
+  | "superBalance"
 >
 
 export function mergeDashboardConsolePayload(
@@ -88,6 +96,7 @@ export const EMPTY_DASHBOARD_CONSOLE: DashboardConsolePayload = {
     monthlyActiveTotal: 0,
     upcoming: [],
   },
+  recentTransactions: [],
   savingGoals: [],
   superBalance: 0,
 }

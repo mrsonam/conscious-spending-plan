@@ -31,6 +31,7 @@ import { toApiMoney, sumAmountMinor } from "@/lib/investments-api-map"
 import {
   collectUpcomingEvents,
   monthlyEquivalent,
+  nextChargeDate,
   type SubscriptionFrequency,
 } from "@/lib/subscription-utils"
 import { getExchangeRate } from "@/lib/fx-rate"
@@ -40,7 +41,7 @@ import type {
   DashboardConsolePayload,
   DashboardConsoleSecondaryPayload,
 } from "@/lib/dashboard-console-types"
-import type { Breakdown } from "@/components/wealth-console/types"
+import type { Breakdown, DashboardRecentTransaction } from "@/components/wealth-console/types"
 import { bpsToDisplayPercent } from "@/lib/saving-goal-allocation"
 
 const FUND_CATEGORIES = [
@@ -567,7 +568,155 @@ async function loadSubscriptionDash(userId: string, currency: string) {
     upcomingDays,
   )
 
+  // Standalone recurring expenses (rent, utilities, …) due in the same window.
+  // Subscriptions are excluded — they're already covered above.
+  const now = new Date()
+  const windowEnd = new Date(now.getTime() + upcomingDays * 86_400_000)
+  const standaloneBills = await prisma.recurringExpense.findMany({
+    where: { userId, isActive: true, subscription: null },
+    select: {
+      id: true,
+      amount: true,
+      description: true,
+      frequency: true,
+      startDate: true,
+      endDate: true,
+    },
+  })
+
+  for (const bill of standaloneBills) {
+    const freq = bill.frequency as SubscriptionFrequency
+    if (!["weekly", "monthly", "yearly"].includes(freq)) continue
+    const next = nextChargeDate(bill.startDate, freq, now)
+    if (next.getTime() > windowEnd.getTime()) continue
+    if (bill.endDate && next.getTime() > bill.endDate.getTime()) continue
+    upcoming.push({
+      subscriptionId: bill.id,
+      label: bill.description?.trim() || "Recurring expense",
+      provider: null,
+      amount: serializeMoneyForApi(bill.amount, currency),
+      date: next.toISOString(),
+      kind: "bill",
+      reminderDaysBefore: 0,
+    })
+  }
+
+  upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
   return { monthlyActiveTotal, upcoming }
+}
+
+const RECENT_TX_LOOKBACK_DAYS = 60
+const RECENT_TX_LIMIT = 5
+
+async function loadRecentTransactions(
+  userId: string,
+  currency: string,
+): Promise<DashboardRecentTransaction[]> {
+  const since = new Date()
+  since.setDate(since.getDate() - RECENT_TX_LOOKBACK_DAYS)
+  const toD = (minor: bigint) => serializeMoneyForApi(coerceMinor(minor), currency)
+
+  // The top RECENT_TX_LIMIT overall can never need more than that many rows
+  // from any one source. createdAt breaks ties between same-day rows so the
+  // order is stable (dates are stored with day precision).
+  const [expenses, incomeEntries, transfers] = await Promise.all([
+    prisma.expense.findMany({
+      where: { userId, date: { gte: since } },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: RECENT_TX_LIMIT,
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        date: true,
+        createdAt: true,
+        category: true,
+        expenseCategory: true,
+        account: { select: { name: true, bankName: true } },
+      },
+    }),
+    prisma.incomeEntry.findMany({
+      where: { userId, date: { gte: since } },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: RECENT_TX_LIMIT,
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        date: true,
+        createdAt: true,
+        account: { select: { name: true, bankName: true } },
+      },
+    }),
+    prisma.transfer.findMany({
+      where: { userId, date: { gte: since } },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: RECENT_TX_LIMIT,
+      select: {
+        id: true,
+        amount: true,
+        description: true,
+        date: true,
+        createdAt: true,
+        category: true,
+        fromAccount: { select: { name: true } },
+        toAccount: { select: { name: true } },
+      },
+    }),
+  ])
+
+  type Row = DashboardRecentTransaction & { sortTime: number; sortTie: number }
+  const rows: Row[] = []
+
+  for (const e of expenses) {
+    rows.push({
+      id: e.id,
+      type: "expense",
+      amount: toD(e.amount),
+      date: e.date.toISOString(),
+      description: e.description,
+      category: e.category,
+      expenseCategory: e.expenseCategory,
+      accountLabel: e.account ? `${e.account.bankName} · ${e.account.name}` : null,
+      sortTime: e.date.getTime(),
+      sortTie: e.createdAt.getTime(),
+    })
+  }
+
+  for (const entry of incomeEntries) {
+    rows.push({
+      id: entry.id,
+      type: "income",
+      amount: toD(entry.amount),
+      date: entry.date.toISOString(),
+      description: entry.description,
+      category: null,
+      accountLabel: entry.account ? `${entry.account.bankName} · ${entry.account.name}` : null,
+      sortTime: entry.date.getTime(),
+      sortTie: entry.createdAt.getTime(),
+    })
+  }
+
+  for (const t of transfers) {
+    rows.push({
+      id: t.id,
+      type: "transfer",
+      amount: toD(t.amount),
+      date: t.date.toISOString(),
+      description: t.description,
+      category: t.category,
+      accountLabel:
+        t.fromAccount && t.toAccount
+          ? `${t.fromAccount.name} → ${t.toAccount.name}`
+          : null,
+      sortTime: t.date.getTime(),
+      sortTie: t.createdAt.getTime(),
+    })
+  }
+
+  rows.sort((a, b) => b.sortTime - a.sortTime || b.sortTie - a.sortTie)
+  return rows.slice(0, RECENT_TX_LIMIT).map(({ sortTime: _t, sortTie: _tie, ...rest }) => rest)
 }
 
 async function loadSavingGoalsForDashboard(userId: string, currency: string) {
@@ -694,7 +843,7 @@ export async function loadDashboardConsoleSecondaryData(
   userId: string,
   currency: string,
 ): Promise<DashboardConsoleSecondaryPayload> {
-  const [history, investmentAccounts, loansRows, subscriptionDash, savingGoalsRows, superAccounts] =
+  const [history, investmentAccounts, loansRows, subscriptionDash, recentTransactions, savingGoalsRows, superAccounts] =
     await Promise.all([
       loadCategoryHistory(userId, currency),
       loadDashboardInvestments(userId, currency),
@@ -704,6 +853,7 @@ export async function loadDashboardConsoleSecondaryData(
         take: 100,
       }),
       loadSubscriptionDash(userId, currency),
+      loadRecentTransactions(userId, currency),
       loadSavingGoalsForDashboard(userId, currency),
       prisma.superannuationAccount.findMany({
         where: { userId },
@@ -727,6 +877,7 @@ export async function loadDashboardConsoleSecondaryData(
     investmentAccounts,
     loans,
     subscriptionDash,
+    recentTransactions,
     savingGoals: savingGoalsRows,
     superBalance,
   }

@@ -66,7 +66,7 @@ export function nextChargeDate(
   return cur
 }
 
-export type UpcomingEventKind = "renewal" | "trial"
+export type UpcomingEventKind = "renewal" | "trial" | "bill"
 
 export type UpcomingEvent = {
   subscriptionId: string

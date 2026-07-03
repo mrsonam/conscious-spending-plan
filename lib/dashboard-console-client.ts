@@ -7,6 +7,7 @@ import type {
   Account,
   Breakdown,
   CategoryTracking,
+  DashboardRecentTransaction,
   Expense,
   InvestmentAccount,
   LoanSummary,
@@ -58,6 +59,7 @@ export type ConsolePayloadSetters = {
   setTrajectorySeries: (v: TrajectoryPoint[]) => void
   setLoanSummary: (v: LoanSummary | null) => void
   setSubscriptionDash: (v: DashboardConsolePayload["subscriptionDash"]) => void
+  setRecentTransactions: (v: DashboardRecentTransaction[]) => void
   setSavingGoals: (v: DashboardConsolePayload["savingGoals"]) => void
   setSuperBalance: (v: number) => void
 }
@@ -84,6 +86,7 @@ export function applyConsoleSecondaryPayload(
   setters.setTrajectorySeries(buildTrajectorySeries(payload.history))
   setters.setLoanSummary(loanSummaryFromPayload({ loans: payload.loans } as DashboardConsolePayload))
   setters.setSubscriptionDash(payload.subscriptionDash)
+  setters.setRecentTransactions(payload.recentTransactions ?? [])
   setters.setSavingGoals(payload.savingGoals ?? [])
   setters.setSuperBalance(payload.superBalance ?? 0)
 }
@@ -138,6 +141,7 @@ export function initialStateFromConsole(payload: DashboardConsolePayload) {
     trajectorySeries: buildTrajectorySeries(payload.history),
     loanSummary: loanSummaryFromPayload(payload),
     subscriptionDash: payload.subscriptionDash,
+    recentTransactions: payload.recentTransactions ?? [],
     savingGoals: payload.savingGoals ?? [],
     superBalance: payload.superBalance ?? 0,
     loading: payload.breakdown == null,

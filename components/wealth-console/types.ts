@@ -20,6 +20,8 @@ export interface Expense {
   amount: number
   description: string | null
   category: string | null
+  /** Granular expense category (groceries, dining, …); sent by the console API. */
+  expenseCategory?: string | null
   date: string
 }
 
@@ -57,8 +59,28 @@ export interface SubscriptionDashboardSnapshot {
     provider: string | null
     amount: number
     date: string
-    kind: "renewal" | "trial"
+    kind: "renewal" | "trial" | "bill"
   }>
+}
+
+export type DashboardRecentTransaction = {
+  id: string
+  type: "income" | "expense" | "transfer"
+  amount: number
+  date: string
+  description: string | null
+  category: string | null
+  expenseCategory?: string | null
+  accountLabel?: string | null
+}
+
+export type DashboardSavingGoal = {
+  id: string
+  name: string
+  current: number
+  target: number | null
+  percent: number
+  status: string
 }
 
 export interface YtdSummary {
