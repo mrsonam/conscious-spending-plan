@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { consoleFocus } from "@/components/wealth-console/console-ui"
+import { consoleFocus, consoleMicroLabel } from "@/components/wealth-console/console-ui"
 
 type ConsoleQuickActionsProps = {
   onLogIncome: () => void
@@ -23,17 +23,11 @@ type ConsoleQuickActionsProps = {
 
 type ActionDef = {
   label: string
+  hint: string
   icon: React.ReactNode
-  iconBg: string
-  iconColor: string
+  accent: string
   onClick: () => void
 }
-
-const cardBase = cn(
-  consoleFocus,
-  "flex flex-col items-center justify-center gap-3 rounded-xl border p-4 transition-colors hover:bg-white/[0.04] cursor-pointer select-none",
-  "min-w-[88px] flex-shrink-0 sm:min-w-0 sm:flex-1",
-)
 
 export function ConsoleQuickActions({
   onLogIncome,
@@ -45,91 +39,129 @@ export function ConsoleQuickActions({
 }: ConsoleQuickActionsProps) {
   const actions: ActionDef[] = [
     {
-      label: "Log Income",
-      icon: <Plus className="h-5 w-5" />,
-      iconBg: `color-mix(in srgb, ${TOKENS.primary} 18%, transparent)`,
-      iconColor: TOKENS.primary,
+      label: "Log income",
+      hint: "Pay & deposits",
+      icon: <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
+      accent: TOKENS.primary,
       onClick: onLogIncome,
     },
     {
-      label: "Log Expense",
-      icon: <Minus className="h-5 w-5" />,
-      iconBg: `color-mix(in srgb, ${TOKENS.loss} 18%, transparent)`,
-      iconColor: TOKENS.loss,
+      label: "Log expense",
+      hint: "Spend & bills",
+      icon: <Minus className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
+      accent: TOKENS.loss,
       onClick: onLogExpense,
     },
     {
       label: "Transfer",
-      icon: <ArrowLeftRight className="h-5 w-5" />,
-      iconBg: `color-mix(in srgb, ${TOKENS.secondary} 18%, transparent)`,
-      iconColor: TOKENS.secondary,
+      hint: "Between accounts",
+      icon: <ArrowLeftRight className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
+      accent: TOKENS.secondary,
       onClick: onTransfer,
     },
     {
-      label: "Log Super",
-      icon: <Shield className="h-5 w-5" />,
-      iconBg: `color-mix(in srgb, ${TOKENS.warning} 18%, transparent)`,
-      iconColor: TOKENS.warning,
+      label: "Log super",
+      hint: "Retirement fund",
+      icon: <Shield className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
+      accent: TOKENS.warning,
       onClick: onLogSuper,
     },
     {
       label: "Investment",
-      icon: <TrendingUp className="h-5 w-5" />,
-      iconBg: `color-mix(in srgb, ${TOKENS.tertiary} 18%, transparent)`,
-      iconColor: TOKENS.tertiary,
+      hint: "Buy or top up",
+      icon: <TrendingUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
+      accent: TOKENS.tertiary,
       onClick: onLogInvestment,
     },
   ]
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex items-center gap-1.5">
-        <Zap
-          className="h-3.5 w-3.5"
-          style={{ color: TOKENS.warning }}
-          strokeWidth={2.5}
-          aria-hidden
-        />
-        <p
-          className="text-[10px] font-bold uppercase tracking-[0.22em]"
-          style={{ color: TOKENS.onSurfaceMuted }}
-        >
-          Quick Actions
-        </p>
+    <section
+      id="console-quick-actions"
+      className={cn("scroll-mt-28 space-y-5", className)}
+      aria-labelledby="console-quick-actions-heading"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+            style={{
+              background: TOKENS.surfaceLow,
+              color: TOKENS.warning,
+            }}
+          >
+            <Zap className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p
+              id="console-quick-actions-heading"
+              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+              style={consoleMicroLabel}
+            >
+              Quick actions
+            </p>
+            <p
+              className="mt-1 max-w-2xl text-xs leading-relaxed"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Record activity without leaving the console
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Scrollable on mobile, row on sm+ */}
-      <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0 lg:gap-5">
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={action.onClick}
-              className={cardBase}
-              style={{
-                background: TOKENS.surfaceContainer,
-                borderColor: TOKENS.outlineGhost,
-                boxShadow: CARD_INSET,
-              }}
-            >
-              <span
-                className="flex h-11 w-11 items-center justify-center rounded-xl"
-                style={{ background: action.iconBg }}
-                aria-hidden
+      <div className="overflow-x-auto pb-0.5 scrollbar-none sm:overflow-visible">
+        <div className="flex min-w-max gap-4 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
+            {actions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+                className={cn(
+                  consoleFocus,
+                  "group flex min-h-[4.75rem] min-w-[10.5rem] flex-1 flex-col justify-between rounded-xl border px-3.5 py-3.5 text-left transition-[background-color,border-color,transform] duration-200 hover:bg-white/[0.04] motion-reduce:transition-none sm:min-w-0",
+                  "active:scale-[0.99] motion-reduce:active:scale-100",
+                )}
+                style={{
+                  background: TOKENS.surfaceLow,
+                  borderColor: TOKENS.outlineGhost,
+                  boxShadow: CARD_INSET,
+                }}
               >
-                <span style={{ color: action.iconColor }}>{action.icon}</span>
-              </span>
-              <span
-                className="text-center text-[11px] font-semibold leading-tight"
-                style={{ color: TOKENS.onSurface }}
-              >
-                {action.label}
-              </span>
-            </button>
+                <span className="flex items-start justify-between gap-2">
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 motion-reduce:transition-none"
+                    style={{
+                      background: `color-mix(in srgb, ${action.accent} 14%, ${TOKENS.surfaceContainer})`,
+                      color: action.accent,
+                    }}
+                  >
+                    {action.icon}
+                  </span>
+                  <span
+                    className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none"
+                    style={{ background: action.accent }}
+                    aria-hidden
+                  />
+                </span>
+                <span className="mt-3 block min-w-0">
+                  <span
+                    className="block text-sm font-semibold leading-snug transition-colors duration-200 group-hover:text-white motion-reduce:transition-none"
+                    style={{ color: TOKENS.onSurface }}
+                  >
+                    {action.label}
+                  </span>
+                  <span
+                    className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
+                    {action.hint}
+                  </span>
+                </span>
+              </button>
           ))}
         </div>
       </div>
-    </div>
+    </section>
   )
 }

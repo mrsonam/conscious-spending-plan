@@ -39,7 +39,7 @@ export function buildDashboardInsight({
 }): DashboardInsight | null {
   if (totalExpenses > 0 && pulseMetrics.daysRemaining < 10) {
     return {
-      text: `At the current burn rate your liquid funds cover about ${pulseMetrics.daysRemaining} more days — worth a look before new spending.`,
+      text: `At the current burn rate your liquid funds cover about ${pulseMetrics.daysRemaining} more days. Worth a look before new spending.`,
       tone: "caution",
     }
   }
@@ -48,13 +48,13 @@ export function buildDashboardInsight({
     const diff = Math.abs(totalExpenses - lastMonthExpenses)
     if (expenseChangePct <= -20) {
       return {
-        text: `Outflow so far is ${Math.abs(expenseChangePct).toFixed(0)}% below last month's total — ${formatCurrency(diff)} less out the door.`,
+        text: `Outflow so far is ${Math.abs(expenseChangePct).toFixed(0)}% below last month's total, with ${formatCurrency(diff)} less out the door.`,
         tone: "positive",
       }
     }
     if (expenseChangePct >= 20) {
       return {
-        text: `Outflow is already ${expenseChangePct.toFixed(0)}% above last month's total — ${formatCurrency(diff)} more than all of last month.`,
+        text: `Outflow is already ${expenseChangePct.toFixed(0)}% above last month's total, ${formatCurrency(diff)} more than all of last month.`,
         tone: "caution",
       }
     }
@@ -72,7 +72,7 @@ export function buildDashboardInsight({
       const label =
         topKey === "uncategorised" ? "Uncategorised spending" : expenseLabel(topKey) || topKey
       return {
-        text: `${label} is your biggest expense this month — ${formatCurrency(topAmount)}, ${sharePct.toFixed(0)}% of everything spent.`,
+        text: `${label} is your biggest expense this month at ${formatCurrency(topAmount)}, ${sharePct.toFixed(0)}% of everything spent.`,
         tone: "neutral",
       }
     }
@@ -80,7 +80,7 @@ export function buildDashboardInsight({
 
   if (savingsRatePct !== null && savingsRatePct >= 40) {
     return {
-      text: `You're keeping ${savingsRatePct.toFixed(0)}% of this month's income — well clear of the usual 20% guideline.`,
+      text: `You're keeping ${savingsRatePct.toFixed(0)}% of this month's income, well clear of the usual 20% guideline.`,
       tone: "positive",
     }
   }

@@ -158,38 +158,36 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                             )}
                           </div>
                         </div>
-                        {pulseMetrics.superBalance > 0 && (
-                          <div
-                            className="mt-4 border-t pt-4"
-                            style={{ borderColor: TOKENS.outlineGhost }}
+                        <div
+                          className="mt-4 border-t pt-4"
+                          style={{ borderColor: TOKENS.outlineGhost }}
+                        >
+                          <p
+                            className="text-[10px] font-semibold uppercase tracking-wider"
+                            style={consoleMicroLabel}
                           >
-                            <p
-                              className="text-[10px] font-semibold uppercase tracking-wider"
-                              style={consoleMicroLabel}
-                            >
-                              Super · retirement
-                            </p>
-                            <div className="mt-2 text-xl sm:text-2xl">
-                              {showNetWorthSkeleton ? (
-                                <ScrambleCurrencyValue
-                                  min={500}
-                                  max={20000}
-                                  className="font-bold!"
-                                  colorMain={TOKENS.secondary}
-                                  colorDecimal={TOKENS.onSurfaceMuted}
-                                />
-                              ) : (
-                                <MajorFigureCurrency
-                                  amount={pulseMetrics.superBalance}
-                                  variant="neutral"
-                                  colorMain={TOKENS.secondary}
-                                  colorDecimal={TOKENS.onSurfaceMuted}
-                                  className="font-bold!"
-                                />
-                              )}
-                            </div>
+                            Super · retirement
+                          </p>
+                          <div className="mt-2 text-xl sm:text-2xl">
+                            {showNetWorthSkeleton ? (
+                              <ScrambleCurrencyValue
+                                min={500}
+                                max={20000}
+                                className="font-bold!"
+                                colorMain={TOKENS.secondary}
+                                colorDecimal={TOKENS.onSurfaceMuted}
+                              />
+                            ) : (
+                              <MajorFigureCurrency
+                                amount={pulseMetrics.superBalance}
+                                variant="neutral"
+                                colorMain={TOKENS.secondary}
+                                colorDecimal={TOKENS.onSurfaceMuted}
+                                className="font-bold!"
+                              />
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                       {loanSummary && loanSummary.activeCount > 0 && (
                         <div
