@@ -64,7 +64,7 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       rows={fixedRows}
                       accent={TOKENS.secondary}
                       size="hero"
-                      detailHref={BENTO.expenses}
+                      detailHref={BENTO.categoryDetail("fixedCosts")}
                     />
                   )}
                 </div>
@@ -84,7 +84,8 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       rows={savingsDisplayRows}
                       accent={TOKENS.primary}
                       size="compact"
-                      detailHref={BENTO.savingGoals}
+                      tone="recessed"
+                      detailHref={BENTO.categoryDetail("savings")}
                     />
                   )}
                 </div>
@@ -101,7 +102,7 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       title="Investment"
                       total={breakdownData.investment}
                       icon={TrendingUp}
-                      detailHref={BENTO.investments}
+                      detailHref={BENTO.categoryDetail("investment")}
                       rows={
                         investmentRows.length > 0
                           ? investmentRows
@@ -116,6 +117,7 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       }
                       accent={TOKENS.tertiary}
                       size="compact"
+                      tone="recessed"
                     />
                   )}
                 </div>
@@ -135,7 +137,7 @@ export function ConsolePillarDetailSection({ vm }: { vm: WealthConsoleDashboardV
                       rows={guiltRows}
                       accent={TOKENS.primary}
                       size="hero"
-                      detailHref={BENTO.expenses}
+                      detailHref={BENTO.categoryDetail("guiltFreeSpending")}
                     />
                   )}
                 </div>

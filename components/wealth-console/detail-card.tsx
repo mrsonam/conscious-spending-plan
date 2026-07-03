@@ -22,6 +22,7 @@ export function DetailCard({
   accent,
   size = "default",
   detailHref,
+  tone = "raised",
 }: {
   title: string
   total: number
@@ -30,16 +31,19 @@ export function DetailCard({
   accent: string
   size?: "default" | "hero" | "compact"
   detailHref: string
+  /** "recessed" swaps to the darker surface, matching the metrics band tiles. */
+  tone?: "raised" | "recessed"
 }) {
   const { formatCurrency } = useFormatCurrency()
   const isHero = size === "hero"
   const isCompact = size === "compact"
+  const recessed = tone === "recessed"
 
   return (
     <div
       className={`rounded-xl ${isHero ? "p-6 sm:p-7" : isCompact ? "p-4 sm:p-5" : "p-5"}`}
       style={{
-        background: TOKENS.surfaceContainer,
+        background: recessed ? TOKENS.surfaceLow : TOKENS.surfaceContainer,
         boxShadow: CARD_INSET,
       }}
     >
@@ -47,7 +51,10 @@ export function DetailCard({
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={`flex shrink-0 items-center justify-center rounded-lg ${isHero ? "h-12 w-12" : isCompact ? "h-9 w-9" : "h-10 w-10"}`}
-            style={{ background: TOKENS.surfaceLow, color: accent }}
+            style={{
+              background: recessed ? TOKENS.surfaceContainer : TOKENS.surfaceLow,
+              color: accent,
+            }}
           >
             <Icon className={isHero ? "h-6 w-6" : isCompact ? "h-4 w-4" : "h-5 w-5"} />
           </div>
