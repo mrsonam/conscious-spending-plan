@@ -33,14 +33,14 @@ function RouteHeaderSkeleton() {
       }}
     >
       <div className={`${SHELL_HEADER_INNER_CLASS} pl-12 sm:pl-14 lg:pl-0`}>
-        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:items-start lg:min-h-11">
           <div
-            className="h-5 w-36 max-w-[55%] animate-pulse rounded-md sm:w-44"
+            className="h-6 w-36 max-w-[55%] animate-pulse rounded-md sm:h-5 sm:w-44"
             style={{ background: TOKENS.surfaceHigh }}
           />
         </div>
         <div
-          className="flex h-9 shrink-0 items-center gap-2 rounded-lg border px-2.5 sm:px-3"
+          className="flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 sm:px-3 lg:h-9 lg:py-0"
           style={{
             borderColor: TOKENS.outlineGhost,
             background: `color-mix(in srgb, ${TOKENS.surfaceHigh} 70%, transparent)`,

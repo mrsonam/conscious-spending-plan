@@ -15,7 +15,7 @@ import { prefetchDashboardConsole } from "@/lib/dashboard-console-cache"
 import { prefetchRouteData } from "@/lib/route-data-warmup"
 import { CspBrandMark } from "@/components/brand/csp-brand-mark"
 import {
-  SHELL_HEADER_BAND_CLASS,
+  SHELL_SIDEBAR_HEADER_BAND_CLASS,
   SHELL_HEADER_INNER_CLASS,
   shellHeaderBorderStyle,
 } from "@/components/layout/shell-header-zone"
@@ -254,7 +254,7 @@ export function SidebarBento() {
           {/* Brand */}
           <div
             className={cn(
-              SHELL_HEADER_BAND_CLASS,
+              SHELL_SIDEBAR_HEADER_BAND_CLASS,
               railCollapsed ? "px-2 sm:px-2" : "px-4 sm:px-5",
             )}
             style={shellHeaderBorderStyle}

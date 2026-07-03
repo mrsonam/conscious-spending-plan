@@ -29,23 +29,23 @@ export function Header({
       }}
     >
       <div className={`${SHELL_HEADER_INNER_CLASS} pl-12 sm:pl-14 lg:pl-0`}>
-        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:items-start lg:min-h-11 lg:items-center">
           <CspBrandMark
             href={BENTO.dashboard}
             size="sm"
             wordmark="none"
-            className="shrink-0 lg:hidden"
+            className="min-h-8 min-w-8 shrink-0 lg:hidden"
           />
-          <div className="min-w-0 flex-1 pt-0.5">
+          <div className="flex min-w-0 flex-1 items-center sm:block lg:pt-0.5">
             <h1
-              className="text-lg font-semibold leading-none tracking-tight"
+              className="text-lg font-semibold leading-none tracking-tight sm:text-xl sm:leading-tight lg:leading-none"
               style={{ color: TOKENS.onSurface }}
             >
               {title}
             </h1>
             {description ? (
               <p
-                className="mt-0.5 max-w-2xl truncate text-[10px] leading-snug"
+                className="mt-1 hidden max-w-2xl text-[11px] leading-snug sm:block sm:text-xs lg:mt-0.5 lg:truncate lg:text-[10px]"
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
                 {description}
@@ -56,7 +56,7 @@ export function Header({
         <button
           type="button"
           onClick={() => openCommandPalette()}
-          className="flex h-9 shrink-0 touch-manipulation items-center gap-2 rounded-lg border px-2.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:px-3"
+          className="flex shrink-0 touch-manipulation items-center gap-2 self-center rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1326] sm:self-auto sm:px-3 lg:h-9 lg:py-0"
           style={{
             borderColor: TOKENS.outlineGhost,
             color: TOKENS.onSurfaceMuted,
