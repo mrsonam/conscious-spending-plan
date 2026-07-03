@@ -9,6 +9,7 @@ export const BENTO = {
   subscriptions: "/subscriptions",
   statement: "/statement",
   categoryTracking: "/category-tracking",
+  categoryDetail: (category: string) => `/category-tracking/${category}` as const,
   funds: "/funds",
   savingGoals: "/saving-goals",
   investments: "/investments",
