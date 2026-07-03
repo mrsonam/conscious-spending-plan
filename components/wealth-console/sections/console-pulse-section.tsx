@@ -18,11 +18,19 @@ import {
   consoleMicroLabel,
 } from "@/components/wealth-console/console-ui"
 import { cn } from "@/lib/utils"
+import { buildDashboardInsight } from "@/components/wealth-console/dashboard-utils"
 import type { WealthConsoleDashboardVM } from "@/components/wealth-console/use-wealth-console-derived"
+import { ConsoleInsightTile } from "@/components/wealth-console/sections/console-insight-tile"
+import { ConsoleNetWorthSparkline } from "@/components/wealth-console/sections/console-net-worth-sparkline"
+import { ConsoleRecentTransactionsCard } from "@/components/wealth-console/sections/console-recent-transactions-card"
+import { ConsoleSavingGoalsCard } from "@/components/wealth-console/sections/console-saving-goals-card"
+import { ConsoleTopCategoriesCard } from "@/components/wealth-console/sections/console-top-categories-card"
+import { ConsoleSubscriptionsCard } from "@/components/wealth-console/sections/console-subscriptions-card"
 
 export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
   const {
     formatCurrency,
+    expenses,
     totalExpenses,
     pulseMetrics,
     investmentAllocated,
@@ -39,9 +47,20 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
     lastMonthExpenses,
     loanSummary,
     subscriptionDash,
+    recentTransactions,
+    savingGoals,
     loading,
   } = vm
 
+  const insight = buildDashboardInsight({
+    expenses,
+    totalExpenses,
+    lastMonthExpenses,
+    expenseChangePct,
+    savingsRatePct,
+    pulseMetrics,
+    formatCurrency,
+  })
 
   return (
     <>
@@ -84,6 +103,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                             />
                           )}
                         </div>
+                        <ConsoleNetWorthSparkline />
                       </div>
                       <div
                         className="mt-8 rounded-lg p-4 sm:p-5"
@@ -385,7 +405,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-12 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-12 gap-4">
                       <div
                         className="col-span-12 rounded-xl p-4 sm:col-span-4 sm:p-5"
                         style={{ background: TOKENS.surfaceLow }}
@@ -512,6 +532,12 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                         )}
                       </div>
                     </div>
+
+                    <ConsoleInsightTile
+                      insight={insight}
+                      loading={showExpenseSkeleton}
+                      className="flex-1"
+                    />
                   </div>
                 </div>
 
@@ -656,145 +682,36 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                   </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
-                  <div
-                    id="console-subscriptions"
-                    className="scroll-mt-28 min-w-0 lg:col-span-2"
-                  >
-                    <div
-                      className="rounded-xl border p-5 transition-colors hover:opacity-[0.98] sm:p-6"
-                      style={{
-                        background: TOKENS.surfaceContainer,
-                        boxShadow: CARD_INSET,
-                        borderColor: TOKENS.outlineGhost,
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex min-w-0 items-start gap-3">
-                          <div
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                            style={{
-                              background: TOKENS.surfaceLow,
-                              color: TOKENS.secondary,
-                            }}
-                          >
-                            <CalendarClock className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p
-                              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                              style={consoleMicroLabel}
-                            >
-                              Subscriptions
-                            </p>
-                            <p
-                              className="mt-1 max-w-xl text-xs leading-relaxed"
-                              style={{ color: TOKENS.onSurfaceMuted }}
-                            >
-                              Active plans and upcoming renewals.
-                            </p>
-                          </div>
-                        </div>
-                        <Link
-                          href={BENTO.subscriptions}
-                          className={cn(
-                            consoleFocus,
-                            "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-colors hover:bg-white/5",
-                          )}
-                          aria-label="Open subscriptions"
-                        >
-                          <ArrowUpRight
-                            className="h-4 w-4"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          />
-                        </Link>
-                      </div>
-
-                      <div className="mt-5">
-                        <div className="text-3xl font-bold tabular-nums tracking-tight sm:text-[1.75rem]">
-                          <MajorFigureCurrency
-                            amount={subscriptionDash.monthlyActiveTotal}
-                            variant="neutral"
-                          />
-                        </div>
-                        <p
-                          className="mt-1.5 text-[10px] font-medium uppercase tracking-wider"
-                          style={consoleMicroLabel}
-                        >
-                          Monthly equivalent (active)
-                        </p>
-                      </div>
-
-                      <div
-                        className="mt-5 border-t pt-5"
-                        style={{ borderColor: TOKENS.outlineGhost }}
-                      >
-                        <p
-                          className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-                          style={{ color: TOKENS.onSurfaceMutedElevated }}
-                        >
-                          Renewals in the next 14 days
-                        </p>
-                        <ul className="mt-3 space-y-2.5">
-                          {subscriptionDash.upcoming.length === 0 ? (
-                            <li
-                              className="text-sm leading-snug"
-                              style={{ color: TOKENS.onSurfaceMuted }}
-                            >
-                              None scheduled — you&apos;re clear for this window.
-                            </li>
-                          ) : (
-                            subscriptionDash.upcoming.slice(0, 4).map((u) => (
-                              <li
-                                key={`${u.subscriptionId}-${u.kind}-${u.date}`}
-                                className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm"
-                              >
-                                <span
-                                  className="min-w-0 truncate font-medium"
-                                  style={{ color: TOKENS.onSurface }}
-                                >
-                                  {u.label}
-                                  <span
-                                    className="ml-1.5 text-[10px] font-normal uppercase tracking-wide"
-                                    style={consoleMicroLabel}
-                                  >
-                                    {u.kind === "trial" ? "trial" : "renewal"}
-                                  </span>
-                                </span>
-                                <span
-                                  className="shrink-0 tabular-nums text-xs"
-                                  style={{ color: TOKENS.onSurfaceMuted }}
-                                >
-                                  {new Date(u.date).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                  })}{" "}
-                                  ·{" "}
-                                  <MajorFigureCurrency
-                                    amount={u.amount}
-                                    variant="neutral"
-                                    className="inline text-xs font-semibold!"
-                                  />
-                                </span>
-                              </li>
-                            ))
-                          )}
-                        </ul>
-                        {subscriptionDash.upcoming.length > 4 ? (
-                          <Link
-                            href={BENTO.subscriptions}
-                            className={cn(
-                              consoleFocus,
-                              "mt-3 inline-flex min-h-11 items-center text-xs font-semibold",
-                            )}
-                            style={{ color: TOKENS.primary }}
-                          >
-                            View all subscriptions
-                          </Link>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
+                {/* Staggered 5/7 → 7/5 spans — the inverse of the pillar
+                    detail rhythm below, so the two mosaics weave rather than
+                    repeat. Width goes to the denser content: transaction rows
+                    and ranked category bars. */}
+                {/* Bento band: staggered 5/7 → 7/5 spans (inverse of the
+                    pillar rhythm below), alternating raised/recessed tones,
+                    and one floating tile — the same language as the metrics
+                    band above (savings-rate recessed, burn-rate floating). */}
+                <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
+                  <ConsoleSubscriptionsCard
+                    subscriptionDash={subscriptionDash}
+                    className="lg:col-span-5"
+                    tone="recessed"
+                  />
+                  <ConsoleRecentTransactionsCard
+                    transactions={recentTransactions}
+                    className="lg:col-span-7"
+                  />
+                  <ConsoleTopCategoriesCard
+                    expenses={expenses}
+                    totalExpenses={totalExpenses}
+                    loading={loading}
+                    className="lg:col-span-7"
+                    tone="recessed"
+                  />
+                  <ConsoleSavingGoalsCard
+                    goals={savingGoals}
+                    className="lg:col-span-5"
+                    floating
+                  />
                 </div>
               </div>
     </>

@@ -1,3 +1,4 @@
+import { expenseLabel } from "@/components/expenses/expense-shared"
 import type {
   Account,
   Breakdown,
@@ -8,6 +9,91 @@ import type {
   PulseMetrics,
   SpendingAlert,
 } from "@/components/wealth-console/types"
+
+export type DashboardInsight = {
+  text: string
+  tone: "positive" | "caution" | "neutral"
+}
+
+/**
+ * One-line, rules-based observation for the metrics band. Deliberately not an
+ * LLM call: it must render instantly on every dashboard load. Priority:
+ * runway risk → spend trend → top category → savings rate → budget load.
+ */
+export function buildDashboardInsight({
+  expenses,
+  totalExpenses,
+  lastMonthExpenses,
+  expenseChangePct,
+  savingsRatePct,
+  pulseMetrics,
+  formatCurrency,
+}: {
+  expenses: Expense[]
+  totalExpenses: number
+  lastMonthExpenses: number
+  expenseChangePct: number | null
+  savingsRatePct: number | null
+  pulseMetrics: PulseMetrics
+  formatCurrency: (amount: number) => string
+}): DashboardInsight | null {
+  if (totalExpenses > 0 && pulseMetrics.daysRemaining < 10) {
+    return {
+      text: `At the current burn rate your liquid funds cover about ${pulseMetrics.daysRemaining} more days — worth a look before new spending.`,
+      tone: "caution",
+    }
+  }
+
+  if (expenseChangePct !== null && lastMonthExpenses > 0) {
+    const diff = Math.abs(totalExpenses - lastMonthExpenses)
+    if (expenseChangePct <= -20) {
+      return {
+        text: `Outflow so far is ${Math.abs(expenseChangePct).toFixed(0)}% below last month's total — ${formatCurrency(diff)} less out the door.`,
+        tone: "positive",
+      }
+    }
+    if (expenseChangePct >= 20) {
+      return {
+        text: `Outflow is already ${expenseChangePct.toFixed(0)}% above last month's total — ${formatCurrency(diff)} more than all of last month.`,
+        tone: "caution",
+      }
+    }
+  }
+
+  if (totalExpenses > 0 && expenses.length > 0) {
+    const sums = new Map<string, number>()
+    for (const e of expenses) {
+      const key = e.expenseCategory || "uncategorised"
+      sums.set(key, (sums.get(key) ?? 0) + e.amount)
+    }
+    const [topKey, topAmount] = [...sums.entries()].sort((a, b) => b[1] - a[1])[0]
+    const sharePct = (topAmount / totalExpenses) * 100
+    if (sharePct >= 25) {
+      const label =
+        topKey === "uncategorised" ? "Uncategorised spending" : expenseLabel(topKey) || topKey
+      return {
+        text: `${label} is your biggest expense this month — ${formatCurrency(topAmount)}, ${sharePct.toFixed(0)}% of everything spent.`,
+        tone: "neutral",
+      }
+    }
+  }
+
+  if (savingsRatePct !== null && savingsRatePct >= 40) {
+    return {
+      text: `You're keeping ${savingsRatePct.toFixed(0)}% of this month's income — well clear of the usual 20% guideline.`,
+      tone: "positive",
+    }
+  }
+
+  if (pulseMetrics.budgetUsedPct > 0) {
+    return {
+      text: `${pulseMetrics.budgetUsedPct.toFixed(0)}% of this month's allocation is used so far.`,
+      tone: "neutral",
+    }
+  }
+
+  return null
+}
 
 export function accountTypeDisplay(accountType: string) {
   const t = accountType.toLowerCase()
