@@ -76,6 +76,8 @@ export type StatementTransaction = {
   toAccount?: { id: string; name: string; bankName: string }
   /** Income only: false when excluded from budget allocation (e.g. dividends). */
   excludeFromAllocation?: boolean
+  /** Expense only: subcategory such as food, transport, bills. */
+  expenseCategory?: string | null
 }
 
 type StatementSummary = {

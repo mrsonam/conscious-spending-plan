@@ -41,6 +41,7 @@ import {
 } from "@/lib/form-validation"
 import { parseMoneyInput } from "@/lib/money-input"
 import { toastSuccess, toastError } from "@/lib/app-toast"
+import { AccountTransactionsSection } from "@/components/accounts/account-transactions-section"
 
 interface AccountDetail {
   id: string
@@ -1125,8 +1126,8 @@ export function AccountDetailView({ id }: { id: string }) {
               </div>
 
               {/* ── Two-column grid on lg ── */}
-              <div className="grid gap-4 lg:grid-cols-2" id="account-details-grid">
-                <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,32rem)_1fr]" id="account-details-grid">
+                <div className="mx-auto w-full max-w-[34rem] space-y-4 lg:mx-0">
                   {!isCash && hasCardDetails && <BankCard account={account} />}
 
                   {!isCash && hasAccountDetails && (
@@ -1209,10 +1210,11 @@ export function AccountDetailView({ id }: { id: string }) {
                     <DetailRow label="Account name" value={account.name} />
                     <DetailRow label="Institution" value={account.bankName} />
                     <DetailRow label="Type" value={typeLabel(account.accountType)} />
-                    <DetailRow label="Default account" value={account.isDefault ? "Yes" : "No"} />
                   </div>
                 </div>
               </div>
+
+              <AccountTransactionsSection accountId={account.id} />
             </div>
 
             {!isCash && redbarkAccountId !== undefined && (
