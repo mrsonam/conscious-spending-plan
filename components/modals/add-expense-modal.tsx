@@ -27,7 +27,8 @@ import {
   FormFieldError,
   formFieldAria,
 } from "@/components/forms/form-field-error"
-import { invalidateExpenseDataCaches } from "@/lib/client-fetch-cache"
+import { invalidateExpenseDataCaches, fetchJsonAndCache, peekCachedJson } from "@/lib/client-fetch-cache"
+import { ACCOUNTS_LIST_CACHE_KEY } from "@/hooks/use-accounts-page"
 import { cn } from "@/lib/utils"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
 import {
@@ -79,6 +80,11 @@ const selectFieldStyle = {
   color: TOKENS.onSurface,
 } as const
 
+function defaultAccountId(list: Account[]): string {
+  if (list.length === 0) return ""
+  return list.find((a) => a.isDefault)?.id ?? list[0]!.id
+}
+
 export function AddExpenseModal({
   open,
   onOpenChange,
@@ -100,23 +106,36 @@ export function AddExpenseModal({
     useFormFieldErrors<ExpenseModalFieldKey>()
 
   useEffect(() => {
-    if (open) {
-      const today = new Date()
-      setDate(today.toISOString().split("T")[0])
+    if (!open) return
 
-      fetch("/api/accounts").then((res) => {
-        if (res.ok) {
-          res.json().then((data) => {
-            const list: Account[] = data.accounts || []
-            setAccounts(list)
-            if (list.length > 0) {
-              const def = list.find((a) => a.isDefault) ?? list[0]
-              setAccountId(def.id)
-            }
-          })
-        }
-      })
+    const today = new Date()
+    setDate(today.toISOString().split("T")[0])
+
+    const applyAccounts = (list: Account[]) => {
+      setAccounts(list)
+      if (list.length > 0) {
+        setAccountId(defaultAccountId(list))
+      }
     }
+
+    const cached = peekCachedJson<{ accounts?: Account[] }>(
+      ACCOUNTS_LIST_CACHE_KEY,
+      60_000,
+    )
+    if (cached?.accounts?.length) {
+      applyAccounts(cached.accounts)
+    }
+
+    void fetchJsonAndCache<{ accounts?: Account[] }>(
+      ACCOUNTS_LIST_CACHE_KEY,
+      "/api/accounts",
+    )
+      .then((data) => {
+        applyAccounts(data.accounts ?? [])
+      })
+      .catch(() => {
+        /* keep cached selection if refresh fails */
+      })
   }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -251,6 +270,7 @@ export function AddExpenseModal({
                 </label>
                 <AppSelect
                   id="account"
+                  key={open ? "open" : "closed"}
                   value={accountId}
                   onValueChange={(v) => {
                     setAccountId(v)
