@@ -21,6 +21,11 @@ import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { cn } from "@/lib/utils"
 import {
+  consoleFocus,
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -916,24 +921,26 @@ function RedbarkLinkPanel({
 // ─── skeleton ────────────────────────────────────────────────────────────────
 
 function Skeleton() {
+  const shimmer = TOKENS.surfaceHigh
   return (
-    <div className="animate-pulse space-y-6">
-      <div className="rounded-2xl p-6 sm:p-8" style={{ background: TOKENS.surfaceContainer }}>
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <div className="h-4 w-20 rounded" style={{ background: TOKENS.surfaceHigh }} />
-            <div className="h-7 w-48 rounded" style={{ background: TOKENS.surfaceHigh }} />
-            <div className="h-4 w-32 rounded" style={{ background: TOKENS.surfaceHigh }} />
-          </div>
-          <div className="space-y-2 text-right">
-            <div className="h-4 w-16 rounded" style={{ background: TOKENS.surfaceHigh }} />
-            <div className="h-8 w-36 rounded" style={{ background: TOKENS.surfaceHigh }} />
-          </div>
+    <div className="animate-pulse space-y-6" aria-busy="true" aria-label="Loading account">
+      <section className="px-1 py-2 sm:px-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="h-8 w-56 max-w-full rounded" style={{ background: shimmer }} />
+          <div className="h-8 w-24 rounded-lg border" style={{ borderColor: TOKENS.outlineGhost, background: shimmer }} />
         </div>
-      </div>
+        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <div className="h-4 w-36 rounded" style={{ background: shimmer }} />
+            <div className="mt-6 h-3 w-28 rounded" style={{ background: shimmer }} />
+            <div className="mt-3 h-12 w-44 max-w-full rounded" style={{ background: shimmer }} />
+          </div>
+          <div className="h-11 w-24 rounded-xl" style={{ background: shimmer }} />
+        </div>
+      </section>
       <div className="flex gap-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-20 flex-1 rounded-xl" style={{ background: TOKENS.surfaceContainer }} />
+          <div key={i} className="h-20 flex-1 rounded-xl border" style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost }} />
         ))}
       </div>
       <div
@@ -1003,88 +1010,89 @@ export function AccountDetailView({ id }: { id: string }) {
         {account && (
           <>
             <div className="space-y-4">
-              {/* ── Hero panel ── */}
-              <div
-                className="relative overflow-hidden rounded-2xl border p-6 sm:p-8"
-                style={{
-                  background: `radial-gradient(ellipse at 80% 40%, color-mix(in srgb, ${accent} 10%, transparent) 0%, transparent 65%), ${TOKENS.surfaceContainer}`,
-                  borderColor: TOKENS.outlineGhost,
-                  boxShadow: "inset 0 1px 0 rgba(218,226,253,0.07)",
-                }}
-              >
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-0 h-px"
-                  style={{
-                    background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${accent} 40%, transparent), transparent)`,
-                  }}
-                />
+              {/* ── Hero ── */}
+              <section className="px-1 py-2 sm:px-2" aria-labelledby="account-hero-heading">
+                <h1 id="account-hero-heading" className="sr-only">
+                  {account.name}
+                </h1>
 
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                  <h2
+                    className="text-2xl font-black tracking-tight sm:text-3xl"
+                    style={{ color: TOKENS.onSurface }}
+                  >
+                    {account.name}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+                      style={{
+                        borderColor: TOKENS.outlineGhost,
+                        color: accent,
+                        background: TOKENS.surfaceHigh,
+                      }}
+                    >
+                      <Landmark className="h-3.5 w-3.5" aria-hidden />
+                      {typeLabel(account.accountType)}
+                    </div>
+                    {account.isDefault && (
+                      <div
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
                         style={{
-                          background: `color-mix(in srgb, ${accent} 14%, transparent)`,
-                          color: accent,
-                          border: `1px solid color-mix(in srgb, ${accent} 25%, transparent)`,
+                          borderColor: TOKENS.outlineGhost,
+                          color: TOKENS.secondary,
+                          background: TOKENS.surfaceHigh,
                         }}
                       >
-                        {typeLabel(account.accountType)}
-                      </span>
-                      {account.isDefault && (
-                        <span
-                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
-                          style={{
-                            background: "color-mix(in srgb, #89ceff 10%, transparent)",
-                            color: TOKENS.secondary,
-                            border: "1px solid color-mix(in srgb, #89ceff 20%, transparent)",
-                          }}
-                        >
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <h1
-                        className="text-2xl font-bold tracking-tight sm:text-3xl"
-                        style={{ color: TOKENS.onSurface }}
-                      >
-                        {account.name}
-                      </h1>
-                      <p className="mt-1 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-                        {account.bankName}
-                      </p>
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                        Default
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                  <div>
+                    <p className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+                      {account.bankName}
+                    </p>
+                    <p
+                      className="mt-6 text-[10px] font-semibold uppercase tracking-[0.24em]"
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    >
+                      Current balance
+                    </p>
+                    <div className={cn("mt-2", consoleHeroFigureClass)}>
+                      <MajorFigureCurrency
+                        amount={account.balance}
+                        variant="neutral"
+                        colorMain={account.balance < 0 ? TOKENS.loss : TOKENS.onSurface}
+                        className={consoleHeroFigureInnerClass}
+                        decimalEm={0.45}
+                      />
                     </div>
                   </div>
 
-                  <div className="flex flex-row items-start justify-between gap-4 sm:flex-col sm:items-end">
-                    <div className="text-right">
-                      <p
-                        className="text-[10px] font-semibold uppercase tracking-[0.2em]"
-                        style={{ color: TOKENS.onSurfaceMuted }}
-                      >
-                        Balance
-                      </p>
-                      <div
-                        className="mt-1 text-3xl font-bold tabular-nums leading-none sm:text-4xl"
-                        style={{ color: account.balance < 0 ? TOKENS.loss : TOKENS.onSurface }}
-                      >
-                        <MajorFigureCurrency amount={account.balance} variant="neutral" />
-                      </div>
-                    </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setShowEdit(true)}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors hover:bg-white/[0.06]"
-                      style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+                      className={cn(
+                        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-colors hover:bg-white/[0.04]",
+                        consoleFocus,
+                      )}
+                      style={{
+                        borderColor: TOKENS.outlineGhost,
+                        color: TOKENS.onSurface,
+                        background: TOKENS.surfaceHigh,
+                      }}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
+                      <Pencil className="h-4 w-4" aria-hidden />
+                      Edit account
                     </button>
                   </div>
                 </div>
-              </div>
+              </section>
 
               {/* ── Stat chips ── */}
               <div className="flex gap-3">

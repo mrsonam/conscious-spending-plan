@@ -26,7 +26,12 @@ import {
 import { DateInput } from "@/components/ui/date-input"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
-import { consoleFocus } from "@/components/wealth-console/console-ui"
+import { MajorFigureCurrency } from "@/lib/currency-major-figure"
+import {
+  consoleFocus,
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 import { tryParseMoneyInput } from "@/lib/money-input"
@@ -405,36 +410,42 @@ export function SuperannuationPageBento() {
       <div className="space-y-6 sm:space-y-8" aria-busy="true" aria-label="Loading superannuation">
 
         {/* Hero skeleton */}
-        <section
-          className="rounded-2xl border p-5 sm:p-6"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-        >
-          <div className="flex flex-wrap items-end justify-between gap-6">
+        <section className="px-1 py-2 sm:px-2">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{ borderColor: TOKENS.outlineGhost, color: "#60a5fa", background: TOKENS.surfaceHigh }}
+            >
+              <Shield className="h-3.5 w-3.5" aria-hidden />
+              <ScrambleIntegerValue min={1} max={3} suffix=" funds" suffixClassName="text-[10px] font-bold uppercase tracking-[0.16em]" />
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: "#60a5fa10" }}>
-                  <Shield className="h-5 w-5" style={{ color: "#60a5fa40" }} />
-                </div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                  Total Super Balance
-                </p>
-              </div>
-              <div className="mt-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
+                Total super balance
+              </p>
+              <div className={cn("mt-2", consoleHeroFigureClass)}>
                 <ScrambleCurrencyValue
-                  variant="neutral"
+                  variant="prosperity"
                   min={4000}
                   max={120000}
-                  className="text-3xl font-bold! sm:text-4xl!"
-                  decimalEm={0.55}
+                  className={consoleHeroFigureInnerClass}
+                  decimalEm={0.45}
                 />
               </div>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+                Retirement balances and contribution history across your super funds.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {["Add Account", "Record Contribution", "Record Fee / Tax"].map((label) => (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {["Record fee / tax", "Record contribution", "Add account"].map((label) => (
                 <div
                   key={label}
-                  className="h-10 animate-pulse rounded-xl border px-4"
-                  style={{ borderColor: TOKENS.outlineGhost, background: shimmer, minWidth: "9rem" }}
+                  className="h-11 animate-pulse rounded-xl border px-5"
+                  style={{ borderColor: TOKENS.outlineGhost, background: shimmer, minWidth: "9.5rem" }}
+                  aria-hidden
                 />
               ))}
             </div>
@@ -601,49 +612,104 @@ export function SuperannuationPageBento() {
     <div className="space-y-6 sm:space-y-8">
 
       {/* ── Hero ── */}
-      <section
-        className="rounded-2xl border p-5 sm:p-6"
-        style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-      >
-        <div className="flex flex-wrap items-end justify-between gap-6">
+      <section className="px-1 py-2 sm:px-2" aria-labelledby="super-hero-heading">
+        <h2 id="super-hero-heading" className="sr-only">
+          Superannuation overview
+        </h2>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              color: "#60a5fa",
+              background: TOKENS.surfaceHigh,
+            }}
+          >
+            <Shield className="h-3.5 w-3.5" aria-hidden />
+            {accounts.length} fund{accounts.length === 1 ? "" : "s"}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "#60a5fa20" }}>
-                <Shield className="h-5 w-5" style={{ color: "#60a5fa" }} />
-              </div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: TOKENS.onSurfaceMuted }}>
-                Total Super Balance
-              </p>
-            </div>
-            <p className="mt-3 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl" style={{ color: TOKENS.onSurface }}>
-              {formatCurrency(computedTotalBalance)}
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.24em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Total super balance
             </p>
+            <div className={cn("mt-2", consoleHeroFigureClass)}>
+              <MajorFigureCurrency
+                amount={computedTotalBalance}
+                variant="prosperity"
+                colorDecimal="#60a5fa"
+                className={consoleHeroFigureInnerClass}
+                decimalEm={0.45}
+              />
+            </div>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+              Retirement balances and contribution history across your super funds. Balances reflect net
+              contributions, returns, fees, and taxes recorded here.
+            </p>
+            {availableFYs.length > 0 && (
+              <p className="mt-2 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+                Viewing{" "}
+                <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {selectedFY}
+                </span>
+                {selectedFY === currentFY() ? " (current financial year)" : ""}
+              </p>
+            )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              onClick={openAddAccount}
-              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
-              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.primary }}
+              onClick={openDeduction}
+              className={cn(
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-colors hover:bg-white/[0.04]",
+                consoleFocus,
+              )}
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: "#f87171",
+                background: TOKENS.surfaceHigh,
+              }}
             >
-              <Plus className="h-4 w-4" /> Add Account
+              <MinusCircle className="h-4 w-4" aria-hidden />
+              Record fee / tax
             </button>
             <button
               type="button"
               onClick={openContrib}
-              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
-              style={{ borderColor: TOKENS.outlineGhost, color: "#60a5fa" }}
+              className={cn(
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-colors hover:bg-white/[0.04]",
+                consoleFocus,
+              )}
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: "#60a5fa",
+                background: TOKENS.surfaceHigh,
+              }}
             >
-              <DollarSign className="h-4 w-4" /> Record Contribution
+              <DollarSign className="h-4 w-4" aria-hidden />
+              Record contribution
             </button>
             <button
               type="button"
-              onClick={openDeduction}
-              className={cn("flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-white/[0.04]", consoleFocus)}
-              style={{ borderColor: TOKENS.outlineGhost, color: "#f87171" }}
+              onClick={openAddAccount}
+              className={cn(
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]",
+                consoleFocus,
+              )}
+              style={{
+                background: TOKENS.primary,
+                color: TOKENS.surface,
+                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+              }}
             >
-              <MinusCircle className="h-4 w-4" /> Record Fee / Tax
+              <Plus className="h-4 w-4" aria-hidden />
+              Add account
             </button>
           </div>
         </div>

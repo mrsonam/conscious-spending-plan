@@ -14,6 +14,10 @@ import {
   CategoryTrackingSegmentedBlocks,
   categoryTrackingConsoleField,
 } from "@/components/category-tracking/category-tracking-console-ui"
+import {
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
 import { expenseLabel } from "@/components/expenses/expense-shared"
 import { trackingFundShort, netPillarHeadroom } from "@/lib/category-tracking-shared"
 import type { UseCategoryDetailPageResult } from "@/hooks/use-category-detail-page"
@@ -161,8 +165,25 @@ export function CategoryDetailView({
 
       <div className="mx-auto max-w-7xl space-y-4 px-4 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
         {loading && !currentRow ? (
-          <div className="space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="space-y-4" aria-busy="true" aria-label="Loading category">
+            <section className="px-1 py-2 sm:px-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                <div className="h-8 w-48 max-w-full animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
+                <div
+                  className="h-8 w-28 animate-pulse rounded-lg border"
+                  style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceHigh }}
+                />
+              </div>
+              <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <div className="h-4 w-32 animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
+                  <div className="mt-6 h-3 w-24 animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
+                  <div className="mt-3 h-12 w-40 max-w-full animate-pulse rounded" style={{ background: TOKENS.surfaceHigh }} />
+                </div>
+                <div className="h-11 w-36 animate-pulse rounded-xl" style={{ background: TOKENS.surfaceHigh }} />
+              </div>
+            </section>
+            {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
                 className="h-24 animate-pulse rounded-xl border"
@@ -177,85 +198,85 @@ export function CategoryDetailView({
         ) : (
           <>
             {/* Hero */}
-            <div
-              className="relative overflow-hidden rounded-2xl border p-6 sm:p-8"
-              style={{
-                background: `radial-gradient(ellipse at 80% 40%, color-mix(in srgb, ${accent} 12%, transparent) 0%, transparent 65%), ${TOKENS.surfaceContainer}`,
-                borderColor: TOKENS.outlineGhost,
-                boxShadow: CARD_INSET,
-              }}
-            >
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    {Icon ? <Icon className="h-5 w-5" style={{ color: accent }} /> : null}
-                    <span
-                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
-                      style={{
-                        background: `color-mix(in srgb, ${accent} 14%, transparent)`,
-                        color: accent,
-                        border: `1px solid color-mix(in srgb, ${accent} 25%, transparent)`,
-                      }}
-                    >
-                      Fund pillar
-                    </span>
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" style={{ color: TOKENS.onSurface }}>
-                      {meta.label}
-                    </h1>
-                    <p className="mt-1 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-                      {selectedMonthLabel}
-                    </p>
-                  </div>
+            <section className="px-1 py-2 sm:px-2" aria-labelledby="category-detail-hero-heading">
+              <h1 id="category-detail-hero-heading" className="sr-only">
+                {meta.label}
+              </h1>
+
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                <h2
+                  className="text-2xl font-black tracking-tight sm:text-3xl"
+                  style={{ color: TOKENS.onSurface }}
+                >
+                  {meta.label}
+                </h2>
+                <div
+                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+                  style={{
+                    borderColor: TOKENS.outlineGhost,
+                    color: accent,
+                    background: TOKENS.surfaceHigh,
+                  }}
+                >
+                  {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                  Fund pillar
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: TOKENS.onSurfaceMuted }}>
+              </div>
+
+              <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <p className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+                    {selectedMonthLabel}
+                  </p>
+                  <p
+                    className="mt-6 text-[10px] font-semibold uppercase tracking-[0.24em]"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
                     {isSavings ? "Spendable" : isOverspent ? "Breach" : "Residual"}
                   </p>
-                  <div className="mt-1">
+                  <div className={cn("mt-2", consoleHeroFigureClass)}>
                     <MajorFigureCurrency
                       amount={displayAmount}
                       variant={isOverspent ? "loss" : "prosperity"}
-                      className="text-3xl font-black sm:text-4xl!"
-                      decimalEm={0.4}
+                      className={consoleHeroFigureInnerClass}
+                      decimalEm={0.45}
                     />
                   </div>
                   {isOverspent ? (
-                    <p className="mt-1 text-xs" style={{ color: ERROR_SOFT }}>
+                    <p className="mt-2 text-xs" style={{ color: ERROR_SOFT }}>
                       Overspent by {formatCurrency(currentRow.overspent)}
                     </p>
                   ) : null}
                 </div>
-              </div>
 
-              <div className="mt-6 max-w-xs">
-                <label
-                  id="category-detail-period-label"
-                  className="text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Period
-                </label>
-                <AppSelect
-                  aria-labelledby="category-detail-period-label"
-                  value={`${selectedYear}-${selectedMonth}`}
-                  onValueChange={(v) => {
-                    const [y, m] = v.split("-").map(Number)
-                    setSelectedYear(y)
-                    setSelectedMonth(m)
-                    setPage(1)
-                  }}
-                  className={cn(categoryTrackingConsoleField, "mt-1 border-transparent")}
-                  style={{
-                    backgroundColor: TOKENS.surfaceLow,
-                    borderColor: TOKENS.outlineGhost,
-                    color: TOKENS.onSurface,
-                  }}
-                  options={monthOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
-                />
+                <div className="w-full max-w-xs lg:w-auto">
+                  <label
+                    id="category-detail-period-label"
+                    className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                    style={{ color: TOKENS.onSurfaceMuted }}
+                  >
+                    Period
+                  </label>
+                  <AppSelect
+                    aria-labelledby="category-detail-period-label"
+                    value={`${selectedYear}-${selectedMonth}`}
+                    onValueChange={(v) => {
+                      const [y, m] = v.split("-").map(Number)
+                      setSelectedYear(y)
+                      setSelectedMonth(m)
+                      setPage(1)
+                    }}
+                    className={cn(categoryTrackingConsoleField, "mt-2 border-transparent")}
+                    style={{
+                      backgroundColor: TOKENS.surfaceHigh,
+                      borderColor: TOKENS.outlineGhost,
+                      color: TOKENS.onSurface,
+                    }}
+                    options={monthOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+                  />
+                </div>
               </div>
-            </div>
+            </section>
 
             {/* vs previous month */}
             <section>
