@@ -106,7 +106,7 @@ export function ConsoleOverviewSection({
             >
               Plan trajectory
             </p>
-            <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
               {loading && trajectorySeries.length === 0 ? (
                 <>
                   <div
@@ -127,7 +127,7 @@ export function ConsoleOverviewSection({
                       : `Plan trajectory over ${trajectorySeries.length} months, combined category remaining from ${formatCurrency(trajectorySeries[0]?.value ?? 0)} to ${formatCurrency(trajectorySeries[trajectorySeries.length - 1]?.value ?? 0)}.`}
                   </p>
                   <p
-                    className="text-right text-sm font-semibold tabular-nums leading-tight"
+                    className="ml-auto min-w-0 text-right text-sm font-semibold tabular-nums leading-tight"
                     style={{
                       color:
                         incomeChangePct !== null && incomeChangePct >= 0
