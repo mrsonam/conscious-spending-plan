@@ -21,6 +21,23 @@ export function ConsoleNetWorthSparkline() {
   const [series, setSeries] = useState<NetWorthPoint[] | null>(null)
   const [failed, setFailed] = useState(false)
 
+  useEffect(() => {
+    let cancelled = false
+    fetchJsonAndCache<{ snapshots?: NetWorthPoint[] }>(
+      CACHE_KEY,
+      "/api/net-worth-history?months=6",
+    )
+      .then((data) => {
+        if (!cancelled) setSeries(data.snapshots ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // The polyline is built in real pixel coordinates instead of stretching a
   // normalized viewBox: stretching (preserveAspectRatio="none") needs
   // vector-effect to keep the stroke uniform, and Chrome computes dash
