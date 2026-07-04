@@ -39,6 +39,7 @@ export type DashboardConsolePayload = {
     target: number | null
     percent: number
     status: string
+    completeBy?: string | null
   }>
   superBalance: number
 }

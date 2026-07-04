@@ -18,6 +18,14 @@ import type { DashboardSavingGoal } from "@/components/wealth-console/types"
 
 const GOALS_LIMIT = 4
 
+/** "Mar 2027" — month precision; finer would be false accuracy. */
+function formatCompleteBy(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  })
+}
+
 function GoalRowSkeleton() {
   return (
     <li className="animate-pulse" aria-hidden>
@@ -185,6 +193,15 @@ export function ConsoleSavingGoalsCard({
                         <span style={{ color: TOKENS.onSurfaceMutedElevated }}>
                           of {formatCurrency(goal.target)}
                         </span>
+                        {!complete && goal.completeBy ? (
+                          <span>
+                            {" "}
+                            · on pace for{" "}
+                            <span style={{ color: TOKENS.secondary }}>
+                              {formatCompleteBy(goal.completeBy)}
+                            </span>
+                          </span>
+                        ) : null}
                       </p>
                     </>
                   ) : (

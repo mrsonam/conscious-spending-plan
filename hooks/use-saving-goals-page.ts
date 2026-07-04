@@ -39,6 +39,11 @@ export interface SavingGoalRow {
   completedAt: string | null
   createdAt: string
   updatedAt: string
+  /** Pace-based completion estimate from the last 90 days of credits. */
+  projection?: {
+    monthlyPace: number
+    completeBy: string
+  } | null
 }
 
 export interface SavingGoalsSummary {

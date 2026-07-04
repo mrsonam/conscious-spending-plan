@@ -43,6 +43,7 @@ import type {
 } from "@/lib/dashboard-console-types"
 import type { Breakdown, DashboardRecentTransaction } from "@/components/wealth-console/types"
 import { bpsToDisplayPercent } from "@/lib/saving-goal-allocation"
+import { loadSavingGoalProjections } from "@/lib/saving-goal-projection"
 
 const FUND_CATEGORIES = [
   "fixedCosts",
@@ -729,6 +730,8 @@ async function loadSavingGoalsForDashboard(userId: string, currency: string) {
     take: 4,
   })
 
+  const projections = await loadSavingGoalProjections(userId, goals, currency)
+
   return goals.map((g) => ({
     id: g.id,
     name: g.name,
@@ -739,6 +742,7 @@ async function loadSavingGoalsForDashboard(userId: string, currency: string) {
         : null,
     percent: bpsToDisplayPercent(g.percentBps),
     status: g.status,
+    completeBy: projections[g.id]?.completeBy ?? null,
   }))
 }
 

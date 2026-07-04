@@ -81,6 +81,8 @@ export type DashboardSavingGoal = {
   target: number | null
   percent: number
   status: string
+  /** ISO estimate of when the goal completes at the recent funding pace. */
+  completeBy?: string | null
 }
 
 export interface YtdSummary {

@@ -14,6 +14,7 @@ import {
   validateActiveGoalPercentSum,
 } from "@/lib/saving-goal-allocation"
 import { loadGeneralSavingsContext } from "@/lib/saving-goal-general-savings"
+import { loadSavingGoalProjections } from "@/lib/saving-goal-projection"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
@@ -44,17 +45,19 @@ export async function GET(request: Request) {
 
     await ensurePreTrackingSavingsBalances(session.user.id)
 
-    const { availableMinor } = await loadGeneralSavingsContext(
-      prisma,
-      session.user.id
-    )
+    const [{ availableMinor }, projections] = await Promise.all([
+      loadGeneralSavingsContext(prisma, session.user.id),
+      loadSavingGoalProjections(session.user.id, goals, currency),
+    ])
+
+    const goalsOut = mapSavingGoalListToApi(
+      goals as unknown as Record<string, unknown>[],
+      currency
+    ).map((g) => ({ ...g, projection: projections[g.id] ?? null }))
 
     return moneyJsonResponse(
       {
-        goals: mapSavingGoalListToApi(
-          goals as unknown as Record<string, unknown>[],
-          currency
-        ),
+        goals: goalsOut,
         summary: {
           activeCount: activeGoals.length,
           assignedPercent: bpsToDisplayPercent(assignedBps),

@@ -39,6 +39,7 @@ import {
   Plus,
   Target,
   Trash2,
+  TrendingUp,
   Wallet,
 } from "lucide-react"
 
@@ -60,6 +61,14 @@ const fieldStyle = {
 
 const labelClass =
   "text-[10px] font-semibold uppercase tracking-wider"
+
+/** "Mar 2027" — month-level precision; anything finer would be false accuracy. */
+function formatCompleteBy(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  })
+}
 
 function GoalProgressBar({
   current,
@@ -198,6 +207,25 @@ function GoalCard({
         </div>
 
         <GoalProgressBar current={goal.current} target={goal.target} accent={TOKENS.primary} />
+
+        {goal.status === "active" && goal.target != null && goal.current < goal.target ? (
+          goal.projection ? (
+            <p className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" style={{ color: TOKENS.primary }} aria-hidden />
+              <span>
+                On pace for{" "}
+                <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {formatCompleteBy(goal.projection.completeBy)}
+                </span>{" "}
+                · ≈{formatCurrency(goal.projection.monthlyPace)}/mo from recent allocations
+              </span>
+            </p>
+          ) : (
+            <p className="mt-3 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+              No contributions in the last 90 days — no completion estimate yet.
+            </p>
+          )
+        ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {canEdit ? (
