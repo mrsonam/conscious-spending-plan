@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { fetchJsonAndCache } from "@/lib/client-fetch-cache"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { TOKENS } from "@/lib/wealth-console-tokens"
@@ -25,18 +25,33 @@ export function ConsoleNetWorthSparkline() {
   // vector-effect to keep the stroke uniform, and Chrome computes dash
   // geometry in screen space for non-scaling strokes while pathLength
   // normalizes in user space — the mismatch chops the drawn line into dashes.
-  const containerRef = useRef<HTMLDivElement>(null)
+  //
+  // Measurement uses a callback ref (not a mount effect) so it re-attaches
+  // whenever the container node changes (skeleton → chart), and seeds the
+  // width synchronously from clientWidth instead of waiting for an observer
+  // frame.
   const [width, setWidth] = useState(0)
+  const observerRef = useRef<ResizeObserver | null>(null)
 
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+  const attachContainer = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!node) return
+
+    setWidth((prev) => {
+      const next = Math.round(node.clientWidth)
+      return next > 0 && next !== prev ? next : prev
+    })
     const observer = new ResizeObserver((entries) => {
       const next = Math.round(entries[0]?.contentRect.width ?? 0)
-      setWidth((prev) => (prev === next ? prev : next))
+      if (next > 0) setWidth((prev) => (prev === next ? prev : next))
     })
-    observer.observe(el)
-    return () => observer.disconnect()
+    observer.observe(node)
+    observerRef.current = observer
+  }, [])
+
+  useEffect(() => {
+    return () => observerRef.current?.disconnect()
   }, [])
 
   if (failed) return null
@@ -44,7 +59,7 @@ export function ConsoleNetWorthSparkline() {
   if (series === null) {
     return (
       <div
-        ref={containerRef}
+        ref={attachContainer}
         className="mt-4 h-12 w-full animate-pulse rounded-md"
         style={{ background: TOKENS.surfaceLow }}
         aria-hidden
@@ -74,7 +89,7 @@ export function ConsoleNetWorthSparkline() {
   const lineColor = rising ? TOKENS.primary : TOKENS.loss
 
   return (
-    <div className="mt-4" ref={containerRef}>
+    <div className="mt-4" ref={attachContainer}>
       {w > 0 ? (
         <svg
           viewBox={`0 0 ${w} ${h}`}
