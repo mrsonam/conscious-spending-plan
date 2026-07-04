@@ -1,7 +1,9 @@
 import { TOKENS } from "@/lib/wealth-console-tokens"
+import { useLineDrawAnimation } from "@/hooks/use-line-draw"
 import type { TrajectoryPoint } from "@/components/wealth-console/types"
 
 export function TrajectorySparkline({ series }: { series: TrajectoryPoint[] }) {
+  const lineRef = useLineDrawAnimation<SVGPolylineElement>(series.length >= 2)
   const w = 140
   const h = 44
   const pad = 2
@@ -35,13 +37,14 @@ export function TrajectorySparkline({ series }: { series: TrajectoryPoint[] }) {
   return (
     <svg width={w} height={h} className="shrink-0 overflow-visible" aria-hidden>
       <polyline
+        ref={lineRef}
         fill="none"
         stroke={TOKENS.primary}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         pathLength={100}
-        className="csp-line-draw"
+        strokeDasharray={100}
         points={points.join(" ")}
       />
     </svg>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { fetchJsonAndCache } from "@/lib/client-fetch-cache"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { useLineDrawAnimation } from "@/hooks/use-line-draw"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
 type NetWorthPoint = { label: string; netWorth: number }
@@ -32,6 +33,9 @@ export function ConsoleNetWorthSparkline() {
   // frame.
   const [width, setWidth] = useState(0)
   const observerRef = useRef<ResizeObserver | null>(null)
+  const lineRef = useLineDrawAnimation<SVGPolylineElement>(
+    width > 0 && series !== null && series.length >= 2,
+  )
 
   const attachContainer = useCallback((node: HTMLDivElement | null) => {
     observerRef.current?.disconnect()
@@ -106,13 +110,14 @@ export function ConsoleNetWorthSparkline() {
             style={{ "--csp-fade-to": 0.08 } as React.CSSProperties}
           />
           <polyline
+            ref={lineRef}
             fill="none"
             stroke={lineColor}
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             pathLength={100}
-            className="csp-line-draw"
+            strokeDasharray={100}
             points={points.join(" ")}
           />
         </svg>
