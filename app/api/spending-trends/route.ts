@@ -49,9 +49,8 @@ export async function GET(request: Request) {
         where: {
           userId: session.user.id,
           date: { gte: rangeStart, lte: rangeEnd },
-          category: { in: [...CATEGORIES] },
         },
-        select: { amount: true, category: true, date: true },
+        select: { amount: true, category: true, expenseCategory: true, date: true },
       }),
       prisma.incomeEntry.findMany({
         where: {
@@ -62,6 +61,7 @@ export async function GET(request: Request) {
         select: {
           amount: true,
           date: true,
+          description: true,
           allocationFixedCosts: true,
           allocationSavings: true,
           allocationInvestment: true,
@@ -70,27 +70,47 @@ export async function GET(request: Request) {
       }),
     ])
 
-    // Aggregate spend per month+category
+    // Aggregate spend per month+category (pillars), plus granular
+    // expenseCategory totals per month for category trend views.
     const spendMap = new Map<string, Record<string, bigint>>()
+    const granularMap = new Map<string, Map<string, bigint>>()
+    const granularTotals = new Map<string, bigint>()
     for (const { month, year, key } of buckets) {
       void month; void year
       spendMap.set(key, { fixedCosts: 0n, savings: 0n, investment: 0n, guiltFreeSpending: 0n })
+      granularMap.set(key, new Map())
     }
     for (const e of expenses) {
-      if (!e.category) continue
       const m = e.date.getMonth() + 1
       const y = e.date.getFullYear()
       const key = monthKey(m, y)
+      const amount = coerceMinor(e.amount)
+
       const bucket = spendMap.get(key)
-      if (!bucket) continue
-      bucket[e.category] = (bucket[e.category] ?? 0n) + coerceMinor(e.amount)
+      if (bucket && e.category && (CATEGORIES as readonly string[]).includes(e.category)) {
+        bucket[e.category] = (bucket[e.category] ?? 0n) + amount
+      }
+
+      const granular = granularMap.get(key)
+      if (granular) {
+        const cat = e.expenseCategory || "uncategorised"
+        granular.set(cat, (granular.get(cat) ?? 0n) + amount)
+        granularTotals.set(cat, (granularTotals.get(cat) ?? 0n) + amount)
+      }
     }
+
+    // Top categories across the whole range; the rest folds into "other".
+    const topCategoryKeys = [...granularTotals.entries()]
+      .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+      .slice(0, 8)
+      .map(([cat]) => cat)
 
     // Aggregate income + allocations per month
     const incomeMap = new Map<string, { income: bigint; fixedCosts: bigint; savings: bigint; investment: bigint; guiltFreeSpending: bigint }>()
     for (const { key } of buckets) {
       incomeMap.set(key, { income: 0n, fixedCosts: 0n, savings: 0n, investment: 0n, guiltFreeSpending: 0n })
     }
+    const incomeSourceTotals = new Map<string, bigint>()
     for (const e of incomeEntries) {
       const m = e.date.getMonth() + 1
       const y = e.date.getFullYear()
@@ -102,11 +122,41 @@ export async function GET(request: Request) {
       bucket.savings += coerceMinor(e.allocationSavings ?? 0n)
       bucket.investment += coerceMinor(e.allocationInvestment ?? 0n)
       bucket.guiltFreeSpending += coerceMinor(e.allocationGuiltFreeSpending ?? 0n)
+
+      const label = e.description?.trim() || "Other income"
+      incomeSourceTotals.set(label, (incomeSourceTotals.get(label) ?? 0n) + coerceMinor(e.amount))
+    }
+
+    const sortedSources = [...incomeSourceTotals.entries()].sort((a, b) =>
+      b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0,
+    )
+    const incomeSources = sortedSources.slice(0, 5).map(([label, total]) => ({
+      label,
+      total: toD(total),
+    }))
+    const restTotal = sortedSources
+      .slice(5)
+      .reduce((sum, [, total]) => sum + total, 0n)
+    if (restTotal > 0n) {
+      incomeSources.push({ label: "Other", total: toD(restTotal) })
     }
 
     const months = buckets.map(({ month, year, key, label }) => {
       const spend = spendMap.get(key)!
       const inc = incomeMap.get(key)!
+      const granular = granularMap.get(key)!
+
+      const expenseCategories: Record<string, number> = {}
+      let otherMinor = 0n
+      for (const [cat, amount] of granular.entries()) {
+        if (topCategoryKeys.includes(cat)) {
+          expenseCategories[cat] = toD(amount)
+        } else {
+          otherMinor += amount
+        }
+      }
+      if (otherMinor > 0n) expenseCategories.other = toD(otherMinor)
+
       return {
         month,
         year,
@@ -124,10 +174,11 @@ export async function GET(request: Request) {
           guiltFreeSpending: toD(inc.guiltFreeSpending),
         },
         totalIncome: toD(inc.income),
+        expenseCategories,
       }
     })
 
-    return NextResponse.json({ months }, {
+    return NextResponse.json({ months, topCategories: topCategoryKeys, incomeSources }, {
       headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" },
     })
   } catch (error) {

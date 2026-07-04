@@ -2,15 +2,14 @@
 
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Line,
   ComposedChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  Legend,
 } from "recharts"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
@@ -50,6 +49,9 @@ const CATEGORY_LABELS = {
 type Props = {
   data: SpendingTrendMonth[]
   formatCurrency: (n: number) => string
+  avgMonthlySpend?: number
+  momSpendPct?: number | null
+  onMonthClick?: (month: number, year: number) => void
 }
 
 function CustomTooltip({ active, payload, label, formatCurrency }: {
@@ -97,8 +99,17 @@ function CustomTooltip({ active, payload, label, formatCurrency }: {
   )
 }
 
-export function SpendingTrendsChart({ data, formatCurrency }: Props) {
-  const chartData = data.map((d) => ({
+export function SpendingTrendsChart({
+  data,
+  formatCurrency,
+  avgMonthlySpend,
+  momSpendPct,
+  onMonthClick,
+}: Props) {
+  const chartData = data.map((d, index) => ({
+    index,
+    month: d.month,
+    year: d.year,
     label: d.label,
     "spend.fixedCosts": d.spend.fixedCosts,
     "spend.savings": d.spend.savings,
@@ -115,6 +126,36 @@ export function SpendingTrendsChart({ data, formatCurrency }: Props) {
 
   return (
     <>
+      {(avgMonthlySpend !== undefined || momSpendPct !== null) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {avgMonthlySpend !== undefined && avgMonthlySpend > 0 ? (
+            <div
+              className="rounded-lg px-2.5 py-1.5 text-[11px]"
+              style={{ background: TOKENS.surfaceLow }}
+            >
+              <span style={{ color: TOKENS.onSurfaceMuted }}>Avg spend: </span>
+              <span className="font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
+                {formatCurrency(avgMonthlySpend)}/mo
+              </span>
+            </div>
+          ) : null}
+          {momSpendPct !== null && momSpendPct !== undefined && Math.abs(momSpendPct) >= 1 ? (
+            <div
+              className="rounded-lg px-2.5 py-1.5 text-[11px]"
+              style={{ background: TOKENS.surfaceLow }}
+            >
+              <span style={{ color: TOKENS.onSurfaceMuted }}>MoM: </span>
+              <span
+                className="font-semibold tabular-nums"
+                style={{ color: momSpendPct > 0 ? TOKENS.warning : TOKENS.primary }}
+              >
+                {momSpendPct > 0 ? "+" : ""}
+                {momSpendPct.toFixed(0)}%
+              </span>
+            </div>
+          ) : null}
+        </div>
+      )}
       <p className="sr-only" id="trends-chart-hint">
         Spending trends chart. A data table with the same values follows for screen readers.
       </p>
@@ -147,7 +188,30 @@ export function SpendingTrendsChart({ data, formatCurrency }: Props) {
               />
             )}
           />
-          <Bar dataKey="spend.fixedCosts" stackId="spend" fill={CATEGORY_COLORS.fixedCosts} radius={[0, 0, 0, 0]} maxBarSize={40} />
+          {avgMonthlySpend !== undefined && avgMonthlySpend > 0 ? (
+            <ReferenceLine
+              y={avgMonthlySpend}
+              stroke={TOKENS.secondary}
+              strokeDasharray="4 4"
+              strokeOpacity={0.75}
+            />
+          ) : null}
+          <Bar
+            dataKey="spend.fixedCosts"
+            stackId="spend"
+            fill={CATEGORY_COLORS.fixedCosts}
+            radius={[0, 0, 0, 0]}
+            maxBarSize={40}
+            cursor={onMonthClick ? "pointer" : undefined}
+            onClick={
+              onMonthClick
+                ? (entry) => {
+                    const row = entry?.payload as { month?: number; year?: number }
+                    if (row?.month && row?.year) onMonthClick(row.month, row.year)
+                  }
+                : undefined
+            }
+          />
           <Bar dataKey="spend.savings" stackId="spend" fill={CATEGORY_COLORS.savings} maxBarSize={40} />
           <Bar dataKey="spend.investment" stackId="spend" fill={CATEGORY_COLORS.investment} maxBarSize={40} />
           <Bar dataKey="spend.guiltFreeSpending" stackId="spend" fill={CATEGORY_COLORS.guiltFreeSpending} radius={[4, 4, 0, 0]} maxBarSize={40} />

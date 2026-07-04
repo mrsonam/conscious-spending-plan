@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import {
   Area,
   AreaChart,
   CartesianGrid,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -111,10 +113,42 @@ function CustomTooltip({
   )
 }
 
+const SERIES = [
+  { key: "netWorth" as const, label: "Net worth", color: TOKENS.primary, width: 2.5 },
+  { key: "cashValue" as const, label: "Cash", color: BREAKDOWN_COLORS.cash, width: 1.5 },
+  { key: "investmentValue" as const, label: "Invested", color: BREAKDOWN_COLORS.invested, width: 1.5 },
+  { key: "superValue" as const, label: "Super", color: BREAKDOWN_COLORS.super, width: 1.5 },
+  { key: "loanValue" as const, label: "Loans", color: BREAKDOWN_COLORS.loans, width: 1.5 },
+]
+
 export function NetWorthChart({ data, formatCurrency }: Props) {
-  const allValues = data.map((d) => d.netWorth)
-  const minVal = Math.min(...allValues, 0)
-  const maxVal = Math.max(...allValues, 0)
+  const [visible, setVisible] = useState<Record<string, boolean>>({
+    netWorth: true,
+    cashValue: true,
+    investmentValue: true,
+    superValue: true,
+    loanValue: false,
+  })
+
+  const toggle = (key: string) => {
+    setVisible((v) => ({ ...v, [key]: !v[key] }))
+  }
+
+  const hasSuper = data.some((d) => (d.superValue ?? 0) > 0)
+  const hasLoans = data.some((d) => d.loanValue > 0)
+  const activeSeries = SERIES.filter((s) => {
+    if (s.key === "superValue" && !hasSuper) return false
+    if (s.key === "loanValue" && !hasLoans) return false
+    return visible[s.key]
+  })
+
+  const allValues = data.flatMap((d) =>
+    activeSeries
+      .map((s) => d[s.key as keyof NetWorthSnapshot] as number)
+      .filter((v) => typeof v === "number"),
+  )
+  const minVal = allValues.length > 0 ? Math.min(...allValues, 0) : 0
+  const maxVal = allValues.length > 0 ? Math.max(...allValues, 0) : 0
   const padding = Math.max((maxVal - minVal) * 0.15, 1000)
 
   const fmtAxis = (v: number) => {
@@ -158,23 +192,58 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
               <CustomTooltip {...props} formatCurrency={formatCurrency} />
             )}
           />
-          {/* Hidden series, exist only to populate tooltip payload */}
-          <Area dataKey="cashValue" stroke="none" fill="none" legendType="none" />
-          <Area dataKey="investmentValue" stroke="none" fill="none" legendType="none" />
-          <Area dataKey="loanValue" stroke="none" fill="none" legendType="none" />
-          <Area dataKey="superValue" stroke="none" fill="none" legendType="none" />
-          {/* Main net worth line */}
-          <Area
-            type="monotone"
-            dataKey="netWorth"
-            stroke={TOKENS.primary}
-            strokeWidth={2.5}
-            fill="url(#nwGrad)"
-            dot={false}
-            activeDot={{ r: 5, fill: TOKENS.primary, strokeWidth: 0 }}
-          />
+          {activeSeries.map((s) =>
+            s.key === "netWorth" ? (
+              <Area
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                stroke={s.color}
+                strokeWidth={s.width}
+                fill="url(#nwGrad)"
+                dot={false}
+                activeDot={{ r: 5, fill: s.color, strokeWidth: 0 }}
+              />
+            ) : (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                stroke={s.color}
+                strokeWidth={s.width}
+                dot={false}
+                strokeOpacity={0.85}
+              />
+            ),
+          )}
         </AreaChart>
       </ResponsiveContainer>
+
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2">
+        {SERIES.filter((s) => {
+          if (s.key === "superValue" && !hasSuper) return false
+          if (s.key === "loanValue" && !hasLoans) return false
+          return true
+        }).map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => toggle(s.key)}
+            className="flex items-center gap-1.5 text-[12px] transition-opacity"
+            style={{
+              color: visible[s.key] ? TOKENS.onSurfaceMuted : TOKENS.onSurfaceMuted,
+              opacity: visible[s.key] ? 1 : 0.4,
+            }}
+            aria-pressed={visible[s.key]}
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ background: s.color }}
+            />
+            {s.label}
+          </button>
+        ))}
+      </div>
 
       {/* Screen-reader table */}
       <table className="sr-only">

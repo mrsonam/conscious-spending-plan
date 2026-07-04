@@ -4,9 +4,8 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useHydratedSession } from "@/hooks/use-hydrated-session"
 import { Header } from "@/components/layout/header"
-import { CashFlowForecastBento } from "@/components/trends/cash-flow-forecast-bento"
-import { SpendingTrendsBento } from "@/components/trends/spending-trends-bento"
-import { NetWorthBento } from "@/components/net-worth/net-worth-bento"
+import { TrendsPageBento } from "@/components/trends/trends-page-bento"
+import { TOKENS } from "@/lib/wealth-console-tokens"
 
 export default function TrendsPage() {
   const { session, status, isSessionPending } = useHydratedSession()
@@ -23,10 +22,13 @@ export default function TrendsPage() {
       <>
         <Header
           title="Trends"
-          description="Spending patterns across months."
+          description="Spending patterns, income, and net worth over time."
         />
         <div className="mx-auto w-full max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
-          <div className="h-[420px] animate-pulse rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="space-y-4">
+            <div className="h-24 animate-pulse rounded-xl" style={{ background: TOKENS.surfaceHigh }} />
+            <div className="h-[420px] animate-pulse rounded-xl" style={{ background: TOKENS.surfaceHigh }} />
+          </div>
         </div>
       </>
     )
@@ -38,12 +40,10 @@ export default function TrendsPage() {
     <>
       <Header
         title="Trends"
-        description="Spending patterns across months."
+        description="Spending patterns, income, and net worth over time."
       />
-      <div className="mx-auto w-full max-w-7xl space-y-4 px-4 pb-10 pt-4 sm:space-y-6 sm:px-6 lg:px-8">
-        <CashFlowForecastBento />
-        <NetWorthBento />
-        <SpendingTrendsBento />
+      <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <TrendsPageBento />
       </div>
     </>
   )

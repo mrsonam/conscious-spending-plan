@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -169,6 +170,7 @@ export function CashFlowForecastChart({
   const tickInterval = Math.max(1, Math.floor(data.length / 8))
 
   const todayDate = data[todayIndex]?.date
+  const billDays = data.filter((d) => d.events.some((e) => e.type === "recurring"))
 
   return (
     <>
@@ -266,6 +268,17 @@ export function CashFlowForecastChart({
             }}
             connectNulls
           />
+          {billDays.map((point) => (
+            <ReferenceDot
+              key={`bill-${point.date}`}
+              x={point.date}
+              y={point.forecastBalance}
+              r={4}
+              fill={TOKENS.loss}
+              stroke={TOKENS.surfaceContainer}
+              strokeWidth={1.5}
+            />
+          ))}
         </AreaChart>
       </ResponsiveContainer>
 
@@ -290,6 +303,18 @@ export function CashFlowForecastChart({
           />
           Forecast
         </span>
+        {billDays.length > 0 ? (
+          <span
+            className="flex items-center gap-1.5 text-[12px]"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: TOKENS.loss }}
+            />
+            Scheduled bill
+          </span>
+        ) : null}
       </div>
     </>
   )

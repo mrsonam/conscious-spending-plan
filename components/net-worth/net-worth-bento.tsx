@@ -31,9 +31,16 @@ function SkeletonPulse() {
   )
 }
 
-export function NetWorthBento() {
+export function NetWorthBento({
+  months: controlledMonths,
+  hideRangeSelector = false,
+}: {
+  months?: number
+  hideRangeSelector?: boolean
+} = {}) {
   const { formatCurrency } = useFormatCurrency()
-  const [months, setMonths] = useState(12)
+  const [internalMonths, setInternalMonths] = useState(12)
+  const months = controlledMonths ?? internalMonths
   const [data, setData] = useState<NetWorthSnapshot[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -51,13 +58,15 @@ export function NetWorthBento() {
 
   // Range change comes from a click handler, so sync setState is fine there.
   const changeMonths = useCallback((m: number) => {
-    setMonths(m)
+    if (controlledMonths !== undefined) return
+    setInternalMonths(m)
     setLoading(true)
     setError(null)
-  }, [])
+  }, [controlledMonths])
 
   useEffect(() => {
-    // State already initializes to (or was reset to) loading, fetch only.
+    setLoading(true)
+    setError(null)
     fetchHistory(months)
   }, [months, fetchHistory])
 
@@ -121,6 +130,7 @@ export function NetWorthBento() {
         </div>
 
         {/* Range selector */}
+        {!hideRangeSelector ? (
         <div
           className="flex rounded-xl border p-0.5"
           style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surface }}
@@ -141,6 +151,7 @@ export function NetWorthBento() {
             </button>
           ))}
         </div>
+        ) : null}
       </div>
 
       {/* Chart area */}
