@@ -79,7 +79,13 @@ export function ConsoleNetWorthSparkline() {
         className="h-12 w-full"
         aria-hidden
       >
-        <polygon points={areaPoints} fill={lineColor} opacity={0.08} />
+        {/* Area fades in once the line has mostly drawn */}
+        <polygon
+          points={areaPoints}
+          fill={lineColor}
+          className="csp-chart-fade"
+          style={{ "--csp-fade-to": 0.08 } as React.CSSProperties}
+        />
         <polyline
           fill="none"
           stroke={lineColor}
@@ -87,6 +93,8 @@ export function ConsoleNetWorthSparkline() {
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
+          pathLength={100}
+          className="csp-line-draw"
           points={points.join(" ")}
         />
       </svg>
@@ -98,7 +106,7 @@ export function ConsoleNetWorthSparkline() {
           Last 6 months
         </p>
         <p
-          className="text-[11px] font-semibold tabular-nums"
+          className="csp-chart-fade text-[11px] font-semibold tabular-nums"
           style={{ color: lineColor }}
         >
           {rising ? "+" : "−"}

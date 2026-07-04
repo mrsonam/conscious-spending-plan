@@ -1049,3 +1049,43 @@ html[data-csp-dashboard-theme="console"] .skeleton-base,
 }
 .ai-chat-markdown pre code { padding: 0; background: none; }
 .ai-chat-markdown a { color: #5de4c2; text-decoration: underline; }
+
+/* ── chart draw-on animation (dashboard sparklines) ───────────────────────── */
+@keyframes csp-line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes csp-chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--csp-fade-to, 1);
+  }
+}
+
+/* Pair with pathLength={100} on the SVG shape so the dash math is stable. */
+.csp-line-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: csp-line-draw 1000ms ease-out 150ms forwards;
+}
+
+.csp-chart-fade {
+  opacity: 0;
+  animation: csp-chart-fade 500ms ease-out 850ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csp-line-draw {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+  .csp-chart-fade {
+    animation: none;
+    opacity: var(--csp-fade-to, 1);
+  }
+}

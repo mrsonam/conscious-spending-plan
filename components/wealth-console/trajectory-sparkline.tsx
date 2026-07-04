@@ -40,6 +40,8 @@ export function TrajectorySparkline({ series }: { series: TrajectoryPoint[] }) {
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
+        pathLength={100}
+        className="csp-line-draw"
         points={points.join(" ")}
       />
     </svg>
