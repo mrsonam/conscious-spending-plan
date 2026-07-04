@@ -137,16 +137,25 @@ export function ConsoleSavingGoalsCard({
                     >
                       {goal.name}
                     </p>
-                    <span
-                      className="shrink-0 text-xs font-bold tabular-nums"
-                      style={{ color: complete ? TOKENS.primary : TOKENS.onSurfaceMuted }}
-                    >
-                      {complete
-                        ? "Done"
-                        : goal.target != null
-                          ? `${completionPct.toFixed(0)}% saved`
-                          : "—"}
-                    </span>
+                    {goal.target != null ? (
+                      <span
+                        className="shrink-0 text-xs font-bold tabular-nums"
+                        style={{ color: complete ? TOKENS.primary : TOKENS.onSurfaceMuted }}
+                      >
+                        {complete ? "Done" : `${completionPct.toFixed(0)}% saved`}
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                        style={{
+                          background: `color-mix(in srgb, ${TOKENS.secondary} 14%, ${TOKENS.surfaceHigh})`,
+                          color: TOKENS.secondary,
+                          border: `1px solid ${TOKENS.outlineGhost}`,
+                        }}
+                      >
+                        Ongoing
+                      </span>
+                    )}
                   </div>
                   {goal.target != null ? (
                     <>
@@ -183,7 +192,13 @@ export function ConsoleSavingGoalsCard({
                       className="mt-1.5 text-[10px] tabular-nums"
                       style={{ color: TOKENS.onSurfaceMuted }}
                     >
-                      {formatCurrency(goal.current)} saved · no target set
+                      <span className="text-xs font-bold" style={{ color: TOKENS.onSurface }}>
+                        {formatCurrency(goal.current)}
+                      </span>{" "}
+                      saved
+                      {goal.percent > 0 ? (
+                        <span> · grows with {goal.percent.toFixed(0)}% of savings</span>
+                      ) : null}
                     </p>
                   )}
                 </li>
