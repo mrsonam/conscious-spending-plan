@@ -9,8 +9,6 @@ import {
   Building2,
   DollarSign,
   MinusCircle,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react"
 import {
   ScrambleCurrencyValue,
@@ -24,7 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DateInput } from "@/components/ui/date-input"
-import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
+import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
+import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import {
@@ -79,7 +78,6 @@ const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
 }
 
 const DEDUCTION_TYPES = new Set(["fee", "tax"])
-const ROWS_DEFAULT = 10
 
 const fieldClass =
   "w-full rounded-lg border bg-transparent px-3 py-2.5 text-[13px] outline-none transition-colors focus:border-[#60a5fa]"
@@ -135,8 +133,8 @@ export function SuperannuationPageBento() {
   const [deductionModalOpen, setDeductionModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<SuperAccount | null>(null)
 
-  // Expanded rows per account (show all toggle)
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
+  // Current page per account transaction table
+  const [accountPages, setAccountPages] = useState<Record<string, number>>({})
 
   const [selectedFY, setSelectedFY] = useState<string>(() => currentFY())
 
@@ -163,7 +161,7 @@ export function SuperannuationPageBento() {
   )
 
   useEffect(() => {
-    setExpandedAccounts(new Set())
+    setAccountPages({})
   }, [selectedFY])
 
   // Account form
@@ -799,9 +797,12 @@ export function SuperannuationPageBento() {
                 return d >= fyBounds.start && d <= fyBounds.end
               })
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            const isExpanded = expandedAccounts.has(account.id)
-            const visible = isExpanded ? sorted : sorted.slice(0, ROWS_DEFAULT)
-            const hasMore = sorted.length > ROWS_DEFAULT
+            const maxPage = Math.max(1, Math.ceil(sorted.length / CONSOLE_TABLE_PAGE_SIZE))
+            const page = Math.min(accountPages[account.id] ?? 1, maxPage)
+            const visible = sorted.slice(
+              (page - 1) * CONSOLE_TABLE_PAGE_SIZE,
+              page * CONSOLE_TABLE_PAGE_SIZE,
+            )
 
             return (
               <section
@@ -932,27 +933,19 @@ export function SuperannuationPageBento() {
                       )
                     })}
 
-                    {/* Show more / less toggle */}
-                    {hasMore && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedAccounts((prev) => {
-                            const next = new Set(prev)
-                            if (next.has(account.id)) next.delete(account.id)
-                            else next.add(account.id)
-                            return next
-                          })
-                        }
-                        className="flex w-full items-center justify-center gap-1.5 border-t py-3 text-[12px] font-medium transition-colors hover:bg-white/[0.02]"
-                        style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
-                        ) : (
-                          <><ChevronDown className="h-3.5 w-3.5" /> Show all {sorted.length} entries</>
-                        )}
-                      </button>
+                    {/* Pagination */}
+                    {sorted.length > CONSOLE_TABLE_PAGE_SIZE && (
+                      <div className="px-5 pb-4">
+                        <ConsolePaginationBar
+                          page={page}
+                          pageSize={CONSOLE_TABLE_PAGE_SIZE}
+                          total={sorted.length}
+                          onPageChange={(next) =>
+                            setAccountPages((prev) => ({ ...prev, [account.id]: next }))
+                          }
+                          className="mt-0"
+                        />
+                      </div>
                     )}
                   </div>
                 )}
