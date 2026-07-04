@@ -5,7 +5,7 @@ const globalForDirect = globalThis as unknown as {
   directPrisma: PrismaClient | undefined
 }
 
-/** Prisma client on DIRECT_URL — required for DDL on Supabase (pooler rejects CREATE TABLE). */
+/** Prisma client on DIRECT_URL, required for DDL on Supabase (pooler rejects CREATE TABLE). */
 export function getDirectPrisma(): PrismaClient {
   const rawUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL
   if (!rawUrl) {

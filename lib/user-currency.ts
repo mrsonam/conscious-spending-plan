@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 
 // Display currency changes only via an explicit settings action (which calls
 // invalidateUserDisplayCurrencyCache), so a short in-process cache is safe and
-// removes one user lookup from nearly every money endpoint — including the
+// removes one user lookup from nearly every money endpoint, including the
 // chain-rebuild paths that resolve it once per month.
 const CURRENCY_CACHE_MS = 60_000
 const currencyCache = new Map<string, { value: string; expiresAt: number }>()

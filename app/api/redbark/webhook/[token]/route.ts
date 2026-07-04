@@ -56,13 +56,13 @@ export async function POST(
     })
 
     if (!connection) {
-      // Return 200 so Redbark doesn't disable the endpoint — just ignore unknown tokens
+      // Return 200 so Redbark doesn't disable the endpoint, just ignore unknown tokens
       console.warn(`Redbark webhook: unknown token ${token}`)
       return NextResponse.json({ ok: true, skipped: "unknown token" })
     }
 
     if (!connection.webhookSecret) {
-      // Secret not yet configured — acknowledge receipt without processing
+      // Secret not yet configured, acknowledge receipt without processing
       console.info(`Redbark webhook: signing secret not yet configured for token ${token}`)
       return NextResponse.json({ ok: true, skipped: "secret not configured" })
     }
@@ -79,7 +79,7 @@ export async function POST(
     try {
       payload = JSON.parse(rawBody) as RedbarkPayload
     } catch {
-      // Signature was valid but body isn't JSON — acknowledge so Redbark
+      // Signature was valid but body isn't JSON, acknowledge so Redbark
       // doesn't disable the endpoint over a malformed delivery.
       console.warn(`Redbark webhook: non-JSON body for token ${token}`)
       return NextResponse.json({ ok: true, skipped: "malformed body" })

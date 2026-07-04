@@ -16,7 +16,7 @@ export async function listCategoryBucketTransfersForMonth(
   year: number,
   currency: string
 ): Promise<CategoryBucketTransferApiRow[]> {
-  // Read path: never run DDL here — ensure runs on transfer writes only.
+  // Read path: never run DDL here, ensure runs on transfer writes only.
   try {
     const rows = await prisma.categoryBucketTransfer.findMany({
       where: { userId, month, year },

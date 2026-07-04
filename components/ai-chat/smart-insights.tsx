@@ -11,7 +11,8 @@ import {
 } from "lucide-react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
-import { consoleFocus } from "@/components/wealth-console/console-ui"
+import { consoleFocus, consoleMicroLabel } from "@/components/wealth-console/console-ui"
+import type { ConsoleCardTone } from "@/components/wealth-console/sections/console-subscriptions-card"
 
 type Insight = {
   type: "warning" | "positive" | "tip" | "info"
@@ -33,13 +34,13 @@ const COLOR_MAP = {
   info: "#60a5fa",
 } as const
 
-function InsightSkeleton() {
+function InsightSkeleton({ chipBg }: { chipBg: string }) {
   return (
     <div
-      className="rounded-xl border px-4 py-3.5"
+      className="rounded-xl px-4 py-3.5"
       style={{
-        borderColor: TOKENS.outlineGhost,
-        background: TOKENS.surface,
+        background: chipBg,
+        boxShadow: CARD_INSET,
       }}
     >
       <div className="flex items-start gap-3">
@@ -66,10 +67,20 @@ function InsightSkeleton() {
   )
 }
 
-export function SmartInsights() {
+export function SmartInsights({
+  tone = "raised",
+  className,
+}: {
+  tone?: ConsoleCardTone
+  className?: string
+}) {
   const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const recessed = tone === "recessed"
+  const cardBg = recessed ? TOKENS.surfaceLow : TOKENS.surfaceContainer
+  const chipBg = recessed ? TOKENS.surfaceContainer : TOKENS.surfaceLow
 
   const fetchInsights = useCallback(() => {
     fetch("/api/ai-insights")
@@ -82,7 +93,6 @@ export function SmartInsights() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Retry from the error state (event handler, so sync setState is fine here).
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
@@ -90,38 +100,39 @@ export function SmartInsights() {
   }, [fetchInsights])
 
   useEffect(() => {
-    // State already initializes to loading — kick off the request only.
     fetchInsights()
   }, [fetchInsights])
 
   return (
     <section
-      className="rounded-2xl border p-5 sm:p-6"
+      className={cn(
+        "rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6",
+        className,
+      )}
       style={{
-        background: TOKENS.surfaceContainer,
-        borderColor: TOKENS.outlineGhost,
+        background: cardBg,
         boxShadow: CARD_INSET,
       }}
       aria-labelledby="smart-insights-heading"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <div
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
-            style={{ background: `${TOKENS.primary}20` }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+            style={{ background: chipBg, color: TOKENS.primary }}
           >
-            <Sparkles className="h-4 w-4" style={{ color: TOKENS.primary }} />
+            <Sparkles className="h-5 w-5" aria-hidden />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2
               id="smart-insights-heading"
-              className="text-[15px] font-semibold"
-              style={{ color: TOKENS.onSurface }}
+              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+              style={consoleMicroLabel}
             >
               Smart Insights
             </h2>
             <p
-              className="text-[11px]"
+              className="mt-1 text-xs leading-relaxed"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
               AI-powered analysis of your finances
@@ -148,14 +159,14 @@ export function SmartInsights() {
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <InsightSkeleton key={i} />
+            <InsightSkeleton key={i} chipBg={chipBg} />
           ))}
         </div>
       ) : error ? (
         <div
           className="flex h-24 items-center justify-center rounded-xl text-[13px]"
           style={{
-            background: TOKENS.surface,
+            background: chipBg,
             color: TOKENS.onSurfaceMuted,
           }}
         >
@@ -163,10 +174,10 @@ export function SmartInsights() {
         </div>
       ) : insights.length === 0 ? (
         <div
-          className="flex items-center justify-center gap-3 rounded-xl border px-4 py-4"
+          className="flex items-center justify-center gap-3 rounded-xl px-4 py-4"
           style={{
-            borderColor: TOKENS.outlineGhost,
-            background: TOKENS.surface,
+            background: chipBg,
+            boxShadow: CARD_INSET,
           }}
         >
           <p
@@ -183,7 +194,7 @@ export function SmartInsights() {
               consoleFocus,
             )}
             style={{
-              background: `${TOKENS.primary}20`,
+              background: `color-mix(in srgb, ${TOKENS.primary} 16%, transparent)`,
               color: TOKENS.primary,
             }}
           >
@@ -199,21 +210,21 @@ export function SmartInsights() {
             return (
               <div
                 key={i}
-                className="rounded-xl border px-4 py-3.5 transition-colors"
+                className="rounded-xl px-4 py-3.5"
                 style={{
-                  borderColor: TOKENS.outlineGhost,
-                  background: TOKENS.surface,
+                  background: chipBg,
+                  boxShadow: CARD_INSET,
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: `${color}18` }}
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                    style={{
+                      background: `color-mix(in srgb, ${color} 16%, ${cardBg})`,
+                      color,
+                    }}
                   >
-                    <Icon
-                      className="h-3.5 w-3.5"
-                      style={{ color }}
-                    />
+                    <Icon className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
                     <p

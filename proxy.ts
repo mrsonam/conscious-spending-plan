@@ -25,7 +25,7 @@ function redirectTarget(pathname: string): string | null {
   if (!pathname.startsWith("/dashboard")) return null
 
   const trimmed = pathname.replace(/^\/dashboard\/?/, "")
-  // `/dashboard` and `/dashboard/dashboard` are already the real App Router URLs — do not redirect (avoids ERR_TOO_MANY_REDIRECTS).
+  // `/dashboard` and `/dashboard/dashboard` are already the real App Router URLs, do not redirect (avoids ERR_TOO_MANY_REDIRECTS).
   if (trimmed === "" || trimmed === "dashboard") return null
   if (trimmed === "console-v2" || trimmed.startsWith("console-v2/")) {
     return "/dashboard"

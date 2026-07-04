@@ -240,7 +240,7 @@ export function CategoryTrackingPillarSection({
                 : data.allocated + data.carryover
               : data.allocated
           const usagePercent = usageBase > 0 ? (deployed / usageBase) * 100 : 0
-          let paceLabel = "—"
+          let paceLabel = "-"
           if (elapsed <= 0) paceLabel = "Future"
           else if (elapsed >= 1) paceLabel = "Closed"
           else {

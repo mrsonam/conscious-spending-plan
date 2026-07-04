@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 
 /**
- * Currency-sized loading strip — uses shared `skeleton-base` shimmer (see `globals.css`),
+ * Currency-sized loading strip, uses shared `skeleton-base` shimmer (see `globals.css`),
  * not fake numbers or opacity-only pulse.
  */
 export function ScrambleCurrencyValue({

@@ -131,7 +131,7 @@ export function InvestmentSummarySection({
                     dateStyle: "medium",
                     timeStyle: "short",
                   })
-                : "—"}
+                : "-"}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -236,7 +236,7 @@ export function InvestmentSummarySection({
                 className="text-xl font-bold tabular-nums"
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
-                —
+                -
               </span>
               <p className="mt-1.5 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
                 Add priced positions to see P/L

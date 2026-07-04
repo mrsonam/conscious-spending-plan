@@ -7,7 +7,7 @@ import { routeErrorResponse } from "@/lib/route-error"
 const NAME_MAX = 60
 const TOKENS_MAX = 25
 
-/** GET — list tokens (including plaintext) for the current user. */
+/** GET, list tokens (including plaintext) for the current user. */
 export async function GET() {
   try {
     const session = await auth()
@@ -35,7 +35,7 @@ export async function GET() {
 }
 
 /**
- * POST — create a new token. Stores plaintext so the user can always
+ * POST, create a new token. Stores plaintext so the user can always
  * copy it later from the Shortcuts page.
  */
 export async function POST(request: Request) {

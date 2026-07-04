@@ -37,7 +37,7 @@ export function validateActiveGoalPercentSum(
     return {
       ok: false,
       sumBps: sum,
-      message: `Active goal percentages total ${(sum / 100).toFixed(1)}% — maximum is 100% of savings allocation`,
+      message: `Active goal percentages total ${(sum / 100).toFixed(1)}%, maximum is 100% of savings allocation`,
     }
   }
   return { ok: true }

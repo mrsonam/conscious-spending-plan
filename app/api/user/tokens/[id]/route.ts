@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { routeErrorResponse } from "@/lib/route-error"
 
-/** DELETE — revoke a token (sets `revokedAt`; row is preserved for audit). */
+/** DELETE, revoke a token (sets `revokedAt`; row is preserved for audit). */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

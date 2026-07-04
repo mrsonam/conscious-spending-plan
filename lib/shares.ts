@@ -2,7 +2,7 @@ import { dollarsToMinor, type MinorAmount } from "@/lib/money"
 
 const SHARES_PATTERN = /^\d+(\.\d+)?$/
 
-/** Canonical share count string (no Prisma / Node-only deps — safe for client bundles). */
+/** Canonical share count string (no Prisma / Node-only deps, safe for client bundles). */
 export type ShareCount = string
 
 function parseSharesScaled(

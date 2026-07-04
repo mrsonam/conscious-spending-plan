@@ -163,7 +163,7 @@ async function reconcileUser(userId: string, email: string | null) {
 
   const fundAllocation = await prisma.fundAllocation.findUnique({ where: { userId } })
   if (!fundAllocation) {
-    console.log(`[${email ?? userId}] Skipped — no fund allocation`)
+    console.log(`[${email ?? userId}] Skipped, no fund allocation`)
     return
   }
 
@@ -207,7 +207,7 @@ async function reconcileUser(userId: string, email: string | null) {
   console.log(`Display sum (reconciled): ${after.displaySum}`)
 
   if (Math.abs(after.gap) > 0.01) {
-    console.warn(`Warning: raw pillar gap still ${after.gap} — display layer reconciles to liquid`)
+    console.warn(`Warning: raw pillar gap still ${after.gap}, display layer reconciles to liquid`)
   } else {
     console.log("Pillar sum matches liquid.")
   }

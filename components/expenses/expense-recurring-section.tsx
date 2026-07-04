@@ -279,9 +279,9 @@ export function ExpenseRecurringSection({
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
                     }}
-                    placeholder="—"
+                    placeholder="-"
                     options={[
-                      { value: "", label: "—" },
+                      { value: "", label: "-" },
                       ...FUND_CATEGORIES.map((c) => ({
                         value: c.value,
                         label: c.label,
@@ -309,9 +309,9 @@ export function ExpenseRecurringSection({
                       borderColor: TOKENS.outlineGhost,
                       color: TOKENS.onSurface,
                     }}
-                    placeholder="—"
+                    placeholder="-"
                     options={[
-                      { value: "", label: "—" },
+                      { value: "", label: "-" },
                       ...EXPENSE_CATEGORIES.map((c) => ({
                         value: c.value,
                         label: c.label,

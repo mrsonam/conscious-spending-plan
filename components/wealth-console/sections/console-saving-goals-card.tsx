@@ -18,7 +18,7 @@ import type { DashboardSavingGoal } from "@/components/wealth-console/types"
 
 const GOALS_LIMIT = 4
 
-/** "Mar 2027" — month precision; finer would be false accuracy. */
+/** "Mar 2027", month precision; finer would be false accuracy. */
 function formatCompleteBy(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -123,11 +123,11 @@ export function ConsoleSavingGoalsCard({
                 color: TOKENS.onSurfaceMuted,
               }}
             >
-              No goals yet — create one to give your savings a job.
+              No goals yet. Create one to give your savings a job.
             </li>
           ) : (
             shown.map((goal) => {
-              // goal.percent is the savings *allocation* share, not progress —
+              // goal.percent is the savings *allocation* share, not progress.
               // completion is how much of the target has actually been saved.
               const completionPct =
                 goal.target != null && goal.target > 0

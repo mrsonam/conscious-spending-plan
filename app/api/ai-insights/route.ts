@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma"
 import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
+import { loadDashboardConsoleData } from "@/lib/dashboard-console-server"
+import { buildInsightsOverview } from "@/lib/insights-overview"
 
 function getOpenAI() {
   return new OpenAI({
@@ -31,7 +33,7 @@ Rules:
 
 Example output:
 [
-  {"type":"warning","title":"Dining spend up 40%","body":"You spent $820 on dining out this month vs $585 last month — a $235 increase."},
+  {"type":"warning","title":"Dining spend up 40%","body":"You spent $820 on dining out this month vs $585 last month, a $235 increase."},
   {"type":"positive","title":"Savings rate improving","body":"Your savings rate hit 22% this month, up from 18% last month."},
   {"type":"tip","title":"Bundle streaming services","body":"You're paying $45/mo across 3 streaming services. Consider bundling to save ~$15/mo."},
   {"type":"info","title":"Income steady at $6.2k","body":"Your income has been consistent at ~$6,200/mo for the past 3 months."}
@@ -57,7 +59,6 @@ export async function GET() {
     const now = new Date()
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1)
 
-    let accounts: { name: string; accountType: string; balance: bigint }[] = []
     let expenses: {
       amount: bigint
       date: Date
@@ -70,20 +71,11 @@ export async function GET() {
       amount: bigint
       frequency: string
     }[] = []
-    type FundSettingsRow = {
-      fixedCostsPercentBps: number
-      savingsPercentBps: number
-      investmentPercentBps: number
-      guiltFreeSpendingPercentBps: number
-    }
-    let fundSettings: FundSettingsRow | null = null
+    let overviewContext = ""
 
     try {
       const results = await Promise.all([
-        prisma.account.findMany({
-          where: { userId: session.user.id },
-          select: { name: true, accountType: true, balance: true },
-        }),
+        loadDashboardConsoleData(session.user.id, currency),
         prisma.expense.findMany({
           where: {
             userId: session.user.id,
@@ -110,23 +102,58 @@ export async function GET() {
           where: { userId: session.user.id, isActive: true },
           select: { description: true, amount: true, frequency: true },
         }),
-        prisma.fundAllocation.findFirst({
-          where: { userId: session.user.id },
-        }),
       ])
-      accounts = results[0] as typeof accounts
+      const consolePayload = results[0]
       expenses = results[1] as typeof expenses
       income = results[2] as typeof income
       recurring = results[3] as typeof recurring
-      fundSettings = results[4] as FundSettingsRow | null
+
+      const overview = buildInsightsOverview(consolePayload)
+      overviewContext += `\nCurrent month health:\n`
+      overviewContext += `  Income: $${overview.health.income.toFixed(2)}\n`
+      overviewContext += `  Expenses: $${overview.health.expenses.toFixed(2)}\n`
+      overviewContext += `  Savings rate: ${overview.health.savingsRatePct == null ? "n/a" : `${overview.health.savingsRatePct.toFixed(1)}%`}\n`
+      overviewContext += `  Budget used: ${overview.health.budgetUsedPct.toFixed(1)}%\n`
+      overviewContext += `  Month elapsed: ${overview.health.monthElapsedPct.toFixed(1)}%\n`
+      overviewContext += `  Pace: ${overview.health.pace}\n`
+      overviewContext += `  Cash balance: $${overview.health.cashBalance.toFixed(2)}\n`
+      overviewContext += `  Runway days: ${overview.health.runwayDays ?? "n/a"}\n`
+      overviewContext += `  Super balance: $${consolePayload.superBalance.toFixed(2)}\n`
+
+      overviewContext += `\nPillar envelopes this month:\n`
+      for (const pillar of overview.pillars) {
+        overviewContext += `  ${pillar.label}: allocated $${pillar.allocated.toFixed(2)}, spent $${pillar.spent.toFixed(2)}, remaining $${pillar.remaining.toFixed(2)}, overspent $${pillar.overspent.toFixed(2)}, status ${pillar.status}\n`
+      }
+
+      overviewContext += `\nSubscriptions:\n`
+      overviewContext += `  Monthly active total: $${overview.subscriptions.monthlyActiveTotal.toFixed(2)}\n`
+      for (const row of overview.subscriptions.upcoming) {
+        overviewContext += `  ${row.label}: $${row.amount.toFixed(2)} in ${row.daysUntil} day(s)\n`
+      }
+
+      overviewContext += `\nSaving goals:\n`
+      if (overview.goals.length === 0) {
+        overviewContext += `  None active\n`
+      } else {
+        for (const goal of overview.goals) {
+          overviewContext += `  ${goal.name}: $${goal.current.toFixed(2)}`
+          if (goal.target != null) {
+            overviewContext += ` of $${goal.target.toFixed(2)} (${goal.completionPct?.toFixed(0) ?? 0}%)`
+          }
+          if (goal.completeBy) overviewContext += `, projected ${goal.completeBy.slice(0, 7)}`
+          overviewContext += `\n`
+        }
+      }
+
+      const investedThisMonth = consolePayload.investmentAccounts.reduce((sum, acc) => {
+        return sum + (acc.investedAmount || 0)
+      }, 0)
+      overviewContext += `\nInvestments:\n`
+      overviewContext += `  Accounts: ${consolePayload.investmentAccounts.length}\n`
+      overviewContext += `  Invested amount on accounts: $${investedThisMonth.toFixed(2)}\n`
     } catch (dbErr) {
       console.error("AI insights: database unavailable, generating with limited context:", dbErr)
     }
-
-    const totalBalance = accounts.reduce(
-      (s: number, a: { balance: bigint }) => s + toD(coerceMinor(a.balance)),
-      0,
-    )
 
     const expensesByMonth = new Map<string, Map<string, number>>()
     for (const e of expenses) {
@@ -146,8 +173,7 @@ export async function GET() {
       )
     }
 
-    let context = `Total balance: $${totalBalance.toFixed(2)}\n\n`
-    context += `Monthly Income:\n`
+    let context = `Monthly Income:\n`
     for (const [month, total] of [...incomeByMonth.entries()].sort(
       (a, b) => b[0].localeCompare(a[0]),
     )) {
@@ -159,7 +185,7 @@ export async function GET() {
       (a, b) => b[0].localeCompare(a[0]),
     )) {
       const total = [...cats.values()].reduce((s, v) => s + v, 0)
-      context += `\n${month} — Total: $${total.toFixed(2)}\n`
+      context += `\n${month}, Total: $${total.toFixed(2)}\n`
       for (const [cat, amt] of [...cats.entries()].sort(
         (a, b) => b[1] - a[1],
       )) {
@@ -174,15 +200,9 @@ export async function GET() {
       }
     }
 
-    if (fundSettings) {
-      context += `\nBudget Allocation:\n`
-      context += `  Fixed costs: ${fundSettings.fixedCostsPercentBps / 100}%\n`
-      context += `  Savings: ${fundSettings.savingsPercentBps / 100}%\n`
-      context += `  Investment: ${fundSettings.investmentPercentBps / 100}%\n`
-      context += `  Guilt-free: ${fundSettings.guiltFreeSpendingPercentBps / 100}%\n`
-    }
+    context += overviewContext
 
-    if (accounts.length === 0 && expenses.length === 0 && income.length === 0) {
+    if (expenses.length === 0 && income.length === 0 && !overviewContext) {
       context += "\nNote: No financial data is available yet. Provide 4 general personal finance tips as insights instead.\n"
     }
 

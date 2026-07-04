@@ -186,7 +186,7 @@ export function ConsoleSubscriptionsCard({
                   color: TOKENS.onSurfaceMuted,
                 }}
               >
-                None scheduled — you&apos;re clear for this window.
+                None scheduled. You&apos;re clear for this window.
               </li>
             ) : (
               upcoming.slice(0, UPCOMING_LIMIT).map((u) => {

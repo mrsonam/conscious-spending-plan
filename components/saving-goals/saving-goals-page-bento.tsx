@@ -62,7 +62,7 @@ const fieldStyle = {
 const labelClass =
   "text-[10px] font-semibold uppercase tracking-wider"
 
-/** "Mar 2027" — month-level precision; anything finer would be false accuracy. */
+/** "Mar 2027", month-level precision; anything finer would be false accuracy. */
 function formatCompleteBy(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -222,7 +222,7 @@ function GoalCard({
             </p>
           ) : (
             <p className="mt-3 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-              No contributions in the last 90 days — no completion estimate yet.
+              No contributions in the last 90 days. No completion estimate yet.
             </p>
           )
         ) : null}
@@ -893,7 +893,7 @@ export function SavingGoalsPageBento({
         onOpenChange={setCreateOpen}
         mode="create"
         title="New saving goal"
-        description="Set a % of your savings allocation. Target is optional — leave blank for open-ended goals."
+        description="Set a % of your savings allocation. Target is optional. Leave blank for open-ended goals."
         name={name}
         target={target}
         percent={percent}

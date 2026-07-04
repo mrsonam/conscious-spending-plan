@@ -1,5 +1,5 @@
 /**
- * iOS standalone launch images. SVG is not supported — use PNG (icon-512 scales).
+ * iOS standalone launch images. SVG is not supported, use PNG (icon-512 scales).
  * @see https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html
  */
 export const PWA_APPLE_STARTUP_IMAGE = "/icon-512.png"

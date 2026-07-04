@@ -105,7 +105,7 @@ export async function reallocateMonthIncomeForUser(
     currencyCode,
   )
 
-  // Skip entries whose stored allocation already matches — during a chain
+  // Skip entries whose stored allocation already matches, during a chain
   // rebuild most months are unchanged and every write here is pure overhead.
   const storedById = new Map(monthEntries.map((e) => [e.id, e]))
   const changed = reallocations.filter(({ entryId, alloc }) => {
@@ -135,7 +135,7 @@ export async function reallocateMonthIncomeForUser(
     })
   }
 
-  // Returns the freshly computed balances — no second recompute needed.
+  // Returns the freshly computed balances, no second recompute needed.
   const envelopeTotals = await upsertEnvelopeBalancesForMonth(
     userId,
     resolved.month,

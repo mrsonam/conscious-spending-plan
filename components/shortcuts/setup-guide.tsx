@@ -143,7 +143,7 @@ export function SetupGuide({ originUrl }: { originUrl: string }) {
           color: TOKENS.onSurfaceMuted,
         }}
       >
-        Make sure a <strong>default account</strong> is set first — otherwise the
+        Make sure a <strong>default account</strong> is set first, otherwise the
         Shortcut needs an explicit <code className="font-mono">accountId</code>.
         You can set one on your{" "}
         <Link
@@ -166,7 +166,7 @@ export function SetupGuide({ originUrl }: { originUrl: string }) {
 
         <Step index={2} title="In Shortcuts, add 'Get contents of URL'">
           <p>
-            URL — the endpoint for your account:
+            URL, the endpoint for your account:
           </p>
           <CodeBlock code={endpoint} />
           <p>Method: POST.</p>
@@ -210,7 +210,7 @@ export function SetupGuide({ originUrl }: { originUrl: string }) {
           <p>
             In <em>Shortcuts → Automation</em> create &ldquo;When I buy something
             with Apple Card&rdquo;. Apple passes <em>Amount</em>,{" "}
-            <em>Merchant</em>, and <em>Transaction Date</em> as variables —
+            <em>Merchant</em>, and <em>Transaction Date</em> as variables , 
             wire them straight into the same JSON body. Other banks don&apos;t
             expose this trigger; for those cards a home-screen Shortcut you tap
             after a purchase is the most reliable approach.

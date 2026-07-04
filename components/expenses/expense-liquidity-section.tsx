@@ -52,7 +52,7 @@ export function ExpenseLiquiditySection({
             </span>{" "}
             (last six months), your liquid balances would cover about{" "}
             <span style={{ color: TOKENS.onSurface }}>
-              {runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} months`}
+              {runwayMonths === null ? "-" : `${runwayMonths.toFixed(1)} months`}
             </span>{" "}
             before you would need new income.
           </p>

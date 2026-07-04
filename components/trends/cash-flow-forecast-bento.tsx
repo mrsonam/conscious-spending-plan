@@ -52,7 +52,7 @@ export function CashFlowForecastBento() {
   }, [])
 
   useEffect(() => {
-    // State already initializes to (or was reset to) loading — fetch only.
+    // State already initializes to (or was reset to) loading, fetch only.
     fetchForecast(days)
   }, [days, fetchForecast])
 
@@ -82,7 +82,7 @@ export function CashFlowForecastBento() {
             className="mt-0.5 text-[12px]"
             style={{ color: TOKENS.onSurfaceMuted }}
           >
-            Forecast vs actual — see how predictions compare to real spending
+            Forecast vs actual, see how predictions compare to real spending
           </p>
         </div>
         <div

@@ -61,7 +61,7 @@ export const ACCOUNT_FUND_CATEGORIES = [
   { value: "guiltFreeSpending", label: "Guilt-Free Spending" },
 ] as const
 
-/** Same key as dashboard core load — shared cache when navigating between pages. */
+/** Same key as dashboard core load, shared cache when navigating between pages. */
 export const ACCOUNTS_LIST_CACHE_KEY = "dashboard:accounts"
 
 export function useAccountsPage(authStatus: "loading" | "authenticated" | "unauthenticated") {

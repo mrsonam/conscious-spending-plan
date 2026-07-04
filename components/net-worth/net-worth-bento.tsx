@@ -57,7 +57,7 @@ export function NetWorthBento() {
   }, [])
 
   useEffect(() => {
-    // State already initializes to (or was reset to) loading — fetch only.
+    // State already initializes to (or was reset to) loading, fetch only.
     fetchHistory(months)
   }, [months, fetchHistory])
 

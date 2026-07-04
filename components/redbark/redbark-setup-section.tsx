@@ -76,7 +76,7 @@ export function RedbarkSetupSection() {
       setConnection(d.connection)
       setSecret("")
       setShowRotateField(false)
-      toastSuccess("Signing secret saved — Redbark is active!")
+      toastSuccess("Signing secret saved. Redbark is active!")
     } catch {
       setError("An error occurred")
       toastError("An error occurred")
@@ -175,10 +175,10 @@ export function RedbarkSetupSection() {
         </div>
       ) : connection ? (
         <div className="mt-4 space-y-5">
-          {/* Step 1 — always show webhook URL */}
+          {/* Step 1, always show webhook URL */}
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-              Step 1 — Your webhook URL
+              Step 1, Your webhook URL
             </p>
             <div className="flex items-center gap-2">
               <code
@@ -198,11 +198,11 @@ export function RedbarkSetupSection() {
             </p>
           </div>
 
-          {/* Step 2 — signing secret */}
+          {/* Step 2, signing secret */}
           {active && !showRotateField ? (
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                Step 2 — Signing secret
+                Step 2, Signing secret
               </p>
               <p className="text-xs" style={{ color: TOKENS.primary }}>
                 <CheckCircle2 className="mb-0.5 mr-1 inline h-3.5 w-3.5" />
@@ -212,7 +212,7 @@ export function RedbarkSetupSection() {
           ) : (
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-                Step 2 — {showRotateField ? "New signing secret" : "Paste signing secret from Redbark"}
+                Step 2, {showRotateField ? "New signing secret" : "Paste signing secret from Redbark"}
               </p>
               <div className="flex gap-2">
                 <input
@@ -247,10 +247,10 @@ export function RedbarkSetupSection() {
             </div>
           )}
 
-          {/* Step 3 — API key for account picker */}
+          {/* Step 3, API key for account picker */}
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.onSurfaceMuted }}>
-              Step 3 — API key <span className="normal-case tracking-normal font-normal opacity-60">(enables account picker)</span>
+              Step 3, API key <span className="normal-case tracking-normal font-normal opacity-60">(enables account picker)</span>
             </p>
             {connection?.hasApiKey ? (
               <p className="text-xs" style={{ color: TOKENS.primary }}>

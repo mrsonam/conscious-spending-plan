@@ -343,8 +343,8 @@ export function AddIncomeModal({
                       label: (
                         <>
                           {account.name} ({account.bankName})
-                          {account.isDefault ? " — Default" : ""}{" "}
-                          {account.accountType === "cash" ? " — Cash" : ""}
+                          {account.isDefault ? ", Default" : ""}{" "}
+                          {account.accountType === "cash" ? ", Cash" : ""}
                         </>
                       ),
                     }))}

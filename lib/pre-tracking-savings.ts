@@ -352,7 +352,7 @@ async function ensurePreTrackingSavingsBalancesInner(
 
 /**
  * Seed pre-tracking bank balances into the savings bucket carry for the first tracked month.
- * Idempotent — safe to call on every read/write path.
+ * Idempotent, safe to call on every read/write path.
  */
 export async function ensurePreTrackingSavingsBalances(
   userId: string,

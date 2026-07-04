@@ -60,7 +60,7 @@ async function incomeMonthsForUser(userId: string) {
 async function reallocateUser(userId: string, email: string | null) {
   const fundAllocation = await prisma.fundAllocation.findUnique({ where: { userId } })
   if (!fundAllocation) {
-    console.log(`[${email ?? userId}] Skipped — no fund allocation`)
+    console.log(`[${email ?? userId}] Skipped, no fund allocation`)
     return
   }
 

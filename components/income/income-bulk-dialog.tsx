@@ -86,7 +86,7 @@ export function IncomeBulkDialog({ p }: IncomeBulkDialogProps) {
                 }}
                 options={p.accounts.map((account) => ({
                   value: account.id,
-                  label: `${account.name} (${account.bankName})${account.isDefault ? " — Default" : ""}`,
+                  label: `${account.name} (${account.bankName})${account.isDefault ? ", Default" : ""}`,
                 }))}
               />
             </div>

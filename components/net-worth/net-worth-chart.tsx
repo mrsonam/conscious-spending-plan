@@ -158,7 +158,7 @@ export function NetWorthChart({ data, formatCurrency }: Props) {
               <CustomTooltip {...props} formatCurrency={formatCurrency} />
             )}
           />
-          {/* Hidden series — exist only to populate tooltip payload */}
+          {/* Hidden series, exist only to populate tooltip payload */}
           <Area dataKey="cashValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="investmentValue" stroke="none" fill="none" legendType="none" />
           <Area dataKey="loanValue" stroke="none" fill="none" legendType="none" />

@@ -171,7 +171,7 @@ export function useWealthConsoleDerived({
 
   const changeLabel =
     incomeChangePct === null
-      ? "— vs last month"
+      ? "- vs last month"
       : `${incomeChangePct >= 0 ? "+" : ""}${incomeChangePct.toFixed(1)}% vs last month`
 
   const breakdownData: Breakdown = breakdown ?? EMPTY_BREAKDOWN

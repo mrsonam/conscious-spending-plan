@@ -438,7 +438,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                       {perf.toFixed(1)}% <span className="ml-1 opacity-75">vs prev. month</span>
                     </>
                   ) : (
-                    <span>—</span>
+                    <span>-</span>
                   )}
                 </div>
               </div>
@@ -790,8 +790,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
                       label: (
                         <>
                           {account.name} ({account.bankName})
-                          {account.isDefault ? " — Default" : ""}{" "}
-                          {account.accountType === "cash" ? " — Cash" : ""}
+                          {account.isDefault ? ", Default" : ""}{" "}
+                          {account.accountType === "cash" ? ", Cash" : ""}
                         </>
                       ),
                     }))}

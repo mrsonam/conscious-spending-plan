@@ -3,11 +3,13 @@ import type {
   Account,
   Breakdown,
   CategoryTracking,
+  DashboardSavingGoal,
   DetailRow,
   Expense,
   InvestmentAccount,
   PulseMetrics,
   SpendingAlert,
+  SubscriptionDashboardSnapshot,
 } from "@/components/wealth-console/types"
 
 export type DashboardInsight = {
@@ -15,48 +17,104 @@ export type DashboardInsight = {
   tone: "positive" | "caution" | "neutral"
 }
 
+const PILLAR_LABELS: Record<string, string> = {
+  fixedCosts: "Fixed costs",
+  investment: "Investment",
+  guiltFreeSpending: "Guilt-free spending",
+  savings: "Savings",
+}
+
+function formatCompleteByMonth(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function daysUntilIso(iso: string) {
+  const target = new Date(iso)
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const startOfTarget = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate(),
+  )
+  return Math.round(
+    (startOfTarget.getTime() - startOfToday.getTime()) / 86_400_000,
+  )
+}
+
 /**
- * One-line, rules-based observation for the metrics band. Deliberately not an
- * LLM call: it must render instantly on every dashboard load. Priority:
- * runway risk → spend trend → top category → savings rate → budget load.
+ * Rules-based one-liners for the metrics band. Deliberately not an LLM call:
+ * must render instantly on every dashboard load. Returns every insight that
+ * qualifies so the tile can rotate through them.
  */
-export function buildDashboardInsight({
+export function buildDashboardInsights({
   expenses,
   totalExpenses,
   lastMonthExpenses,
   expenseChangePct,
+  incomeChangePct,
+  lastMonthIncome,
+  monthIncome,
   savingsRatePct,
   pulseMetrics,
+  categoryTracking,
+  subscriptionDash,
+  savingGoals,
   formatCurrency,
 }: {
   expenses: Expense[]
   totalExpenses: number
   lastMonthExpenses: number
   expenseChangePct: number | null
+  incomeChangePct: number | null
+  lastMonthIncome: number
+  monthIncome: number
   savingsRatePct: number | null
   pulseMetrics: PulseMetrics
+  categoryTracking: Record<string, CategoryTracking>
+  subscriptionDash: SubscriptionDashboardSnapshot | null
+  savingGoals: DashboardSavingGoal[] | null
   formatCurrency: (amount: number) => string
-}): DashboardInsight | null {
+}): DashboardInsight[] {
+  const insights: DashboardInsight[] = []
+
   if (totalExpenses > 0 && pulseMetrics.daysRemaining < 10) {
-    return {
+    insights.push({
       text: `At the current burn rate your liquid funds cover about ${pulseMetrics.daysRemaining} more days. Worth a look before new spending.`,
       tone: "caution",
-    }
+    })
   }
 
   if (expenseChangePct !== null && lastMonthExpenses > 0) {
     const diff = Math.abs(totalExpenses - lastMonthExpenses)
     if (expenseChangePct <= -20) {
-      return {
+      insights.push({
         text: `Outflow so far is ${Math.abs(expenseChangePct).toFixed(0)}% below last month's total, with ${formatCurrency(diff)} less out the door.`,
         tone: "positive",
-      }
-    }
-    if (expenseChangePct >= 20) {
-      return {
+      })
+    } else if (expenseChangePct >= 20) {
+      insights.push({
         text: `Outflow is already ${expenseChangePct.toFixed(0)}% above last month's total, ${formatCurrency(diff)} more than all of last month.`,
         tone: "caution",
-      }
+      })
+    }
+  }
+
+  if (incomeChangePct !== null && lastMonthIncome > 0 && monthIncome > 0) {
+    const diff = Math.abs(monthIncome - lastMonthIncome)
+    if (incomeChangePct >= 20) {
+      insights.push({
+        text: `Income so far is ${incomeChangePct.toFixed(0)}% above last month's total, ${formatCurrency(diff)} more in the door.`,
+        tone: "positive",
+      })
+    } else if (incomeChangePct <= -20) {
+      insights.push({
+        text: `Income so far is ${Math.abs(incomeChangePct).toFixed(0)}% below last month's total, ${formatCurrency(diff)} less than all of last month.`,
+        tone: "caution",
+      })
     }
   }
 
@@ -71,28 +129,145 @@ export function buildDashboardInsight({
     if (sharePct >= 25) {
       const label =
         topKey === "uncategorised" ? "Uncategorised spending" : expenseLabel(topKey) || topKey
-      return {
+      insights.push({
         text: `${label} is your biggest expense this month at ${formatCurrency(topAmount)}, ${sharePct.toFixed(0)}% of everything spent.`,
         tone: "neutral",
+      })
+    }
+  }
+
+  let worstOverspend: { label: string; amount: number } | null = null
+  let bestHeadroom: { label: string; amount: number; pct: number } | null = null
+  for (const [cat, tracking] of Object.entries(categoryTracking)) {
+    const label = PILLAR_LABELS[cat] ?? cat
+    const overspent = tracking.overspent ?? 0
+    if (overspent > 0 && (!worstOverspend || overspent > worstOverspend.amount)) {
+      worstOverspend = { label, amount: overspent }
+    }
+    if (
+      tracking.allocated > 0 &&
+      tracking.remaining > 0 &&
+      overspent <= 0
+    ) {
+      const pct = (tracking.remaining / tracking.allocated) * 100
+      if (pct >= 40 && (!bestHeadroom || tracking.remaining > bestHeadroom.amount)) {
+        bestHeadroom = { label, amount: tracking.remaining, pct }
       }
+    }
+  }
+  if (worstOverspend) {
+    insights.push({
+      text: `${worstOverspend.label} is over by ${formatCurrency(worstOverspend.amount)} this month.`,
+      tone: "caution",
+    })
+  } else if (bestHeadroom) {
+    insights.push({
+      text: `${bestHeadroom.label} still has ${formatCurrency(bestHeadroom.amount)} left (${bestHeadroom.pct.toFixed(0)}% of its allocation).`,
+      tone: "positive",
+    })
+  }
+
+  if (pulseMetrics.budgetUsedPct > 0) {
+    const now = new Date()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const currentDay = now.getDate()
+    const monthElapsedPct = (currentDay / daysInMonth) * 100
+    const paceGap = pulseMetrics.budgetUsedPct - monthElapsedPct
+
+    if (paceGap >= 15) {
+      insights.push({
+        text: `You've used ${pulseMetrics.budgetUsedPct.toFixed(0)}% of this month's allocation with only ${monthElapsedPct.toFixed(0)}% of the month gone.`,
+        tone: "caution",
+      })
+    } else if (paceGap <= -15) {
+      insights.push({
+        text: `Only ${pulseMetrics.budgetUsedPct.toFixed(0)}% of this month's allocation is used, with ${monthElapsedPct.toFixed(0)}% of the month already gone.`,
+        tone: "positive",
+      })
+    } else {
+      insights.push({
+        text: `${pulseMetrics.budgetUsedPct.toFixed(0)}% of this month's allocation is used so far.`,
+        tone: "neutral",
+      })
     }
   }
 
   if (savingsRatePct !== null && savingsRatePct >= 40) {
-    return {
+    insights.push({
       text: `You're keeping ${savingsRatePct.toFixed(0)}% of this month's income, well clear of the usual 20% guideline.`,
       tone: "positive",
-    }
+    })
   }
 
-  if (pulseMetrics.budgetUsedPct > 0) {
-    return {
-      text: `${pulseMetrics.budgetUsedPct.toFixed(0)}% of this month's allocation is used so far.`,
+  const upcoming = subscriptionDash?.upcoming ?? []
+  if (upcoming.length > 0) {
+    const next = [...upcoming].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    )[0]
+    const days = daysUntilIso(next.date)
+    const name = next.label?.trim() || next.provider?.trim() || "A subscription"
+    if (days <= 0) {
+      insights.push({
+        text: `${name} renews today for ${formatCurrency(next.amount)}.`,
+        tone: "caution",
+      })
+    } else if (days === 1) {
+      insights.push({
+        text: `${name} renews tomorrow for ${formatCurrency(next.amount)}.`,
+        tone: "caution",
+      })
+    } else if (days <= 7) {
+      insights.push({
+        text: `${name} renews in ${days} days for ${formatCurrency(next.amount)}.`,
+        tone: "neutral",
+      })
+    }
+  } else if (subscriptionDash && subscriptionDash.monthlyActiveTotal > 0) {
+    insights.push({
+      text: `Active subscriptions run about ${formatCurrency(subscriptionDash.monthlyActiveTotal)} per month.`,
       tone: "neutral",
+    })
+  }
+
+  const activeGoals = (savingGoals ?? []).filter((g) => g.status === "active")
+  const goalsWithTarget = activeGoals.filter(
+    (g) => g.target != null && g.target > 0,
+  )
+  if (goalsWithTarget.length > 0) {
+    const ranked = goalsWithTarget
+      .map((g) => ({
+        goal: g,
+        pct: Math.min(100, Math.max(0, (g.current / (g.target as number)) * 100)),
+      }))
+      .sort((a, b) => b.pct - a.pct)
+    const nearest = ranked[0]
+    if (nearest.pct >= 100) {
+      insights.push({
+        text: `${nearest.goal.name} has reached its target of ${formatCurrency(nearest.goal.target as number)}.`,
+        tone: "positive",
+      })
+    } else if (nearest.goal.completeBy) {
+      insights.push({
+        text: `${nearest.goal.name} is on track for ${formatCompleteByMonth(nearest.goal.completeBy)} at the recent funding pace.`,
+        tone: nearest.pct >= 70 ? "positive" : "neutral",
+      })
+    } else {
+      insights.push({
+        text: `${nearest.goal.name} is at ${nearest.pct.toFixed(0)}% of its ${formatCurrency(nearest.goal.target as number)} target.`,
+        tone: nearest.pct >= 70 ? "positive" : "neutral",
+      })
+    }
+  } else {
+    const projected = activeGoals.find((g) => g.completeBy)
+    if (projected?.completeBy) {
+      insights.push({
+        text: `${projected.name} is on track for ${formatCompleteByMonth(projected.completeBy)} at the recent funding pace.`,
+        tone: "neutral",
+      })
     }
   }
 
-  return null
+  return insights
 }
 
 export function accountTypeDisplay(accountType: string) {

@@ -73,7 +73,7 @@ function buildFinancialContext(
   )
   for (const [month, cats] of sortedExpenseMonths) {
     const total = [...cats.values()].reduce((s, v) => s + v, 0)
-    context += `\n**${month}** — Total: $${total.toFixed(2)}\n`
+    context += `\n**${month}**, Total: $${total.toFixed(2)}\n`
     const sorted = [...cats.entries()].sort((a, b) => b[1] - a[1])
     for (const [cat, amt] of sorted) {
       context += `  - ${cat}: $${amt.toFixed(2)}\n`
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Only accept user/assistant turns with bounded string content — the
+    // Only accept user/assistant turns with bounded string content, the
     // system prompt is always built server-side and can't be overridden.
     const MAX_CONTENT_CHARS = 8_000
     const messages: { role: "user" | "assistant"; content: string }[] = []

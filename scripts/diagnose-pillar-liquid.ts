@@ -120,7 +120,7 @@ async function main() {
   const savingsGoals = toD(savingsCtx.assignedToGoalsMinor)
   const savingsBucket = toD(savingsCtx.savingsBucketMinor)
 
-  console.log(`\n=== ${email} — ${month}/${year} ===\n`)
+  console.log(`\n=== ${email}, ${month}/${year} ===\n`)
   console.log(`Liquid (checking+savings+cash): ${toD(liquidMinor)}`)
 
   let pillarSum = 0

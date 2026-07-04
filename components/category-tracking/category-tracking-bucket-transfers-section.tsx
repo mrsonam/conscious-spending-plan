@@ -82,7 +82,7 @@ export function CategoryTrackingBucketTransfersSection({
       </ul>
 
       <p className="mt-3 text-[11px] leading-snug" style={{ color: TOKENS.onSurfaceMuted }}>
-        Plan-level moves between pillars — not bank transfers. Totals stay in deployable balance.
+        Plan-level moves between pillars, not bank transfers. Totals stay in deployable balance.
       </p>
     </div>
   )

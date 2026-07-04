@@ -32,7 +32,7 @@ function monthStart(y: number, month: number) {
 
 const SALARY = 8500
 
-/** 50% FC, 20% savings, 10% inv, 20% GFS — matches default fund split for demos. */
+/** 50% FC, 20% savings, 10% inv, 20% GFS, matches default fund split for demos. */
 function salaryAllocations(amount: number) {
   return {
     allocationFixedCosts: m(amount * 0.5),
@@ -93,7 +93,7 @@ async function main() {
   const brokerage = await prisma.account.create({
     data: {
       userId: user.id,
-      name: "Brokerage — long term",
+      name: "Brokerage, long term",
       bankName: "Fidelity Demo",
       accountType: "investment",
       balance: 0n,
@@ -134,7 +134,7 @@ async function main() {
       data: {
         userId: user.id,
         amount: m(SALARY),
-        description: `Salary — ${pm.y}-${String(pm.m).padStart(2, "0")}`,
+        description: `Salary, ${pm.y}-${String(pm.m).padStart(2, "0")}`,
         date: utc(pm.y, pm.m, pm.day),
         periodStart: ps,
         periodEnd: pe,
@@ -172,17 +172,17 @@ async function main() {
   }
 
   const expenses: Exp[] = [
-    { amount: 1820, description: "Rent — March", category: "fixedCosts", expenseCategory: "rent", date: utc(2026, 3, 1, 9), accountId: checking.id },
-    { amount: 1820, description: "Rent — April", category: "fixedCosts", expenseCategory: "rent", date: utc(2026, 4, 1, 9), accountId: checking.id },
+    { amount: 1820, description: "Rent, March", category: "fixedCosts", expenseCategory: "rent", date: utc(2026, 3, 1, 9), accountId: checking.id },
+    { amount: 1820, description: "Rent, April", category: "fixedCosts", expenseCategory: "rent", date: utc(2026, 4, 1, 9), accountId: checking.id },
     { amount: 124, description: "Electric & gas", category: "fixedCosts", expenseCategory: "bills", date: utc(2026, 4, 5), accountId: checking.id },
     { amount: 59, description: "Internet", category: "fixedCosts", expenseCategory: "bills", date: utc(2026, 4, 6), accountId: credit.id },
     { amount: 89.5, description: "Mobile family plan", category: "fixedCosts", expenseCategory: "bills", date: utc(2026, 4, 7), accountId: credit.id },
-    { amount: 164.23, description: "Groceries — weekend shop", category: "guiltFreeSpending", expenseCategory: "groceries", date: utc(2026, 4, 8, 11), accountId: checking.id },
+    { amount: 164.23, description: "Groceries, weekend shop", category: "guiltFreeSpending", expenseCategory: "groceries", date: utc(2026, 4, 8, 11), accountId: checking.id },
     { amount: 48.7, description: "Fuel", category: "fixedCosts", expenseCategory: "gas", date: utc(2026, 4, 9), accountId: credit.id },
     { amount: 38, description: "Coffee & lunch", category: "guiltFreeSpending", expenseCategory: "food", date: utc(2026, 4, 10), accountId: checking.id },
-    { amount: 215, description: "Dinner — anniversary", category: "guiltFreeSpending", expenseCategory: "food", date: utc(2026, 4, 11, 19), accountId: credit.id },
+    { amount: 215, description: "Dinner, anniversary", category: "guiltFreeSpending", expenseCategory: "food", date: utc(2026, 4, 11, 19), accountId: credit.id },
     { amount: 42, description: "Streaming rental", category: "guiltFreeSpending", expenseCategory: "entertainment", date: utc(2026, 4, 12), accountId: credit.id },
-    { amount: 675, description: "Flight — regional trip", category: "guiltFreeSpending", expenseCategory: "travel", date: utc(2026, 4, 2), accountId: credit.id },
+    { amount: 675, description: "Flight, regional trip", category: "guiltFreeSpending", expenseCategory: "travel", date: utc(2026, 4, 2), accountId: credit.id },
     { amount: 120, description: "Pharmacy", category: "fixedCosts", expenseCategory: "pharmacy", date: utc(2026, 3, 22), accountId: checking.id },
     { amount: 220, description: "Quarterly insurance (auto)", category: "fixedCosts", expenseCategory: "insurance", date: utc(2026, 3, 25), accountId: checking.id },
     { amount: 145, description: "Gym annual upgrade", category: "guiltFreeSpending", expenseCategory: "fitness", date: utc(2026, 3, 18), accountId: credit.id },
@@ -237,7 +237,7 @@ async function main() {
       fromAccountId: savings.id,
       toAccountId: checking.id,
       amount: m(400),
-      description: "Rebalance — liquidity",
+      description: "Rebalance, liquidity",
       category: "savings",
       date: utc(2026, 4, 12, 14),
     },
@@ -355,7 +355,7 @@ async function main() {
       userId: user.id,
       accountId: checking.id,
       amount: m(139),
-      description: "Creative suite — annual",
+      description: "Creative suite, annual",
       category: "fixedCosts",
       expenseCategory: "subscriptions",
       frequency: "yearly",
@@ -480,7 +480,7 @@ async function main() {
       userId: user.id,
       accountId: checking.id,
       amount: m(600),
-      description: "Short bridge — family",
+      description: "Short bridge, family",
       borrowerName: "Sam K.",
       date: utc(2026, 2, 1),
       status: "repaid",
@@ -493,7 +493,7 @@ async function main() {
       userId: user.id,
       accountId: checking.id,
       amount: m(18500),
-      description: "Consolidation note — variable rate",
+      description: "Consolidation note, variable rate",
       lenderName: "Metro Credit Union",
       date: utc(2024, 6, 1),
       dueDate: utc(2029, 6, 1),
@@ -507,7 +507,7 @@ async function main() {
       userId: user.id,
       accountId: brokerage.id,
       amount: m(4000),
-      description: "Margin line — promotional",
+      description: "Margin line, promotional",
       lenderName: "Fidelity Demo",
       date: utc(2025, 3, 10),
       status: "active",

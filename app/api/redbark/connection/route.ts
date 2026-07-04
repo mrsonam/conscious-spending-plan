@@ -17,7 +17,7 @@ export async function GET() {
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
-        webhookSecret: "", // placeholder — webhook requests will fail sig check until secret is set
+        webhookSecret: "", // placeholder, webhook requests will fail sig check until secret is set
       },
       update: {},
       select: { webhookToken: true, webhookSecret: true, apiKey: true, createdAt: true, updatedAt: true },

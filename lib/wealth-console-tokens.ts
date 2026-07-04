@@ -1,4 +1,4 @@
-/** Shared palette for Wealth Console (bento) shell — sidebar, headers, cards. */
+/** Shared palette for Wealth Console (bento) shell, sidebar, headers, cards. */
 export const TOKENS = {
   surface: "#0b1326",
   surfaceLow: "#131b2e",

@@ -287,7 +287,7 @@ export function AddExpenseModal({
                   {...formFieldAria("account", fieldErrors.accountId)}
                   options={accounts.map((account) => ({
                     value: account.id,
-                    label: `${account.name} (${account.bankName}) — ${formatCurrency(account.balance)}`,
+                    label: `${account.name} (${account.bankName}), ${formatCurrency(account.balance)}`,
                   }))}
                 />
                 <FormFieldError

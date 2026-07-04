@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { readJsonBody, routeErrorResponse } from "@/lib/route-error"
 
-// POST /api/redbark/link — set or clear the redbarkAccountId on an account
+// POST /api/redbark/link, set or clear the redbarkAccountId on an account
 export async function POST(request: Request) {
   try {
     const session = await auth()

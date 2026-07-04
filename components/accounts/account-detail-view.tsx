@@ -10,9 +10,7 @@ import {
   Plus,
   TrendingDown,
   TrendingUp,
-  Unlink,
   Wallet,
-  Zap,
 } from "lucide-react"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
@@ -60,7 +58,6 @@ interface AccountDetail {
   cardExpiry?: string | null
   cardType?: string | null
   cardHolderName?: string | null
-  redbarkAccountId?: string | null
 }
 
 const consoleField =
@@ -725,197 +722,6 @@ function EditAccountModal({
   )
 }
 
-// ─── redbark link panel ──────────────────────────────────────────────────────
-
-type RedbarkRemoteAccount = {
-  id: string
-  name: string
-  institution: string
-  accountType: string
-}
-
-function RedbarkLinkPanel({
-  accountId,
-  redbarkAccountId,
-  onUpdated,
-}: {
-  accountId: string
-  redbarkAccountId: string | null | undefined
-  onUpdated: (id: string | null) => void
-}) {
-  const [remoteAccounts, setRemoteAccounts] = useState<RedbarkRemoteAccount[] | null>(null)
-  const [loadingRemote, setLoadingRemote] = useState(false)
-  const [selected, setSelected] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const linked = !!redbarkAccountId
-
-  // Fetch Redbark accounts when not yet linked
-  useEffect(() => {
-    if (linked) return
-    setLoadingRemote(true)
-    fetch("/api/redbark/accounts")
-      .then((r) => r.json())
-      .then((d: { accounts?: RedbarkRemoteAccount[]; error?: string }) => {
-        if (d.accounts) setRemoteAccounts(d.accounts)
-        else setRemoteAccounts([]) // no API key yet
-      })
-      .catch(() => setRemoteAccounts([]))
-      .finally(() => setLoadingRemote(false))
-  }, [linked])
-
-  const save = async () => {
-    const id = selected.trim()
-    if (!id) return
-    setSaving(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/redbark/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, redbarkAccountId: id }),
-      })
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string }
-        setError(d.error ?? "Failed to link")
-        return
-      }
-      onUpdated(id)
-      toastSuccess("Redbark account linked!")
-    } catch {
-      setError("An error occurred")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const unlink = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/redbark/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, redbarkAccountId: null }),
-      })
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string }
-        setError(d.error ?? "Failed to unlink")
-        return
-      }
-      setSelected("")
-      setRemoteAccounts(null)
-      onUpdated(null)
-      toastSuccess("Redbark account unlinked")
-    } catch {
-      setError("An error occurred")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Find the name of the currently linked account
-  const linkedName = remoteAccounts?.find((a) => a.id === redbarkAccountId)?.name
-
-  return (
-    <div
-      className="mt-4 rounded-xl border p-5"
-      style={{
-        background: TOKENS.surfaceContainer,
-        borderColor: linked
-          ? "color-mix(in srgb, #4edea3 22%, transparent)"
-          : TOKENS.outlineGhost,
-        boxShadow: "inset 0 1px 0 rgba(218,226,253,0.05)",
-      }}
-    >
-      <div className="mb-4 flex items-center gap-2">
-        <Zap className="h-3.5 w-3.5" style={{ color: linked ? TOKENS.primary : TOKENS.onSurfaceMuted }} />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: TOKENS.onSurfaceMuted }}>
-          Redbark Sync
-        </p>
-        {linked && (
-          <span
-            className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-            style={{
-              background: "color-mix(in srgb, #4edea3 12%, transparent)",
-              color: TOKENS.primary,
-              border: "1px solid color-mix(in srgb, #4edea3 25%, transparent)",
-            }}
-          >
-            <CheckCircle2 className="h-3 w-3" />
-            Connected
-          </span>
-        )}
-      </div>
-
-      {linked ? (
-        <div className="space-y-3">
-          <p className="text-sm font-medium" style={{ color: TOKENS.onSurface }}>
-            {linkedName ?? "Redbark account linked"}
-          </p>
-          <p className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Transactions from this account will be automatically imported on every Redbark sync.
-          </p>
-          <button
-            type="button"
-            onClick={() => void unlink()}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-white/[0.06] disabled:opacity-50"
-            style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
-          >
-            <Unlink className="h-3 w-3" />
-            {saving ? "Unlinking…" : "Unlink"}
-          </button>
-          {error && <p className="text-xs" style={{ color: TOKENS.loss }}>{error}</p>}
-        </div>
-      ) : loadingRemote ? (
-        <p className="flex items-center gap-2 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading your Redbark accounts…
-        </p>
-      ) : remoteAccounts && remoteAccounts.length > 0 ? (
-        <div className="space-y-3">
-          <p className="text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-            Select which Redbark account maps to this account:
-          </p>
-          <div className="flex gap-2">
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              disabled={saving}
-              className="flex-1 min-w-0 rounded-lg border bg-transparent px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4edea3]/40 disabled:opacity-50"
-              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceLow }}
-            >
-              <option value="" style={{ background: TOKENS.surfaceLow }}>Select an account…</option>
-              {remoteAccounts.map((a) => (
-                <option key={a.id} value={a.id} style={{ background: TOKENS.surfaceLow }}>
-                  {a.name} — {a.institution}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={saving || !selected}
-              className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-opacity disabled:opacity-40"
-              style={{ background: TOKENS.primary, color: TOKENS.surface }}
-            >
-              {saving ? "Linking…" : "Link"}
-            </button>
-          </div>
-          {error && <p className="text-xs" style={{ color: TOKENS.loss }}>{error}</p>}
-        </div>
-      ) : (
-        <p className="text-xs leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-          Add your Redbark API key on the{" "}
-          <a href="/profile" className="underline" style={{ color: TOKENS.secondary }}>Profile page</a>
-          {" "}to see your accounts here and link them with one click.
-        </p>
-      )}
-    </div>
-  )
-}
-
 // ─── skeleton ────────────────────────────────────────────────────────────────
 
 function Skeleton() {
@@ -964,15 +770,12 @@ export function AccountDetailView({
   const [error, setError] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
 
-  const [redbarkAccountId, setRedbarkAccountId] = useState<string | null | undefined>(undefined)
-
   useEffect(() => {
     fetch(`/api/accounts/${id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.account) {
           setAccount(data.account)
-          setRedbarkAccountId(data.account.redbarkAccountId)
         } else {
           setError("Account not found")
         }
@@ -1217,14 +1020,6 @@ export function AccountDetailView({
 
               <AccountTransactionsSection accountId={account.id} />
             </div>
-
-            {!isCash && redbarkAccountId !== undefined && (
-              <RedbarkLinkPanel
-                accountId={account.id}
-                redbarkAccountId={redbarkAccountId}
-                onUpdated={setRedbarkAccountId}
-              />
-            )}
 
             <EditAccountModal
               account={account}

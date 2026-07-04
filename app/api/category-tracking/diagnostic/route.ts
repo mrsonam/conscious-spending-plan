@@ -131,7 +131,7 @@ export async function GET() {
         spent[cat] += minorToDollars(e.amount)
       } else {
         expensesUncategorised.push(
-          `${e.description ?? "—"} (${e.category ?? "no category"}, $${(Number(e.amount) / 100).toFixed(2)})`
+          `${e.description ?? "-"} (${e.category ?? "no category"}, $${(Number(e.amount) / 100).toFixed(2)})`
         )
       }
     }
@@ -140,11 +140,11 @@ export async function GET() {
     // flags
     const flags: string[] = []
     if (incomeWithoutAllocation > 0)
-      flags.push(`${incomeWithoutAllocation} income entries have no allocation stored — run Rebuild`)
+      flags.push(`${incomeWithoutAllocation} income entries have no allocation stored, run Rebuild`)
     if (Math.abs(totalIncome - totalAllocated) > 0.02 && data.income.length > 0)
-      flags.push(`Income ($${round2(totalIncome)}) ≠ allocated ($${round2(totalAllocated)}) — diff $${round2(totalIncome - totalAllocated)}`)
+      flags.push(`Income ($${round2(totalIncome)}) ≠ allocated ($${round2(totalAllocated)}), diff $${round2(totalIncome - totalAllocated)}`)
     if (Math.abs(totalEnvelopes - totalAllocated) > 0.02 && data.income.length > 0)
-      flags.push(`Envelopes ($${round2(totalEnvelopes)}) ≠ allocated ($${round2(totalAllocated)}) — diff $${round2(totalEnvelopes - totalAllocated)}`)
+      flags.push(`Envelopes ($${round2(totalEnvelopes)}) ≠ allocated ($${round2(totalAllocated)}), diff $${round2(totalEnvelopes - totalAllocated)}`)
     if (expensesUncategorised.length > 0)
       flags.push(`${expensesUncategorised.length} expenses not counted in any category`)
 

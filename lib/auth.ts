@@ -135,7 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (user.image) token.picture = user.image
       }
 
-      // Google: never assign `user.id` (OAuth subject) to `token.id` — only Prisma `User.id`.
+      // Google: never assign `user.id` (OAuth subject) to `token.id`, only Prisma `User.id`.
       if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findFirst({
           where: {

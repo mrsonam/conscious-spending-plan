@@ -44,7 +44,7 @@ export type DashboardConsolePayload = {
   superBalance: number
 }
 
-/** Fast path — above-the-fold dashboard widgets. */
+/** Fast path, above-the-fold dashboard widgets. */
 export type DashboardConsoleCorePayload = Pick<
   DashboardConsolePayload,
   | "breakdown"
@@ -57,7 +57,7 @@ export type DashboardConsoleCorePayload = Pick<
   | "ytd"
 >
 
-/** Deferred — trajectory, investments, loans, subscriptions, recent activity, goals, super. */
+/** Deferred, trajectory, investments, loans, subscriptions, recent activity, goals, super. */
 export type DashboardConsoleSecondaryPayload = Pick<
   DashboardConsolePayload,
   | "history"

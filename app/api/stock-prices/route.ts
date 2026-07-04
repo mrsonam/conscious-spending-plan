@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       // Use multiple free APIs as fallbacks
       const prices: Record<string, number> = {}
       
-      // Fetch prices for all symbols in parallel — each symbol's fallback
+      // Fetch prices for all symbols in parallel, each symbol's fallback
       // chain stays sequential, but symbols don't wait on each other.
       await Promise.all(symbols.map(async (symbol) => {
         try {

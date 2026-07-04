@@ -125,7 +125,7 @@ export function IncomeHistorySkeleton({
   layout = "section",
   rowCount = 4,
 }: {
-  /** `rows` — ledger body only (inside an existing section). `section` — full card shell. */
+  /** `rows`, ledger body only (inside an existing section). `section`, full card shell. */
   layout?: "section" | "rows"
   rowCount?: number
 }) {

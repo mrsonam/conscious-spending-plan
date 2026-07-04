@@ -278,7 +278,7 @@ export async function GET(request: Request) {
 
     const result = await processRecurringExpenses()
     console.log(
-      `Cron [recurring-expenses]: checked ${result.totalChecked} recurring expense(s) — ${result.processedCount} created, ${result.skippedInsufficient.length} skipped (insufficient balance), ${result.alreadyLogged} already logged, ${result.nothingDue} not due`,
+      `Cron [recurring-expenses]: checked ${result.totalChecked} recurring expense(s), ${result.processedCount} created, ${result.skippedInsufficient.length} skipped (insufficient balance), ${result.alreadyLogged} already logged, ${result.nothingDue} not due`,
     )
 
     return NextResponse.json(result)

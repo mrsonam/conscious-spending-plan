@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { consoleFocus, consoleMicroLabel } from "@/components/wealth-console/console-ui"
+import type { ConsoleCardTone } from "@/components/wealth-console/sections/console-subscriptions-card"
 
 type ConsoleQuickActionsProps = {
   onLogIncome: () => void
@@ -27,6 +28,7 @@ type ActionDef = {
   icon: React.ReactNode
   accent: string
   onClick: () => void
+  tone: ConsoleCardTone
 }
 
 export function ConsoleQuickActions({
@@ -44,6 +46,7 @@ export function ConsoleQuickActions({
       icon: <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
       accent: TOKENS.primary,
       onClick: onLogIncome,
+      tone: "raised",
     },
     {
       label: "Log expense",
@@ -51,6 +54,7 @@ export function ConsoleQuickActions({
       icon: <Minus className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
       accent: TOKENS.loss,
       onClick: onLogExpense,
+      tone: "recessed",
     },
     {
       label: "Transfer",
@@ -58,6 +62,7 @@ export function ConsoleQuickActions({
       icon: <ArrowLeftRight className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
       accent: TOKENS.secondary,
       onClick: onTransfer,
+      tone: "raised",
     },
     {
       label: "Log super",
@@ -65,6 +70,7 @@ export function ConsoleQuickActions({
       icon: <Shield className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
       accent: TOKENS.warning,
       onClick: onLogSuper,
+      tone: "recessed",
     },
     {
       label: "Investment",
@@ -72,6 +78,7 @@ export function ConsoleQuickActions({
       icon: <TrendingUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />,
       accent: TOKENS.tertiary,
       onClick: onLogInvestment,
+      tone: "raised",
     },
   ]
 
@@ -111,20 +118,24 @@ export function ConsoleQuickActions({
       </div>
 
       <div className="overflow-x-auto pb-0.5 scrollbar-none sm:overflow-visible">
-        <div className="flex min-w-max gap-4 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
-            {actions.map((action) => (
+        <div className="flex min-w-max gap-4 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-5 lg:items-stretch lg:gap-5">
+          {actions.map((action) => {
+            const recessed = action.tone === "recessed"
+            const cardBg = recessed ? TOKENS.surfaceLow : TOKENS.surfaceContainer
+            const chipBg = recessed ? TOKENS.surfaceContainer : TOKENS.surfaceLow
+
+            return (
               <button
                 key={action.label}
                 type="button"
                 onClick={action.onClick}
                 className={cn(
                   consoleFocus,
-                  "group flex min-h-[4.75rem] min-w-[10.5rem] flex-1 flex-col justify-between rounded-xl border px-3.5 py-3.5 text-left transition-[background-color,border-color,transform] duration-200 hover:bg-white/[0.04] motion-reduce:transition-none sm:min-w-0",
+                  "group flex min-h-[4.75rem] min-w-[10.5rem] flex-1 flex-col justify-between rounded-xl px-3.5 py-3.5 text-left transition-[background-color,transform,opacity] duration-200 hover:opacity-[0.98] motion-reduce:transition-none sm:min-w-0",
                   "active:scale-[0.99] motion-reduce:active:scale-100",
                 )}
                 style={{
-                  background: TOKENS.surfaceLow,
-                  borderColor: TOKENS.outlineGhost,
+                  background: cardBg,
                   boxShadow: CARD_INSET,
                 }}
               >
@@ -132,7 +143,7 @@ export function ConsoleQuickActions({
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200 motion-reduce:transition-none"
                     style={{
-                      background: `color-mix(in srgb, ${action.accent} 14%, ${TOKENS.surfaceContainer})`,
+                      background: chipBg,
                       color: action.accent,
                     }}
                   >
@@ -159,7 +170,8 @@ export function ConsoleQuickActions({
                   </span>
                 </span>
               </button>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>

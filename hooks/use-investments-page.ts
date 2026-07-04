@@ -28,7 +28,7 @@ import {
   cloneInvestmentState,
 } from "@/lib/investment-optimistic"
 
-/** Same cache key as dashboard secondary load — warm cache when navigating between pages. */
+/** Same cache key as dashboard secondary load, warm cache when navigating between pages. */
 const INVESTMENTS_CACHE_KEY = "dashboard:investments"
 
 export type InvestmentMessage = {
@@ -561,7 +561,7 @@ export function useInvestmentsPage(status: string) {
       id: d.id,
       date: d.date,
       symbol: d.name,
-      account: accounts.find((a) => a.id === d.accountId)?.name ?? "—",
+      account: accounts.find((a) => a.id === d.accountId)?.name ?? "-",
       amount: d.amount,
       shares: null as number | null,
       price: null as number | null,

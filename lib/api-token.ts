@@ -6,7 +6,7 @@ const TOKEN_PREFIX = "csp_"
 export type GeneratedToken = {
   /** Plaintext token shown to the user once at creation. */
   token: string
-  /** sha256 hex digest of `token` — stored in DB and used for lookup. */
+  /** sha256 hex digest of `token`, stored in DB and used for lookup. */
   hash: string
   /** First 10 chars of `token` (e.g. `csp_abcdef`) for display in lists. */
   prefix: string

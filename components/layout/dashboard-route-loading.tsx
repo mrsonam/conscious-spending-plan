@@ -118,7 +118,7 @@ function ConsoleCard({
   )
 }
 
-/** Wealth Console route transition shell — matches page bento loading patterns. */
+/** Wealth Console route transition shell, matches page bento loading patterns. */
 export function DashboardRouteLoading({ showHeader = true }: DashboardRouteLoadingProps) {
   return (
     <>

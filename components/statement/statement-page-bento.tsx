@@ -43,7 +43,7 @@ function txTypeLabel(t: StatementTransaction["type"]) {
   return "Investment"
 }
 
-/** Statement row pill for expense transactions — red on dark shell (parity with classic red-50/red-700). */
+/** Statement row pill for expense transactions, red on dark shell (parity with classic red-50/red-700). */
 const EXPENSE_TYPE_TAG_FG = "#f87171"
 
 function txTypeTagStyle(t: StatementTransaction["type"]) {

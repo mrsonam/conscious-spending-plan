@@ -58,7 +58,7 @@ function detectIncomePattern(
 ): { dayOfMonth: number; averageAmount: bigint }[] {
   if (incomeEntries.length === 0) return []
 
-  // Actual average monthly income — this is the ceiling
+  // Actual average monthly income, this is the ceiling
   let totalIncome = 0n
   for (const entry of incomeEntries) {
     totalIncome += coerceMinor(entry.amount)

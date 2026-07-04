@@ -154,7 +154,7 @@ export function TokenManager() {
             style={{ color: TOKENS.onSurfaceMuted }}
           >
             Used by Apple Shortcuts (and other automations) to log expenses on
-            your behalf. Treat them like passwords — they unlock writes to your
+            your behalf. Treat them like passwords, they unlock writes to your
             account.
           </p>
         </div>
@@ -324,7 +324,7 @@ export function TokenManager() {
                           color: TOKENS.onSurfaceMuted,
                         }}
                       >
-                        <span className="font-mono">{t.prefix}…</span> — token
+                        <span className="font-mono">{t.prefix}…</span>, token
                         value unavailable (legacy). Revoke and create a new one
                         to see it here.
                       </p>

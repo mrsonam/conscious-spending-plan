@@ -14,7 +14,6 @@ import {
   normalizeDisplayCurrency,
 } from "@/lib/display-currency"
 import { buildCurrencySelectOptions } from "@/components/ui/currency-select-options"
-import { RedbarkSetupSection } from "@/components/redbark/redbark-setup-section"
 
 function getInitials(email: string) {
   return email
@@ -223,15 +222,6 @@ export function ProfilePageBento() {
               {currencyMessage}
             </p>
           ) : null}
-        </section>
-      </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-12 lg:gap-5">
-        <section
-          className="rounded-xl border p-5 sm:p-6 lg:col-span-12"
-          style={{ background: TOKENS.surfaceContainer, borderColor: TOKENS.outlineGhost, boxShadow: CARD_INSET }}
-        >
-          <RedbarkSetupSection />
         </section>
       </div>
 

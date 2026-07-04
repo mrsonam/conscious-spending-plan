@@ -66,7 +66,7 @@ export function InvestmentsPageBentoLoading() {
               />
             </p>
             <p className="mt-1 text-[11px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
-              Last market refresh — syncing quotes
+              Last market refresh, syncing quotes
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">

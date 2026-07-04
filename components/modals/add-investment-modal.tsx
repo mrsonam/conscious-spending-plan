@@ -177,7 +177,7 @@ export function AddInvestmentModal({
                     {...formFieldAria("inv-account", fieldErrors.investmentAccountId)}
                     options={accounts.map((a) => ({
                       value: a.id,
-                      label: `${a.name} (${a.bankName}) — ${formatCurrency(a.balance)}`,
+                      label: `${a.name} (${a.bankName}), ${formatCurrency(a.balance)}`,
                     }))}
                   />
                   <FormFieldError controlId="inv-account" message={fieldErrors.investmentAccountId} />

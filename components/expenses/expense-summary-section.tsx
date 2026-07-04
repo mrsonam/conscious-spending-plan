@@ -94,7 +94,7 @@ export function ExpenseSummarySection({
                   {perf.toFixed(1)}% vs prev. month
                 </>
               ) : (
-                <span>—</span>
+                <span>-</span>
               )}
             </div>
           </div>

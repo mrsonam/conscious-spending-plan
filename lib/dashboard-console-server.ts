@@ -570,7 +570,7 @@ async function loadSubscriptionDash(userId: string, currency: string) {
   )
 
   // Standalone recurring expenses (rent, utilities, …) due in the same window.
-  // Subscriptions are excluded — they're already covered above.
+  // Subscriptions are excluded, they're already covered above.
   const now = new Date()
   const windowEnd = new Date(now.getTime() + upcomingDays * 86_400_000)
   const standaloneBills = await prisma.recurringExpense.findMany({

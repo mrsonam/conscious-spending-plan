@@ -7,24 +7,24 @@ export type DisplayCurrencyOption = {
   symbol: string
 }
 
-/** Options for display currency select — `label` leads with ISO code for quick scanning. */
+/** Options for display currency select, `label` leads with ISO code for quick scanning. */
 export const DISPLAY_CURRENCY_OPTIONS: DisplayCurrencyOption[] = [
-  { code: "USD", label: "USD — US dollar", symbol: "$" },
-  { code: "EUR", label: "EUR — Euro", symbol: "€" },
-  { code: "GBP", label: "GBP — British pound", symbol: "£" },
-  { code: "AUD", label: "AUD — Australian dollar", symbol: "A$" },
-  { code: "CAD", label: "CAD — Canadian dollar", symbol: "C$" },
-  { code: "NZD", label: "NZD — New Zealand dollar", symbol: "NZ$" },
-  { code: "INR", label: "INR — Indian rupee", symbol: "₹" },
-  { code: "NPR", label: "NPR — Nepalese rupee", symbol: "रू" },
-  { code: "JPY", label: "JPY — Japanese yen", symbol: "¥" },
-  { code: "CHF", label: "CHF — Swiss franc", symbol: "Fr" },
-  { code: "CNY", label: "CNY — Chinese yuan", symbol: "元" },
-  { code: "HKD", label: "HKD — Hong Kong dollar", symbol: "HK$" },
-  { code: "SGD", label: "SGD — Singapore dollar", symbol: "S$" },
-  { code: "MXN", label: "MXN — Mexican peso", symbol: "MX$" },
-  { code: "BRL", label: "BRL — Brazilian real", symbol: "R$" },
-  { code: "ZAR", label: "ZAR — South African rand", symbol: "R" },
+  { code: "USD", label: "USD: US dollar", symbol: "$" },
+  { code: "EUR", label: "EUR: Euro", symbol: "€" },
+  { code: "GBP", label: "GBP: British pound", symbol: "£" },
+  { code: "AUD", label: "AUD: Australian dollar", symbol: "A$" },
+  { code: "CAD", label: "CAD: Canadian dollar", symbol: "C$" },
+  { code: "NZD", label: "NZD: New Zealand dollar", symbol: "NZ$" },
+  { code: "INR", label: "INR: Indian rupee", symbol: "₹" },
+  { code: "NPR", label: "NPR: Nepalese rupee", symbol: "रू" },
+  { code: "JPY", label: "JPY: Japanese yen", symbol: "¥" },
+  { code: "CHF", label: "CHF: Swiss franc", symbol: "Fr" },
+  { code: "CNY", label: "CNY: Chinese yuan", symbol: "元" },
+  { code: "HKD", label: "HKD: Hong Kong dollar", symbol: "HK$" },
+  { code: "SGD", label: "SGD: Singapore dollar", symbol: "S$" },
+  { code: "MXN", label: "MXN: Mexican peso", symbol: "MX$" },
+  { code: "BRL", label: "BRL: Brazilian real", symbol: "R$" },
+  { code: "ZAR", label: "ZAR: South African rand", symbol: "R" },
 ]
 
 const ALLOWED = new Set(DISPLAY_CURRENCY_OPTIONS.map((o) => o.code))

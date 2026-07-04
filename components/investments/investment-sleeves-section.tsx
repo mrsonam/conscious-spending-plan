@@ -40,7 +40,7 @@ export function InvestmentSleevesSection({
         badge={
           totalInvested > 0 && topHoldingsList[0]
             ? `${((topHoldingsList[0].amount / totalInvested) * 100).toFixed(0)}%`
-            : "—"
+            : "-"
         }
         badgeColor={TOKENS.primary}
       >
@@ -110,7 +110,7 @@ export function InvestmentSleevesSection({
         badge={
           portfolioMarkValue > 0
             ? `${((totalCash / portfolioMarkValue) * 100).toFixed(0)}%`
-            : "—"
+            : "-"
         }
         badgeColor={TOKENS.primary}
       >

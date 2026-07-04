@@ -210,7 +210,7 @@ export function InvestmentEditDialog({
                 Calculated total
               </p>
               <p className="mt-1 text-lg font-bold tabular-nums" style={{ color: TOKENS.onSurface }}>
-                {calculatedTotal ? formatCurrency(Number(calculatedTotal)) : "—"}
+                {calculatedTotal ? formatCurrency(Number(calculatedTotal)) : "-"}
               </p>
             </div>
 

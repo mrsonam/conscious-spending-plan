@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   },
 };
 
-/** No `themeColor` here — Next would inject a second `<meta name="theme-color">` that fights our themed tag. */
+/** No `themeColor` here, Next would inject a second `<meta name="theme-color">` that fights our themed tag. */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

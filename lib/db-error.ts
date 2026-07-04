@@ -25,7 +25,7 @@ export function getDbErrorResponse(error: unknown): { status: number; body: { er
       status: 503,
       body: {
         error:
-          "Database connection limit reached. Use the Supabase pooler URL (port 6543) for DATABASE_URL—not the direct or migration URL. Restart the dev server after updating .env.",
+          "Database connection limit reached. Use the Supabase pooler URL (port 6543) for DATABASE_URL, not the direct or migration URL. Restart the dev server after updating .env.",
       },
     }
   }

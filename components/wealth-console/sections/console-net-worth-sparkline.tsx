@@ -11,7 +11,7 @@ const CACHE_KEY = "dashboard:networth-history"
 
 /**
  * Compact 6-month net worth trend for the Aggregate card. Fetches lazily and
- * renders nothing on failure or when there isn't enough history — the card
+ * renders nothing on failure or when there isn't enough history, the card
  * reads fine without it.
  */
 export function ConsoleNetWorthSparkline() {

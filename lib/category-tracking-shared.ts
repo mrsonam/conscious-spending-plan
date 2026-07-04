@@ -101,7 +101,7 @@ export function netPillarHeadroom(
 }
 
 /**
- * Savings you can still spend or move — total in the savings bucket minus
+ * Savings you can still spend or move, total in the savings bucket minus
  * amounts assigned to saving goals, capped by envelope headroom after spend.
  */
 export function savingsSpendableAmount(

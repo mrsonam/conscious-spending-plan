@@ -10,7 +10,7 @@ export type AuthResult =
  * Resolve the authenticated user for an API route.
  *
  * Order:
- *  1. NextAuth session cookie (the web app path — unchanged behavior).
+ *  1. NextAuth session cookie (the web app path, unchanged behavior).
  *  2. `Authorization: Bearer csp_...` personal token, looked up by sha256 hash.
  *
  * Returns `null` when no valid credential is present.

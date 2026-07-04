@@ -33,7 +33,7 @@ export function minorUnitFactor(currencyCode: string): bigint {
   return 10n ** BigInt(exp)
 }
 
-/** @deprecated Prefer name `minorUnitFactor` — factor as number for legacy math. */
+/** @deprecated Prefer name `minorUnitFactor`, factor as number for legacy math. */
 export function minorUnitFactorNumber(currencyCode: string): number {
   return Number(minorUnitFactor(currencyCode))
 }

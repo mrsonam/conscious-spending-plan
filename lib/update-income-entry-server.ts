@@ -114,7 +114,7 @@ export async function updateIncomeEntryForUser(
     monthKey(newMonth, newYear),
   ])
 
-  // Fire background job immediately — the main transaction has already committed.
+  // Fire background job immediately, the main transaction has already committed.
   schedulePersistPreviousMonthClosing(userId)
 
   try {
@@ -155,7 +155,7 @@ export async function updateIncomeEntryForUser(
           savingsAllocationMinor: priorSavingsAlloc,
         })
       } catch {
-        // Recovery also failed — original error takes precedence
+        // Recovery also failed, original error takes precedence
       }
     }
     throw allocationError

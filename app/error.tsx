@@ -42,7 +42,7 @@ export default function RouteError({
           className="mt-3 text-sm leading-relaxed"
           style={{ color: TOKENS.onSurfaceMutedElevated }}
         >
-          Your data is safe — nothing was changed by this error. Try again, or head
+          Your data is safe. Nothing was changed by this error. Try again, or head
           back to the dashboard.
         </p>
         {error.digest && (

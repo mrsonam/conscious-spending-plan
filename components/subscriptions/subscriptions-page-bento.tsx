@@ -72,7 +72,7 @@ export type SubscriptionRow = {
 }
 
 const FUND_OPTIONS = [
-  { value: "", label: "—" },
+  { value: "", label: "-" },
   { value: "fixedCosts", label: "Fixed costs" },
   { value: "savings", label: "Savings" },
   { value: "investment", label: "Investment" },
@@ -668,7 +668,7 @@ export function SubscriptionsPageBento() {
           </div>
         </section>
 
-        {/* Command surface — Upcoming Renewals */}
+        {/* Command surface, Upcoming Renewals */}
         <section className="lg:col-span-5">
           <div
             className="rounded-xl border p-5 sm:p-6 lg:sticky lg:top-4"
@@ -1052,7 +1052,7 @@ export function SubscriptionsPageBento() {
                   value={expenseCategory}
                   onValueChange={setExpenseCategory}
                   options={[
-                    { value: "", label: "—" },
+                    { value: "", label: "-" },
                     ...EXPENSE_CATEGORIES.map(c => ({ value: c.value, label: c.label }))
                   ]}
                 />

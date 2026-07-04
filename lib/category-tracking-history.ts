@@ -15,7 +15,7 @@ export type CategoryHistoryMonthRow = {
   monthNum: number
   year: number
   allocated: number
-  /** Spend or transfers out — matches pillar card "Spent"/"Transferred". */
+  /** Spend or transfers out, matches pillar card "Spent"/"Transferred". */
   spent: number
   remaining: number
   overspent: number

@@ -153,7 +153,7 @@ export function ConsoleRecentTransactionsCard({
                 color: TOKENS.onSurfaceMuted,
               }}
             >
-              No recent activity — log income or an expense to see it here.
+              No recent activity. Log income or an expense to see it here.
             </li>
           ) : (
             transactions.map((tx) => {

@@ -70,7 +70,7 @@ async function readStoredMonthClosing(
 }
 
 /**
- * Compute remaining and overspent for a month (read-only — no DB writes).
+ * Compute remaining and overspent for a month (read-only, no DB writes).
  */
 export async function computeMonthClosingForMonth(
   userId: string,
@@ -147,7 +147,7 @@ export async function computeMonthClosingForMonth(
 }
 
 /**
- * Compute and persist month closing (use after writes — not on dashboard GET).
+ * Compute and persist month closing (use after writes, not on dashboard GET).
  */
 export async function ensureMonthClosing(
   userId: string,

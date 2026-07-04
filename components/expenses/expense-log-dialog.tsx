@@ -107,7 +107,7 @@ export function ExpenseLogDialog({
                 {...formFieldAria("exp-account", fe.accountId)}
                 options={p.accounts.map((account) => ({
                   value: account.id,
-                  label: `${account.name} (${account.bankName}) — ${p.formatCurrency(account.balance)}`,
+                  label: `${account.name} (${account.bankName}), ${p.formatCurrency(account.balance)}`,
                 }))}
               />
               <FormFieldError controlId="exp-account" message={fe.accountId} />

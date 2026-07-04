@@ -18,7 +18,7 @@ import {
   consoleMicroLabel,
 } from "@/components/wealth-console/console-ui"
 import { cn } from "@/lib/utils"
-import { buildDashboardInsight } from "@/components/wealth-console/dashboard-utils"
+import { buildDashboardInsights } from "@/components/wealth-console/dashboard-utils"
 import type { WealthConsoleDashboardVM } from "@/components/wealth-console/use-wealth-console-derived"
 import { ConsoleInsightTile } from "@/components/wealth-console/sections/console-insight-tile"
 import { ConsoleNetWorthSparkline } from "@/components/wealth-console/sections/console-net-worth-sparkline"
@@ -49,16 +49,23 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
     subscriptionDash,
     recentTransactions,
     savingGoals,
+    categoryTracking,
     loading,
   } = vm
 
-  const insight = buildDashboardInsight({
+  const insights = buildDashboardInsights({
     expenses,
     totalExpenses,
     lastMonthExpenses,
     expenseChangePct,
+    incomeChangePct,
+    lastMonthIncome,
+    monthIncome: breakdownData.income,
     savingsRatePct,
     pulseMetrics,
+    categoryTracking,
+    subscriptionDash,
+    savingGoals,
     formatCurrency,
   })
 
@@ -287,7 +294,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                               className="text-xl font-semibold leading-none sm:text-2xl"
                               style={{ color: TOKENS.onSurfaceMuted }}
                             >
-                              —
+                              -
                             </span>
                           ) : (
                             <>
@@ -532,7 +539,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                     </div>
 
                     <ConsoleInsightTile
-                      insight={insight}
+                      insights={insights}
                       loading={showExpenseSkeleton}
                       className="flex-1"
                     />
@@ -680,13 +687,13 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                   </div>
                 </div>
 
-                {/* Staggered 5/7 → 7/5 spans — the inverse of the pillar
+                {/* Staggered 5/7 → 7/5 spans, the inverse of the pillar
                     detail rhythm below, so the two mosaics weave rather than
                     repeat. Width goes to the denser content: transaction rows
                     and ranked category bars. */}
                 {/* Bento band: staggered 5/7 → 7/5 spans (inverse of the
                     pillar rhythm below), alternating raised/recessed tones,
-                    and one floating tile — the same language as the metrics
+                    and one floating tile, the same language as the metrics
                     band above (savings-rate recessed, burn-rate floating). */}
                 <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
                   <ConsoleSubscriptionsCard

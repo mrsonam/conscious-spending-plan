@@ -51,7 +51,7 @@ void (async () => {
     assert.equal(result.generalSavingsMinor, minor(12))
   }
 
-  // Target reached — final credit capped at gap
+  // Target reached, final credit capped at gap
   {
     const result = computeSavingGoalCreditsMinor(minor(20), [
       {
@@ -66,7 +66,7 @@ void (async () => {
     assert.deepEqual(result.newlyComplete, ["phone"])
   }
 
-  // Already at target — no credit
+  // Already at target, no credit
   {
     const result = computeSavingGoalCreditsMinor(minor(20), [
       {
@@ -117,7 +117,7 @@ void (async () => {
   assert.equal(displayPercentToBps(10), 1000)
   assert.equal(bpsToDisplayPercent(1000), 10)
 
-  // Open-ended goal — no target, keeps receiving credits
+  // Open-ended goal, no target, keeps receiving credits
   {
     const result = computeSavingGoalCreditsMinor(minor(20), [
       {

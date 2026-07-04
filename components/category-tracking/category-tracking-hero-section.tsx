@@ -96,7 +96,7 @@ export function CategoryTrackingHeroSection({
                 )}
               </>
             ) : (
-              <span aria-hidden>—</span>
+              <span aria-hidden>-</span>
             )}
           </div>
         </div>

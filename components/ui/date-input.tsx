@@ -118,7 +118,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
               aria-required={required}
               aria-expanded={open}
               aria-haspopup="dialog"
-              aria-label={selectedDate ? `${display} — click to change` : "Pick a date"}
+              aria-label={selectedDate ? `${display}, click to change` : "Pick a date"}
               onFocus={onFocus as React.FocusEventHandler<HTMLButtonElement>}
               onBlur={onBlur as React.FocusEventHandler<HTMLButtonElement>}
               style={style}
@@ -182,7 +182,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           </PopoverContent>
         </Popover>
 
-        {/* × quick-clear — sits outside the trigger to avoid invalid button-in-button nesting */}
+        {/* × quick-clear, sits outside the trigger to avoid invalid button-in-button nesting */}
         {hasValue && (
           <button
             type="button"

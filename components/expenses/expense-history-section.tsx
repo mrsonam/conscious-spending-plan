@@ -102,7 +102,7 @@ export function ExpenseHistorySection({
         className="border-t px-5 py-5 sm:px-7"
         style={{ borderColor: TOKENS.outlineGhost }}
       >
-        {/* Search — always visible */}
+        {/* Search, always visible */}
         <div className="relative mb-4">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"

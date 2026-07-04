@@ -199,7 +199,7 @@ export function NotFoundPage({ isAuthenticated = false }: NotFoundPageProps) {
                           className="text-[10px] tabular-nums"
                           style={{ color: TOKENS.onSurfaceMuted }}
                         >
-                          {index === 2 ? "—" : `${bucket.pct}%`}
+                          {index === 2 ? "-" : `${bucket.pct}%`}
                         </span>
                       </div>
                       <div

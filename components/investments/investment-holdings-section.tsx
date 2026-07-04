@@ -235,7 +235,7 @@ export function InvestmentHoldingsSection({
                                       {formatInvestmentDateShort(p.date)}
                                     </p>
                                     <p className="text-[10px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
-                                      {p.numberOfShares ?? "—"} shares @ {p.pricePerUnit != null ? formatCurrency(p.pricePerUnit) : "—"}
+                                      {p.numberOfShares ?? "-"} shares @ {p.pricePerUnit != null ? formatCurrency(p.pricePerUnit) : "-"}
                                       {p.brokerageFee > 0 ? ` + ${formatCurrency(p.brokerageFee)} fee` : ""}
                                     </p>
                                   </div>

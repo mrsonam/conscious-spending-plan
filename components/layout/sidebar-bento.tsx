@@ -355,7 +355,7 @@ export function SidebarBento() {
             </div>
           </nav>
 
-          {/* Footer — session + sign out (console header language) */}
+          {/* Footer, session + sign out (console header language) */}
           <div
             className={cn(
               "shrink-0 border-t py-4",

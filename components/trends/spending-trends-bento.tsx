@@ -46,7 +46,7 @@ export function SpendingTrendsBento() {
   }, [])
 
   useEffect(() => {
-    // State already initializes to (or was reset to) loading — fetch only.
+    // State already initializes to (or was reset to) loading, fetch only.
     fetchTrends(months)
   }, [months, fetchTrends])
 

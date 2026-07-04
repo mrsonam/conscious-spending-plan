@@ -522,7 +522,7 @@ export function FundsPageBento() {
               </p>
               <p className="mt-1 text-sm" style={{ color: TOKENS.onSurface }}>
                 {savingGoalsSummary.activeCount === 0
-                  ? "No active goals — create one to split savings allocation"
+                  ? "No active goals. Create one to split savings allocation"
                   : `${savingGoalsSummary.activeCount} active goal${savingGoalsSummary.activeCount === 1 ? "" : "s"} · ${savingGoalsSummary.assignedPercent}% assigned`}
               </p>
             </div>

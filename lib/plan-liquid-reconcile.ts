@@ -28,7 +28,7 @@ export async function sumLiquidAccountsMinor(userId: string): Promise<bigint> {
 
 /**
  * Read-only comparison of liquid cash vs pillar deployable headroom.
- * Does not mutate envelopes — display and diagnostics only.
+ * Does not mutate envelopes, display and diagnostics only.
  */
 export async function reconcilePlanToLiquid(
   userId: string,

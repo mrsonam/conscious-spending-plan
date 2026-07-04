@@ -196,7 +196,7 @@ export function LoansPageBento() {
           No accounts yet
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-          Add an account first — loans move balances between your books and these facilities.
+          Add an account first, loans move balances between your books and these facilities.
         </p>
       </section>
     )
@@ -221,7 +221,7 @@ export function LoansPageBento() {
               Lending &amp; liabilities
             </h2>
             <p className="mt-2 text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-              Money you lent out and money you borrowed — both adjust account balances without flowing through income or
+              Money you lent out and money you borrowed, both adjust account balances without flowing through income or
               expense categories.
             </p>
           </div>

@@ -154,7 +154,7 @@ export function CategoryTrackingBucketTransferDialog({
               style={{ color: TOKENS.onSurfaceMuted }}
             >
               Move unspent envelope headroom from one pillar to another. Total deployable balance
-              stays the same — you are reallocating within your plan.
+              stays the same, you are reallocating within your plan.
             </DialogDescription>
           </DialogHeader>
 

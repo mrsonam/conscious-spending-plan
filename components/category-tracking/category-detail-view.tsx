@@ -137,7 +137,7 @@ export function CategoryDetailView({
     return transactions.slice(start, start + CONSOLE_TABLE_PAGE_SIZE)
   }, [page, transactions])
 
-  let paceLabel = "—"
+  let paceLabel = "-"
   if (elapsed <= 0) paceLabel = "Future"
   else if (elapsed >= 1) paceLabel = "Closed"
   else {

@@ -76,7 +76,7 @@ export async function GET(req: Request) {
   const totalExpenses = expensesSorted.reduce((s, e) => s + e.v, 0)
 
   // Super is intentionally constant across buckets (derived the same way as
-  // the super page) — compute it once.
+  // the super page), compute it once.
   const superValue = superAccounts.reduce(
     (s, a) => s + a.contributions.reduce((cs, c) => cs + Number(c.amount), 0),
     0,

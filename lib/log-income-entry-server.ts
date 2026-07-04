@@ -23,7 +23,7 @@ export type LogIncomeEntryInput = {
   date?: string
   accountId?: string | null
   allocateToBudget?: boolean
-  /** Skip month envelope sync — caller runs reallocateMonthIncomeForUser once after a batch. */
+  /** Skip month envelope sync, caller runs reallocateMonthIncomeForUser once after a batch. */
   deferEnvelopeSync?: boolean
   externalId?: string
   source?: string
