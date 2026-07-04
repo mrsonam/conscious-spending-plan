@@ -10,7 +10,7 @@ import {
   getCurrentMonthYear,
 } from "@/lib/monthly-tracking"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
-import { upsertEnvelopeBalancesForMonth, computeEnvelopeBalancesMinor } from "@/lib/envelope-balance-recompute"
+import { upsertEnvelopeBalancesForMonth } from "@/lib/envelope-balance-recompute"
 import { addMinor, coerceMinor } from "@/lib/money"
 import { prisma } from "@/lib/prisma"
 
@@ -89,7 +89,14 @@ export async function reallocateMonthIncomeForUser(
       excludeFromAllocation: false,
     },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-    select: { id: true, amount: true },
+    select: {
+      id: true,
+      amount: true,
+      allocationFixedCosts: true,
+      allocationSavings: true,
+      allocationInvestment: true,
+      allocationGuiltFreeSpending: true,
+    },
   })
 
   const { reallocations, incomeTotals } = computeMonthIncomeReallocations(
@@ -98,28 +105,38 @@ export async function reallocateMonthIncomeForUser(
     currencyCode,
   )
 
-  await prisma.$transaction(async (tx) => {
-    for (const { entryId, alloc } of reallocations) {
-      await tx.incomeEntry.update({
-        where: { id: entryId },
-        data: {
-          allocationFixedCosts: alloc.fixedCosts,
-          allocationSavings: alloc.savings,
-          allocationInvestment: alloc.investment,
-          allocationGuiltFreeSpending: alloc.guiltFreeSpending,
-        },
-      })
-    }
+  // Skip entries whose stored allocation already matches — during a chain
+  // rebuild most months are unchanged and every write here is pure overhead.
+  const storedById = new Map(monthEntries.map((e) => [e.id, e]))
+  const changed = reallocations.filter(({ entryId, alloc }) => {
+    const stored = storedById.get(entryId)
+    if (!stored) return true
+    return (
+      coerceMinor(stored.allocationFixedCosts) !== alloc.fixedCosts ||
+      coerceMinor(stored.allocationSavings) !== alloc.savings ||
+      coerceMinor(stored.allocationInvestment) !== alloc.investment ||
+      coerceMinor(stored.allocationGuiltFreeSpending) !== alloc.guiltFreeSpending
+    )
   })
 
-  await upsertEnvelopeBalancesForMonth(
-    userId,
-    resolved.month,
-    resolved.year,
-    currencyCode
-  )
+  if (changed.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      for (const { entryId, alloc } of changed) {
+        await tx.incomeEntry.update({
+          where: { id: entryId },
+          data: {
+            allocationFixedCosts: alloc.fixedCosts,
+            allocationSavings: alloc.savings,
+            allocationInvestment: alloc.investment,
+            allocationGuiltFreeSpending: alloc.guiltFreeSpending,
+          },
+        })
+      }
+    })
+  }
 
-  const envelopeTotals = await computeEnvelopeBalancesMinor(
+  // Returns the freshly computed balances — no second recompute needed.
+  const envelopeTotals = await upsertEnvelopeBalancesForMonth(
     userId,
     resolved.month,
     resolved.year,

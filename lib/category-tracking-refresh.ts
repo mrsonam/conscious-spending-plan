@@ -29,14 +29,17 @@ export async function listActiveTrackingMonths(userId: string): Promise<Calendar
     prisma.incomeEntry.findMany({
       where: { userId },
       select: { date: true },
+      distinct: ["date"],
     }),
     prisma.expense.findMany({
       where: { userId },
       select: { date: true },
+      distinct: ["date"],
     }),
     prisma.transfer.findMany({
       where: { userId },
       select: { date: true },
+      distinct: ["date"],
     }),
     prisma.categoryBalance.findMany({
       where: { userId },
@@ -79,7 +82,7 @@ export async function refreshTrackingChain(
   let cursor = start
   while (true) {
     await reallocateMonthIncomeForUser(userId, currency, cursor.month, cursor.year)
-    await ensureMonthClosing(userId, cursor.month, cursor.year)
+    await ensureMonthClosing(userId, cursor.month, cursor.year, currency)
 
     if (cursor.month === end.month && cursor.year === end.year) break
     cursor = nextMonth(cursor)

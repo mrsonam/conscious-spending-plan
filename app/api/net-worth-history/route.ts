@@ -54,32 +54,67 @@ export async function GET(req: Request) {
     buckets.push({ month, year, label: `${MONTH_LABELS[month - 1]} ${String(year).slice(2)}`, end })
   }
 
+  // Single pass per source instead of re-filtering every array for each
+  // bucket: sort ascending once, then advance a pointer as bucket ends grow.
+  const incomeSorted = allIncome
+    .map((e) => ({ t: new Date(e.date).getTime(), v: Number(e.amount) }))
+    .sort((a, b) => a.t - b.t)
+  const expensesSorted = allExpenses
+    .map((e) => ({ t: new Date(e.date).getTime(), v: Number(e.amount) }))
+    .sort((a, b) => a.t - b.t)
+  const holdingsSorted = allHoldings
+    .map((h) => ({ t: new Date(h.date).getTime(), v: Number(h.amount) }))
+    .sort((a, b) => a.t - b.t)
+  const loansSorted = allLoans
+    .map((l) => ({
+      t: new Date(l.date).getTime(),
+      v: Math.max(0, Number(l.amount) - Number(l.repaidAmount)),
+    }))
+    .sort((a, b) => a.t - b.t)
+
+  const totalIncome = incomeSorted.reduce((s, e) => s + e.v, 0)
+  const totalExpenses = expensesSorted.reduce((s, e) => s + e.v, 0)
+
+  // Super is intentionally constant across buckets (derived the same way as
+  // the super page) — compute it once.
+  const superValue = superAccounts.reduce(
+    (s, a) => s + a.contributions.reduce((cs, c) => cs + Number(c.amount), 0),
+    0,
+  )
+
+  let incomeIdx = 0
+  let incomeUpTo = 0
+  let expenseIdx = 0
+  let expenseUpTo = 0
+  let holdingIdx = 0
+  let investmentValue = 0
+  let loanIdx = 0
+  let loanValue = 0
+
   const snapshots = buckets.map(({ month, year, label, end }) => {
     const endMs = end.getTime()
 
-    // Cash: anchor on current balance, reverse transactions that happened after this month
-    const incomeAfter = allIncome
-      .filter((e) => new Date(e.date).getTime() > endMs)
-      .reduce((s, e) => s + Number(e.amount), 0)
-    const expensesAfter = allExpenses
-      .filter((e) => new Date(e.date).getTime() > endMs)
-      .reduce((s, e) => s + Number(e.amount), 0)
+    while (incomeIdx < incomeSorted.length && incomeSorted[incomeIdx].t <= endMs) {
+      incomeUpTo += incomeSorted[incomeIdx].v
+      incomeIdx++
+    }
+    while (expenseIdx < expensesSorted.length && expensesSorted[expenseIdx].t <= endMs) {
+      expenseUpTo += expensesSorted[expenseIdx].v
+      expenseIdx++
+    }
+    while (holdingIdx < holdingsSorted.length && holdingsSorted[holdingIdx].t <= endMs) {
+      investmentValue += holdingsSorted[holdingIdx].v
+      holdingIdx++
+    }
+    while (loanIdx < loansSorted.length && loansSorted[loanIdx].t <= endMs) {
+      loanValue += loansSorted[loanIdx].v
+      loanIdx++
+    }
+
+    // Cash: anchor on current balance, reverse transactions after this month
+    const incomeAfter = totalIncome - incomeUpTo
+    const expensesAfter = totalExpenses - expenseUpTo
     const cashValue = currentCash - incomeAfter + expensesAfter
-
-    // Investments: only holdings purchased on or before this month
-    const investmentValue = allHoldings
-      .filter((h) => new Date(h.date).getTime() <= endMs)
-      .reduce((s, h) => s + Number(h.amount), 0)
-
-    // Loans: only loans issued on or before this month
-    const loanValue = allLoans
-      .filter((l) => new Date(l.date).getTime() <= endMs)
-      .reduce((s, l) => s + Math.max(0, Number(l.amount) - Number(l.repaidAmount)), 0)
-
-    // Super: sum of all contributions (no time-travel — derived same way as the super page)
-    const superValue = superAccounts.reduce((s, a) =>
-      s + a.contributions.reduce((cs, c) => cs + Number(c.amount), 0), 0)
-
     const netWorth = cashValue + investmentValue + loanValue + superValue
 
     return {

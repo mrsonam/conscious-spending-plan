@@ -169,6 +169,17 @@ async function processRecurringExpenses(userId?: string) {
     const createdDates: string[] = []
     const insufficientDates: string[] = []
 
+    // The account was already loaded with the recurring row (include above);
+    // don't refetch it for every due date.
+    const account = recurring.account
+    if (!account || account.userId !== recurring.userId) {
+      await prisma.recurringExpense.update({
+        where: { id: recurring.id },
+        data: { lastRunAt: today },
+      })
+      continue
+    }
+
     for (const dueDate of dueDates) {
       const dayStart = startOfDay(dueDate)
       const dayEnd = new Date(dayStart.getTime() + MS_PER_DAY)
@@ -184,19 +195,10 @@ async function processRecurringExpenses(userId?: string) {
           expenseCategory: recurring.expenseCategory,
           date: { gte: dayStart, lt: dayEnd },
         },
+        select: { id: true },
       })
       if (existing) {
         alreadyLogged++
-        continue
-      }
-
-      const account = await prisma.account.findFirst({
-        where: { id: recurring.accountId, userId: recurring.userId },
-      })
-      if (!account) continue
-
-      if (coerceMinor(account.balance) < amountMinor) {
-        insufficientDates.push(dateStr)
         continue
       }
 

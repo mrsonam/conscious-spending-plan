@@ -42,8 +42,9 @@ export async function POST(request: Request) {
       // Use multiple free APIs as fallbacks
       const prices: Record<string, number> = {}
       
-      // Fetch prices with multiple fallback methods
-      for (const symbol of symbols) {
+      // Fetch prices for all symbols in parallel — each symbol's fallback
+      // chain stays sequential, but symbols don't wait on each other.
+      await Promise.all(symbols.map(async (symbol) => {
         try {
           // Clean the symbol (remove spaces, convert to uppercase)
           const cleanSymbol = symbol.trim().toUpperCase()
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
            }
            
            if (price > 0) {
-             continue // Success, move to next symbol
+             return // Success, done with this symbol
            }
           
            // Method 2: Try Yahoo Finance quote endpoint
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
              }
              
              if (price > 0) {
-               continue // Success, move to next symbol
+               return // Success, done with this symbol
              }
            }
           
@@ -191,7 +192,7 @@ export async function POST(request: Request) {
                     price = finnhubData.c
                     console.log(`Finnhub: Found price for ${cleanSymbol}: ${price}`)
                     prices[cleanSymbol] = price
-                    continue
+                    return
                   }
                 }
               }
@@ -210,7 +211,7 @@ export async function POST(request: Request) {
           console.error(`Error fetching price for ${symbol}:`, error)
           prices[symbol] = 0
         }
-      }
+      }))
 
       return NextResponse.json({ prices })
     }

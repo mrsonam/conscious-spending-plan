@@ -104,34 +104,39 @@ export async function computeEnvelopeBalancesMinor(
   return balances
 }
 
+/** Recompute and persist envelopes; returns the balances so callers don't recompute. */
 export async function upsertEnvelopeBalancesForMonth(
   userId: string,
   month: number,
   year: number,
   currency: string
-) {
+): Promise<Record<FundCategory, bigint>> {
   const balances = await computeEnvelopeBalancesMinor(userId, month, year, currency)
 
-  for (const cat of FUND_CATEGORIES) {
-    await prisma.categoryBalance.upsert({
-      where: {
-        userId_category_month_year: {
+  await Promise.all(
+    FUND_CATEGORIES.map((cat) =>
+      prisma.categoryBalance.upsert({
+        where: {
+          userId_category_month_year: {
+            userId,
+            category: cat,
+            month,
+            year,
+          },
+        },
+        create: {
           userId,
           category: cat,
           month,
           year,
+          balance: balances[cat],
         },
-      },
-      create: {
-        userId,
-        category: cat,
-        month,
-        year,
-        balance: balances[cat],
-      },
-      update: {
-        balance: balances[cat],
-      },
-    })
-  }
+        update: {
+          balance: balances[cat],
+        },
+      })
+    )
+  )
+
+  return balances
 }

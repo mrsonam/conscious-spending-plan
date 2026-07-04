@@ -129,6 +129,7 @@ model IncomeEntry {
 
   @@index([userId])
   @@index([accountId])
+  @@index([userId, date])
   @@unique([userId, externalId])
 }
 
@@ -183,6 +184,7 @@ model Transfer {
   @@index([fromAccountId])
   @@index([toAccountId])
   @@index([userId, category])
+  @@index([userId, date])
 }
 
 model CategoryBalance {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isValidDisplayCurrency } from "@/lib/display-currency"
+import { invalidateUserDisplayCurrencyCache } from "@/lib/user-currency"
 
 export async function PATCH(request: Request) {
   const session = await auth()
@@ -46,6 +47,7 @@ export async function PATCH(request: Request) {
     where: { id: session.user.id },
     data,
   })
+  invalidateUserDisplayCurrencyCache(session.user.id)
 
   return NextResponse.json({ displayCurrency: code, name: data.name ?? undefined })
 }

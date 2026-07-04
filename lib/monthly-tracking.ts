@@ -153,8 +153,9 @@ export async function ensureMonthClosing(
   userId: string,
   month: number,
   year: number,
+  knownCurrency?: string,
 ): Promise<PreviousMonthResult> {
-  const currency = await getUserDisplayCurrency(userId)
+  const currency = knownCurrency ?? (await getUserDisplayCurrency(userId))
   const { remaining, overspent } = await computeMonthClosingForMonth(
     userId,
     month,
