@@ -405,7 +405,28 @@ export function FundsPageBento() {
   if ((status === "loading" && !session) || (loading && !allocation)) {
     return (
       <div className="space-y-6 sm:space-y-8">
-        <div className="h-36 animate-pulse rounded-2xl border border-white/10 bg-white/5" />
+        <section className="px-1 py-2 sm:px-2">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div
+              className="h-8 w-28 animate-pulse rounded-lg border"
+              style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceHigh }}
+            />
+          </div>
+          <div className="mt-5 space-y-3">
+            <div
+              className="h-8 w-72 max-w-full animate-pulse rounded"
+              style={{ background: TOKENS.surfaceHigh }}
+            />
+            <div
+              className="h-4 w-full max-w-xl animate-pulse rounded"
+              style={{ background: TOKENS.surfaceHigh }}
+            />
+            <div
+              className="h-4 w-2/3 max-w-md animate-pulse rounded"
+              style={{ background: TOKENS.surfaceHigh }}
+            />
+          </div>
+        </section>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
@@ -424,65 +445,43 @@ export function FundsPageBento() {
   if (!allocation) return null
 
   return (
-    <div className="space-y-8 sm:space-y-10">
-      {/* Cardless hero */}
-      <section
-        className="relative overflow-hidden rounded-2xl border px-5 py-7 sm:px-8 sm:py-9"
-        style={{
-          borderColor: TOKENS.outlineGhost,
-          background: TOKENS.surfaceContainer,
-          boxShadow: CARD_INSET,
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.2]"
-          style={{ background: TOKENS.surfaceHigh }}
-        />
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: TOKENS.primary, boxShadow: CARD_INSET }}
-              />
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Fund allocation
-              </p>
-            </div>
-            <div
-              className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.secondary,
-                background: TOKENS.surfaceHigh,
-                boxShadow: CARD_INSET,
-              }}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2.2} />
-              Four pillars
-            </div>
-          </div>
-          <h2
-            className="mt-5 max-w-xl text-2xl font-black leading-[1.15] tracking-tight sm:text-3xl"
-            style={{ color: TOKENS.onSurface }}
+    <div className="space-y-6 sm:space-y-8">
+      <section className="px-1 py-2 sm:px-2" aria-labelledby="funds-hero-heading">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              color: TOKENS.secondary,
+              background: TOKENS.surfaceHigh,
+            }}
           >
-            Shape how every dollar of income is routed
-          </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed sm:text-[15px]" style={{ color: TOKENS.onSurfaceMuted }}>
-            Choose a percentage of recognized income or a fixed amount per category. Optional caps limit how much can
-            accumulate; overflow is steered into savings.
-          </p>
+            <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
+            Four pillars
+          </div>
         </div>
-        <div
-          className="pointer-events-none absolute -bottom-px left-0 right-0 h-px"
-          style={{ background: TOKENS.outlineGhost }}
-        />
+
+        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <h2
+              id="funds-hero-heading"
+              className="text-2xl font-black tracking-tight sm:text-3xl"
+              style={{ color: TOKENS.onSurface }}
+            >
+              Shape how every dollar of income is routed
+            </h2>
+            <p
+              className="mt-2 max-w-2xl text-sm leading-relaxed"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Choose a percentage of recognized income or a fixed amount per category. Optional caps
+              limit how much can accumulate; overflow is steered into savings.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10">
+      <form noValidate onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         <FormStatusAlert message={message} className="sm:px-5" />
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:gap-7">

@@ -143,37 +143,35 @@ function GoalCardLoading({ seed }: { seed: number }) {
 export function SavingGoalsPageBentoLoading() {
   return (
     <div
-      className="w-full min-w-0 space-y-8 sm:space-y-10"
+      className="w-full min-w-0 space-y-6 sm:space-y-8"
       aria-busy="true"
       aria-label="Loading saving goals"
     >
-      <section
-        className="relative w-full overflow-hidden rounded-2xl border px-5 py-7 sm:px-8 sm:py-9"
-        style={{
-          borderColor: TOKENS.outlineGhost,
-          background: TOKENS.surfaceContainer,
-          boxShadow: CARD_INSET,
-        }}
-      >
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
+      <section className="px-1 py-2 sm:px-2">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.16em]"
+            style={{
+              borderColor: TOKENS.outlineGhost,
+              color: TOKENS.primary,
+              background: TOKENS.surfaceHigh,
+            }}
+          >
+            <PiggyBank className="h-3.5 w-3.5" aria-hidden />
+            <ScrambleIntegerValue min={1} max={4} className="text-[10px] font-bold" /> active
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full" style={{ background: TOKENS.primary }} />
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Saving goals
-              </p>
-            </div>
             <h2
-              className="mt-5 text-2xl font-black leading-[1.15] tracking-tight sm:text-3xl"
+              className="text-2xl font-black tracking-tight sm:text-3xl"
               style={{ color: TOKENS.onSurface }}
             >
               Split savings into named targets
             </h2>
             <p
-              className="mt-4 max-w-3xl text-sm leading-relaxed sm:text-[15px]"
+              className="mt-2 max-w-2xl text-sm leading-relaxed"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
               Each goal takes a percentage of your savings-bucket allocation on every paycheck.
@@ -181,22 +179,24 @@ export function SavingGoalsPageBentoLoading() {
             </p>
             <Link
               href={BENTO.funds}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold underline-offset-2 transition-colors duration-200 hover:underline"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold underline-offset-2 transition-colors duration-200 hover:underline"
               style={{ color: TOKENS.primary }}
             >
               <Wallet className="h-3.5 w-3.5" aria-hidden />
               Fund Settings
             </Link>
           </div>
-          <button
-            type="button"
-            disabled
-            className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] opacity-45"
-            style={{ background: TOKENS.primary, color: TOKENS.surface }}
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            New goal
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled
+              className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] opacity-45"
+              style={{ background: TOKENS.primary, color: TOKENS.surface }}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New goal
+            </button>
+          </div>
         </div>
       </section>
 
