@@ -119,8 +119,13 @@ export function ConsoleSavingGoalsCard({
             </li>
           ) : (
             shown.map((goal) => {
-              const complete = goal.status === "complete" || goal.percent >= 100
-              const pct = Math.min(100, Math.max(0, goal.percent))
+              // goal.percent is the savings *allocation* share, not progress —
+              // completion is how much of the target has actually been saved.
+              const completionPct =
+                goal.target != null && goal.target > 0
+                  ? Math.min(100, Math.max(0, (goal.current / goal.target) * 100))
+                  : 0
+              const complete = goal.status === "complete" || completionPct >= 100
               const barColor = complete ? TOKENS.primary : TOKENS.secondary
 
               return (
@@ -136,7 +141,11 @@ export function ConsoleSavingGoalsCard({
                       className="shrink-0 text-xs font-bold tabular-nums"
                       style={{ color: complete ? TOKENS.primary : TOKENS.onSurfaceMuted }}
                     >
-                      {complete ? "Done" : goal.target != null ? `${pct.toFixed(0)}%` : "—"}
+                      {complete
+                        ? "Done"
+                        : goal.target != null
+                          ? `${completionPct.toFixed(0)}% saved`
+                          : "—"}
                     </span>
                   </div>
                   {goal.target != null ? (
@@ -145,7 +154,7 @@ export function ConsoleSavingGoalsCard({
                         className="mt-2 h-2 overflow-hidden rounded-full"
                         style={{ background: chipBg }}
                         role="progressbar"
-                        aria-valuenow={Math.round(pct)}
+                        aria-valuenow={Math.round(completionPct)}
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-label={`${goal.name} progress`}
@@ -154,7 +163,7 @@ export function ConsoleSavingGoalsCard({
                           className="h-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none"
                           style={{
                             // scaleX (not width) so the entry animation stays off the layout thread
-                            transform: `scaleX(${pct / 100})`,
+                            transform: `scaleX(${completionPct / 100})`,
                             background: barColor,
                           }}
                         />
