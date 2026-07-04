@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { fetchJsonAndCache } from "@/lib/client-fetch-cache"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { TOKENS } from "@/lib/wealth-console-tokens"
@@ -8,6 +8,7 @@ import { TOKENS } from "@/lib/wealth-console-tokens"
 type NetWorthPoint = { label: string; netWorth: number }
 
 const CACHE_KEY = "dashboard:networth-history"
+const CHART_HEIGHT = 48
 
 /**
  * Compact 6-month net worth trend for the Aggregate card. Fetches lazily and
@@ -19,21 +20,23 @@ export function ConsoleNetWorthSparkline() {
   const [series, setSeries] = useState<NetWorthPoint[] | null>(null)
   const [failed, setFailed] = useState(false)
 
+  // The polyline is built in real pixel coordinates instead of stretching a
+  // normalized viewBox: stretching (preserveAspectRatio="none") needs
+  // vector-effect to keep the stroke uniform, and Chrome computes dash
+  // geometry in screen space for non-scaling strokes while pathLength
+  // normalizes in user space — the mismatch chops the drawn line into dashes.
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+
   useEffect(() => {
-    let cancelled = false
-    fetchJsonAndCache<{ snapshots?: NetWorthPoint[] }>(
-      CACHE_KEY,
-      "/api/net-worth-history?months=6",
-    )
-      .then((data) => {
-        if (!cancelled) setSeries(data.snapshots ?? [])
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true)
-      })
-    return () => {
-      cancelled = true
-    }
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const next = Math.round(entries[0]?.contentRect.width ?? 0)
+      setWidth((prev) => (prev === next ? prev : next))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   if (failed) return null
@@ -41,6 +44,7 @@ export function ConsoleNetWorthSparkline() {
   if (series === null) {
     return (
       <div
+        ref={containerRef}
         className="mt-4 h-12 w-full animate-pulse rounded-md"
         style={{ background: TOKENS.surfaceLow }}
         aria-hidden
@@ -58,10 +62,8 @@ export function ConsoleNetWorthSparkline() {
   const delta = last - first
   const rising = delta >= 0
 
-  // Normalized 100×40 space; non-scaling stroke keeps the line crisp when the
-  // SVG stretches to the card width.
-  const w = 100
-  const h = 40
+  const w = width
+  const h = CHART_HEIGHT
   const pad = 2
   const points = values.map((v, i) => {
     const x = pad + (i / (values.length - 1)) * (w - pad * 2)
@@ -72,32 +74,36 @@ export function ConsoleNetWorthSparkline() {
   const lineColor = rising ? TOKENS.primary : TOKENS.loss
 
   return (
-    <div className="mt-4">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="h-12 w-full"
-        aria-hidden
-      >
-        {/* Area fades in once the line has mostly drawn */}
-        <polygon
-          points={areaPoints}
-          fill={lineColor}
-          className="csp-chart-fade"
-          style={{ "--csp-fade-to": 0.08 } as React.CSSProperties}
-        />
-        <polyline
-          fill="none"
-          stroke={lineColor}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          pathLength={100}
-          className="csp-line-draw"
-          points={points.join(" ")}
-        />
-      </svg>
+    <div className="mt-4" ref={containerRef}>
+      {w > 0 ? (
+        <svg
+          viewBox={`0 0 ${w} ${h}`}
+          width={w}
+          height={h}
+          className="block"
+          aria-hidden
+        >
+          {/* Area fades in once the line has mostly drawn */}
+          <polygon
+            points={areaPoints}
+            fill={lineColor}
+            className="csp-chart-fade"
+            style={{ "--csp-fade-to": 0.08 } as React.CSSProperties}
+          />
+          <polyline
+            fill="none"
+            stroke={lineColor}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength={100}
+            className="csp-line-draw"
+            points={points.join(" ")}
+          />
+        </svg>
+      ) : (
+        <div className="h-12 w-full" aria-hidden />
+      )}
       <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p
           className="text-[10px] font-medium uppercase tracking-wider"
