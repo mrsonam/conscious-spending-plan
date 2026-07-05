@@ -8,6 +8,7 @@ import {
   TrendsCard,
   TrendsSectionHeader,
   formatCategoryLabel,
+  formatBarAmount,
 } from "./trends-shared"
 
 const MINI_COLORS = [
@@ -19,20 +20,24 @@ const MINI_COLORS = [
   "#eab308",
 ] as const
 
+const BAR_AREA_PX = 56
+
 function CategoryMiniChart({
   label,
   values,
+  monthLabels,
   avg,
   formatCurrency,
   color,
 }: {
   label: string
   values: number[]
+  monthLabels: string[]
   avg: number
   formatCurrency: (n: number) => string
   color: string
 }) {
-  const max = Math.max(...values, avg, 1)
+  const max = Math.max(...values, 1)
   const last = values.length >= 2 ? values[values.length - 2] : null
   const prev = values.length >= 2 ? values[values.length - 3] : null
   let mom: number | null = null
@@ -63,19 +68,44 @@ function CategoryMiniChart({
           </span>
         ) : null}
       </div>
-      <div className="flex h-14 items-end gap-0.5">
-        {values.map((v, i) => (
-          <div
-            key={i}
-            className="min-w-0 flex-1 rounded-t-sm transition-opacity"
-            style={{
-              height: `${Math.max(4, (v / max) * 100)}%`,
-              background: color,
-              opacity: i === values.length - 1 ? 0.45 : 0.85,
-            }}
-            title={formatCurrency(v)}
-          />
-        ))}
+      <div className="flex gap-px sm:gap-0.5">
+        {values.map((v, i) => {
+          // Sqrt scale spreads small values apart when one month dominates the range.
+          const sqrtMax = Math.sqrt(max)
+          const barPx =
+            v === 0
+              ? 2
+              : Math.max(2, (Math.sqrt(v) / sqrtMax) * BAR_AREA_PX)
+          const isPartialMonth = i === values.length - 1
+          return (
+            <div
+              key={`${monthLabels[i] ?? i}`}
+              className="flex min-w-0 flex-1 flex-col items-center gap-1"
+            >
+              <div
+                className="flex w-full items-end"
+                style={{ height: BAR_AREA_PX }}
+              >
+                <div
+                  className="w-full rounded-t-sm"
+                  style={{
+                    height: barPx,
+                    background: color,
+                    opacity: isPartialMonth ? 0.45 : 0.9,
+                  }}
+                  title={`${monthLabels[i] ?? ""}: ${formatCurrency(v)}`}
+                />
+              </div>
+              <span
+                className="max-w-full truncate text-center text-[9px] leading-none tabular-nums"
+                style={{ color: TOKENS.onSurfaceMuted }}
+                title={formatCurrency(v)}
+              >
+                {formatBarAmount(v, formatCurrency)}
+              </span>
+            </div>
+          )
+        })}
       </div>
       <p className="mt-2 text-[10px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
         avg {formatCurrency(avg)}
@@ -95,6 +125,7 @@ export function TrendsCategorySection({
 }) {
   const { formatCurrency } = useFormatCurrency()
   const displayCategories = topCategories.filter((c) => c !== "other").slice(0, 6)
+  const monthLabels = months.map((m) => m.label)
 
   const series = useMemo(() => {
     return displayCategories.map((cat) => {
@@ -121,7 +152,7 @@ export function TrendsCategorySection({
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-28 animate-pulse rounded-xl"
+              className="h-32 animate-pulse rounded-xl"
               style={{ background: TOKENS.surfaceHigh }}
             />
           ))}
@@ -133,6 +164,7 @@ export function TrendsCategorySection({
               key={cat}
               label={formatCategoryLabel(cat)}
               values={values}
+              monthLabels={monthLabels}
               avg={avg}
               formatCurrency={formatCurrency}
               color={MINI_COLORS[i % MINI_COLORS.length]}

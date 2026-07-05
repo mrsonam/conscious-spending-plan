@@ -125,3 +125,19 @@ export function formatCategoryLabel(key: string): string {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
+
+/** Compact dollar label under trend bars. */
+export function formatBarAmount(
+  amount: number,
+  formatCurrency: (n: number) => string,
+): string {
+  if (amount === 0) return "$0"
+  if (amount < 100) return formatCurrency(amount)
+  if (amount < 10_000) return `$${Math.round(amount)}`
+  return `$${(amount / 1000).toFixed(1)}k`
+}
+
+/** "Aug 25" → "Aug" for narrow bar columns. */
+export function shortMonthLabel(label: string): string {
+  return label.split(" ")[0] ?? label
+}

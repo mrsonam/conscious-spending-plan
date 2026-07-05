@@ -1,18 +1,102 @@
 "use client"
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import type { TrendsReportMonth } from "@/hooks/use-trends-report"
-import { TrendsCard, TrendsSectionHeader } from "./trends-shared"
+import {
+  TrendsCard,
+  TrendsSectionHeader,
+  formatBarAmount,
+  shortMonthLabel,
+} from "./trends-shared"
+
+const BAR_AREA_PX = 140
+
+function IncomeMonthBars({
+  months,
+  formatCurrency,
+}: {
+  months: TrendsReportMonth[]
+  formatCurrency: (n: number) => string
+}) {
+  const values = months.map((m) => m.totalIncome)
+  const max = Math.max(...values, 1)
+
+  return (
+    <>
+      <div
+        className="overflow-x-auto"
+        role="img"
+        aria-label="Monthly income bar chart"
+      >
+        <div
+          className="flex min-w-full gap-px sm:gap-0.5"
+          style={{ minWidth: `${months.length * 28}px` }}
+        >
+          {months.map((m, i) => {
+            const v = m.totalIncome
+            const barPx =
+              v === 0 ? 2 : Math.max(2, (v / max) * BAR_AREA_PX)
+            const isPartialMonth = i === months.length - 1
+            return (
+              <div
+                key={`${m.year}-${m.month}`}
+                className="flex min-w-0 flex-1 flex-col items-center gap-0.5"
+              >
+                <div
+                  className="flex w-full items-end"
+                  style={{ height: BAR_AREA_PX }}
+                >
+                  <div
+                    className="w-full rounded-t-sm"
+                    style={{
+                      height: barPx,
+                      background: TOKENS.primary,
+                      opacity: isPartialMonth ? 0.45 : 0.9,
+                    }}
+                    title={`${m.label}: ${formatCurrency(v)}`}
+                  />
+                </div>
+                <span
+                  className="max-w-full truncate text-center text-[9px] leading-none tabular-nums"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                  title={formatCurrency(v)}
+                >
+                  {formatBarAmount(v, formatCurrency)}
+                </span>
+                <span
+                  className="max-w-full truncate text-center text-[9px] leading-none"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                  title={m.label}
+                >
+                  {shortMonthLabel(m.label)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <table className="sr-only">
+        <caption>Monthly income</caption>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Income</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m) => (
+            <tr key={`${m.year}-${m.month}`}>
+              <td>{m.label}</td>
+              <td>{formatCurrency(m.totalIncome)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  )
+}
 
 export function TrendsIncomeSection({
   months,
@@ -26,11 +110,6 @@ export function TrendsIncomeSection({
   loading: boolean
 }) {
   const { formatCurrency } = useFormatCurrency()
-  const chartData = months.map((m) => ({
-    label: m.label,
-    income: m.totalIncome,
-  }))
-  const maxIncome = Math.max(...months.map((m) => m.totalIncome), 0)
   // Best month from complete months only — the current partial month would
   // never win fairly and shouldn't skew the stat.
   const completeMonths = months.length > 1 ? months.slice(0, -1) : months
@@ -87,45 +166,7 @@ export function TrendsIncomeSection({
               </ul>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={TOKENS.outlineGhost} vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: TOKENS.onSurfaceMuted, fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(v) => formatCurrency(v)}
-                tick={{ fill: TOKENS.onSurfaceMuted, fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                width={64}
-                domain={[0, Math.ceil(maxIncome * 1.1)]}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null
-                  const v = payload[0]?.value
-                  return (
-                    <div
-                      className="rounded-xl border px-3 py-2 text-[12px]"
-                      style={{
-                        background: TOKENS.surfaceContainer,
-                        borderColor: TOKENS.outlineGhost,
-                        color: TOKENS.onSurface,
-                      }}
-                    >
-                      <p className="font-medium">{label}</p>
-                      <p className="tabular-nums">{formatCurrency(Number(v ?? 0))}</p>
-                    </div>
-                  )
-                }}
-              />
-              <Bar dataKey="income" fill={TOKENS.primary} radius={[4, 4, 0, 0]} maxBarSize={36} />
-            </BarChart>
-          </ResponsiveContainer>
+          <IncomeMonthBars months={months} formatCurrency={formatCurrency} />
         </>
       )}
     </TrendsCard>

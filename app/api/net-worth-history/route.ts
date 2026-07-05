@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     }),
     prisma.superannuationAccount.findMany({
       where: { userId },
-      select: { contributions: { select: { amount: true } } },
+      select: { contributions: { select: { amount: true, date: true } } },
     }),
   ])
 
@@ -71,16 +71,17 @@ export async function GET(req: Request) {
       v: Math.max(0, Number(l.amount) - Number(l.repaidAmount)),
     }))
     .sort((a, b) => a.t - b.t)
+  const superSorted = superAccounts
+    .flatMap((a) =>
+      a.contributions.map((c) => ({
+        t: new Date(c.date).getTime(),
+        v: Number(c.amount),
+      })),
+    )
+    .sort((a, b) => a.t - b.t)
 
   const totalIncome = incomeSorted.reduce((s, e) => s + e.v, 0)
   const totalExpenses = expensesSorted.reduce((s, e) => s + e.v, 0)
-
-  // Super is intentionally constant across buckets (derived the same way as
-  // the super page), compute it once.
-  const superValue = superAccounts.reduce(
-    (s, a) => s + a.contributions.reduce((cs, c) => cs + Number(c.amount), 0),
-    0,
-  )
 
   let incomeIdx = 0
   let incomeUpTo = 0
@@ -90,6 +91,8 @@ export async function GET(req: Request) {
   let investmentValue = 0
   let loanIdx = 0
   let loanValue = 0
+  let superIdx = 0
+  let superValue = 0
 
   const snapshots = buckets.map(({ month, year, label, end }) => {
     const endMs = end.getTime()
@@ -109,6 +112,10 @@ export async function GET(req: Request) {
     while (loanIdx < loansSorted.length && loansSorted[loanIdx].t <= endMs) {
       loanValue += loansSorted[loanIdx].v
       loanIdx++
+    }
+    while (superIdx < superSorted.length && superSorted[superIdx].t <= endMs) {
+      superValue += superSorted[superIdx].v
+      superIdx++
     }
 
     // Cash: anchor on current balance, reverse transactions after this month
