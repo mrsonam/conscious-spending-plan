@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const rangeStart = new Date(buckets[0].year, buckets[0].month - 1, 1)
     const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
 
-    const [expenses, incomeEntries] = await Promise.all([
+    const [expenses, incomeEntries, holdingPurchases] = await Promise.all([
       prisma.expense.findMany({
         where: {
           userId: session.user.id,
@@ -68,7 +68,22 @@ export async function GET(request: Request) {
           allocationGuiltFreeSpending: true,
         },
       }),
+      // Actual investing happens as holding purchases (same source as the
+      // YTD "Invested" stat), not as investment-pillar expenses.
+      prisma.investmentHolding.findMany({
+        where: {
+          userId: session.user.id,
+          date: { gte: rangeStart, lte: rangeEnd },
+        },
+        select: { amount: true, date: true },
+      }),
     ])
+
+    const investedMap = new Map<string, bigint>()
+    for (const h of holdingPurchases) {
+      const key = monthKey(h.date.getMonth() + 1, h.date.getFullYear())
+      investedMap.set(key, (investedMap.get(key) ?? 0n) + coerceMinor(h.amount))
+    }
 
     // Aggregate spend per month+category (pillars), plus granular
     // expenseCategory totals per month for category trend views.
@@ -174,6 +189,7 @@ export async function GET(request: Request) {
           guiltFreeSpending: toD(inc.guiltFreeSpending),
         },
         totalIncome: toD(inc.income),
+        invested: toD(investedMap.get(key) ?? 0n),
         expenseCategories,
       }
     })

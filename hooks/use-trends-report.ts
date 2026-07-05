@@ -7,6 +7,8 @@ import type { SpendingTrendMonth } from "@/components/trends/spending-trends-cha
 
 export type TrendsReportMonth = SpendingTrendMonth & {
   expenseCategories: Record<string, number>
+  /** Holding purchases that month (same source as the YTD Invested stat). */
+  invested?: number
 }
 
 export type TrendsReportPayload = {

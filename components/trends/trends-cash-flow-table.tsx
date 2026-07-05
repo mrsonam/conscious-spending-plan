@@ -30,7 +30,7 @@ export function TrendsCashFlowTable({
       label: m.label,
       income: m.totalIncome,
       spend,
-      invested: m.spend.investment,
+      invested: m.invested ?? m.spend.investment,
       net: m.totalIncome - spend,
       rate: savingsRateSeries[i],
       isCurrent: i === months.length - 1,
