@@ -68,7 +68,11 @@ export function TrendsSavingsRateSection({
                 axisLine={false}
                 tickLine={false}
                 width={40}
-                domain={[0, 100]}
+                // Overspent months produce negative rates — don't clip them.
+                domain={[
+                  Math.min(0, Math.floor(Math.min(...knownRates, 0) / 10) * 10),
+                  100,
+                ]}
               />
               {avgRate !== null ? (
                 <ReferenceLine

@@ -10,8 +10,10 @@ import { useTrendsReport } from "@/hooks/use-trends-report"
 import { CashFlowForecastBento } from "@/components/trends/cash-flow-forecast-bento"
 import { NetWorthBento } from "@/components/net-worth/net-worth-bento"
 import { SpendingTrendsChart } from "@/components/trends/spending-trends-chart"
+import { TrendsCashFlowTable } from "@/components/trends/trends-cash-flow-table"
 import { TrendsCategorySection } from "@/components/trends/trends-category-section"
 import { TrendsIncomeSection } from "@/components/trends/trends-income-section"
+import { TrendsInsightStrip } from "@/components/trends/trends-insight-strip"
 import { TrendsSavingsRateSection } from "@/components/trends/trends-savings-rate-section"
 import {
   TrendsCard,
@@ -74,6 +76,9 @@ export function TrendsPageBento() {
           </div>
           <TrendsPeriodSelector value={months} onChange={setMonths} />
         </div>
+        <div className="mt-4">
+          <TrendsInsightStrip insights={report.insights} loading={report.loading} />
+        </div>
       </section>
 
       <TrendsCard>
@@ -120,6 +125,13 @@ export function TrendsPageBento() {
           loading={report.loading}
         />
       </div>
+
+      <TrendsCashFlowTable
+        months={report.months}
+        savingsRateSeries={report.savingsRateSeries}
+        loading={report.loading}
+        onMonthClick={handleMonthClick}
+      />
 
       <NetWorthBento months={months} hideRangeSelector />
 

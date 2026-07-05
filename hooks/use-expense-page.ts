@@ -127,6 +127,25 @@ export function useExpensePage(
   const [filterSearch, setFilterSearch] = useState("")
   const [debouncedFilterSearch, setDebouncedFilterSearch] = useState("")
 
+  // Deep links like /expenses?month=7&year=2026 (Trends month click) preset
+  // the date filters to that calendar month. Applied post-hydration so the
+  // server-rendered empty filters don't mismatch.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const month = parseInt(params.get("month") ?? "", 10)
+    const year = parseInt(params.get("year") ?? "", 10)
+    if (
+      !Number.isInteger(month) || month < 1 || month > 12 ||
+      !Number.isInteger(year) || year < 2000 || year > 2100
+    ) {
+      return
+    }
+    const pad = (n: number) => String(n).padStart(2, "0")
+    const lastDay = new Date(year, month, 0).getDate()
+    setFilterStartDate(`${year}-${pad(month)}-01`)
+    setFilterEndDate(`${year}-${pad(month)}-${pad(lastDay)}`)
+  }, [])
+
   const [recurring, setRecurring] = useState<RecurringExpense[]>([])
   const [loadingRecurring, setLoadingRecurring] = useState(false)
   const [hasLoadedExpenses, setHasLoadedExpenses] = useState(false)

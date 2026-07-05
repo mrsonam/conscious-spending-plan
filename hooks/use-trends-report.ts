@@ -46,35 +46,47 @@ export function monthTotalSpend(m: SpendingTrendMonth): number {
   )
 }
 
+type TrendsFetchResult = {
+  /** Which period this result belongs to — stale results are ignored. */
+  forMonths: number
+  payload: TrendsReportPayload | null
+  error: string | null
+}
+
 export function useTrendsReport(months: number): TrendsReport {
   const { formatCurrency } = useFormatCurrency()
-  const [payload, setPayload] = useState<TrendsReportPayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Loading is derived (result for the current period not yet present), so
+  // the effect never needs a synchronous setState when the period changes,
+  // and out-of-order responses can't clobber the newer period's data.
+  const [result, setResult] = useState<TrendsFetchResult | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
     fetchJsonAndCache<TrendsReportPayload>(
       `trends:report:${months}`,
       `/api/spending-trends?months=${months}`,
     )
       .then((data) => {
         if (cancelled) return
-        setPayload(data)
+        setResult({ forMonths: months, payload: data, error: null })
       })
       .catch((e) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : "Failed to load trends")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        setResult({
+          forMonths: months,
+          payload: null,
+          error: e instanceof Error ? e.message : "Failed to load trends",
+        })
       })
     return () => {
       cancelled = true
     }
   }, [months])
+
+  const current = result?.forMonths === months ? result : null
+  const payload = current?.payload ?? null
+  const error = current?.error ?? null
+  const loading = current === null
 
   return useMemo(() => {
     const rows = payload?.months ?? []

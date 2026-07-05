@@ -31,9 +31,12 @@ export function TrendsIncomeSection({
     income: m.totalIncome,
   }))
   const maxIncome = Math.max(...months.map((m) => m.totalIncome), 0)
-  const best = months.reduce(
+  // Best month from complete months only — the current partial month would
+  // never win fairly and shouldn't skew the stat.
+  const completeMonths = months.length > 1 ? months.slice(0, -1) : months
+  const best = completeMonths.reduce(
     (best, m) => (m.totalIncome > best.totalIncome ? m : best),
-    months[0] ?? { label: "-", totalIncome: 0 },
+    completeMonths[0] ?? { label: "-", totalIncome: 0 },
   )
 
   return (
