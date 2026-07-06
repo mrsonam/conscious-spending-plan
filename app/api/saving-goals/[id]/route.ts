@@ -41,15 +41,20 @@ export async function PATCH(
     }
 
     if (body.action === "archive") {
-      const currentMinor = goal.currentMinor
       const updated = await prisma.$transaction(async (tx) => {
-        if (currentMinor > 0n) {
+        const fresh = await tx.savingGoal.findFirst({
+          where: { id, userId: session.user.id },
+        })
+        if (!fresh) {
+          throw new Error("Saving goal not found")
+        }
+        if (fresh.currentMinor > 0n) {
           await tx.savingGoalLedgerEntry.create({
             data: {
               userId: session.user.id,
               savingGoalId: id,
               source: "archive_reset",
-              amountMinor: -currentMinor,
+              amountMinor: -fresh.currentMinor,
             },
           })
         }
@@ -109,15 +114,20 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      const currentMinor = goal.currentMinor
       const updated = await prisma.$transaction(async (tx) => {
-        if (currentMinor > 0n) {
+        const fresh = await tx.savingGoal.findFirst({
+          where: { id, userId: session.user.id },
+        })
+        if (!fresh) {
+          throw new Error("Saving goal not found")
+        }
+        if (fresh.currentMinor > 0n) {
           await tx.savingGoalLedgerEntry.create({
             data: {
               userId: session.user.id,
               savingGoalId: id,
               source: "withdrawal",
-              amountMinor: -currentMinor,
+              amountMinor: -fresh.currentMinor,
             },
           })
         }
