@@ -78,8 +78,10 @@ export async function loadSavingGoalProjections(
   for (const g of goals) projections[g.id] = null
   if (eligible.length === 0) return projections
 
+  // Net every ledger source (income, manual transfers, withdrawals) so the
+  // pace reflects actual recent progress, not just auto-credits.
   const windowStart = new Date(now.getTime() - WINDOW_DAYS * MS_PER_DAY)
-  const sums = await prisma.savingGoalCredit.groupBy({
+  const sums = await prisma.savingGoalLedgerEntry.groupBy({
     by: ["savingGoalId"],
     where: {
       userId,

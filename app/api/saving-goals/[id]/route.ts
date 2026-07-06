@@ -41,9 +41,22 @@ export async function PATCH(
     }
 
     if (body.action === "archive") {
-      const updated = await prisma.savingGoal.update({
-        where: { id },
-        data: { status: "archived", currentMinor: 0n },
+      const currentMinor = goal.currentMinor
+      const updated = await prisma.$transaction(async (tx) => {
+        if (currentMinor > 0n) {
+          await tx.savingGoalLedgerEntry.create({
+            data: {
+              userId: session.user.id,
+              savingGoalId: id,
+              source: "archive_reset",
+              amountMinor: -currentMinor,
+            },
+          })
+        }
+        return tx.savingGoal.update({
+          where: { id },
+          data: { status: "archived", currentMinor: 0n },
+        })
       })
       return moneyJsonResponse(
         { goal: mapSavingGoalToApi(updated as unknown as Record<string, unknown>, currency) },
@@ -96,9 +109,22 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      const updated = await prisma.savingGoal.update({
-        where: { id },
-        data: { currentMinor: 0n, status: "archived" },
+      const currentMinor = goal.currentMinor
+      const updated = await prisma.$transaction(async (tx) => {
+        if (currentMinor > 0n) {
+          await tx.savingGoalLedgerEntry.create({
+            data: {
+              userId: session.user.id,
+              savingGoalId: id,
+              source: "withdrawal",
+              amountMinor: -currentMinor,
+            },
+          })
+        }
+        return tx.savingGoal.update({
+          where: { id },
+          data: { currentMinor: 0n, status: "archived" },
+        })
       })
       return moneyJsonResponse(
         { goal: mapSavingGoalToApi(updated as unknown as Record<string, unknown>, currency) },

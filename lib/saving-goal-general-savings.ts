@@ -131,6 +131,15 @@ export async function transferToSavingGoal(
   const isComplete =
     targetMinor != null && targetMinor > 0n && newCurrent >= targetMinor
 
+  await tx.savingGoalLedgerEntry.create({
+    data: {
+      userId,
+      savingGoalId: goalId,
+      source: "manual_transfer",
+      amountMinor: transferMinor,
+    },
+  })
+
   const updated = await tx.savingGoal.update({
     where: { id: goalId },
     data: {

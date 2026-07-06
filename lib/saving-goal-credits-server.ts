@@ -57,11 +57,12 @@ export async function applySavingGoalCreditsForIncome(
       continue
     }
 
-    await tx.savingGoalCredit.create({
+    await tx.savingGoalLedgerEntry.create({
       data: {
         userId,
         savingGoalId: goal.id,
         incomeEntryId,
+        source: "income",
         amountMinor: credit,
       },
     })
@@ -92,10 +93,11 @@ export async function reverseSavingGoalCreditsForIncome(
   tx: Tx,
   params: { userId: string; incomeEntryId: string }
 ): Promise<void> {
-  const credits = await tx.savingGoalCredit.findMany({
+  const credits = await tx.savingGoalLedgerEntry.findMany({
     where: {
       userId: params.userId,
       incomeEntryId: params.incomeEntryId,
+      source: "income",
     },
     include: { savingGoal: true },
   })
@@ -128,10 +130,11 @@ export async function reverseSavingGoalCreditsForIncome(
     })
   }
 
-  await tx.savingGoalCredit.deleteMany({
+  await tx.savingGoalLedgerEntry.deleteMany({
     where: {
       userId: params.userId,
       incomeEntryId: params.incomeEntryId,
+      source: "income",
     },
   })
 }
