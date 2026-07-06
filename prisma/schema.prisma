@@ -33,7 +33,7 @@ model User {
   investmentDividends      InvestmentDividend[]
   categoryMonthClosings    CategoryMonthClosing[]
   savingGoals              SavingGoal[]
-  savingGoalCredits        SavingGoalCredit[]
+  savingGoalLedgerEntries  SavingGoalLedgerEntry[]
   categoryBucketTransfers  CategoryBucketTransfer[]
   apiTokens                ApiToken[]
   netWorthSnapshots        NetWorthSnapshot[]
@@ -123,7 +123,7 @@ model IncomeEntry {
 
   /// When set, this row was created for an investment dividend (one-to-one).
   investmentDividend InvestmentDividend?
-  savingGoalCredits  SavingGoalCredit[]
+  savingGoalLedgerEntries SavingGoalLedgerEntry[]
   externalId            String?
   source                String   @default("manual")
 
@@ -398,22 +398,25 @@ model SavingGoal {
   completedAt  DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
-  credits      SavingGoalCredit[]
+  ledgerEntries SavingGoalLedgerEntry[]
 
   @@index([userId, status])
 }
 
-/// Ledger row crediting a saving goal from a specific income entry.
-model SavingGoalCredit {
-  id            String      @id @default(cuid())
+/// Ledger row for every balance change on a saving goal: income credit, manual
+/// transfer, withdrawal, or archive reset. `sum(amountMinor)` for a goal
+/// always equals its `currentMinor`.
+model SavingGoalLedgerEntry {
+  id            String       @id @default(cuid())
   userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   savingGoalId  String
-  savingGoal    SavingGoal  @relation(fields: [savingGoalId], references: [id], onDelete: Cascade)
-  incomeEntryId String
-  incomeEntry   IncomeEntry @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
-  amountMinor   BigInt
-  createdAt     DateTime    @default(now())
+  savingGoal    SavingGoal   @relation(fields: [savingGoalId], references: [id], onDelete: Cascade)
+  incomeEntryId String?
+  incomeEntry   IncomeEntry? @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
+  source        String       @default("income") // income | manual_transfer | withdrawal | archive_reset
+  amountMinor   BigInt // signed: positive = money in, negative = money out
+  createdAt     DateTime     @default(now())
 
   @@unique([savingGoalId, incomeEntryId])
   @@index([userId])
