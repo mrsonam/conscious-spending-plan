@@ -11,6 +11,71 @@ import {
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { transferToSavingGoal } from "@/lib/saving-goal-general-savings"
 import { currencyFromSession } from "@/lib/user-currency"
+import {
+  computeRunningBalancesMinor,
+  summarizeSavingGoalLedgerMinor,
+  type SavingGoalLedgerEntryLike,
+} from "@/lib/saving-goal-ledger"
+import { mapSavingGoalLedgerEntryToApi } from "@/lib/saving-goal-api-map"
+import { loadSavingGoalProjections } from "@/lib/saving-goal-projection"
+import { serializeMoneyForApi } from "@/lib/money-api"
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const currency = currencyFromSession(session.user.displayCurrency)
+
+    const goal = await prisma.savingGoal.findFirst({
+      where: { id, userId: session.user.id },
+    })
+    if (!goal) {
+      return NextResponse.json({ error: "Saving goal not found" }, { status: 404 })
+    }
+
+    const entriesAsc = await prisma.savingGoalLedgerEntry.findMany({
+      where: { savingGoalId: id, userId: session.user.id },
+      orderBy: { createdAt: "asc" },
+    })
+    // Prisma types `source` as plain `string`; narrow it to the ledger union
+    // the pure functions expect (the column only ever holds these 4 values).
+    const typedEntries = entriesAsc as unknown as SavingGoalLedgerEntryLike[]
+
+    const withBalances = computeRunningBalancesMinor(typedEntries)
+    const summary = summarizeSavingGoalLedgerMinor(typedEntries)
+    const projections = await loadSavingGoalProjections(session.user.id, [goal], currency)
+
+    return moneyJsonResponse(
+      {
+        goal: mapSavingGoalToApi(goal as unknown as Record<string, unknown>, currency),
+        projection: projections[goal.id] ?? null,
+        stats: {
+          totalContributed: serializeMoneyForApi(summary.totalContributedMinor, currency),
+          fromPaychecks: serializeMoneyForApi(summary.fromPaychecksMinor, currency),
+          fromManualTransfers: serializeMoneyForApi(summary.fromManualTransfersMinor, currency),
+          withdrawn: serializeMoneyForApi(summary.withdrawnMinor, currency),
+        },
+        ledger: [...withBalances]
+          .reverse()
+          .map((e) => mapSavingGoalLedgerEntryToApi(e, currency)),
+      },
+      currency
+    )
+  } catch (error) {
+    console.error("Error fetching saving goal:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
 
 export async function PATCH(
   request: Request,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { mapSavingGoalToApi } from "../lib/saving-goal-api-map"
+import { mapSavingGoalToApi, mapSavingGoalLedgerEntryToApi } from "../lib/saving-goal-api-map"
 import { dollarsToMinor } from "../lib/money"
 
 const CURRENCY = "USD"
@@ -43,6 +43,36 @@ void (async () => {
 
   assert.equal(openEnded.target, null)
   assert.equal(openEnded.current, 50)
+
+  const ledgerMapped = mapSavingGoalLedgerEntryToApi(
+    {
+      id: "l1",
+      source: "manual_transfer",
+      amountMinor: dollarsToMinor(15, CURRENCY),
+      runningBalanceMinor: dollarsToMinor(215, CURRENCY),
+      incomeEntryId: null,
+      createdAt: "2026-06-01T00:00:00.000Z",
+    },
+    CURRENCY
+  )
+  assert.equal(ledgerMapped.source, "manual_transfer")
+  assert.equal(ledgerMapped.amount, 15)
+  assert.equal(ledgerMapped.runningBalance, 215)
+  assert.equal(ledgerMapped.incomeEntryId, null)
+
+  const negativeLedgerMapped = mapSavingGoalLedgerEntryToApi(
+    {
+      id: "l2",
+      source: "withdrawal",
+      amountMinor: dollarsToMinor(-215, CURRENCY),
+      runningBalanceMinor: dollarsToMinor(0, CURRENCY),
+      incomeEntryId: null,
+      createdAt: "2026-06-02T00:00:00.000Z",
+    },
+    CURRENCY
+  )
+  assert.equal(negativeLedgerMapped.amount, -215)
+  assert.equal(negativeLedgerMapped.runningBalance, 0)
 
   console.log("saving-goal-api-map.test.ts: all passed")
 })()
