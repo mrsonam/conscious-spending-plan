@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
 import { currencyFromSession } from "@/lib/user-currency"
 
 function serializeRecurring(
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
       category,
       expenseCategory,
       frequency,
+      intervalDays,
       startDate,
       endDate,
     } = body
@@ -99,12 +101,14 @@ export async function POST(request: Request) {
       )
     }
 
-    const validFrequencies = ["weekly", "monthly", "yearly"]
-    if (!validFrequencies.includes(frequency)) {
-      return NextResponse.json(
-        { error: "Frequency must be weekly, monthly, or yearly" },
-        { status: 400 }
-      )
+    const parsedIntervalDays =
+      intervalDays != null ? Math.floor(Number(intervalDays)) : null
+    const scheduleCheck = validateRecurringSchedule(
+      frequency,
+      parsedIntervalDays,
+    )
+    if (!scheduleCheck.ok) {
+      return NextResponse.json({ error: scheduleCheck.error }, { status: 400 })
     }
 
     const account = await prisma.account.findFirst({
@@ -123,6 +127,7 @@ export async function POST(request: Request) {
         category: category || null,
         expenseCategory: expenseCategory || null,
         frequency,
+        intervalDays: frequency === "custom" ? parsedIntervalDays : null,
         startDate: startDate ? new Date(startDate) : new Date(),
         endDate: endDate ? new Date(endDate) : null,
         isActive: true,

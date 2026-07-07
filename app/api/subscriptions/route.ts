@@ -6,8 +6,10 @@ import { prismaSubscription } from "@/lib/prisma-subscription"
 import {
   collectUpcomingEvents,
   monthlyEquivalent,
+  SUPPORTED_SUBSCRIPTION_FREQUENCIES,
   type SubscriptionFrequency,
 } from "@/lib/subscription-utils"
+import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExchangeRate } from "@/lib/fx-rate"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
@@ -15,7 +17,7 @@ import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
 import { currencyFromSession } from "@/lib/user-currency"
 import { dollarsToMinor } from "@/lib/money"
 
-const VALID_FREQ = ["weekly", "monthly", "yearly"] as const
+const VALID_FREQ = SUPPORTED_SUBSCRIPTION_FREQUENCIES
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
 
 type SubscriptionRow = {
@@ -34,6 +36,7 @@ type SubscriptionRow = {
     startDate: Date
     isActive: boolean
     description: string | null
+    intervalDays?: number | null
     account?: { id: string; name: string; bankName: string }
   }
 }
@@ -60,6 +63,7 @@ function subscriptionToApi(sub: SubscriptionRow, currency: string) {
       startDate: sub.recurringExpense.startDate,
       isActive: sub.recurringExpense.isActive,
       description: sub.recurringExpense.description,
+      intervalDays: sub.recurringExpense.intervalDays ?? null,
       account: sub.recurringExpense.account,
     },
   }
@@ -137,8 +141,12 @@ export async function GET(request: Request) {
     for (const s of activeForTotals) {
       const f = s.recurringExpense.frequency as SubscriptionFrequency
       const amountDollars = s.recurringExpense.amount
-      if (["weekly", "monthly", "yearly"].includes(f)) {
-        monthlyActiveTotal += monthlyEquivalent(amountDollars, f)
+      if (SUPPORTED_SUBSCRIPTION_FREQUENCIES.includes(f)) {
+        monthlyActiveTotal += monthlyEquivalent(
+          amountDollars,
+          f,
+          s.recurringExpense.intervalDays,
+        )
       }
     }
 
@@ -157,6 +165,7 @@ export async function GET(request: Request) {
           startDate: s.recurringExpense.startDate,
           isActive: s.recurringExpense.isActive,
           description: s.recurringExpense.description,
+          intervalDays: s.recurringExpense.intervalDays ?? null,
         },
       })),
       upcomingDays
@@ -200,6 +209,7 @@ export async function POST(request: Request) {
       category,
       expenseCategory,
       frequency,
+      intervalDays,
       startDate,
       endDate,
       provider,
@@ -237,9 +247,16 @@ export async function POST(request: Request) {
 
     if (!VALID_FREQ.includes(frequency)) {
       return NextResponse.json(
-        { error: "Frequency must be weekly, monthly, or yearly" },
+        { error: "Frequency must be weekly, fortnightly, monthly, yearly, or custom" },
         { status: 400 }
       )
+    }
+
+    const parsedIntervalDays =
+      intervalDays != null ? Math.floor(Number(intervalDays)) : null
+    const scheduleCheck = validateRecurringSchedule(frequency, parsedIntervalDays)
+    if (!scheduleCheck.ok) {
+      return NextResponse.json({ error: scheduleCheck.error }, { status: 400 })
     }
 
     const st = VALID_STATUS.includes(status as (typeof VALID_STATUS)[number])
@@ -280,6 +297,7 @@ export async function POST(request: Request) {
           category: category || null,
           expenseCategory: expenseCategory || null,
           frequency,
+          intervalDays: frequency === "custom" ? parsedIntervalDays : null,
           startDate: startDate ? new Date(startDate) : new Date(),
           endDate: endDate ? new Date(endDate) : null,
           isActive: true,

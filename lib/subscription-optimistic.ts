@@ -1,4 +1,8 @@
-import { monthlyEquivalent, type SubscriptionFrequency } from "@/lib/subscription-utils"
+import {
+  monthlyEquivalent,
+  SUPPORTED_SUBSCRIPTION_FREQUENCIES,
+  type SubscriptionFrequency,
+} from "@/lib/subscription-utils"
 import { createOptimisticId, roundMoney } from "@/lib/optimistic-id"
 
 export type SubscriptionRecurringLike = {
@@ -6,6 +10,7 @@ export type SubscriptionRecurringLike = {
   amount: number
   description: string | null
   frequency: string
+  intervalDays?: number | null
   startDate: string
   endDate: string | null
   isActive: boolean
@@ -43,10 +48,14 @@ export function cloneSubscriptionState(
 function activeMonthlyContribution(row: SubscriptionRowLike): number {
   if (row.status !== "active") return 0
   const freq = row.recurringExpense.frequency as SubscriptionFrequency
-  if (!["weekly", "monthly", "yearly"].includes(freq)) {
+  if (!SUPPORTED_SUBSCRIPTION_FREQUENCIES.includes(freq)) {
     return row.recurringExpense.amount
   }
-  return monthlyEquivalent(row.recurringExpense.amount, freq)
+  return monthlyEquivalent(
+    row.recurringExpense.amount,
+    freq,
+    row.recurringExpense.intervalDays,
+  )
 }
 
 export function applyOptimisticSubscriptionCreate(
@@ -59,6 +68,7 @@ export function applyOptimisticSubscriptionCreate(
     category: string | null
     expenseCategory: string | null
     frequency: string
+    intervalDays?: number | null
     startDate: string
     provider: string | null
     label: string | null
@@ -86,6 +96,7 @@ export function applyOptimisticSubscriptionCreate(
       amount: input.amount,
       description: input.description,
       frequency: input.frequency,
+      intervalDays: input.intervalDays ?? null,
       startDate: input.startDate,
       endDate: null,
       isActive: true,

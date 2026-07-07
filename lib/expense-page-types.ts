@@ -31,6 +31,7 @@ export interface RecurringExpense {
   category: string | null
   expenseCategory: string | null
   frequency: string
+  intervalDays: number | null
   startDate: string
   endDate: string | null
   isActive: boolean

@@ -1,69 +1,41 @@
-import { addMonths } from "date-fns"
+import {
+  ALL_RECURRING_FREQUENCIES,
+  monthlyEquivalent as scheduleMonthlyEquivalent,
+  nextChargeDate as scheduleNextChargeDate,
+  type RecurringFrequency,
+} from "@/lib/recurring-expense-schedule"
 
-export type SubscriptionFrequency = "weekly" | "monthly" | "yearly"
+export type { RecurringFrequency, PresetRecurringFrequency } from "@/lib/recurring-expense-schedule"
+export {
+  ALL_RECURRING_FREQUENCIES,
+  PRESET_RECURRING_FREQUENCIES,
+  formatRecurringFrequencyLabel,
+  validateRecurringSchedule,
+  paymentsPerMonth,
+} from "@/lib/recurring-expense-schedule"
 
-const MS_DAY = 86400000
+export type SubscriptionFrequency = RecurringFrequency
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x
-}
+/** @deprecated Use ALL_RECURRING_FREQUENCIES */
+export const SUPPORTED_SUBSCRIPTION_FREQUENCIES = ALL_RECURRING_FREQUENCIES
 
 /** Normalize recurring charge to approximate monthly USD for dashboard totals. */
 export function monthlyEquivalent(
   amount: number,
-  frequency: SubscriptionFrequency
+  frequency: string,
+  intervalDays?: number | null,
 ): number {
-  switch (frequency) {
-    case "weekly":
-      return (amount * 52) / 12
-    case "monthly":
-      return amount
-    case "yearly":
-      return amount / 12
-    default:
-      return amount
-  }
+  return scheduleMonthlyEquivalent(amount, frequency, intervalDays)
 }
 
-/**
- * Next billing date strictly after `from` (local midnight comparison).
- */
+/** Next billing date strictly after `from` (local midnight comparison). */
 export function nextChargeDate(
   startDate: Date,
-  frequency: SubscriptionFrequency,
-  from: Date = new Date()
+  frequency: string,
+  from: Date = new Date(),
+  intervalDays?: number | null,
 ): Date {
-  const fromT = startOfDay(from).getTime()
-  const start = startOfDay(startDate)
-
-  if (frequency === "weekly") {
-    let cur = new Date(start)
-    while (cur.getTime() <= fromT) {
-      cur = new Date(cur.getTime() + 7 * MS_DAY)
-    }
-    return cur
-  }
-
-  if (frequency === "monthly") {
-    const day = startDate.getDate()
-    let cur = new Date(startDate)
-    cur.setHours(0, 0, 0, 0)
-    while (cur.getTime() <= fromT) {
-      cur = addMonths(cur, 1)
-      const lastDay = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate()
-      cur.setDate(Math.min(day, lastDay))
-    }
-    return cur
-  }
-
-  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate())
-  cur.setHours(0, 0, 0, 0)
-  while (cur.getTime() <= fromT) {
-    cur.setFullYear(cur.getFullYear() + 1)
-  }
-  return cur
+  return scheduleNextChargeDate(startDate, frequency, from, intervalDays)
 }
 
 export type UpcomingEventKind = "renewal" | "trial" | "bill"
@@ -77,6 +49,8 @@ export type UpcomingEvent = {
   kind: UpcomingEventKind
   reminderDaysBefore: number
 }
+
+const MS_DAY = 86_400_000
 
 export function collectUpcomingEvents(
   rows: Array<{
@@ -93,10 +67,11 @@ export function collectUpcomingEvents(
       startDate: Date
       isActive: boolean
       description: string | null
+      intervalDays?: number | null
     }
   }>,
   daysAhead: number,
-  now: Date = new Date()
+  now: Date = new Date(),
 ): UpcomingEvent[] {
   const end = new Date(now.getTime() + daysAhead * MS_DAY)
   const out: UpcomingEvent[] = []
@@ -105,8 +80,10 @@ export function collectUpcomingEvents(
     if (s.status !== "active") continue
     if (!s.recurringExpense.isActive) continue
 
-    const freq = s.recurringExpense.frequency as SubscriptionFrequency
-    if (!["weekly", "monthly", "yearly"].includes(freq)) continue
+    const freq = s.recurringExpense.frequency
+    if (!ALL_RECURRING_FREQUENCIES.includes(freq as RecurringFrequency)) continue
+
+    const intervalDays = s.recurringExpense.intervalDays
 
     const displayName =
       s.label?.trim() ||
@@ -130,7 +107,12 @@ export function collectUpcomingEvents(
 
     const next = s.nextRenewalAt
       ? new Date(s.nextRenewalAt)
-      : nextChargeDate(s.recurringExpense.startDate, freq, now)
+      : nextChargeDate(
+          s.recurringExpense.startDate,
+          freq,
+          now,
+          intervalDays,
+        )
 
     if (
       next.getTime() >= now.getTime() &&

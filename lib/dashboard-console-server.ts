@@ -32,6 +32,7 @@ import {
   collectUpcomingEvents,
   monthlyEquivalent,
   nextChargeDate,
+  SUPPORTED_SUBSCRIPTION_FREQUENCIES,
   type SubscriptionFrequency,
 } from "@/lib/subscription-utils"
 import { getExchangeRate } from "@/lib/fx-rate"
@@ -534,6 +535,7 @@ async function loadSubscriptionDash(userId: string, currency: string) {
         startDate: s.recurringExpense.startDate,
         isActive: s.recurringExpense.isActive,
         description: s.recurringExpense.description,
+        intervalDays: s.recurringExpense.intervalDays ?? null,
       },
     }
   })
@@ -544,8 +546,12 @@ async function loadSubscriptionDash(userId: string, currency: string) {
   let monthlyActiveTotal = 0
   for (const s of activeForTotals) {
     const f = s.recurringExpense.frequency as SubscriptionFrequency
-    if (["weekly", "monthly", "yearly"].includes(f)) {
-      monthlyActiveTotal += monthlyEquivalent(s.recurringExpense.amount, f)
+    if (SUPPORTED_SUBSCRIPTION_FREQUENCIES.includes(f)) {
+      monthlyActiveTotal += monthlyEquivalent(
+        s.recurringExpense.amount,
+        f,
+        s.recurringExpense.intervalDays,
+      )
     }
   }
 
@@ -564,6 +570,7 @@ async function loadSubscriptionDash(userId: string, currency: string) {
         startDate: s.recurringExpense.startDate,
         isActive: s.recurringExpense.isActive,
         description: s.recurringExpense.description,
+        intervalDays: s.recurringExpense.intervalDays ?? null,
       },
     })),
     upcomingDays,
@@ -582,13 +589,19 @@ async function loadSubscriptionDash(userId: string, currency: string) {
       frequency: true,
       startDate: true,
       endDate: true,
+      intervalDays: true,
     },
   })
 
   for (const bill of standaloneBills) {
     const freq = bill.frequency as SubscriptionFrequency
-    if (!["weekly", "monthly", "yearly"].includes(freq)) continue
-    const next = nextChargeDate(bill.startDate, freq, now)
+    if (!SUPPORTED_SUBSCRIPTION_FREQUENCIES.includes(freq)) continue
+    const next = nextChargeDate(
+      bill.startDate,
+      freq,
+      now,
+      bill.intervalDays,
+    )
     if (next.getTime() > windowEnd.getTime()) continue
     if (bill.endDate && next.getTime() > bill.endDate.getTime()) continue
     upcoming.push({

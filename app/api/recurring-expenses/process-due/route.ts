@@ -2,122 +2,10 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { coerceMinor } from "@/lib/money"
+import { getDueDatesBetween, startOfDay, addDays } from "@/lib/recurring-expense-schedule"
 
 const MAX_CATCHUP_DAYS = 90
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * MS_PER_DAY)
-}
-
-function isWithinRange(date: Date, start: Date, end?: Date | null): boolean {
-  const d = startOfDay(date)
-  const s = startOfDay(start)
-  if (end) {
-    const e = startOfDay(end)
-    return d >= s && d <= e
-  }
-  return d >= s
-}
-
-type RecurringSchedule = {
-  frequency: string
-  startDate: Date
-  endDate: Date | null
-}
-
-function getDueDatesBetween(
-  recurring: RecurringSchedule,
-  afterDate: Date,
-  upToDate: Date,
-): Date[] {
-  const start = startOfDay(recurring.startDate)
-  const after = startOfDay(afterDate)
-  const upTo = startOfDay(upToDate)
-  const dates: Date[] = []
-
-  if (upTo < start) return dates
-
-  switch (recurring.frequency) {
-    case "weekly": {
-      const diffMs = after.getTime() - start.getTime()
-      const diffDays = Math.floor(diffMs / MS_PER_DAY)
-      const weeksElapsed = Math.max(0, Math.ceil(diffDays / 7))
-      let candidate = new Date(start.getTime() + weeksElapsed * 7 * MS_PER_DAY)
-      candidate = startOfDay(candidate)
-      if (candidate.getTime() <= after.getTime()) {
-        candidate = startOfDay(addDays(candidate, 7))
-      }
-      while (candidate.getTime() <= upTo.getTime()) {
-        if (isWithinRange(candidate, start, recurring.endDate)) {
-          dates.push(startOfDay(candidate))
-        }
-        candidate = startOfDay(addDays(candidate, 7))
-      }
-      break
-    }
-    case "monthly": {
-      const targetDay = start.getDate()
-      let year = after.getFullYear()
-      let month = after.getMonth()
-      let candidate = startOfDay(new Date(year, month, targetDay))
-      if (candidate.getTime() <= after.getTime()) {
-        month++
-        if (month > 11) {
-          month = 0
-          year++
-        }
-      }
-      for (let i = 0; i < 100; i++) {
-        candidate = startOfDay(new Date(year, month, targetDay))
-        if (candidate.getDate() !== targetDay) {
-          month++
-          if (month > 11) {
-            month = 0
-            year++
-          }
-          continue
-        }
-        if (candidate.getTime() > upTo.getTime()) break
-        if (isWithinRange(candidate, start, recurring.endDate)) {
-          dates.push(new Date(candidate))
-        }
-        month++
-        if (month > 11) {
-          month = 0
-          year++
-        }
-      }
-      break
-    }
-    case "yearly": {
-      const targetMonth = start.getMonth()
-      const targetDay = start.getDate()
-      let year = after.getFullYear()
-      let candidate = startOfDay(new Date(year, targetMonth, targetDay))
-      if (candidate.getTime() <= after.getTime()) {
-        year++
-      }
-      for (let i = 0; i < 100; i++) {
-        candidate = startOfDay(new Date(year, targetMonth, targetDay))
-        if (candidate.getTime() > upTo.getTime()) break
-        if (isWithinRange(candidate, start, recurring.endDate)) {
-          dates.push(new Date(candidate))
-        }
-        year++
-      }
-      break
-    }
-  }
-
-  return dates
-}
 
 async function processRecurringExpenses(userId?: string) {
   const today = startOfDay(new Date())
@@ -145,15 +33,22 @@ async function processRecurringExpenses(userId?: string) {
       ? startOfDay(recurring.lastRunAt)
       : null
 
-    // If never processed, only check today (no retroactive bulk catch-up).
-    // If last processed, catch up from that date to today.
     const catchupFrom = lastRun
       ? lastRun < earliestCatchup
         ? earliestCatchup
         : lastRun
       : addDays(today, -1)
 
-    const dueDates = getDueDatesBetween(recurring, catchupFrom, today)
+    const dueDates = getDueDatesBetween(
+      {
+        frequency: recurring.frequency,
+        startDate: recurring.startDate,
+        endDate: recurring.endDate,
+        intervalDays: recurring.intervalDays,
+      },
+      catchupFrom,
+      today,
+    )
     if (dueDates.length === 0) {
       nothingDue++
       if (!lastRun) {
@@ -169,8 +64,6 @@ async function processRecurringExpenses(userId?: string) {
     const createdDates: string[] = []
     const insufficientDates: string[] = []
 
-    // The account was already loaded with the recurring row (include above);
-    // don't refetch it for every due date.
     const account = recurring.account
     if (!account || account.userId !== recurring.userId) {
       await prisma.recurringExpense.update({
@@ -203,7 +96,6 @@ async function processRecurringExpenses(userId?: string) {
       }
 
       const createdOk = await prisma.$transaction(async (tx) => {
-        // Atomic check-and-decrement so concurrent runs can't overdraw.
         const updated = await tx.account.updateMany({
           where: { id: recurring.accountId, balance: { gte: amountMinor } },
           data: { balance: { decrement: amountMinor } },

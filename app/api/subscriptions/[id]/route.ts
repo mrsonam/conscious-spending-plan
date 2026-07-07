@@ -6,10 +6,12 @@ import { prismaSubscription } from "@/lib/prisma-subscription"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
+import { SUPPORTED_SUBSCRIPTION_FREQUENCIES } from "@/lib/subscription-utils"
 import { currencyFromSession } from "@/lib/user-currency"
 
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
-const VALID_FREQ = ["weekly", "monthly", "yearly"] as const
+const VALID_FREQ = SUPPORTED_SUBSCRIPTION_FREQUENCIES
 
 export async function PATCH(
   request: Request,
@@ -56,6 +58,24 @@ export async function PATCH(
       !VALID_FREQ.includes(recurring.frequency)
     ) {
       return NextResponse.json({ error: "Invalid frequency" }, { status: 400 })
+    }
+
+    const nextFrequency =
+      recurring?.frequency ?? existing.recurringExpense.frequency
+    const parsedIntervalDays =
+      recurring?.intervalDays !== undefined
+        ? recurring.intervalDays == null
+          ? null
+          : Math.floor(Number(recurring.intervalDays))
+        : existing.recurringExpense.intervalDays
+    if (recurring && typeof recurring === "object") {
+      const scheduleCheck = validateRecurringSchedule(
+        nextFrequency,
+        nextFrequency === "custom" ? parsedIntervalDays : null,
+      )
+      if (!scheduleCheck.ok) {
+        return NextResponse.json({ error: scheduleCheck.error }, { status: 400 })
+      }
     }
 
     if (recurring?.accountId != null) {
@@ -113,6 +133,15 @@ export async function PATCH(
               expenseCategory: recurring.expenseCategory || null,
             }),
             ...(recurring.frequency != null && { frequency: recurring.frequency }),
+            ...(recurring.frequency != null && {
+              intervalDays:
+                recurring.frequency === "custom" ? parsedIntervalDays : null,
+            }),
+            ...(recurring.intervalDays !== undefined &&
+              recurring.frequency == null &&
+              nextFrequency === "custom" && {
+                intervalDays: parsedIntervalDays,
+              }),
             ...(recurring.startDate != null && {
               startDate: new Date(recurring.startDate),
             }),

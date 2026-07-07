@@ -32,6 +32,8 @@ export const EXPENSE_CATEGORIES = [
 
 export const FREQUENCIES = [
   { value: "weekly", label: "Weekly" },
+  { value: "fortnightly", label: "Fortnightly" },
   { value: "monthly", label: "Monthly" },
   { value: "yearly", label: "Yearly" },
+  { value: "custom", label: "Custom (every N days)" },
 ] as const

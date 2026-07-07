@@ -4,18 +4,14 @@ import { prisma } from "@/lib/prisma"
 import { currencyFromSession } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
+import {
+  isDueOnDay,
+  paymentsPerMonth,
+  startOfDay,
+  addDays,
+} from "@/lib/recurring-expense-schedule"
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function addDays(date: Date, days: number): Date {
-  return startOfDay(new Date(date.getTime() + days * MS_PER_DAY))
-}
 
 function dateKey(d: Date): string {
   return d.toISOString().split("T")[0]!
@@ -25,31 +21,10 @@ type RecurringSchedule = {
   frequency: string
   startDate: Date
   endDate: Date | null
+  intervalDays: number | null
   amount: bigint
   description: string | null
   expenseCategory: string | null
-}
-
-function isDueOn(r: RecurringSchedule, day: Date): boolean {
-  const start = startOfDay(r.startDate)
-  const d = startOfDay(day)
-  if (d < start) return false
-  if (r.endDate && d > startOfDay(r.endDate)) return false
-
-  switch (r.frequency) {
-    case "weekly": {
-      const diff = Math.floor((d.getTime() - start.getTime()) / MS_PER_DAY)
-      return diff >= 0 && diff % 7 === 0
-    }
-    case "monthly":
-      return d.getDate() === start.getDate()
-    case "yearly":
-      return (
-        d.getMonth() === start.getMonth() && d.getDate() === start.getDate()
-      )
-    default:
-      return false
-  }
 }
 
 function detectIncomePattern(
@@ -143,6 +118,7 @@ export async function GET(request: Request) {
           select: {
             amount: true,
             frequency: true,
+            intervalDays: true,
             startDate: true,
             endDate: true,
             description: true,
@@ -180,12 +156,14 @@ export async function GET(request: Request) {
       (r: {
         amount: bigint
         frequency: string
+        intervalDays: number | null
         startDate: Date
         endDate: Date | null
         description: string | null
         expenseCategory: string | null
       }) => ({
         frequency: r.frequency,
+        intervalDays: r.intervalDays,
         startDate: r.startDate,
         endDate: r.endDate,
         amount: coerceMinor(r.amount) as bigint,
@@ -208,18 +186,10 @@ export async function GET(request: Request) {
     }
     for (const r of schedules) {
       const cat = r.expenseCategory ?? "other"
-      let recurringTotal = 0n
-      switch (r.frequency) {
-        case "weekly":
-          recurringTotal = r.amount * BigInt(lookbackMonths * 4)
-          break
-        case "monthly":
-          recurringTotal = r.amount * BigInt(lookbackMonths)
-          break
-        case "yearly":
-          recurringTotal = r.amount
-          break
-      }
+      const perMonth = paymentsPerMonth(r.frequency, r.intervalDays)
+      const recurringTotal = BigInt(
+        Math.round(Number(r.amount) * perMonth * lookbackMonths),
+      )
       const current = categoryTotals.get(cat) ?? 0n
       categoryTotals.set(
         cat,
@@ -293,7 +263,7 @@ export async function GET(request: Request) {
       if (i > 0) {
         // --- Forecast model step ---
         for (const r of schedules) {
-          if (isDueOn(r, day)) {
+          if (isDueOnDay(r, day)) {
             forecastBalance -= r.amount
             events.push({
               type: "recurring",
@@ -353,16 +323,8 @@ export async function GET(request: Request) {
           avgDailyExpenses: toD(totalDailyExpenses),
           recurringMonthly: toD(
             schedules.reduce((sum, r) => {
-              switch (r.frequency) {
-                case "weekly":
-                  return sum + r.amount * 4n
-                case "monthly":
-                  return sum + r.amount
-                case "yearly":
-                  return sum + r.amount / 12n
-                default:
-                  return sum
-              }
+              const perMonth = paymentsPerMonth(r.frequency, r.intervalDays)
+              return sum + BigInt(Math.round(Number(r.amount) * perMonth))
             }, 0n),
           ),
           incomePatterns: incomePatterns.map((p) => ({

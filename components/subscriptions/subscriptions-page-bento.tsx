@@ -30,7 +30,12 @@ import {
 } from "@/lib/subscription-optimistic"
 import { createOptimisticId } from "@/lib/optimistic-id"
 import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
-import { monthlyEquivalent, type SubscriptionFrequency } from "@/lib/subscription-utils"
+import {
+  monthlyEquivalent,
+  formatRecurringFrequencyLabel,
+  SUPPORTED_SUBSCRIPTION_FREQUENCIES,
+  type SubscriptionFrequency,
+} from "@/lib/subscription-utils"
 import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
@@ -50,6 +55,7 @@ type Recurring = {
   amount: number
   description: string | null
   frequency: string
+  intervalDays?: number | null
   startDate: string
   endDate: string | null
   isActive: boolean
@@ -81,8 +87,10 @@ const FUND_OPTIONS = [
 
 const FREQ_OPTIONS = [
   { value: "weekly", label: "Weekly" },
+  { value: "fortnightly", label: "Fortnightly" },
   { value: "monthly", label: "Monthly" },
   { value: "yearly", label: "Yearly" },
+  { value: "custom", label: "Custom (every N days)" },
 ]
 
 const STATUS_OPTIONS = [
@@ -154,6 +162,7 @@ export function SubscriptionsPageBento() {
   const [provider, setProvider] = useState("")
   const [label, setLabel] = useState("")
   const [frequency, setFrequency] = useState("monthly")
+  const [intervalDays, setIntervalDays] = useState("30")
   const [fundCategory, setFundCategory] = useState("")
   const [expenseCategory, setExpenseCategory] = useState("")
   const [startDate, setStartDate] = useState("")
@@ -250,6 +259,7 @@ export function SubscriptionsPageBento() {
     setProvider("")
     setLabel("")
     setFrequency("monthly")
+    setIntervalDays("30")
     setFundCategory("")
     setExpenseCategory("")
     setStartDate(new Date().toISOString().split("T")[0])
@@ -281,6 +291,11 @@ export function SubscriptionsPageBento() {
     setProvider(s.provider ?? "")
     setLabel(s.label ?? "")
     setFrequency(s.recurringExpense.frequency)
+    setIntervalDays(
+      s.recurringExpense.intervalDays != null
+        ? String(s.recurringExpense.intervalDays)
+        : "30",
+    )
     setFundCategory(s.recurringExpense.category ?? "")
     setExpenseCategory(s.recurringExpense.expenseCategory ?? "")
     setStartDate(s.recurringExpense.startDate.slice(0, 10))
@@ -306,6 +321,16 @@ export function SubscriptionsPageBento() {
       setMessage({ type: "error", text: "Choose an account and a valid amount." })
       return
     }
+    if (frequency === "custom") {
+      const days = parseInt(intervalDays, 10)
+      if (!Number.isInteger(days) || days < 1 || days > 366) {
+        setMessage({
+          type: "error",
+          text: "Custom frequency requires days between 1 and 366.",
+        })
+        return
+      }
+    }
     const account = accounts.find((a) => a.id === accountId)
     if (!account) {
       setMessage({ type: "error", text: "Choose an account and a valid amount." })
@@ -321,6 +346,8 @@ export function SubscriptionsPageBento() {
       category: fundCategory || null,
       expenseCategory: expenseCategory || null,
       frequency,
+      intervalDays:
+        frequency === "custom" ? parseInt(intervalDays, 10) : null,
       startDate,
     }
     const subscriptionMeta = {
@@ -354,6 +381,8 @@ export function SubscriptionsPageBento() {
             amount: amt,
             description: recurringBase.description,
             frequency,
+            intervalDays:
+              frequency === "custom" ? parseInt(intervalDays, 10) : null,
             startDate,
             category: recurringBase.category,
             expenseCategory: recurringBase.expenseCategory,
@@ -375,6 +404,8 @@ export function SubscriptionsPageBento() {
           category: recurringBase.category,
           expenseCategory: recurringBase.expenseCategory,
           frequency,
+          intervalDays:
+            frequency === "custom" ? parseInt(intervalDays, 10) : null,
           startDate,
           ...subscriptionMeta,
         }
@@ -477,8 +508,12 @@ export function SubscriptionsPageBento() {
     return subscriptions.map((s) => {
       const freq = s.recurringExpense.frequency as SubscriptionFrequency
       const m =
-        ["weekly", "monthly", "yearly"].includes(freq)
-          ? monthlyEquivalent(s.recurringExpense.amount, freq)
+        SUPPORTED_SUBSCRIPTION_FREQUENCIES.includes(freq)
+          ? monthlyEquivalent(
+              s.recurringExpense.amount,
+              freq,
+              s.recurringExpense.intervalDays,
+            )
           : s.recurringExpense.amount
       const title =
         s.label?.trim() ||
@@ -843,7 +878,10 @@ export function SubscriptionsPageBento() {
 
                     <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
                       <span className="rounded px-2 py-1" style={{ background: `color-mix(in srgb, ${TOKENS.secondary} 15%, transparent)`, color: TOKENS.secondary }}>
-                        {s.recurringExpense.frequency}
+                        {formatRecurringFrequencyLabel(
+                          s.recurringExpense.frequency,
+                          s.recurringExpense.intervalDays,
+                        )}
                       </span>
                       <span className="rounded px-2 py-1" style={{ background: TOKENS.surfaceLow, color: TOKENS.onSurfaceMuted }}>
                         {catLabel}
@@ -952,6 +990,21 @@ export function SubscriptionsPageBento() {
                 />
               </div>
             </div>
+            {frequency === "custom" && (
+              <div>
+                <Label>Days between payments</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="366"
+                  step="1"
+                  value={intervalDays}
+                  onChange={(e) => setIntervalDays(e.target.value)}
+                  className={cn("mt-1", consoleFieldClass)}
+                  style={consoleFieldStyle}
+                />
+              </div>
+            )}
             <div>
               <Label>Charge description</Label>
               <Input

@@ -60,6 +60,7 @@ export type ExpenseRecurringFieldKey =
   | "recurringAccountId"
   | "recurringAmount"
   | "recurringFrequency"
+  | "recurringIntervalDays"
 export type ExpenseFieldKey = ExpenseLogFieldKey | ExpenseRecurringFieldKey
 
 const EMPTY_EXPENSE_STATS: ExpensePageStats = {
@@ -165,6 +166,7 @@ export function useExpensePage(
   const [recurringFundCategory, setRecurringFundCategory] = useState("")
   const [recurringExpenseCategory, setRecurringExpenseCategory] = useState("")
   const [recurringFrequency, setRecurringFrequency] = useState("monthly")
+  const [recurringIntervalDays, setRecurringIntervalDays] = useState("30")
   const [recurringStartDate, setRecurringStartDate] = useState(() =>
     new Date().toISOString().split("T")[0],
   )
@@ -559,10 +561,26 @@ export function useExpensePage(
   const handleAddRecurring = async (e: React.FormEvent) => {
     e.preventDefault()
     setRecurringFormError(null)
+    const customIntervalError =
+      recurringFrequency === "custom"
+        ? (() => {
+            const days = parseInt(recurringIntervalDays, 10)
+            if (!Number.isInteger(days) || days < 1 || days > 366) {
+              return "Interval days must be between 1 and 366"
+            }
+            return null
+          })()
+        : null
     const recurringErrors = buildFieldErrors<ExpenseRecurringFieldKey>([
       ["recurringAccountId", requireSelection(recurringAccountId, "an account")],
       ["recurringAmount", requirePositiveNumber(recurringAmount, "Amount")],
       ["recurringFrequency", requireSelection(recurringFrequency, "a frequency")],
+      ...(customIntervalError
+        ? ([["recurringIntervalDays", customIntervalError]] as [
+            ExpenseRecurringFieldKey,
+            string,
+          ][])
+        : []),
     ])
     if (hasFieldErrors(recurringErrors)) {
       setFieldErrors((prev) => {
@@ -570,6 +588,7 @@ export function useExpensePage(
         delete next.recurringAccountId
         delete next.recurringAmount
         delete next.recurringFrequency
+        delete next.recurringIntervalDays
         return { ...next, ...recurringErrors }
       })
       return
@@ -579,6 +598,7 @@ export function useExpensePage(
       delete next.recurringAccountId
       delete next.recurringAmount
       delete next.recurringFrequency
+      delete next.recurringIntervalDays
       return next
     })
     const amountNum = parseMoneyInput(recurringAmount, currencyCode)
@@ -594,6 +614,10 @@ export function useExpensePage(
           category: recurringFundCategory || null,
           expenseCategory: recurringExpenseCategory || null,
           frequency: recurringFrequency,
+          intervalDays:
+            recurringFrequency === "custom"
+              ? parseInt(recurringIntervalDays, 10)
+              : null,
           startDate: recurringStartDate || null,
           endDate: recurringEndDate || null,
         }),
@@ -606,6 +630,7 @@ export function useExpensePage(
         setRecurringFundCategory("")
         setRecurringExpenseCategory("")
         setRecurringFrequency("monthly")
+        setRecurringIntervalDays("30")
         setRecurringStartDate(new Date().toISOString().split("T")[0])
         setRecurringEndDate("")
         setShowRecurringForm(false)
@@ -1206,6 +1231,8 @@ export function useExpensePage(
     setRecurringExpenseCategory,
     recurringFrequency,
     setRecurringFrequency,
+    recurringIntervalDays,
+    setRecurringIntervalDays,
     recurringStartDate,
     setRecurringStartDate,
     recurringEndDate,

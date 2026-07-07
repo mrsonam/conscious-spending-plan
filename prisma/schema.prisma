@@ -251,7 +251,8 @@ model RecurringExpense {
   description     String?
   category        String?
   expenseCategory String?
-  frequency       String // 'weekly', 'monthly', 'yearly'
+  frequency       String // 'weekly', 'fortnightly', 'monthly', 'yearly', 'custom'
+  intervalDays    Int? // Required when frequency is 'custom'
   startDate       DateTime      @default(now())
   endDate         DateTime?
   isActive        Boolean       @default(true)

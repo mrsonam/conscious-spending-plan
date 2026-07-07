@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
+import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
 import { currencyFromSession } from "@/lib/user-currency"
 
 export async function PATCH(
@@ -33,17 +34,25 @@ export async function PATCH(
       category,
       expenseCategory,
       frequency,
+      intervalDays,
       startDate,
       endDate,
       isActive,
     } = body
 
-    const validFrequencies = ["weekly", "monthly", "yearly"]
-    if (frequency != null && !validFrequencies.includes(frequency)) {
-      return NextResponse.json(
-        { error: "Frequency must be weekly, monthly, or yearly" },
-        { status: 400 }
-      )
+    const nextFrequency = frequency ?? existing.frequency
+    const parsedIntervalDays =
+      intervalDays !== undefined
+        ? intervalDays == null
+          ? null
+          : Math.floor(Number(intervalDays))
+        : existing.intervalDays
+    const scheduleCheck = validateRecurringSchedule(
+      nextFrequency,
+      nextFrequency === "custom" ? parsedIntervalDays : null,
+    )
+    if (!scheduleCheck.ok) {
+      return NextResponse.json({ error: scheduleCheck.error }, { status: 400 })
     }
 
     if (accountId != null) {
@@ -76,6 +85,12 @@ export async function PATCH(
         ...(category !== undefined && { category: category || null }),
         ...(expenseCategory !== undefined && { expenseCategory: expenseCategory || null }),
         ...(frequency != null && { frequency }),
+        ...(frequency != null && {
+          intervalDays: frequency === "custom" ? parsedIntervalDays : null,
+        }),
+        ...(intervalDays !== undefined &&
+          frequency == null &&
+          nextFrequency === "custom" && { intervalDays: parsedIntervalDays }),
         ...(startDate != null && { startDate: new Date(startDate) }),
         ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
         ...(typeof isActive === "boolean" && { isActive }),

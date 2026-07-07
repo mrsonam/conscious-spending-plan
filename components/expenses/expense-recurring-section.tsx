@@ -12,6 +12,7 @@ import {
   FUND_CATEGORIES,
   FREQUENCIES,
 } from "@/lib/expense-page-constants"
+import { formatRecurringFrequencyLabel } from "@/lib/subscription-utils"
 import {
   expenseConsoleButtonClass,
   expenseConsoleField,
@@ -217,6 +218,33 @@ export function ExpenseRecurringSection({
                     }))}
                   />
                 </div>
+                {p.recurringFrequency === "custom" && (
+                  <div>
+                    <label
+                      htmlFor="recurring-interval-days"
+                      className={expenseFieldLabelClass}
+                      style={{ color: TOKENS.onSurfaceMuted }}
+                    >
+                      Days between payments *
+                    </label>
+                    <Input
+                      id="recurring-interval-days"
+                      type="number"
+                      min="1"
+                      max="366"
+                      step="1"
+                      value={p.recurringIntervalDays}
+                      onChange={(e) => p.setRecurringIntervalDays(e.target.value)}
+                      disabled={p.submittingRecurring}
+                      className={cn(expenseConsoleField, "border-transparent")}
+                      style={{
+                        background: TOKENS.surfaceLow,
+                        borderColor: TOKENS.outlineGhost,
+                        color: TOKENS.onSurface,
+                      }}
+                    />
+                  </div>
+                )}
                 <div>
                   <label
                     htmlFor="recurring-start"
@@ -384,10 +412,13 @@ export function ExpenseRecurringSection({
                       className="text-base font-bold!"
                     />
                     <span
-                      className="ml-2 text-xs capitalize"
+                      className="ml-2 text-xs"
                       style={{ color: TOKENS.onSurfaceMuted }}
                     >
-                      {r.frequency}
+                      {formatRecurringFrequencyLabel(
+                        r.frequency,
+                        r.intervalDays,
+                      )}
                     </span>
                     {r.description && (
                       <p
