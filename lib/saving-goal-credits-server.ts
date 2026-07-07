@@ -102,39 +102,58 @@ export async function reverseSavingGoalCreditsForIncome(
     include: { savingGoal: true },
   })
 
+  const reversibleIds: string[] = []
+
   for (const credit of credits) {
     const amount = coerceMinor(credit.amountMinor)
-    if (amount <= 0n) continue
+    if (amount <= 0n) {
+      reversibleIds.push(credit.id)
+      continue
+    }
 
     const goal = credit.savingGoal
     const newCurrent = coerceMinor(goal.currentMinor) - amount
-    const safeCurrent = newCurrent < 0n ? 0n : newCurrent
+
+    if (newCurrent < 0n) {
+      // This credit's amount already left the goal via a later withdrawal or
+      // archive reset. Reversing it here would make sum(ledger) diverge from
+      // currentMinor, which must never happen. Leave this credit row and the
+      // goal's balance untouched rather than corrupting the ledger.
+      //
+      // The caller deletes the IncomeEntry right after this function returns,
+      // and SavingGoalLedgerEntry.incomeEntryId has onDelete: Cascade — so if
+      // we left this row pointing at that soon-to-be-deleted parent, the DB
+      // would force-delete it out from under us, silently reintroducing the
+      // exact divergence we just avoided. Detach it from the income entry
+      // (the field is nullable and other sources already use null here) so
+      // it survives as a permanent, if now slightly stale, ledger row.
+      await tx.savingGoalLedgerEntry.update({
+        where: { id: credit.id },
+        data: { incomeEntryId: null },
+      })
+      continue
+    }
 
     const wasComplete = goal.status === "complete"
     const targetMinor =
       goal.targetMinor != null ? coerceMinor(goal.targetMinor) : null
     const shouldReactivate =
-      wasComplete &&
-      targetMinor != null &&
-      targetMinor > 0n &&
-      safeCurrent < targetMinor
+      wasComplete && targetMinor != null && targetMinor > 0n && newCurrent < targetMinor
 
     await tx.savingGoal.update({
       where: { id: goal.id },
       data: {
-        currentMinor: safeCurrent,
-        ...(shouldReactivate
-          ? { status: "active", completedAt: null }
-          : {}),
+        currentMinor: newCurrent,
+        ...(shouldReactivate ? { status: "active", completedAt: null } : {}),
       },
     })
+
+    reversibleIds.push(credit.id)
   }
 
-  await tx.savingGoalLedgerEntry.deleteMany({
-    where: {
-      userId: params.userId,
-      incomeEntryId: params.incomeEntryId,
-      source: "income",
-    },
-  })
+  if (reversibleIds.length > 0) {
+    await tx.savingGoalLedgerEntry.deleteMany({
+      where: { id: { in: reversibleIds } },
+    })
+  }
 }
