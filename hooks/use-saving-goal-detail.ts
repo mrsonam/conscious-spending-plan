@@ -23,10 +23,16 @@ export interface SavingGoalDetailStats {
   withdrawn: number
 }
 
+export interface SavingGoalProjection {
+  monthlyPace: number
+  completeBy: string
+}
+
 type DetailPayload = {
   goal?: SavingGoalRow
   stats?: SavingGoalDetailStats
   ledger?: SavingGoalLedgerRow[]
+  projection?: SavingGoalProjection | null
   error?: string
 }
 
@@ -37,6 +43,7 @@ export function useSavingGoalDetail(goalId: string) {
   const [goal, setGoal] = useState<SavingGoalRow | null>(null)
   const [stats, setStats] = useState<SavingGoalDetailStats | null>(null)
   const [ledger, setLedger] = useState<SavingGoalLedgerRow[]>([])
+  const [projection, setProjection] = useState<SavingGoalProjection | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -53,6 +60,7 @@ export function useSavingGoalDetail(goalId: string) {
       setGoal(data.goal)
       setStats(data.stats ?? null)
       setLedger(data.ledger ?? [])
+      setProjection(data.projection ?? null)
     } catch {
       setError("Failed to load saving goal")
     } finally {
@@ -132,6 +140,7 @@ export function useSavingGoalDetail(goalId: string) {
     goal,
     stats,
     ledger,
+    projection,
     loading,
     error,
     message,

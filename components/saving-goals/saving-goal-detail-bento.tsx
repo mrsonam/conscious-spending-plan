@@ -1,13 +1,35 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Download, ArrowLeft, PiggyBank, Target, TrendingUp } from "lucide-react"
+import {
+  Download,
+  ArrowLeft,
+  Archive,
+  ArrowRightLeft,
+  CheckCircle2,
+  Loader2,
+  PiggyBank,
+  Target,
+  Trash2,
+  TrendingUp,
+} from "lucide-react"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
+import { cn } from "@/lib/utils"
+import { parseMoneyInput } from "@/lib/money-input"
+import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useSavingGoalDetail, type SavingGoalLedgerRow } from "@/hooks/use-saving-goal-detail"
 import { SavingGoalDetailBentoLoading } from "@/components/saving-goals/saving-goal-detail-bento-loading"
+import {
+  StatusBadge,
+  formatCompleteBy,
+  GoalFormModal,
+  TransferModal,
+} from "@/components/saving-goals/saving-goal-shared"
 
 const SOURCE_LABEL: Record<SavingGoalLedgerRow["source"], string> = {
   income: "Paycheck",
@@ -15,6 +37,9 @@ const SOURCE_LABEL: Record<SavingGoalLedgerRow["source"], string> = {
   withdrawal: "Withdrawal",
   archive_reset: "Archived",
 }
+
+const actionBtn =
+  "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -51,11 +76,34 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
     goal,
     stats,
     ledger,
+    projection,
     loading,
     error,
     message,
+    setMessage,
+    actionPending,
+    handleUpdate,
+    handleTransfer,
+    handleArchive,
+    handleWithdraw,
+    handleDelete,
     formatCurrency,
+    currencyCode,
   } = useSavingGoalDetail(id)
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editTarget, setEditTarget] = useState("")
+  const [editPercent, setEditPercent] = useState("")
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [transferAmount, setTransferAmount] = useState("")
+  const [transferError, setTransferError] = useState<string | null>(null)
+  const [generalSavingsAvailable, setGeneralSavingsAvailable] = useState(0)
+
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   if (loading) return <SavingGoalDetailBentoLoading />
 
@@ -81,6 +129,70 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
   const pct = goal.target != null && goal.target > 0
     ? Math.min(100, (goal.current / goal.target) * 100)
     : null
+  const canEdit = goal.status === "active"
+
+  const parseTargetField = (value: string): number | null => {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    return parseMoneyInput(trimmed, currencyCode)
+  }
+
+  const openEdit = () => {
+    setMessage(null)
+    setEditName(goal.name)
+    setEditTarget(goal.target != null ? String(goal.target) : "")
+    setEditPercent(String(goal.percent))
+    setEditOpen(true)
+  }
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEditSubmitting(true)
+    const ok = await handleUpdate({
+      name: editName.trim(),
+      target: parseTargetField(editTarget),
+      percent: Number(editPercent),
+    })
+    setEditSubmitting(false)
+    if (ok) setEditOpen(false)
+  }
+
+  const openTransfer = () => {
+    setMessage(null)
+    setTransferError(null)
+    setTransferAmount("")
+    setTransferOpen(true)
+    void fetch("/api/saving-goals")
+      .then((res) => res.json())
+      .then((data: { summary?: { generalSavingsAvailable?: number } }) => {
+        setGeneralSavingsAvailable(data.summary?.generalSavingsAvailable ?? 0)
+      })
+      .catch(() => {})
+  }
+
+  const submitTransfer = (e: React.FormEvent) => {
+    e.preventDefault()
+    setTransferError(null)
+
+    let amount: number
+    try {
+      amount = parseMoneyInput(transferAmount, currencyCode)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setTransferError("Amount must be greater than zero.")
+        return
+      }
+    } catch {
+      setTransferError("Enter a valid transfer amount.")
+      return
+    }
+
+    void handleTransfer(amount).then((ok) => {
+      if (ok) {
+        setTransferOpen(false)
+        setTransferAmount("")
+      }
+    })
+  }
 
   return (
     <div className="w-full min-w-0 space-y-6 sm:space-y-8">
@@ -94,9 +206,12 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
       </Link>
 
       <section className="px-1 py-2 sm:px-2">
-        <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: TOKENS.onSurface }}>
-          {goal.name}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: TOKENS.onSurface }}>
+            {goal.name}
+          </h2>
+          <StatusBadge status={goal.status} />
+        </div>
         <p className="mt-2 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
           {goal.percent}% of savings allocation
         </p>
@@ -116,6 +231,110 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
             <div className="h-full rounded-full" style={{ width: `${pct}%`, background: TOKENS.primary }} />
           </div>
         ) : null}
+
+        {goal.status === "active" && goal.target != null && goal.current < goal.target ? (
+          projection ? (
+            <p className="mt-3 flex items-center gap-1.5 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" style={{ color: TOKENS.primary }} aria-hidden />
+              <span>
+                On pace for{" "}
+                <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+                  {formatCompleteBy(projection.completeBy)}
+                </span>{" "}
+                · ≈{formatCurrency(projection.monthlyPace)}/mo from recent allocations
+              </span>
+            </p>
+          ) : (
+            <p className="mt-3 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+              No contributions in the last 90 days. No completion estimate yet.
+            </p>
+          )
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {canEdit ? (
+            <>
+              <button
+                type="button"
+                onClick={openEdit}
+                disabled={actionPending}
+                className={actionBtn}
+                style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={openTransfer}
+                disabled={actionPending}
+                className={cn(actionBtn, "inline-flex items-center gap-1")}
+                style={{
+                  borderColor: `color-mix(in srgb, ${TOKENS.primary} 40%, transparent)`,
+                  color: TOKENS.primary,
+                }}
+              >
+                {actionPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                ) : (
+                  <ArrowRightLeft className="h-3 w-3" aria-hidden />
+                )}
+                Transfer
+              </button>
+            </>
+          ) : null}
+          {goal.status === "complete" ? (
+            <button
+              type="button"
+              onClick={() => void handleWithdraw()}
+              disabled={actionPending}
+              className={cn(actionBtn, "inline-flex items-center gap-1")}
+              style={{
+                borderColor: `color-mix(in srgb, ${TOKENS.primary} 40%, transparent)`,
+                color: TOKENS.primary,
+              }}
+            >
+              {actionPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 className="h-3 w-3" aria-hidden />
+              )}
+              Withdraw
+            </button>
+          ) : null}
+          {goal.status !== "archived" ? (
+            <button
+              type="button"
+              onClick={() => setArchiveConfirmOpen(true)}
+              disabled={actionPending}
+              className={cn(actionBtn, "inline-flex items-center gap-1")}
+              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
+            >
+              {actionPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <Archive className="h-3 w-3" aria-hidden />
+              )}
+              Archive
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={actionPending}
+            className={cn(actionBtn, "inline-flex items-center gap-1")}
+            style={{
+              borderColor: `color-mix(in srgb, ${ERROR_SOFT} 35%, transparent)`,
+              color: ERROR_SOFT,
+            }}
+          >
+            {actionPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            ) : (
+              <Trash2 className="h-3 w-3" aria-hidden />
+            )}
+            Delete
+          </button>
+        </div>
       </section>
 
       <FormStatusAlert message={message} />
@@ -207,6 +426,60 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
           </div>
         )}
       </div>
+
+      <GoalFormModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        mode="edit"
+        title="Edit goal"
+        description="Changes apply to future income only."
+        name={editName}
+        target={editTarget}
+        percent={editPercent}
+        onNameChange={setEditName}
+        onTargetChange={setEditTarget}
+        onPercentChange={setEditPercent}
+        fieldErrors={{}}
+        clearFieldError={() => {}}
+        formError={null}
+        submitting={editSubmitting || actionPending}
+        submitLabel="Save changes"
+        onSubmit={submitEdit}
+      />
+
+      <TransferModal
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        goal={goal}
+        availableAmount={generalSavingsAvailable}
+        formatCurrency={formatCurrency}
+        submitting={actionPending}
+        formError={transferError}
+        amount={transferAmount}
+        onAmountChange={setTransferAmount}
+        onSubmit={submitTransfer}
+      />
+
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        onOpenChange={setArchiveConfirmOpen}
+        title="Archive saving goal"
+        description="This goal will stop receiving allocations and move to your archived list. You can still view its history."
+        confirmText="Archive"
+        cancelText="Cancel"
+        onConfirm={() => void handleArchive()}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete saving goal"
+        description="This permanently removes the goal and its credit history. This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   )
 }
