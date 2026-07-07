@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -160,9 +161,17 @@ function GoalCard({
   const actionBtn =
     "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 
+  const router = useRouter()
+
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border transition-colors duration-200"
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`${BENTO.savingGoals}/${goal.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") router.push(`${BENTO.savingGoals}/${goal.id}`)
+      }}
+      className="relative cursor-pointer overflow-hidden rounded-2xl border transition-colors duration-200 hover:border-white/20"
       style={{
         background: TOKENS.surfaceContainer,
         borderColor: TOKENS.outlineGhost,
@@ -232,7 +241,10 @@ function GoalCard({
             <>
               <button
                 type="button"
-                onClick={() => onEdit(goal)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit(goal)
+                }}
                 disabled={busy || pendingSave}
                 title={pendingSave ? "Goal is still being saved" : undefined}
                 className={actionBtn}
@@ -242,7 +254,10 @@ function GoalCard({
               </button>
               <button
                 type="button"
-                onClick={() => onTransfer(goal)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTransfer(goal)
+                }}
                 disabled={busy || pendingSave}
                 title={pendingSave ? "Goal is still being saved" : undefined}
                 className={cn(actionBtn, "inline-flex items-center gap-1")}
@@ -263,7 +278,10 @@ function GoalCard({
           {goal.status === "complete" ? (
             <button
               type="button"
-              onClick={() => onWithdraw(goal.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onWithdraw(goal.id)
+              }}
               disabled={busy}
               className={cn(actionBtn, "inline-flex items-center gap-1")}
               style={{
@@ -282,7 +300,10 @@ function GoalCard({
           {goal.status !== "archived" ? (
             <button
               type="button"
-              onClick={() => onArchive(goal.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onArchive(goal.id)
+              }}
               disabled={busy}
               className={cn(actionBtn, "inline-flex items-center gap-1")}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -297,7 +318,10 @@ function GoalCard({
           ) : null}
           <button
             type="button"
-            onClick={() => onDelete(goal.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(goal.id)
+            }}
             disabled={busy}
             className={cn(actionBtn, "inline-flex items-center gap-1")}
             style={{
