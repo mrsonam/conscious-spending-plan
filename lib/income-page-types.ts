@@ -41,12 +41,20 @@ export interface IncomeEntry {
   } | null
 }
 
+export interface IncomeMonthlyTotal {
+  /** Calendar month `YYYY-MM` */
+  month: string
+  total: number
+}
+
 /** Hero + comparison metrics from GET /api/income-entries (paginated list). */
 export interface IncomePageStats {
   currentMonthTotal: number
   ytdTotal: number
   monthOverMonthPct: number | null
   lastMonthIncome: number
+  /** Last 6 calendar months, oldest → newest */
+  monthlyTotals: IncomeMonthlyTotal[]
 }
 
 export interface IncomePageAccount {

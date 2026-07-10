@@ -57,6 +57,7 @@ const EMPTY_INCOME_STATS: IncomePageStats = {
   ytdTotal: 0,
   monthOverMonthPct: null,
   lastMonthIncome: 0,
+  monthlyTotals: [],
 }
 
 export function useIncomePage(
@@ -122,6 +123,7 @@ export function useIncomePage(
           ? null
           : data.monthOverMonthPct,
       lastMonthIncome: data.lastMonthIncome ?? 0,
+      monthlyTotals: data.monthlyTotals ?? [],
     })
   }, [])
 

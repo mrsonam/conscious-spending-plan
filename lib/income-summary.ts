@@ -30,6 +30,10 @@ export async function getIncomePageStats(userId: string): Promise<IncomePageStat
   const yearStart = new Date(now.getFullYear(), 0, 1)
   const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
 
+  function monthKey(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  }
+
   const [lastMonthAgg, currentMonthAgg, ytdAgg] = await Promise.all([
     prisma.incomeEntry.aggregate({
       where: {
@@ -64,10 +68,36 @@ export async function getIncomePageStats(userId: string): Promise<IncomePageStat
       ((currentMonthTotal - lastMonthIncome) / lastMonthIncome) * 100
   }
 
+  const monthlyTotals = await Promise.all(
+    Array.from({ length: 6 }, (_, idx) => {
+      const offset = 5 - idx
+      const start = new Date(now.getFullYear(), now.getMonth() - offset, 1)
+      const end = new Date(
+        now.getFullYear(),
+        now.getMonth() - offset + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      )
+      return prisma.incomeEntry
+        .aggregate({
+          where: { userId, date: { gte: start, lte: end } },
+          _sum: { amount: true },
+        })
+        .then((agg) => ({
+          month: monthKey(start),
+          total: toD(agg._sum.amount),
+        }))
+    }),
+  )
+
   return {
     currentMonthTotal,
     ytdTotal,
     monthOverMonthPct,
     lastMonthIncome,
+    monthlyTotals,
   }
 }
