@@ -226,7 +226,11 @@ export async function GET(request: Request) {
       }
       const entries = await prisma.incomeEntry.findMany({
         where,
-        include: { account: { select: { id: true, name: true, bankName: true } } },
+        include: {
+          account: {
+            select: { id: true, name: true, bankName: true, accountType: true },
+          },
+        },
         orderBy: { date: "desc" },
         take: 10000,
       })

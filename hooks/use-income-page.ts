@@ -36,6 +36,7 @@ import {
   peekCachedJson,
   withCacheBust,
 } from "@/lib/client-fetch-cache"
+import { sourceArchitectureDateRange } from "@/lib/income-source-architecture"
 
 export type IncomeFormFieldKey = "income" | "date"
 
@@ -202,7 +203,8 @@ export function useIncomePage(
       }
 
       try {
-        const path = "/api/income-entries?currentMonth=true"
+        const { startDate, endDate } = sourceArchitectureDateRange()
+        const path = `/api/income-entries?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
         const data = await fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
           cacheKey,
           force || silent ? withCacheBust(path) : path,
