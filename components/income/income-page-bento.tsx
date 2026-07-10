@@ -495,6 +495,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
         entries={p.sourceEntries}
         incomeStats={p.incomeStats}
         loading={showSourceSkeleton}
+        className="mt-4 lg:mt-5"
       />
 
       {p.breakdown && (

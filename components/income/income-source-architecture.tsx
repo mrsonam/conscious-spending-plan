@@ -14,12 +14,14 @@ import {
   groupIncomeSources,
   type IncomeSourceRow,
 } from "@/lib/income-source-architecture"
+import { cn } from "@/lib/utils"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 
 type Props = {
   entries: IncomeEntry[]
   incomeStats: IncomePageStats
   loading: boolean
+  className?: string
 }
 
 function usePrefersReducedMotion() {
@@ -36,16 +38,18 @@ function usePrefersReducedMotion() {
 
 function PanelShell({
   children,
+  className,
   "aria-busy": ariaBusy,
   "aria-label": ariaLabel,
 }: {
   children: ReactNode
+  className?: string
   "aria-busy"?: boolean
   "aria-label"?: string
 }) {
   return (
     <section
-      className="rounded-xl border p-6 sm:p-8"
+      className={cn("rounded-xl border p-6 sm:p-8", className)}
       style={{
         background: TOKENS.surfaceContainer,
         borderColor: TOKENS.outlineGhost,
@@ -254,9 +258,17 @@ function MonthlySparkline({
   )
 }
 
-export function IncomeSourceArchitectureSkeleton() {
+export function IncomeSourceArchitectureSkeleton({
+  className,
+}: {
+  className?: string
+} = {}) {
   return (
-    <PanelShell aria-busy={true} aria-label="Loading source architecture">
+    <PanelShell
+      className={className}
+      aria-busy={true}
+      aria-label="Loading source architecture"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Pulse className="h-4 w-40" />
@@ -291,6 +303,7 @@ export function IncomeSourceArchitecture({
   entries,
   incomeStats,
   loading,
+  className,
 }: Props) {
   const { formatCurrency } = useFormatCurrency()
   const reducedMotion = usePrefersReducedMotion()
@@ -298,7 +311,9 @@ export function IncomeSourceArchitecture({
     new Date(),
   )
 
-  if (loading) return <IncomeSourceArchitectureSkeleton />
+  if (loading) {
+    return <IncomeSourceArchitectureSkeleton className={className} />
+  }
 
   const grouped = groupIncomeSources(entries, entries)
   const showSparkline =
@@ -307,7 +322,7 @@ export function IncomeSourceArchitecture({
       incomeStats.monthlyTotals.some((t) => t.total > 0))
 
   return (
-    <PanelShell>
+    <PanelShell className={className}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
