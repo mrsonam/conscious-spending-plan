@@ -50,6 +50,7 @@ next-env.d.ts
 .worktrees
 .impeccable
 docs/superpowers
+.superpowers/
 prisma/scripts
 .playwright-mcp/
 supabase-backup.*

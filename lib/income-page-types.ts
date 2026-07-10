@@ -33,6 +33,11 @@ export interface IncomeEntry {
   periodEnd: string
   createdAt: string
   excludeFromAllocation?: boolean
+  /** Amount allocated to each category when this entry was added; null when excluded or unavailable. */
+  allocationFixedCosts?: number | null
+  allocationSavings?: number | null
+  allocationInvestment?: number | null
+  allocationGuiltFreeSpending?: number | null
   account?: {
     id: string
     name: string

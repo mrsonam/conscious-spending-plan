@@ -20,16 +20,22 @@ import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
 import {
-  INCOME_PAGE_ERROR_SOFT as ERROR_SOFT,
   INCOME_PAGE_WARN_SURFACE as WARN_SURFACE,
 } from "@/lib/income-page-types"
-import type { IncomeBreakdown, IncomeEntry } from "@/lib/income-page-types"
+import type { IncomeEntry } from "@/lib/income-page-types"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
+import { consoleFocus, consoleHeroFigureClass, consoleHeroFigureInnerClass } from "@/components/wealth-console/console-ui"
+import { MomChip } from "@/components/wealth-console/mom-chip"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import { IncomeBulkDialog } from "@/components/income/income-bulk-dialog"
 import { IncomeSourceArchitecture } from "@/components/income/income-source-architecture"
+import { computeSparklinePoints } from "@/lib/income-source-architecture"
+import { groupEntriesByRecency } from "@/lib/income-ledger-groups"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { useCountUp } from "@/hooks/use-count-up"
+import { useLineDrawAnimation } from "@/hooks/use-line-draw"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import {
   FormFieldError,
@@ -38,13 +44,11 @@ import {
 import {
   Building2,
   Calculator,
+  ChevronDown,
   Download,
   Pencil,
   Plus,
   Trash2,
-  TrendingDown,
-  TrendingUp,
-  X,
 } from "lucide-react"
 
 const consoleField =
@@ -56,199 +60,149 @@ function allocationPct(part: number, whole: number) {
 }
 
 const PILLAR_SEGMENTS = [
-  { key: "fixed", color: "rgba(248,113,113,0.9)" },
-  { key: "savings", color: "rgba(74,222,128,0.92)" },
-  { key: "investment", color: "rgba(137,206,255,0.95)" },
-  { key: "guilt", color: "rgba(196,181,253,0.92)" },
+  {
+    key: "fixed",
+    label: "Fixed costs",
+    color: "rgba(248,113,113,0.9)",
+    border: "rgba(248,113,113,0.35)",
+    bg: "rgba(248,113,113,0.08)",
+    field: "allocationFixedCosts",
+  },
+  {
+    key: "savings",
+    label: "Savings",
+    color: "rgba(74,222,128,0.92)",
+    border: "rgba(74,222,128,0.35)",
+    bg: "rgba(74,222,128,0.08)",
+    field: "allocationSavings",
+  },
+  {
+    key: "investment",
+    label: "Investment",
+    color: "rgba(137,206,255,0.95)",
+    border: "rgba(137,206,255,0.35)",
+    bg: "rgba(137,206,255,0.1)",
+    field: "allocationInvestment",
+  },
+  {
+    key: "guilt",
+    label: "Guilt-free spending",
+    color: "rgba(196,181,253,0.92)",
+    border: "rgba(196,181,253,0.35)",
+    bg: "rgba(196,181,253,0.1)",
+    field: "allocationGuiltFreeSpending",
+  },
 ] as const
 
-function IncomeLoggedAllocationPanel({
-  breakdown,
-  onDismiss,
+function HeroSparkline({
+  values,
+  reducedMotion,
 }: {
-  breakdown: IncomeBreakdown
-  onDismiss: () => void
+  values: number[]
+  reducedMotion: boolean
 }) {
+  const w = 110
+  const h = 32
+  const animate = !reducedMotion && values.length >= 2
+  const lineRef = useLineDrawAnimation<SVGPolylineElement>(animate)
+  if (values.length < 2) return null
+  const points = computeSparklinePoints(values, w, h, 4)
+
   return (
-    <section
-      className="rounded-xl border p-5 sm:p-6"
-      style={{
-        background: TOKENS.surfaceLow,
-        borderColor: TOKENS.outlineGhost,
-        boxShadow: CARD_INSET,
-      }}
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="mt-4 h-8 w-[110px] shrink-0 overflow-visible"
+      role="img"
+      aria-label="Six-month income trend"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p
-            className="text-[10px] font-semibold uppercase tracking-wider"
-            style={{ color: TOKENS.primary }}
-          >
-            Income logged
-          </p>
-          <p
-            className="mt-1 text-sm leading-snug"
-            style={{ color: TOKENS.onSurfaceMuted }}
-          >
-            {breakdown.isExcludedFromAllocation
-              ? "Recorded without allocating to budget pillars."
-              : "How this entry is allocated across your fund categories."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/6"
-          style={{ color: TOKENS.onSurfaceMuted }}
-          aria-label="Dismiss allocation summary"
-        >
-          <X className="h-4 w-4" />
-        </button>
+      <polyline
+        ref={animate ? lineRef : undefined}
+        fill="none"
+        stroke={TOKENS.primary}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pathLength={animate ? 100 : undefined}
+        strokeDasharray={animate ? 100 : undefined}
+        points={points}
+      />
+    </svg>
+  )
+}
+
+/** Condensed allocation split shown inside an expanded ledger row. */
+function EntryAllocationDetail({ entry }: { entry: IncomeEntry }) {
+  if (entry.excludeFromAllocation) {
+    return (
+      <p className="text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
+        Recorded without allocating to budget pillars.
+      </p>
+    )
+  }
+
+  const amounts = PILLAR_SEGMENTS.map((seg) => entry[seg.field] ?? null)
+  if (amounts.some((a) => a === null)) {
+    return (
+      <p className="text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
+        Allocation details unavailable for this entry.
+      </p>
+    )
+  }
+
+  const total = entry.amount
+
+  return (
+    <>
+      <div
+        className="flex h-2 w-full min-w-0 overflow-hidden rounded-full"
+        style={{ background: TOKENS.surfaceHigh }}
+        role="img"
+        aria-label="Allocation split across categories"
+      >
+        {PILLAR_SEGMENTS.map((seg, i) => {
+          const amount = amounts[i]!
+          const w = total > 0 ? Math.max(0, (amount / total) * 100) : 0
+          if (w <= 0) return null
+          return (
+            <div
+              key={seg.key}
+              className="min-w-[2px] shrink-0"
+              style={{ width: `${w}%`, background: seg.color }}
+            />
+          )
+        })}
       </div>
-
-      {breakdown.depositedToAccountName && (
-        <p className="mt-4 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
-          Deposited to{" "}
-          <span style={{ color: TOKENS.onSurface }}>
-            {breakdown.depositedToAccountName}
-          </span>
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-baseline gap-2">
-        <span
-          className="text-[10px] font-semibold uppercase tracking-wider"
-          style={{ color: TOKENS.onSurfaceMuted }}
-        >
-          Entry amount
-        </span>
-        <MajorFigureCurrency
-          amount={breakdown.income}
-          variant="prosperity"
-          className="text-2xl font-bold!"
-          decimalEm={0.45}
-        />
-      </div>
-
-      {breakdown.isExcludedFromAllocation ? (
-        <p className="mt-4 text-sm leading-relaxed" style={{ color: TOKENS.onSurfaceMuted }}>
-          This amount was added to your account balance only. No pillar
-          categories were funded from this entry.
-        </p>
-      ) : (
-        <>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {PILLAR_SEGMENTS.map((seg, i) => (
           <div
-            className="mt-5 flex h-2.5 w-full min-w-0 overflow-hidden rounded-full"
-            style={{ background: TOKENS.surfaceHigh }}
-            role="img"
-            aria-label="Allocation split across categories"
+            key={seg.key}
+            className="rounded-lg border px-2.5 py-2"
+            style={{ borderColor: seg.border, background: seg.bg }}
           >
-            {[
-              breakdown.fixedCosts,
-              breakdown.savings,
-              breakdown.investment,
-              breakdown.guiltFreeSpending,
-            ].map((amount, i) => {
-              const w =
-                breakdown.income > 0
-                  ? Math.max(0, (amount / breakdown.income) * 100)
-                  : 0
-              if (w <= 0) return null
-              return (
-                <div
-                  key={PILLAR_SEGMENTS[i].key}
-                  className="min-w-[2px] shrink-0"
-                  style={{
-                    width: `${w}%`,
-                    background: PILLAR_SEGMENTS[i].color,
-                  }}
-                />
-              )
-            })}
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {(
-              [
-                {
-                  label: "Fixed costs",
-                  amount: breakdown.fixedCosts,
-                  border: "rgba(248,113,113,0.35)",
-                  bg: "rgba(248,113,113,0.08)",
-                },
-                {
-                  label: "Savings",
-                  amount: breakdown.savings,
-                  border: "rgba(74,222,128,0.35)",
-                  bg: "rgba(74,222,128,0.08)",
-                },
-                {
-                  label: "Investment",
-                  amount: breakdown.investment,
-                  border: "rgba(137,206,255,0.35)",
-                  bg: "rgba(137,206,255,0.1)",
-                },
-                {
-                  label: "Guilt-free spending",
-                  amount: breakdown.guiltFreeSpending,
-                  border: "rgba(196,181,253,0.35)",
-                  bg: "rgba(196,181,253,0.1)",
-                },
-              ] as const
-            ).map((row) => (
-              <div
-                key={row.label}
-                className="rounded-xl border px-3 py-3"
-                style={{
-                  borderColor: row.border,
-                  background: row.bg,
-                  boxShadow: CARD_INSET,
-                }}
-              >
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  {row.label}
-                </p>
-                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-                  <MajorFigureCurrency
-                    amount={row.amount}
-                    variant="neutral"
-                    className="text-lg font-bold!"
-                    decimalEm={0.45}
-                  />
-                  <span
-                    className="tabular-nums text-xs font-medium"
-                    style={{ color: TOKENS.tertiary }}
-                  >
-                    {allocationPct(row.amount, breakdown.income)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div
-            className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-4"
-            style={{ borderColor: TOKENS.outlineGhost }}
-          >
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wider"
+            <p
+              className="text-[9px] font-semibold uppercase tracking-wider"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              Total allocated
-            </span>
-            <MajorFigureCurrency
-              amount={breakdown.total}
-              variant="prosperity"
-              className="text-lg font-bold!"
-              decimalEm={0.45}
-            />
+              {seg.label}
+            </p>
+            <div className="mt-1 flex items-baseline justify-between gap-1">
+              <MajorFigureCurrency
+                amount={amounts[i]!}
+                variant="neutral"
+                className="text-sm font-bold!"
+                decimalEm={0.5}
+              />
+              <span
+                className="text-[10px] font-medium tabular-nums"
+                style={{ color: TOKENS.tertiary }}
+              >
+                {allocationPct(amounts[i]!, total)}%
+              </span>
+            </div>
           </div>
-        </>
-      )}
-    </section>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -256,6 +210,9 @@ export function IncomePageBento(p: UseIncomePageResult) {
   const { formatCurrency } = useFormatCurrency()
   const [logOpen, setLogOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const reducedMotion = usePrefersReducedMotion()
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set())
+  const [pendingAutoExpandTop, setPendingAutoExpandTop] = useState(false)
   const showMetricSkeleton =
     p.loadingSummary &&
     p.incomeStats.currentMonthTotal === 0 &&
@@ -266,9 +223,32 @@ export function IncomePageBento(p: UseIncomePageResult) {
     void p.ensureHistoryLoaded()
   }, [p.ensureHistoryLoaded])
 
+  useEffect(() => {
+    if (!pendingAutoExpandTop) return
+    const topEntry = p.incomeEntries[0]
+    if (topEntry) setExpandedRowIds(new Set([topEntry.id]))
+  }, [pendingAutoExpandTop, p.incomeEntries])
+
+  const toggleRow = (id: string) => {
+    setPendingAutoExpandTop(false)
+    setExpandedRowIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const submitLog = async (e: React.FormEvent) => {
+    const wasEditing = Boolean(p.editingEntryId)
     const ok = await p.handleSubmit(e)
-    if (ok) setLogOpen(false)
+    if (ok) {
+      setLogOpen(false)
+      if (!wasEditing) {
+        setPendingAutoExpandTop(true)
+        window.setTimeout(() => setPendingAutoExpandTop(false), 4000)
+      }
+    }
   }
 
   const openLogDialog = () => {
@@ -343,7 +323,8 @@ export function IncomePageBento(p: UseIncomePageResult) {
   }
 
   const perf = p.incomeStats.monthOverMonthPct
-  const perfPositive = perf !== null && perf >= 0
+  const animatedRevenue = useCountUp(p.incomeStats.currentMonthTotal)
+  const sparklineValues = p.incomeStats.monthlyTotals.map((t) => t.total)
 
   return (
     <>
@@ -359,52 +340,25 @@ export function IncomePageBento(p: UseIncomePageResult) {
             </p>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
               {showMetricSkeleton ? (
-                <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                <div className={consoleHeroFigureClass}>
                   <ScrambleCurrencyValue
                     variant="income"
                     min={1800}
                     max={12000}
-                    className="font-black!"
+                    className={consoleHeroFigureInnerClass}
                   />
                 </div>
               ) : (
-                <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                <div className={consoleHeroFigureClass}>
                   <MajorFigureCurrency
-                    amount={p.incomeStats.currentMonthTotal}
+                    amount={animatedRevenue}
                     variant="income"
                     decimalEm={0.5}
-                    className="font-black!"
+                    className={consoleHeroFigureInnerClass}
                   />
                 </div>
               )}
-              <div
-                className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
-                style={{
-                  background: `color-mix(in srgb, ${perf === null ? TOKENS.onSurfaceMuted : perfPositive ? TOKENS.primary : ERROR_SOFT} 18%, ${TOKENS.surfaceLow})`,
-                  border: `1px solid ${TOKENS.outlineGhost}`,
-                  color:
-                    perf === null
-                      ? TOKENS.onSurfaceMuted
-                      : perfPositive
-                        ? TOKENS.primary
-                        : ERROR_SOFT,
-                  boxShadow: CARD_INSET,
-                }}
-              >
-                {perf !== null ? (
-                  <>
-                    {perfPositive ? (
-                      <TrendingUp className="mr-2 h-4 w-4" strokeWidth={2} />
-                    ) : (
-                      <TrendingDown className="mr-2 h-4 w-4" strokeWidth={2} />
-                    )}
-                    {perfPositive ? "+" : ""}
-                    {perf.toFixed(1)}% <span className="ml-1 opacity-75">vs prev. month</span>
-                  </>
-                ) : (
-                  <span>-</span>
-                )}
-              </div>
+              <MomChip pct={perf} />
             </div>
 
             <div className="mt-6">
@@ -424,12 +378,15 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     />
                   </div>
                 ) : (
-                  <p
-                    className="mt-2 text-lg font-semibold tabular-nums"
-                    style={{ color: TOKENS.onSurface }}
-                  >
-                    {formatCurrency(p.incomeStats.ytdTotal)}
-                  </p>
+                  <>
+                    <p
+                      className="mt-2 text-lg font-semibold tabular-nums"
+                      style={{ color: TOKENS.onSurface }}
+                    >
+                      {formatCurrency(p.incomeStats.ytdTotal)}
+                    </p>
+                    <HeroSparkline values={sparklineValues} reducedMotion={reducedMotion} />
+                  </>
                 )}
               </div>
             </div>
@@ -463,7 +420,10 @@ export function IncomePageBento(p: UseIncomePageResult) {
               type="button"
               onClick={openLogDialog}
               disabled={p.loadingForm || !p.allocation}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50"
+              className={cn(
+                "mt-5 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50",
+                consoleFocus,
+              )}
               style={{
                 background: TOKENS.primary,
                 color: TOKENS.surface,
@@ -478,7 +438,10 @@ export function IncomePageBento(p: UseIncomePageResult) {
               type="button"
               onClick={openBulkImport}
               disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50"
+              className={cn(
+                "mt-3 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50",
+                consoleFocus,
+              )}
               style={{
                 borderColor: TOKENS.outlineGhost,
                 color: TOKENS.onSurfaceMuted,
@@ -497,13 +460,6 @@ export function IncomePageBento(p: UseIncomePageResult) {
         loading={showSourceSkeleton}
         className="mt-4 lg:mt-5"
       />
-
-      {p.breakdown && (
-        <IncomeLoggedAllocationPanel
-          breakdown={p.breakdown}
-          onDismiss={p.clearBreakdown}
-        />
-      )}
 
       <Dialog open={logOpen} onOpenChange={handleLogOpenChange}>
         <DialogContent
@@ -712,7 +668,10 @@ export function IncomePageBento(p: UseIncomePageResult) {
               <button
                 type="submit"
                 disabled={p.calculating || !p.allocation}
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition-opacity disabled:opacity-50"
+                className={cn(
+                  "flex w-full min-h-11 items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition-opacity disabled:opacity-50",
+                  consoleFocus,
+                )}
                 style={{
                   background: TOKENS.primary,
                   color: TOKENS.surface,
@@ -754,7 +713,10 @@ export function IncomePageBento(p: UseIncomePageResult) {
               type="button"
               disabled={exporting || p.loadingHistory}
               onClick={exportCsv}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50"
+              className={cn(
+                "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50",
+                consoleFocus,
+              )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
               aria-label="Download"
               title="Export CSV"
@@ -770,112 +732,163 @@ export function IncomePageBento(p: UseIncomePageResult) {
             </div>
           ) : (
             <>
-              <div className="mt-6 space-y-3">
-                {p.incomeEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex flex-col gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
-                  style={{
-                    background: TOKENS.surfaceLow,
-                    borderColor: TOKENS.outlineGhost,
-                    boxShadow: CARD_INSET,
-                  }}
-                >
-                  <div className="min-w-0">
+              <div className="mt-6 space-y-6">
+                {groupEntriesByRecency(p.incomeEntries).map((group) => (
+                  <div key={group.key}>
                     <p
-                      className="truncate text-sm font-semibold tracking-tight"
-                      style={{ color: TOKENS.onSurface }}
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em]"
+                      style={{ color: TOKENS.onSurfaceMutedElevated }}
                     >
-                      {entry.description?.trim() || "Unlabeled inflow"}
+                      {group.label}
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {entry.account && (
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                          style={{
-                            background: `color-mix(in srgb, ${TOKENS.primary} 14%, ${TOKENS.surfaceHigh})`,
-                            color: TOKENS.primary,
-                            border: `1px solid ${TOKENS.outlineGhost}`,
-                          }}
-                        >
-                          {entry.account.name}
-                        </span>
-                      )}
-                      {entry.excludeFromAllocation && (
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                          style={{
-                            background: TOKENS.surfaceHigh,
-                            color: TOKENS.onSurfaceMuted,
-                            border: `1px solid ${TOKENS.outlineGhost}`,
-                          }}
-                        >
-                          Non-allocated
-                        </span>
-                      )}
-                      <span
-                        className="text-xs tabular-nums"
-                        style={{ color: TOKENS.onSurfaceMuted }}
-                      >
-                        {p.formatDate(entry.date)}
-                      </span>
-                    </div>
-                  </div>
+                    <div className="space-y-3">
+                      {group.entries.map((entry) => {
+                        const expanded = expandedRowIds.has(entry.id)
+                        const contentId = `income-entry-${entry.id}`
+                        return (
+                          <div
+                            key={entry.id}
+                            className="rounded-xl border"
+                            style={{
+                              background: TOKENS.surfaceLow,
+                              borderColor: TOKENS.outlineGhost,
+                              boxShadow: CARD_INSET,
+                            }}
+                          >
+                            <div className="flex items-center gap-2 px-2 py-2 sm:px-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleRow(entry.id)}
+                                aria-expanded={expanded}
+                                aria-controls={contentId}
+                                className={cn(
+                                  "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/4",
+                                  consoleFocus,
+                                )}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="truncate text-sm font-semibold tracking-tight"
+                                    style={{ color: TOKENS.onSurface }}
+                                  >
+                                    {entry.description?.trim() || "Unlabeled inflow"}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    {entry.account && (
+                                      <span
+                                        className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                        style={{
+                                          background: `color-mix(in srgb, ${TOKENS.primary} 14%, ${TOKENS.surfaceHigh})`,
+                                          color: TOKENS.primary,
+                                          border: `1px solid ${TOKENS.outlineGhost}`,
+                                        }}
+                                      >
+                                        {entry.account.name}
+                                      </span>
+                                    )}
+                                    {entry.excludeFromAllocation && (
+                                      <span
+                                        className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                        style={{
+                                          background: TOKENS.surfaceHigh,
+                                          color: TOKENS.onSurfaceMuted,
+                                          border: `1px solid ${TOKENS.outlineGhost}`,
+                                        }}
+                                      >
+                                        Non-allocated
+                                      </span>
+                                    )}
+                                    <span
+                                      className="text-xs tabular-nums"
+                                      style={{ color: TOKENS.onSurfaceMuted }}
+                                    >
+                                      {p.formatDate(entry.date)}
+                                    </span>
+                                  </div>
+                                </div>
 
-                  <div className="flex items-center justify-between gap-3 sm:justify-end">
-                    <div className="text-left sm:text-right">
-                      <div
-                        className="inline-flex items-baseline justify-start gap-0.5 text-lg font-bold tabular-nums sm:justify-end"
-                        style={{ color: TOKENS.primary }}
-                      >
-                        <span>+</span>
-                        <MajorFigureCurrency
-                          amount={entry.amount}
-                          variant="prosperity"
-                          className="text-lg font-bold!"
-                          decimalEm={0.5}
-                        />
-                      </div>
-                      <p
-                        className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: TOKENS.onSurfaceMuted }}
-                      >
-                        {entry.account?.bankName ?? "No account"}
-                      </p>
+                                <div className="shrink-0 text-right">
+                                  <div
+                                    className="inline-flex items-baseline gap-0.5 text-lg font-bold tabular-nums"
+                                    style={{ color: TOKENS.primary }}
+                                  >
+                                    <span>+</span>
+                                    <MajorFigureCurrency
+                                      amount={entry.amount}
+                                      variant="prosperity"
+                                      className="text-lg font-bold!"
+                                      decimalEm={0.5}
+                                    />
+                                  </div>
+                                  <p
+                                    className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                                    style={{ color: TOKENS.onSurfaceMuted }}
+                                  >
+                                    {entry.account?.bankName ?? "No account"}
+                                  </p>
+                                </div>
+
+                                <ChevronDown
+                                  className="h-4 w-4 shrink-0 transition-transform"
+                                  style={{
+                                    color: TOKENS.onSurfaceMuted,
+                                    transform: expanded ? "rotate(180deg)" : "none",
+                                  }}
+                                  aria-hidden
+                                />
+                              </button>
+
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditDialog(entry)}
+                                  className={cn(
+                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                    consoleFocus,
+                                  )}
+                                  style={{ color: TOKENS.onSurfaceMuted }}
+                                  aria-label={`Edit income ${entry.description?.trim() || "entry"}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => p.setDeleteEntryId(entry.id)}
+                                  className={cn(
+                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                    consoleFocus,
+                                  )}
+                                  style={{ color: TOKENS.loss }}
+                                  aria-label="Delete entry"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div
+                              id={contentId}
+                              aria-hidden={!expanded}
+                              className="grid transition-[grid-template-rows] duration-200 ease-out"
+                              style={{
+                                gridTemplateRows: expanded ? "1fr" : "0fr",
+                                transitionDuration: reducedMotion ? "0s" : undefined,
+                              }}
+                            >
+                              <div className="overflow-hidden">
+                                <div
+                                  className="border-t px-4 py-4 sm:px-5"
+                                  style={{ borderColor: TOKENS.outlineGhost }}
+                                >
+                                  <EntryAllocationDetail entry={entry} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openEditDialog(entry)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
-                      style={{ color: TOKENS.onSurfaceMuted }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent"
-                      }}
-                      aria-label={`Edit income ${entry.description?.trim() || "entry"}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => p.setDeleteEntryId(entry.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
-                      style={{ color: ERROR_SOFT }}
-                      onMouseEnter={(e) => {
-                        ;(e.currentTarget.style.backgroundColor =
-                          `color-mix(in srgb, ${ERROR_SOFT} 12%, transparent)`)
-                      }}
-                      onMouseLeave={(e) => {
-                        ;(e.currentTarget.style.backgroundColor = "transparent")
-                      }}
-                      aria-label="Delete entry"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                </div>
                 ))}
               </div>
 

@@ -141,7 +141,7 @@ export function IncomeBulkDialog({ p }: IncomeBulkDialogProps) {
               type="submit"
               disabled={p.submittingBulk || !p.allocation}
               className={cn(
-                "w-full min-h-11 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-50",
+                "w-full min-h-11 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-50 hover:opacity-95",
                 consoleFocus,
               )}
               style={{
