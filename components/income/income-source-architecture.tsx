@@ -34,7 +34,15 @@ function usePrefersReducedMotion() {
   return reduced
 }
 
-function PanelShell({ children }: { children: ReactNode }) {
+function PanelShell({
+  children,
+  "aria-busy": ariaBusy,
+  "aria-label": ariaLabel,
+}: {
+  children: ReactNode
+  "aria-busy"?: boolean
+  "aria-label"?: string
+}) {
   return (
     <section
       className="rounded-xl border p-6 sm:p-8"
@@ -43,6 +51,8 @@ function PanelShell({ children }: { children: ReactNode }) {
         borderColor: TOKENS.outlineGhost,
         boxShadow: CARD_INSET,
       }}
+      aria-busy={ariaBusy}
+      aria-label={ariaLabel}
     >
       {children}
     </section>
@@ -246,7 +256,7 @@ function MonthlySparkline({
 
 export function IncomeSourceArchitectureSkeleton() {
   return (
-    <PanelShell>
+    <PanelShell aria-busy={true} aria-label="Loading source architecture">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Pulse className="h-4 w-40" />
@@ -351,21 +361,25 @@ export function IncomeSourceArchitecture({
                   style={{ color: TOKENS.onSurface }}
                   title={row.label}
                 >
+                  <span className="sr-only">Source: </span>
                   {row.label}
                 </p>
                 <p
                   className="justify-self-end text-sm font-medium tabular-nums"
                   style={{ color: TOKENS.onSurface }}
                 >
+                  <span className="sr-only">Amount: </span>
                   {formatCurrency(row.amount)}
                 </p>
                 <p
                   className="col-start-1 row-start-2 text-xs tabular-nums sm:col-auto sm:row-auto sm:justify-self-end sm:text-sm"
                   style={{ color: TOKENS.onSurfaceMutedElevated }}
                 >
+                  <span className="sr-only">Share: </span>
                   {row.sharePct.toFixed(1)}%
                 </p>
                 <div className="col-start-2 row-start-2 justify-self-end sm:col-auto sm:row-auto">
+                  <span className="sr-only">Month over month: </span>
                   <SourceMomCell row={row} />
                 </div>
               </li>

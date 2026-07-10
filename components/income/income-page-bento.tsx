@@ -28,6 +28,7 @@ import { ConsolePaginationBar } from "@/components/wealth-console/console-pagina
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import { IncomeBulkDialog } from "@/components/income/income-bulk-dialog"
+import { IncomeSourceArchitecture } from "@/components/income/income-source-architecture"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import {
@@ -52,40 +53,6 @@ const consoleField =
 function allocationPct(part: number, whole: number) {
   if (!whole || whole <= 0) return 0
   return Math.round((part / whole) * 1000) / 10
-}
-
-function isInCurrentMonth(isoDate: string) {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-  const end = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-    23,
-    59,
-    59,
-    999,
-  ).getTime()
-  const t = new Date(isoDate).getTime()
-  return !Number.isNaN(t) && t >= start && t <= end
-}
-
-function groupIncomeByLabel(entries: IncomeEntry[], limit: number) {
-  const map = new Map<string, number>()
-  for (const e of entries) {
-    if (!isInCurrentMonth(e.date)) continue
-    const label = (e.description?.trim() || e.account?.name || "Unlabeled").slice(
-      0,
-      48,
-    )
-    map.set(label, (map.get(label) || 0) + e.amount)
-  }
-  const rows = Array.from(map.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([label, amount]) => ({ label, amount }))
-  const total = rows.reduce((s, r) => s + r.amount, 0)
-  return { rows, total }
 }
 
 const PILLAR_SEGMENTS = [
@@ -377,263 +344,158 @@ export function IncomePageBento(p: UseIncomePageResult) {
 
   const perf = p.incomeStats.monthOverMonthPct
   const perfPositive = perf !== null && perf >= 0
-  const source = groupIncomeByLabel(p.sourceEntries, 3)
-  const currentMonthLabel = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-  }).format(new Date())
 
   return (
     <>
+      {/* Row 1: hero metrics + command actions */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-          <section className="lg:col-span-8">
-            <div className="px-1 py-2 sm:px-2">
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
+        <section className="lg:col-span-8">
+          <div className="px-1 py-2 sm:px-2">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Current monthly revenue
+            </p>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+              {showMetricSkeleton ? (
+                <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                  <ScrambleCurrencyValue
+                    variant="income"
+                    min={1800}
+                    max={12000}
+                    className="font-black!"
+                  />
+                </div>
+              ) : (
+                <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+                  <MajorFigureCurrency
+                    amount={p.incomeStats.currentMonthTotal}
+                    variant="income"
+                    decimalEm={0.5}
+                    className="font-black!"
+                  />
+                </div>
+              )}
+              <div
+                className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
+                style={{
+                  background: `color-mix(in srgb, ${perf === null ? TOKENS.onSurfaceMuted : perfPositive ? TOKENS.primary : ERROR_SOFT} 18%, ${TOKENS.surfaceLow})`,
+                  border: `1px solid ${TOKENS.outlineGhost}`,
+                  color:
+                    perf === null
+                      ? TOKENS.onSurfaceMuted
+                      : perfPositive
+                        ? TOKENS.primary
+                        : ERROR_SOFT,
+                  boxShadow: CARD_INSET,
+                }}
               >
-                Current monthly revenue
-              </p>
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-                {showMetricSkeleton ? (
-                  <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
-                    <ScrambleCurrencyValue
-                      variant="income"
-                      min={1800}
-                      max={12000}
-                      className="font-black!"
-                    />
-                  </div>
+                {perf !== null ? (
+                  <>
+                    {perfPositive ? (
+                      <TrendingUp className="mr-2 h-4 w-4" strokeWidth={2} />
+                    ) : (
+                      <TrendingDown className="mr-2 h-4 w-4" strokeWidth={2} />
+                    )}
+                    {perfPositive ? "+" : ""}
+                    {perf.toFixed(1)}% <span className="ml-1 opacity-75">vs prev. month</span>
+                  </>
                 ) : (
-                  <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
-                    <MajorFigureCurrency
-                      amount={p.incomeStats.currentMonthTotal}
-                      variant="income"
-                      decimalEm={0.5}
-                      className="font-black!"
-                    />
-                  </div>
+                  <span>-</span>
                 )}
-                <div
-                  className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
-                  style={{
-                    background: `color-mix(in srgb, ${perf === null ? TOKENS.onSurfaceMuted : perfPositive ? TOKENS.primary : ERROR_SOFT} 18%, ${TOKENS.surfaceLow})`,
-                    border: `1px solid ${TOKENS.outlineGhost}`,
-                    color:
-                      perf === null
-                        ? TOKENS.onSurfaceMuted
-                        : perfPositive
-                          ? TOKENS.primary
-                          : ERROR_SOFT,
-                    boxShadow: CARD_INSET,
-                  }}
-                >
-                  {perf !== null ? (
-                    <>
-                      {perfPositive ? (
-                        <TrendingUp className="mr-2 h-4 w-4" strokeWidth={2} />
-                      ) : (
-                        <TrendingDown className="mr-2 h-4 w-4" strokeWidth={2} />
-                      )}
-                      {perfPositive ? "+" : ""}
-                      {perf.toFixed(1)}% <span className="ml-1 opacity-75">vs prev. month</span>
-                    </>
-                  ) : (
-                    <span>-</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <div>
-                  <p
-                    className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    YTD aggregate
-                  </p>
-                  {showMetricSkeleton ? (
-                    <div className="mt-2 text-lg font-semibold tabular-nums">
-                      <ScrambleCurrencyValue
-                        min={5000}
-                        max={75000}
-                        className="font-semibold!"
-                      />
-                    </div>
-                  ) : (
-                    <p
-                      className="mt-2 text-lg font-semibold tabular-nums"
-                      style={{ color: TOKENS.onSurface }}
-                    >
-                      {formatCurrency(p.incomeStats.ytdTotal)}
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
 
-            <div
-              className="mt-4 rounded-xl border p-6 sm:p-8"
-              style={{
-                background: TOKENS.surfaceContainer,
-                borderColor: TOKENS.outlineGhost,
-                boxShadow: CARD_INSET,
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3
-                    className="text-sm font-semibold"
+            <div className="mt-6">
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  YTD aggregate
+                </p>
+                {showMetricSkeleton ? (
+                  <div className="mt-2 text-lg font-semibold tabular-nums">
+                    <ScrambleCurrencyValue
+                      min={5000}
+                      max={75000}
+                      className="font-semibold!"
+                    />
+                  </div>
+                ) : (
+                  <p
+                    className="mt-2 text-lg font-semibold tabular-nums"
                     style={{ color: TOKENS.onSurface }}
                   >
-                    Source Architecture
-                  </h3>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: TOKENS.onSurfaceMuted }}
-                  >
-                    {currentMonthLabel} distribution
+                    {formatCurrency(p.incomeStats.ytdTotal)}
                   </p>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-4">
-                {showSourceSkeleton ? (
-                  Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div
-                          className="h-4 w-40 animate-pulse rounded-md"
-                          style={{ background: TOKENS.surfaceLow }}
-                        />
-                        <div
-                          className="h-4 w-10 animate-pulse rounded-md"
-                          style={{ background: TOKENS.surfaceLow }}
-                        />
-                      </div>
-                      <div className="mt-2 flex gap-1">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                          <span
-                            key={i}
-                            className="h-2 w-3 rounded-[4px]"
-                            style={{
-                              background:
-                                i < 6
-                                  ? TOKENS.surfaceHigh
-                                  : `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 22%, ${TOKENS.surfaceLow})`,
-                              opacity: i < 6 ? 1 : 0.55,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : source.rows.length === 0 ? (
-                  <p className="text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
-                    No inflows logged this month.
-                  </p>
-                ) : (
-                  source.rows.map((row, idx) => {
-                    const pct =
-                      source.total > 0
-                        ? Math.round((row.amount / source.total) * 100)
-                        : 0
-                    const barColor =
-                      idx === 0 ? TOKENS.primary : TOKENS.secondary
-                    const filled = Math.round((pct / 100) * 12)
-                    return (
-                      <div key={row.label}>
-                        <div className="flex items-center justify-between gap-3">
-                          <p
-                            className="truncate text-sm"
-                            style={{ color: TOKENS.onSurface }}
-                          >
-                            {row.label}
-                          </p>
-                          <p
-                            className="text-xs tabular-nums"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            {pct}%
-                          </p>
-                        </div>
-                        <div className="mt-2 flex gap-1">
-                          {Array.from({ length: 12 }).map((_, i) => (
-                            <span
-                              key={i}
-                              className="h-2 w-3 rounded-[4px]"
-                              style={{
-                                background:
-                                  i < filled
-                                    ? barColor
-                                    : `color-mix(in srgb, ${TOKENS.onSurfaceMuted} 22%, ${TOKENS.surfaceLow})`,
-                                opacity: i < filled ? 1 : 0.55,
-                                boxShadow: i < filled ? CARD_INSET : undefined,
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })
                 )}
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="lg:col-span-4">
-            <div
-              className="rounded-xl border p-6 sm:p-7"
+        <section className="lg:col-span-4">
+          <div
+            className="rounded-xl border p-6 sm:p-7"
+            style={{
+              background: TOKENS.surfaceContainer,
+              borderColor: TOKENS.outlineGhost,
+              boxShadow: CARD_INSET,
+            }}
+          >
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Command actions
+            </p>
+            <p
+              className="mt-3 text-sm leading-snug"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Instantiate a new income entry with contextual tags and
+              allocation rules.
+            </p>
+
+            <button
+              type="button"
+              onClick={openLogDialog}
+              disabled={p.loadingForm || !p.allocation}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50"
               style={{
-                background: TOKENS.surfaceContainer,
-                borderColor: TOKENS.outlineGhost,
-                boxShadow: CARD_INSET,
+                background: TOKENS.primary,
+                color: TOKENS.surface,
+                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
               }}
             >
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Command actions
-              </p>
-              <p
-                className="mt-3 text-sm leading-snug"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                  Instantiate a new income entry with contextual tags and
-                  allocation rules.
-              </p>
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              Log new income
+            </button>
 
-              <button
-                type="button"
-                onClick={openLogDialog}
-                disabled={p.loadingForm || !p.allocation}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50"
-                style={{
-                  background: TOKENS.primary,
-                  color: TOKENS.surface,
-                  boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-                }}
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.5} />
-                Log new income
-              </button>
-
-              <button
-                type="button"
-                onClick={openBulkImport}
-                disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50"
-                style={{
-                  borderColor: TOKENS.outlineGhost,
-                  color: TOKENS.onSurfaceMuted,
-                }}
-              >
-                Bulk import
-              </button>
-
-            </div>
-          </section>
+            <button
+              type="button"
+              onClick={openBulkImport}
+              disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50"
+              style={{
+                borderColor: TOKENS.outlineGhost,
+                color: TOKENS.onSurfaceMuted,
+              }}
+            >
+              Bulk import
+            </button>
+          </div>
+        </section>
       </div>
+
+      {/* Row 2: full-width source architecture */}
+      <IncomeSourceArchitecture
+        entries={p.sourceEntries}
+        incomeStats={p.incomeStats}
+        loading={showSourceSkeleton}
+      />
 
       {p.breakdown && (
         <IncomeLoggedAllocationPanel
