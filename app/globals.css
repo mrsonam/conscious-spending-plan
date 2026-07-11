@@ -102,45 +102,6 @@ html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-outside 
   color: rgba(218, 226, 253, 0.35);
 }
 
-/* Date picker: month/year caption chips — light context
-   The visible element is .rdp-caption_label (the <select> is opacity:0 behind it) */
-[data-date-input-popover] .rdp-caption_label {
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 13px !important;
-  font-weight: 600;
-  cursor: pointer;
-  gap: 4px;
-}
-
-[data-date-input-popover] .rdp-month_caption {
-  font-size: 13px;
-}
-
-/* The invisible <select> — set color-scheme so the native OS popup uses light colors */
-[data-date-input-popover] .rdp-dropdown {
-  color-scheme: light;
-}
-
-/* Wealth Console: caption chips inherit the dark surface */
-html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-caption_label {
-  background: rgba(218, 226, 253, 0.07);
-  border: 1px solid rgba(218, 226, 253, 0.15);
-  color: #dae2fd;
-}
-
-/* The invisible <select> in dark context — OS popup uses dark colors */
-html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-dropdown {
-  color-scheme: dark;
-}
-
-html[data-csp-dashboard-theme="console"] [data-date-input-popover] .rdp-dropdown option {
-  background-color: #131b2e;
-  color: #dae2fd;
-}
-
 html[data-csp-dashboard-theme="console"] .app-select-chevron {
   color: #dae2fd;
   opacity: 1;
