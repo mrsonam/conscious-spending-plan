@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
-import { TrendingDown, TrendingUp } from "lucide-react"
+import { type ReactNode } from "react"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { MomChip } from "@/components/wealth-console/mom-chip"
+import { MomentumCell } from "@/components/wealth-console/momentum-cell"
+import { RadialRing } from "@/components/wealth-console/radial-ring"
 import {
   type IncomeEntry,
   type IncomePageStats,
@@ -67,123 +68,7 @@ function SourceMomCell({ row }: { row: IncomeSourceRow }) {
       </span>
     )
   }
-  if (row.isNew || row.momPct === null) {
-    return (
-      <span
-        className="text-[10px] font-semibold uppercase tracking-[0.14em]"
-        style={{ color: TOKENS.secondary }}
-      >
-        new
-      </span>
-    )
-  }
-  const positive = row.momPct >= 0
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-xs font-medium tabular-nums"
-      style={{ color: positive ? TOKENS.primary : TOKENS.loss }}
-    >
-      {positive ? (
-        <TrendingUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-      ) : (
-        <TrendingDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-      )}
-      {positive ? "+" : ""}
-      {row.momPct.toFixed(1)}%
-    </span>
-  )
-}
-
-const RING_SIZE = 168
-const RING_STROKE = 20
-
-function RadialRing({
-  rows,
-  totalAmount,
-  reducedMotion,
-}: {
-  rows: IncomeSourceRow[]
-  totalAmount: string
-  reducedMotion: boolean
-}) {
-  const [revealed, setRevealed] = useState(reducedMotion)
-  if (reducedMotion && !revealed) {
-    setRevealed(true)
-  }
-  useEffect(() => {
-    if (reducedMotion) return
-    const id = requestAnimationFrame(() => setRevealed(true))
-    return () => cancelAnimationFrame(id)
-  }, [reducedMotion, rows])
-
-  const r = (RING_SIZE - RING_STROKE) / 2
-  const center = RING_SIZE / 2
-  const circumference = 2 * Math.PI * r
-
-  const visibleRows = rows.filter((row) => row.sharePct > 0)
-  const segments = visibleRows.map((row, idx) => ({
-    row,
-    startPct: visibleRows.slice(0, idx).reduce((sum, r) => sum + r.sharePct, 0),
-  }))
-
-  return (
-    <div
-      className="relative shrink-0"
-      style={{ width: RING_SIZE, height: RING_SIZE }}
-      role="img"
-      aria-label={`Income composition: ${rows
-        .map((r) => `${r.label} ${r.sharePct.toFixed(1)}%`)
-        .join(", ")}`}
-    >
-      <svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
-        <circle
-          cx={center}
-          cy={center}
-          r={r}
-          fill="none"
-          stroke={TOKENS.surfaceHigh}
-          strokeWidth={RING_STROKE}
-        />
-        {segments.map(({ row, startPct }, idx) => {
-          const dash = (row.sharePct / 100) * circumference
-          return (
-            <circle
-              key={row.label}
-              cx={center}
-              cy={center}
-              r={r}
-              fill="none"
-              stroke={row.color}
-              strokeWidth={RING_STROKE}
-              strokeDasharray={circumference}
-              strokeDashoffset={revealed ? circumference - dash : circumference}
-              style={{
-                transformOrigin: `${center}px ${center}px`,
-                transform: `rotate(${-90 + (startPct / 100) * 360}deg)`,
-                transition: reducedMotion
-                  ? undefined
-                  : `stroke-dashoffset 0.7s ease-out ${idx * 70}ms`,
-              }}
-            />
-          )
-        })}
-      </svg>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span
-          className="text-[9px] font-semibold uppercase tracking-[0.18em]"
-          style={{ color: TOKENS.onSurfaceMuted }}
-        >
-          Total
-        </span>
-        <span
-          className="mt-1 text-lg font-bold tabular-nums"
-          style={{ color: TOKENS.onSurface }}
-        >
-          {totalAmount}
-        </span>
-      </div>
-    </div>
-  )
+  return <MomentumCell pct={row.momPct} isNew={row.isNew} />
 }
 
 export function IncomeSourceArchitectureSkeleton({
@@ -263,9 +148,16 @@ export function IncomeSourceArchitecture({
         <div className="mt-5 grid grid-cols-1 items-center gap-6 sm:grid-cols-[168px_1fr] sm:gap-8">
           <div className="flex justify-center sm:justify-start">
             <RadialRing
-              rows={grouped.rows}
+              segments={grouped.rows.map((row) => ({
+                key: row.label,
+                sharePct: row.sharePct,
+                color: row.color,
+              }))}
               totalAmount={formatCurrency(grouped.currentTotal)}
               reducedMotion={reducedMotion}
+              ariaLabel={`Income composition: ${grouped.rows
+                .map((row) => `${row.label} ${row.sharePct.toFixed(1)}%`)
+                .join(", ")}`}
             />
           </div>
 

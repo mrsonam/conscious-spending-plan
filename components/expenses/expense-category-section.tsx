@@ -1,6 +1,5 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { PieChart as PieChartIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -13,26 +12,14 @@ import {
   expenseMicroLabelStyle,
 } from "@/components/expenses/expense-console-ui"
 import { ExpenseCategoryLedger } from "@/components/expenses/expense-category-ledger"
-import type { CategoryChartEntry } from "@/components/expenses/expense-category-chart"
+import {
+  ExpenseCategoryChart,
+  type CategoryChartEntry,
+} from "@/components/expenses/expense-category-chart"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
+import { OTHER_BUCKET_CATEGORY } from "@/lib/expense-category-buckets"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
-
-const ExpenseCategoryChart = dynamic(
-  () =>
-    import("@/components/expenses/expense-category-chart").then(
-      (m) => m.ExpenseCategoryChart,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="mx-auto aspect-square w-full max-w-[280px] min-h-[200px] rounded-full"
-        style={{ background: TOKENS.surfaceContainer, maxHeight: 280 }}
-        aria-hidden
-      />
-    ),
-  },
-)
 
 export type ExpenseCategorySectionProps = {
   p: UseExpensePageResult
@@ -63,6 +50,9 @@ export function ExpenseCategorySection({
   activeSubcategory,
   onOpenHistoryForCategory,
 }: ExpenseCategorySectionProps) {
+  const reducedMotion = usePrefersReducedMotion()
+  const chartTotal = shareChartData.reduce((sum, entry) => sum + entry.amount, 0)
+
   return (
     <section
       className="rounded-[1.75rem] border p-5 sm:p-7"
@@ -144,8 +134,8 @@ export function ExpenseCategorySection({
             </div>
             <div className="mt-4 flex flex-col items-center gap-5">
               <div
-                className="mx-auto aspect-square w-full max-w-[280px] min-h-[200px] rounded-full"
-                style={{ maxHeight: 280, background: TOKENS.surfaceContainer }}
+                className="mx-auto h-[168px] w-[168px] rounded-full"
+                style={{ background: TOKENS.surfaceContainer }}
               />
               <div
                 className="grid w-full grid-cols-2 gap-3 rounded-[1.25rem] border p-4"
@@ -191,7 +181,7 @@ export function ExpenseCategorySection({
                 {Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={index}
-                    className="grid w-full grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-xl border px-3 py-3"
+                    className="grid w-full grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 rounded-xl border px-3 py-3"
                     style={{
                       borderColor: TOKENS.outlineGhost,
                       background: "transparent",
@@ -218,9 +208,6 @@ export function ExpenseCategorySection({
                       />
                     </div>
                     <div className="text-right">
-                      <ScrambleCurrencyValue min={50} max={1200} className="text-sm font-semibold!" />
-                    </div>
-                    <div className="text-right">
                       <ScramblePercentValue
                         className="text-sm font-semibold tabular-nums"
                         color={TOKENS.onSurface}
@@ -228,6 +215,13 @@ export function ExpenseCategorySection({
                         max={34}
                       />
                     </div>
+                    <div className="text-right">
+                      <ScrambleCurrencyValue min={50} max={1200} className="text-sm font-semibold!" />
+                    </div>
+                    <div
+                      className="h-3 w-10 rounded-md"
+                      style={{ background: TOKENS.surfaceContainer }}
+                    />
                   </div>
                 ))}
               </div>
@@ -261,7 +255,9 @@ export function ExpenseCategorySection({
                   Click a slice to spotlight a category and jump to its ledger history.
                 </p>
               </div>
-              {activeSubcategory && activeSubcategory.category !== "unclassified" ? (
+              {activeSubcategory &&
+              activeSubcategory.category !== "unclassified" &&
+              activeSubcategory.category !== OTHER_BUCKET_CATEGORY ? (
                 <button
                   type="button"
                   onClick={() => onOpenHistoryForCategory(activeSubcategory.category)}
@@ -282,9 +278,11 @@ export function ExpenseCategorySection({
             <div className="mt-4 flex flex-col items-center gap-5">
               <ExpenseCategoryChart
                 data={shareChartData}
+                totalAmount={p.formatCurrency(chartTotal)}
                 selectedCategory={selectedSubcategory}
                 onSelectCategory={onSelectSubcategory}
                 activeEntry={activeSubcategory}
+                reducedMotion={reducedMotion}
                 formatCurrency={p.formatCurrency}
               />
               <dl

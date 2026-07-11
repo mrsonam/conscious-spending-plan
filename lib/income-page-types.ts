@@ -1,3 +1,5 @@
+import type { MonthlyTotal } from "@/lib/monthly-total"
+
 export interface FundAllocation {
   id: string
   fixedCostsType: string
@@ -46,11 +48,7 @@ export interface IncomeEntry {
   } | null
 }
 
-export interface IncomeMonthlyTotal {
-  /** Calendar month `YYYY-MM` */
-  month: string
-  total: number
-}
+export type IncomeMonthlyTotal = MonthlyTotal
 
 /** Hero + comparison metrics from GET /api/income-entries (paginated list). */
 export interface IncomePageStats {

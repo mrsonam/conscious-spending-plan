@@ -1,3 +1,5 @@
+import type { MonthlyTotal } from "@/lib/monthly-total"
+
 export interface ExpensePageAccount {
   id: string
   name: string
@@ -38,6 +40,17 @@ export interface RecurringExpense {
   account: { id: string; name: string; bankName: string }
 }
 
+export interface ExpenseCategoryAggregate {
+  category: string
+  label: string
+  amount: number
+  count: number
+  sharePct: number
+  averageAmount: number
+  momentumPct: number | null
+  previousAmount: number
+}
+
 export interface ExpensePageStats {
   currentMonthTotal: number
   ytdTotal: number
@@ -45,6 +58,8 @@ export interface ExpensePageStats {
   lastMonthExpenses: number
   /** Mean monthly spend over the trailing 6 calendar months (months with spend only). */
   averageMonthlySpending: number
+  /** Last 6 calendar months, oldest → newest */
+  monthlyTotals: MonthlyTotal[]
   fundBreakdownCurrentMonth: {
     fixedCosts: number
     investment: number
@@ -57,16 +72,11 @@ export interface ExpensePageStats {
     topSharePct: number
     topThreeSharePct: number
     averageEntryAmount: number
-    topCategories: Array<{
-      category: string
-      label: string
-      amount: number
-      count: number
-      sharePct: number
-      averageAmount: number
-      momentumPct: number | null
-      previousAmount: number
-    }>
+    /** Combined amount of all classified categories beyond the top N (see topCategories). */
+    otherAmount: number
+    otherCount: number
+    otherSharePct: number
+    topCategories: ExpenseCategoryAggregate[]
   }
 }
 

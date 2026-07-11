@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { groupEntriesByRecency, ledgerGroupKeyForDate } from "../lib/income-ledger-groups"
+import { groupEntriesByRecency, ledgerGroupKeyForDate } from "../lib/ledger-groups"
 
 void (async () => {
   const now = new Date("2026-07-15T12:00:00")
@@ -36,5 +36,5 @@ void (async () => {
   const empty = groupEntriesByRecency([], now)
   assert.equal(empty.length, 0)
 
-  console.log("income-ledger-groups.test.ts: all passed")
+  console.log("ledger-groups.test.ts: all passed")
 })()

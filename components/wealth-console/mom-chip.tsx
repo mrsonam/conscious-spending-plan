@@ -3,11 +3,23 @@
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 
-/** Month-over-month % chip used on hero figures and Source Architecture. */
-export function MomChip({ pct, className }: { pct: number | null; className?: string }) {
+/**
+ * Month-over-month % chip used on hero figures and Source Architecture.
+ * `positiveIsGood` controls color polarity: true (default) for metrics where
+ * more is better (income), false where more is worse (expenses).
+ */
+export function MomChip({
+  pct,
+  className,
+  positiveIsGood = true,
+}: {
+  pct: number | null
+  className?: string
+  positiveIsGood?: boolean
+}) {
   const positive = pct !== null && pct >= 0
-  const tone =
-    pct === null ? TOKENS.onSurfaceMuted : positive ? TOKENS.primary : TOKENS.loss
+  const good = positive === positiveIsGood
+  const tone = pct === null ? TOKENS.onSurfaceMuted : good ? TOKENS.primary : TOKENS.loss
 
   return (
     <div

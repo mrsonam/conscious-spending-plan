@@ -1,37 +1,29 @@
 "use client"
 
-import { Plus, TrendingDown, TrendingUp } from "lucide-react"
+import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
-import {
-  ScrambleCurrencyValue,
-  ScramblePercentValue,
-} from "@/components/ui/scramble-number"
+import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
 import {
   consoleFocus,
   consoleHeroFigureClass,
   consoleHeroFigureInnerClass,
 } from "@/components/wealth-console/console-ui"
+import { MomChip } from "@/components/wealth-console/mom-chip"
+import { HeroSparkline } from "@/components/wealth-console/hero-sparkline"
 import {
   expenseMicroLabelClass,
   expenseMicroLabelStyle,
 } from "@/components/expenses/expense-console-ui"
-import { SegmentedBlocks } from "@/components/expenses/expense-shared"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
-import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { useCountUp } from "@/hooks/use-count-up"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 
 type ExpenseSummarySectionProps = {
   p: UseExpensePageResult
   showSummarySkeleton: boolean
   perf: number | null
-  perfGood: boolean
-  fixedPct: number
-  investPct: number
-  fixedOver: boolean
-  investOver: boolean
-  fixedThreshold: number
-  investTarget: number
+  reducedMotion: boolean
   onLogOpen: () => void
   onBulkOpen: () => void
 }
@@ -40,16 +32,13 @@ export function ExpenseSummarySection({
   p,
   showSummarySkeleton,
   perf,
-  perfGood,
-  fixedPct,
-  investPct,
-  fixedOver,
-  investOver,
-  fixedThreshold,
-  investTarget,
+  reducedMotion,
   onLogOpen,
   onBulkOpen,
 }: ExpenseSummarySectionProps) {
+  const animatedSpend = useCountUp(p.expenseStats.currentMonthTotal)
+  const sparklineValues = p.expenseStats.monthlyTotals.map((t) => t.total)
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
       <section
@@ -74,29 +63,7 @@ export function ExpenseSummarySection({
                 Live capital outflow
               </p>
             </div>
-            <div
-              className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
-              style={{
-                background: `color-mix(in srgb, ${TOKENS.primary} 18%, ${TOKENS.surfaceLow})`,
-                border: `1px solid ${TOKENS.outlineGhost}`,
-                color: TOKENS.primary,
-                boxShadow: CARD_INSET,
-              }}
-            >
-              {perf !== null ? (
-                <>
-                  {perfGood ? (
-                    <TrendingDown className="mr-2 h-4 w-4" strokeWidth={2} />
-                  ) : (
-                    <TrendingUp className="mr-2 h-4 w-4" strokeWidth={2} />
-                  )}
-                  {perfGood ? "" : "+"}
-                  {perf.toFixed(1)}% vs prev. month
-                </>
-              ) : (
-                <span>-</span>
-              )}
-            </div>
+            <MomChip pct={perf} positiveIsGood={false} />
           </div>
 
           <div className={cn("mt-4", consoleHeroFigureClass)}>
@@ -109,7 +76,7 @@ export function ExpenseSummarySection({
               />
             ) : (
               <MajorFigureCurrency
-                amount={p.expenseStats.currentMonthTotal}
+                amount={animatedSpend}
                 variant="loss"
                 className={consoleHeroFigureInnerClass}
               />
@@ -129,109 +96,20 @@ export function ExpenseSummarySection({
                 />
               </div>
             ) : (
-              <p
-                className="mt-2 text-lg font-semibold tabular-nums"
-                style={{ color: TOKENS.onSurface }}
-              >
-                {p.formatCurrency(p.expenseStats.ytdTotal)}
-              </p>
+              <>
+                <p
+                  className="mt-2 text-lg font-semibold tabular-nums"
+                  style={{ color: TOKENS.onSurface }}
+                >
+                  {p.formatCurrency(p.expenseStats.ytdTotal)}
+                </p>
+                <HeroSparkline
+                  values={sparklineValues}
+                  reducedMotion={reducedMotion}
+                  ariaLabel="Six-month spend trend"
+                />
+              </>
             )}
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div
-            className="rounded-xl border p-5"
-            style={{
-              background: TOKENS.surfaceContainer,
-              borderColor: TOKENS.outlineGhost,
-              boxShadow: CARD_INSET,
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className={expenseMicroLabelClass} style={expenseMicroLabelStyle()}>
-                  Fixed overhead
-                </p>
-                <p
-                  className="mt-1 text-xs italic"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Fixed recurring outflows
-                </p>
-              </div>
-              {showSummarySkeleton ? (
-                <ScramblePercentValue
-                  className="text-lg font-bold tabular-nums"
-                  color={TOKENS.onSurface}
-                  min={18}
-                  max={82}
-                />
-              ) : (
-                <p
-                  className="text-lg font-bold tabular-nums"
-                  style={{ color: TOKENS.onSurface }}
-                >
-                  {Number.isFinite(fixedPct) ? fixedPct.toFixed(0) : "0"}%
-                </p>
-              )}
-            </div>
-            <SegmentedBlocks percent={fixedPct} activeColor={TOKENS.secondary} />
-            <div className="mt-4 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider">
-              <span style={{ color: TOKENS.onSurfaceMuted }}>
-                Threshold {fixedThreshold.toFixed(0)}%
-              </span>
-              <span style={{ color: fixedOver ? ERROR_SOFT : TOKENS.primary }}>
-                {fixedOver ? "Over threshold" : "Optimized"}
-              </span>
-            </div>
-          </div>
-
-          <div
-            className="rounded-xl border p-5"
-            style={{
-              background: TOKENS.surfaceContainer,
-              borderColor: TOKENS.outlineGhost,
-              boxShadow: CARD_INSET,
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className={expenseMicroLabelClass} style={expenseMicroLabelStyle()}>
-                  Investment capital
-                </p>
-                <p
-                  className="mt-1 text-xs italic"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  Growth-focused deployments
-                </p>
-              </div>
-              {showSummarySkeleton ? (
-                <ScramblePercentValue
-                  className="text-lg font-bold tabular-nums"
-                  color={TOKENS.onSurface}
-                  min={6}
-                  max={44}
-                />
-              ) : (
-                <p
-                  className="text-lg font-bold tabular-nums"
-                  style={{ color: TOKENS.onSurface }}
-                >
-                  {Number.isFinite(investPct) ? investPct.toFixed(0) : "0"}%
-                </p>
-              )}
-            </div>
-            <SegmentedBlocks percent={investPct} activeColor={TOKENS.primary} />
-            <div className="mt-4 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider">
-              <span style={{ color: TOKENS.onSurfaceMuted }}>
-                Strategic allocation {investTarget.toFixed(0)}%
-              </span>
-              <span style={{ color: investOver ? ERROR_SOFT : TOKENS.primary }}>
-                {investOver ? "Over threshold" : "Optimized"}
-              </span>
-            </div>
           </div>
         </div>
       </section>

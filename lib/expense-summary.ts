@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma"
 import { EXPENSE_CATEGORIES } from "@/lib/expense-page-constants"
+import { bucketTopCategories } from "@/lib/expense-category-buckets"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 const TRAILING_MONTHS_FOR_AVERAGE = 6
+/** Individually shown categories in the sub-category breakdown; the rest roll into "Other". */
+const TOP_CATEGORY_COUNT = 5
 
 /** Rolling mean of monthly expense totals (only months with spend > 0). */
 export function computeAverageMonthlySpending(monthTotals: number[]): number {
@@ -27,6 +30,10 @@ function trailingMonthRanges(now: Date, count: number) {
     )
     return { monthStart, monthEnd }
   })
+}
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
 export async function getExpenseSummary(userId: string) {
@@ -67,6 +74,8 @@ export async function getExpenseSummary(userId: string) {
     userId,
     date: { gte: startPrevMonth, lte: endPrevMonth },
   }
+
+  const trailingRanges = trailingMonthRanges(now, TRAILING_MONTHS_FOR_AVERAGE)
 
   const [
     monthAgg,
@@ -111,7 +120,7 @@ export async function getExpenseSummary(userId: string) {
       },
       _sum: { amount: true },
     }),
-    ...trailingMonthRanges(now, TRAILING_MONTHS_FOR_AVERAGE).map(({ monthStart, monthEnd }) =>
+    ...trailingRanges.map(({ monthStart, monthEnd }) =>
       prisma.expense.aggregate({
         where: {
           userId,
@@ -128,6 +137,12 @@ export async function getExpenseSummary(userId: string) {
   const averageMonthlySpending = computeAverageMonthlySpending(
     trailingMonthAggs.map((row) => toD(row._sum.amount)),
   )
+  const monthlyTotals = trailingMonthAggs
+    .map((row, index) => ({
+      month: monthKey(trailingRanges[index]!.monthStart),
+      total: toD(row._sum.amount),
+    }))
+    .reverse()
   const monthOverMonthPct =
     lastMonthExpenses > 0
       ? ((currentMonthTotal - lastMonthExpenses) / lastMonthExpenses) * 100
@@ -191,12 +206,18 @@ export async function getExpenseSummary(userId: string) {
     0,
   )
 
+  const { visible: visibleCategories, otherAmount, otherCount } = bucketTopCategories(
+    topCategories,
+    TOP_CATEGORY_COUNT,
+  )
+
   return {
     currentMonthTotal,
     ytdTotal,
     monthOverMonthPct,
     lastMonthExpenses,
     averageMonthlySpending,
+    monthlyTotals,
     fundBreakdownCurrentMonth,
     subcategoryInsights: {
       totalClassified,
@@ -210,7 +231,10 @@ export async function getExpenseSummary(userId: string) {
           ? totalClassified /
             topCategories.reduce((sum, category) => sum + category.count, 0)
           : 0,
-      topCategories: topCategories.slice(0, 6),
+      otherAmount,
+      otherCount,
+      otherSharePct: currentMonthTotal > 0 ? (otherAmount / currentMonthTotal) * 100 : 0,
+      topCategories: visibleCategories,
     },
   }
 }

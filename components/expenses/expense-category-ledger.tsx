@@ -3,10 +3,12 @@
 import { useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
+import { MomentumCell } from "@/components/wealth-console/momentum-cell"
 import {
   expenseMicroLabelClass,
   expenseMicroLabelStyle,
 } from "@/components/expenses/expense-console-ui"
+import { OTHER_BUCKET_CATEGORY } from "@/lib/expense-category-buckets"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import type { CategoryChartEntry } from "@/components/expenses/expense-category-chart"
 
@@ -101,7 +103,7 @@ export function ExpenseCategoryLedger({
               tabIndex={checked || (selectedCategory === null && index === 0) ? 0 : -1}
               onClick={() => onSelectCategory(category.category)}
               className={cn(
-                "grid w-full min-h-11 grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                "grid w-full min-h-11 grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                 consoleFocus,
               )}
               style={{
@@ -145,6 +147,17 @@ export function ExpenseCategoryLedger({
               >
                 {formatCurrency(category.amount)}
               </span>
+              {category.category === OTHER_BUCKET_CATEGORY ? (
+                <span className="tabular-nums" style={{ color: TOKENS.onSurfaceMutedElevated }}>
+                  —
+                </span>
+              ) : (
+                <MomentumCell
+                  pct={category.momentumPct ?? null}
+                  isNew={category.momentumPct === null}
+                  positiveIsGood={false}
+                />
+              )}
             </button>
           )
         })}

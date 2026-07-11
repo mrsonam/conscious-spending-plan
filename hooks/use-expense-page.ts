@@ -69,6 +69,7 @@ const EMPTY_EXPENSE_STATS: ExpensePageStats = {
   monthOverMonthPct: null,
   lastMonthExpenses: 0,
   averageMonthlySpending: 0,
+  monthlyTotals: [],
   fundBreakdownCurrentMonth: {
     fixedCosts: 0,
     investment: 0,
@@ -81,6 +82,9 @@ const EMPTY_EXPENSE_STATS: ExpensePageStats = {
     topSharePct: 0,
     topThreeSharePct: 0,
     averageEntryAmount: 0,
+    otherAmount: 0,
+    otherCount: 0,
+    otherSharePct: 0,
     topCategories: [],
   },
 }
@@ -203,6 +207,7 @@ export function useExpensePage(
             : (data.monthOverMonthPct as number),
         lastMonthExpenses: (data.lastMonthExpenses as number) ?? 0,
         averageMonthlySpending: (data.averageMonthlySpending as number) ?? 0,
+        monthlyTotals: (data.monthlyTotals as ExpensePageStats["monthlyTotals"]) ?? [],
         fundBreakdownCurrentMonth:
           (data.fundBreakdownCurrentMonth as ExpensePageStats["fundBreakdownCurrentMonth"]) ??
           {
@@ -219,6 +224,9 @@ export function useExpensePage(
             topSharePct: 0,
             topThreeSharePct: 0,
             averageEntryAmount: 0,
+            otherAmount: 0,
+            otherCount: 0,
+            otherSharePct: 0,
             topCategories: [],
           },
       })

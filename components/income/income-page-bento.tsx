@@ -26,15 +26,14 @@ import type { IncomeEntry } from "@/lib/income-page-types"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { consoleFocus, consoleHeroFigureClass, consoleHeroFigureInnerClass } from "@/components/wealth-console/console-ui"
 import { MomChip } from "@/components/wealth-console/mom-chip"
+import { HeroSparkline } from "@/components/wealth-console/hero-sparkline"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseIncomePageResult } from "@/hooks/use-income-page"
 import { IncomeBulkDialog } from "@/components/income/income-bulk-dialog"
 import { IncomeSourceArchitecture } from "@/components/income/income-source-architecture"
-import { computeSparklinePoints } from "@/lib/income-source-architecture"
-import { groupEntriesByRecency } from "@/lib/income-ledger-groups"
+import { groupEntriesByRecency } from "@/lib/ledger-groups"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { useCountUp } from "@/hooks/use-count-up"
-import { useLineDrawAnimation } from "@/hooks/use-line-draw"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
 import {
@@ -93,42 +92,6 @@ const PILLAR_SEGMENTS = [
     field: "allocationGuiltFreeSpending",
   },
 ] as const
-
-function HeroSparkline({
-  values,
-  reducedMotion,
-}: {
-  values: number[]
-  reducedMotion: boolean
-}) {
-  const w = 110
-  const h = 32
-  const animate = !reducedMotion && values.length >= 2
-  const lineRef = useLineDrawAnimation<SVGPolylineElement>(animate)
-  if (values.length < 2) return null
-  const points = computeSparklinePoints(values, w, h, 4)
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className="mt-4 h-8 w-[110px] shrink-0 overflow-visible"
-      role="img"
-      aria-label="Six-month income trend"
-    >
-      <polyline
-        ref={animate ? lineRef : undefined}
-        fill="none"
-        stroke={TOKENS.primary}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        pathLength={animate ? 100 : undefined}
-        strokeDasharray={animate ? 100 : undefined}
-        points={points}
-      />
-    </svg>
-  )
-}
 
 /** Condensed allocation split shown inside an expanded ledger row. */
 function EntryAllocationDetail({ entry }: { entry: IncomeEntry }) {
@@ -385,7 +348,11 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     >
                       {formatCurrency(p.incomeStats.ytdTotal)}
                     </p>
-                    <HeroSparkline values={sparklineValues} reducedMotion={reducedMotion} />
+                    <HeroSparkline
+                      values={sparklineValues}
+                      reducedMotion={reducedMotion}
+                      ariaLabel="Six-month income trend"
+                    />
                   </>
                 )}
               </div>

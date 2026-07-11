@@ -6,17 +6,18 @@ import { EXPENSE_CATEGORY_CHART_COLORS } from "@/components/expenses/expense-con
 import { ExpenseBulkDialog } from "@/components/expenses/expense-bulk-dialog"
 import { ExpenseCategorySection } from "@/components/expenses/expense-category-section"
 import { ExpenseHistorySection } from "@/components/expenses/expense-history-section"
-import { ExpenseLiquiditySection } from "@/components/expenses/expense-liquidity-section"
 import { ExpenseLogDialog } from "@/components/expenses/expense-log-dialog"
 import { ExpenseRecurringSection } from "@/components/expenses/expense-recurring-section"
 import { ExpenseSummarySection } from "@/components/expenses/expense-summary-section"
 import { pctOf } from "@/components/expenses/expense-shared"
+import { OTHER_BUCKET_CATEGORY } from "@/lib/expense-category-buckets"
 import {
   buildExpensesCsv,
   downloadCsvFile,
   fetchAllExpensesForExport,
 } from "@/lib/expense-csv-export"
 import { FormStatusAlert } from "@/components/wealth-console/form-status-alert"
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 
 export function ExpensePageBento(p: UseExpensePageResult) {
@@ -73,37 +74,33 @@ export function ExpensePageBento(p: UseExpensePageResult) {
   }
 
   const perf = p.expenseStats.monthOverMonthPct
-  const perfGood = perf === null || perf <= 0
+  const reducedMotion = usePrefersReducedMotion()
 
   const monthTotal = p.expenseStats.currentMonthTotal || 0
-  const fund = p.expenseStats.fundBreakdownCurrentMonth ?? {
-    fixedCosts: 0,
-    investment: 0,
-    savings: 0,
-    guiltFreeSpending: 0,
-  }
-  const fixedPct = pctOf(monthTotal, fund.fixedCosts)
-  const investPct = pctOf(monthTotal, fund.investment)
-
-  const fixedThreshold = 60
-  const investTarget = 30
-  const fixedOver = fixedPct > fixedThreshold
-  const investOver = investPct > investTarget + 5
-
-  const liquidity = p.accounts.reduce((sum, a) => sum + (a.balance || 0), 0)
-  const averageMonthlySpending = p.expenseStats.averageMonthlySpending || 0
-  const runwayMonths =
-    averageMonthlySpending > 0 ? liquidity / averageMonthlySpending : null
   const subcategoryInsights = p.expenseStats.subcategoryInsights
   const topCategories = subcategoryInsights.topCategories
-  const leadCategory = topCategories[0] ?? null
   const classifiedSharePct = pctOf(monthTotal, subcategoryInsights.totalClassified)
   const unclassifiedSharePct = pctOf(monthTotal, subcategoryInsights.unclassifiedAmount)
   const categoryPalette = [...EXPENSE_CATEGORY_CHART_COLORS]
-  const categoryChartData = topCategories.map((category, index) => ({
-    ...category,
-    fill: categoryPalette[index % categoryPalette.length],
-  }))
+  const categoryChartData = [
+    ...topCategories.map((category, index) => ({
+      ...category,
+      fill: categoryPalette[index % categoryPalette.length],
+    })),
+    ...(subcategoryInsights.otherAmount > 0
+      ? [
+          {
+            category: OTHER_BUCKET_CATEGORY,
+            label: "Other categories",
+            amount: subcategoryInsights.otherAmount,
+            count: subcategoryInsights.otherCount,
+            sharePct: subcategoryInsights.otherSharePct,
+            momentumPct: null,
+            fill: categoryPalette[5] ?? categoryPalette[categoryPalette.length - 1],
+          },
+        ]
+      : []),
+  ]
   const shareChartData =
     subcategoryInsights.unclassifiedAmount > 0
       ? [
@@ -157,7 +154,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
   ])
 
   const openHistoryForCategory = (category: string) => {
-    if (category === "unclassified") return
+    if (category === "unclassified" || category === OTHER_BUCKET_CATEGORY) return
     p.setFilterExpenseCategory(category)
     setFiltersOpen(true)
     const scrollToHistory = () => {
@@ -191,13 +188,7 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         p={p}
         showSummarySkeleton={showSummarySkeleton}
         perf={perf}
-        perfGood={perfGood}
-        fixedPct={fixedPct}
-        investPct={investPct}
-        fixedOver={fixedOver}
-        investOver={investOver}
-        fixedThreshold={fixedThreshold}
-        investTarget={investTarget}
+        reducedMotion={reducedMotion}
         onLogOpen={openLogDialog}
         onBulkOpen={openBulkImport}
       />
@@ -241,13 +232,6 @@ export function ExpensePageBento(p: UseExpensePageResult) {
         p={p}
         recurringOpen={recurringOpen}
         onRecurringOpenChange={setRecurringOpen}
-      />
-
-      <ExpenseLiquiditySection
-        p={p}
-        averageMonthlySpending={averageMonthlySpending}
-        runwayMonths={runwayMonths}
-        showSummarySkeleton={showSummarySkeleton}
       />
 
       <ConfirmDialog

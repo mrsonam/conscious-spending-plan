@@ -1,12 +1,6 @@
 "use client"
 
-import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts"
+import { RadialRing } from "@/components/wealth-console/radial-ring"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { expenseMicroLabelClass, expenseMicroLabelStyle } from "./expense-console-ui"
 
@@ -17,93 +11,53 @@ export type CategoryChartEntry = {
   sharePct: number
   fill: string
   count?: number
+  /** null = brand new category this month (no prior-month baseline). */
+  momentumPct?: number | null
 }
 
 type ExpenseCategoryChartProps = {
   data: CategoryChartEntry[]
+  totalAmount: string
   selectedCategory: string | null
   onSelectCategory: (category: string) => void
   activeEntry: CategoryChartEntry | null
+  reducedMotion: boolean
   formatCurrency: (amount: number) => string
 }
 
 export function ExpenseCategoryChart({
   data,
+  totalAmount,
   selectedCategory,
   onSelectCategory,
   activeEntry,
+  reducedMotion,
   formatCurrency,
 }: ExpenseCategoryChartProps) {
   return (
     <>
       <p id="expense-chart-keyboard-hint" className="sr-only">
-        The donut chart is visual only. Use the category buttons in the ledger
+        The ring chart is mouse-only. Use the category buttons in the ledger
         list to select a category with the keyboard.
       </p>
       <div
-        className="mx-auto aspect-square w-full max-w-[280px] min-h-[200px] sm:min-h-[240px]"
-        style={{ maxHeight: 280 }}
-        role="img"
-        aria-label="Spend by sub-category chart"
+        className="mx-auto flex w-full max-w-[280px] justify-center py-2"
         aria-describedby="expense-chart-keyboard-hint"
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="amount"
-              nameKey="label"
-              innerRadius="42%"
-              outerRadius="68%"
-              paddingAngle={2}
-              stroke="none"
-              onClick={(_, index) => {
-                const clicked = data[index]
-                if (clicked) onSelectCategory(clicked.category)
-              }}
-            >
-              {data.map((entry) => (
-                <Cell
-                  key={entry.category}
-                  fill={entry.fill}
-                  fillOpacity={
-                    selectedCategory === null ||
-                    selectedCategory === entry.category
-                      ? 1
-                      : 0.35
-                  }
-                  stroke={
-                    selectedCategory === entry.category
-                      ? TOKENS.onSurface
-                      : "transparent"
-                  }
-                  strokeWidth={selectedCategory === entry.category ? 1.5 : 0}
-                />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: TOKENS.surface,
-                borderColor: TOKENS.outlineGhost,
-                borderRadius: "16px",
-                color: TOKENS.onSurface,
-              }}
-              labelStyle={{ color: TOKENS.onSurface }}
-              itemStyle={{ color: TOKENS.onSurface }}
-              wrapperStyle={{ color: TOKENS.onSurface }}
-              formatter={(value, _name, item) => {
-                const n =
-                  typeof value === "number"
-                    ? value
-                    : parseFloat(String(value ?? 0))
-                return [
-                  formatCurrency(Number.isFinite(n) ? n : 0),
-                  item.payload.label,
-                ]
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        <RadialRing
+          segments={data.map((entry) => ({
+            key: entry.category,
+            sharePct: entry.sharePct,
+            color: entry.fill,
+          }))}
+          totalAmount={totalAmount}
+          reducedMotion={reducedMotion}
+          selectedKey={selectedCategory}
+          onSelectKey={onSelectCategory}
+          ariaLabel={`Spend by sub-category: ${data
+            .map((entry) => `${entry.label} ${entry.sharePct.toFixed(1)}%`)
+            .join(", ")}`}
+        />
       </div>
 
       <table className="sr-only">
