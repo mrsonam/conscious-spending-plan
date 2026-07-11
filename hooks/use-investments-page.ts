@@ -18,6 +18,7 @@ import {
 } from "@/components/investments/investment-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { tryParseMoneyInput } from "@/lib/money-input"
+import { getLocalDateString } from "@/lib/date-utils"
 import { parseSharesInput } from "@/lib/shares"
 import { toastError, toastSuccess } from "@/lib/app-toast"
 import {
@@ -120,7 +121,7 @@ export function useInvestmentsPage(status: string) {
   }, [])
 
   useEffect(() => {
-    const d = new Date().toISOString().split("T")[0]
+    const d = getLocalDateString()
     setDate(d)
     setDividendDate(d)
   }, [])
@@ -314,7 +315,7 @@ export function useInvestmentsPage(status: string) {
     )
     setDividendSymbol("")
     setDividendAmount("")
-    setDividendDate(new Date().toISOString().split("T")[0])
+    setDividendDate(getLocalDateString())
 
     void (async () => {
       setSubmittingDividend(true)
@@ -368,7 +369,7 @@ export function useInvestmentsPage(status: string) {
       setEditDate(
         purchase.date
           ? new Date(purchase.date).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0]
+          : getLocalDateString()
       )
       setFieldErrors({})
     },

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   fetchJsonAndCache,
   peekCachedJson,
@@ -106,7 +107,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   const [amount, setAmount] = useState("")
   const [borrowerName, setBorrowerName] = useState("")
   const [description, setDescription] = useState("")
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState(() => getLocalDateString())
   const [dueDate, setDueDate] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
@@ -114,7 +115,7 @@ export function useLoansPage(authStatus: "loading" | "authenticated" | "unauthen
   const [borrowedAmount, setBorrowedAmount] = useState("")
   const [lenderName, setLenderName] = useState("")
   const [borrowedDescription, setBorrowedDescription] = useState("")
-  const [borrowedDate, setBorrowedDate] = useState(new Date().toISOString().split("T")[0])
+  const [borrowedDate, setBorrowedDate] = useState(() => getLocalDateString())
   const [borrowedDueDate, setBorrowedDueDate] = useState("")
   const [borrowedSubmitting, setBorrowedSubmitting] = useState(false)
   const [repaySubmitting, setRepaySubmitting] = useState(false)

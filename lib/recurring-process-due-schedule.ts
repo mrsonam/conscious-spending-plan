@@ -1,12 +1,9 @@
+import { getLocalDateString } from "@/lib/date-utils"
+
 /** localStorage: last calendar day (local TZ) we successfully ran process-due */
 export const RECURRING_PROCESS_DUE_DATE_KEY = "csp-recurring-process-due-date"
 
-export function localDateKey(date = new Date()): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}-${m}-${d}`
-}
+export const localDateKey = getLocalDateString
 
 export function hasProcessedRecurringDueToday(): boolean {
   if (typeof window === "undefined") return true

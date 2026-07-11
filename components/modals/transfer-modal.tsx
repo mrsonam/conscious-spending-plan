@@ -14,6 +14,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -92,7 +93,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
   const [prevOpen, setPrevOpen] = useState(open)
   if (open !== prevOpen) {
     setPrevOpen(open)
-    if (open) setTransferDate(new Date().toISOString().split("T")[0])
+    if (open) setTransferDate(getLocalDateString())
   }
 
   useEffect(() => {

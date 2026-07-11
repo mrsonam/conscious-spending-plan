@@ -38,6 +38,7 @@ import {
 } from "@/lib/subscription-utils"
 import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { getLocalDateString } from "@/lib/date-utils"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
 
@@ -262,7 +263,7 @@ export function SubscriptionsPageBento() {
     setIntervalDays("30")
     setFundCategory("")
     setExpenseCategory("")
-    setStartDate(new Date().toISOString().split("T")[0])
+    setStartDate(getLocalDateString())
     setTrialEndsAt("")
     setNextRenewalAt("")
     setReminderDays("7")

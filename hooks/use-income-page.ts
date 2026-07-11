@@ -9,6 +9,7 @@ import type {
   IncomePageStats,
 } from "@/lib/income-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -339,8 +340,7 @@ export function useIncomePage(
       if (!cachedSource) setLoadingSource(true)
       setLoadingHistory(false)
 
-      const today = new Date()
-      setDate(today.toISOString().split("T")[0])
+      setDate(getLocalDateString())
       setAllocateToBudget(true)
 
       Promise.allSettled([
@@ -472,8 +472,7 @@ export function useIncomePage(
     clearFieldErrors()
     setIncome("")
     setDescription("")
-    const today = new Date()
-    setDate(today.toISOString().split("T")[0]!)
+    setDate(getLocalDateString())
     setAllocateToBudget(true)
     if (accounts.length > 0) {
       const defaultAccount = accounts.find((acc) => acc.isDefault)
@@ -847,7 +846,7 @@ export function useIncomePage(
       return
     }
 
-    const today = new Date().toISOString().split("T")[0]!
+    const today = getLocalDateString()
     const lines = bulkText
       .split(/\n/)
       .map((s) => s.trim())

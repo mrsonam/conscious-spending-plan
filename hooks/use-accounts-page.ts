@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   fetchJsonAndCache,
   invalidateCachedJson,
@@ -171,8 +172,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     }
 
     void load()
-    const today = new Date()
-    setTransferDate(today.toISOString().split("T")[0])
+    setTransferDate(getLocalDateString())
 
     return () => {
       cancelled = true
@@ -447,8 +447,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setTransferAmount("")
     setTransferDescription("")
     setTransferCategory("")
-    const today = new Date()
-    setTransferDate(today.toISOString().split("T")[0])
+    setTransferDate(getLocalDateString())
     toastSuccess("Transfer completed!")
 
     void (async () => {

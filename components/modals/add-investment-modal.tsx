@@ -14,6 +14,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
+import { getLocalDateString } from "@/lib/date-utils"
 import { buildFieldErrors, hasFieldErrors, requireField, requirePositiveNumber, requireSelection } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
@@ -71,7 +72,7 @@ export function AddInvestmentModal({
 
   useEffect(() => {
     if (!open) return
-    setDate(new Date().toISOString().split("T")[0])
+    setDate(getLocalDateString())
     fetch("/api/accounts").then(async (res) => {
       if (!res.ok) return
       const data = await res.json()

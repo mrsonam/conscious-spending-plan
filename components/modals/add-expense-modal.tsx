@@ -14,6 +14,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -108,8 +109,7 @@ export function AddExpenseModal({
   useEffect(() => {
     if (!open) return
 
-    const today = new Date()
-    setDate(today.toISOString().split("T")[0])
+    setDate(getLocalDateString())
 
     const applyAccounts = (list: Account[]) => {
       setAccounts(list)

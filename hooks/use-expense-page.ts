@@ -20,6 +20,7 @@ import type {
   RecurringExpense,
 } from "@/lib/expense-page-types"
 import { CONSOLE_TABLE_PAGE_SIZE } from "@/lib/wealth-console-tokens"
+import { getLocalDateString } from "@/lib/date-utils"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
 import {
@@ -118,9 +119,7 @@ export function useExpensePage(
   const [description, setDescription] = useState("")
   const [fundCategory, setFundCategory] = useState("")
   const [expenseCategory, setExpenseCategory] = useState("")
-  const [date, setDate] = useState(() =>
-    new Date().toISOString().split("T")[0],
-  )
+  const [date, setDate] = useState(() => getLocalDateString())
   const [submitting, setSubmitting] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
 
@@ -172,7 +171,7 @@ export function useExpensePage(
   const [recurringFrequency, setRecurringFrequency] = useState("monthly")
   const [recurringIntervalDays, setRecurringIntervalDays] = useState("30")
   const [recurringStartDate, setRecurringStartDate] = useState(() =>
-    new Date().toISOString().split("T")[0],
+    getLocalDateString(),
   )
   const [recurringEndDate, setRecurringEndDate] = useState("")
   const [submittingRecurring, setSubmittingRecurring] = useState(false)
@@ -639,7 +638,7 @@ export function useExpensePage(
         setRecurringExpenseCategory("")
         setRecurringFrequency("monthly")
         setRecurringIntervalDays("30")
-        setRecurringStartDate(new Date().toISOString().split("T")[0])
+        setRecurringStartDate(getLocalDateString())
         setRecurringEndDate("")
         setShowRecurringForm(false)
         void fetchRecurring()
@@ -659,7 +658,7 @@ export function useExpensePage(
     const source = recurring.find((item) => item.id === id)
     if (!source) return
 
-    const logDate = new Date().toISOString().split("T")[0]!
+    const logDate = getLocalDateString()
     const optimisticId = createOptimisticExpenseId()
     const optimisticEntry = buildOptimisticExpenseEntry({
       id: optimisticId,
@@ -756,7 +755,7 @@ export function useExpensePage(
     setDescription("")
     setFundCategory("")
     setExpenseCategory("")
-    setDate(new Date().toISOString().split("T")[0]!)
+    setDate(getLocalDateString())
     if (accounts.length > 0) {
       const defaultAccount = accounts.find((acc) => acc.isDefault)
       setAccountId(defaultAccount?.id || accounts[0]!.id)
@@ -1021,7 +1020,7 @@ export function useExpensePage(
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage(null)
-    const today = new Date().toISOString().split("T")[0]
+    const today = getLocalDateString()
 
     const lines = bulkText
       .split(/\n/)

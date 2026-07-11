@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { Calculator } from "lucide-react"
+import { getLocalDateString } from "@/lib/date-utils"
 import {
   buildFieldErrors,
   hasFieldErrors,
@@ -93,10 +94,9 @@ export function AddIncomeModal({
 
   useEffect(() => {
     if (open) {
-      const today = new Date()
       setIncome("")
       setDescription("")
-      setDate(today.toISOString().split("T")[0])
+      setDate(getLocalDateString())
       setAllocateToBudget(true)
 
       Promise.all([fetch("/api/accounts"), fetch("/api/fund-allocation")]).then(
@@ -176,8 +176,7 @@ export function AddIncomeModal({
     setFormError(null)
     setIncome("")
     setDescription("")
-    const today = new Date()
-    setDate(today.toISOString().split("T")[0])
+    setDate(getLocalDateString())
     onOpenChange(false)
     invalidateIncomeDataCaches()
 
