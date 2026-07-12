@@ -351,6 +351,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                     <HeroSparkline
                       values={sparklineValues}
                       reducedMotion={reducedMotion}
+                      formatValue={formatCurrency}
                       ariaLabel="Six-month income trend"
                     />
                   </>

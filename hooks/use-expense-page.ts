@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   EXPENSE_CATEGORIES,
   FUND_CATEGORIES,
@@ -125,6 +125,30 @@ export function useExpensePage(
 
   const [filterStartDate, setFilterStartDate] = useState("")
   const [filterEndDate, setFilterEndDate] = useState("")
+
+  const initialPeriod = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(initialPeriod.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(initialPeriod.getFullYear())
+
+  const monthOptions = useMemo(() => {
+    const options: { value: string; label: string; month: number; year: number }[] = []
+    const start = new Date()
+    let year = start.getFullYear()
+    let month = start.getMonth() + 1
+    for (let i = 0; i < 24; i++) {
+      const label = new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      })
+      options.push({ value: `${year}-${month}`, label, month, year })
+      month -= 1
+      if (month < 1) {
+        month = 12
+        year -= 1
+      }
+    }
+    return options
+  }, [])
   const [filterFundCategory, setFilterFundCategory] = useState("")
   const [filterExpenseCategory, setFilterExpenseCategory] = useState("")
   const [filterAccountId, setFilterAccountId] = useState("")
@@ -132,8 +156,8 @@ export function useExpensePage(
   const [debouncedFilterSearch, setDebouncedFilterSearch] = useState("")
 
   // Deep links like /expenses?month=7&year=2026 (Trends month click) preset
-  // the date filters to that calendar month. Applied post-hydration so the
-  // server-rendered empty filters don't mismatch.
+  // the selected month. Applied post-hydration so the server-rendered empty
+  // filters don't mismatch.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const month = parseInt(params.get("month") ?? "", 10)
@@ -144,11 +168,18 @@ export function useExpensePage(
     ) {
       return
     }
-    const pad = (n: number) => String(n).padStart(2, "0")
-    const lastDay = new Date(year, month, 0).getDate()
-    setFilterStartDate(`${year}-${pad(month)}-01`)
-    setFilterEndDate(`${year}-${pad(month)}-${pad(lastDay)}`)
+    setSelectedMonth(month)
+    setSelectedYear(year)
   }, [])
+
+  // Keep the date-range filters (and, via fetchExpenseSummary below, the
+  // server-computed summary) in lockstep with the selected month.
+  useEffect(() => {
+    const pad = (n: number) => String(n).padStart(2, "0")
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate()
+    setFilterStartDate(`${selectedYear}-${pad(selectedMonth)}-01`)
+    setFilterEndDate(`${selectedYear}-${pad(selectedMonth)}-${pad(lastDay)}`)
+  }, [selectedMonth, selectedYear])
 
   const [recurring, setRecurring] = useState<RecurringExpense[]>([])
   const [loadingRecurring, setLoadingRecurring] = useState(false)
@@ -278,7 +309,8 @@ export function useExpensePage(
   const fetchExpenseSummary = useCallback(async (force = false, options?: FetchOptions) => {
     const silent = options?.silent === true
     const requestGen = ++summaryFetchGenRef.current
-    const cacheKey = "expenses-summary"
+    const cacheKey = `expenses-summary:${selectedYear}-${selectedMonth}`
+    const path = `/api/expenses/summary?month=${selectedMonth}&year=${selectedYear}`
     const cached = !force
       ? peekCachedJson<ExpensePageStats>(cacheKey, 45_000)
       : undefined
@@ -293,7 +325,7 @@ export function useExpensePage(
     try {
       const data = await fetchJsonAndCache<ExpensePageStats>(
         cacheKey,
-        force ? withCacheBust("/api/expenses/summary") : "/api/expenses/summary",
+        force ? withCacheBust(path) : path,
         undefined,
         { force },
       )
@@ -306,7 +338,7 @@ export function useExpensePage(
         setLoadingSummary(false)
       }
     }
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   const fetchExpenses = useCallback(
     async (page: number = 1, force = false, options?: FetchOptions) => {
@@ -487,11 +519,15 @@ export function useExpensePage(
       setLoadingAccounts(false)
     }
 
-    const cachedSummary = peekCachedJson<ExpensePageStats>("expenses-summary", 45_000)
+    const cachedSummary = peekCachedJson<ExpensePageStats>(
+      `expenses-summary:${selectedYear}-${selectedMonth}`,
+      45_000,
+    )
     if (cachedSummary) {
       setExpenseStats(cachedSummary)
       setLoadingSummary(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
   useEffect(() => {
@@ -499,9 +535,16 @@ export function useExpensePage(
       router.push("/login")
     } else if (status === "authenticated") {
       void fetchAccounts()
+    }
+  }, [status, router, fetchAccounts])
+
+  // Separate from the accounts effect so changing the selected month (which
+  // changes fetchExpenseSummary's identity) doesn't also re-fetch accounts.
+  useEffect(() => {
+    if (status === "authenticated") {
       void fetchExpenseSummary()
     }
-  }, [status, router, fetchAccounts, fetchExpenseSummary])
+  }, [status, fetchExpenseSummary])
 
   /** At most once per local calendar day; deferred until idle so Expenses UI paints first. */
   useEffect(() => {
@@ -1212,6 +1255,11 @@ export function useExpensePage(
     setFilterStartDate,
     filterEndDate,
     setFilterEndDate,
+    selectedMonth,
+    setSelectedMonth,
+    selectedYear,
+    setSelectedYear,
+    monthOptions,
     filterFundCategory,
     setFilterFundCategory,
     filterExpenseCategory,

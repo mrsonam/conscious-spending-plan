@@ -2,7 +2,6 @@
 
 import { RadialRing } from "@/components/wealth-console/radial-ring"
 import { TOKENS } from "@/lib/wealth-console-tokens"
-import { expenseMicroLabelClass, expenseMicroLabelStyle } from "./expense-console-ui"
 
 export type CategoryChartEntry = {
   category: string
@@ -81,44 +80,27 @@ export function ExpenseCategoryChart({
       </table>
 
       {activeEntry ? (
-        <div
-          className="grid w-full grid-cols-2 gap-3 rounded-[1.25rem] border p-4"
-          style={{
-            borderColor: TOKENS.outlineGhost,
-            background: TOKENS.surfaceContainer,
-          }}
-        >
-          <div className="col-span-2 flex items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: activeEntry.fill }}
-            />
-            <p className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
-              {activeEntry.label}
-            </p>
-          </div>
-          <div>
-            <p className={expenseMicroLabelClass} style={expenseMicroLabelStyle()}>
-              Spend
-            </p>
-            <p
-              className="mt-2 text-sm font-semibold tabular-nums"
-              style={{ color: TOKENS.onSurface }}
-            >
-              {formatCurrency(activeEntry.amount)}
-            </p>
-          </div>
-          <div>
-            <p className={expenseMicroLabelClass} style={expenseMicroLabelStyle()}>
-              Share
-            </p>
-            <p
-              className="mt-2 text-sm font-semibold tabular-nums"
-              style={{ color: TOKENS.onSurface }}
-            >
-              {activeEntry.sharePct.toFixed(1)}%
-            </p>
-          </div>
+        <div className="flex w-full items-center justify-center gap-3 text-center">
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ background: activeEntry.fill }}
+            aria-hidden
+          />
+          <p className="text-sm font-semibold" style={{ color: TOKENS.onSurface }}>
+            {activeEntry.label}
+          </p>
+          <span style={{ color: TOKENS.onSurfaceMuted }} aria-hidden>
+            ·
+          </span>
+          <p className="text-sm font-semibold tabular-nums" style={{ color: TOKENS.onSurface }}>
+            {formatCurrency(activeEntry.amount)}
+          </p>
+          <span
+            className="text-sm tabular-nums"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            {activeEntry.sharePct.toFixed(1)}%
+          </span>
         </div>
       ) : null}
     </>

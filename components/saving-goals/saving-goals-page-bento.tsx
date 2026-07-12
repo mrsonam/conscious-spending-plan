@@ -94,7 +94,7 @@ function GoalCard({
   const pendingSave = isOptimisticClientId(goal.id)
   const canEdit = goal.status === "active"
   const actionBtn =
-    "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+    "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,border-color,transform,opacity] duration-200 hover:bg-white/[0.06] active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
 
   const router = useRouter()
 
@@ -106,19 +106,32 @@ function GoalCard({
       onKeyDown={(e) => {
         if (e.key === "Enter") router.push(`${BENTO.savingGoals}/${goal.id}`)
       }}
-      className="relative cursor-pointer overflow-hidden rounded-2xl border transition-colors duration-200 hover:border-white/20"
+      className={cn(
+        "group relative cursor-pointer overflow-hidden rounded-2xl border",
+        "transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:border-white/22 hover:bg-white/3",
+        "hover:shadow-[0_8px_28px_rgba(0,0,0,0.22),inset_0_1px_0_0_rgba(218,226,253,0.1)]",
+        "active:translate-y-0 active:scale-[0.995] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45",
+      )}
       style={{
         background: TOKENS.surfaceContainer,
         borderColor: TOKENS.outlineGhost,
         boxShadow: CARD_INSET,
       }}
     >
-      <div className="h-1 w-full opacity-95" style={{ background: TOKENS.primary }} />
+      <div
+        className="h-1 w-full opacity-90 transition-opacity duration-200 group-hover:opacity-100"
+        style={{ background: TOKENS.primary }}
+      />
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold" style={{ color: TOKENS.onSurface }}>
+              <h3
+                className="text-base font-bold transition-colors duration-200 group-hover:text-white"
+                style={{ color: TOKENS.onSurface }}
+              >
                 {goal.name}
               </h3>
               <StatusBadge status={goal.status} />
@@ -128,13 +141,22 @@ function GoalCard({
             </p>
           </div>
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+              "transition-[transform,background-color,border-color] duration-200 ease-out",
+              "group-hover:scale-105 group-hover:border-[color-mix(in_srgb,#4edea3_35%,transparent)]",
+              "motion-reduce:transition-none motion-reduce:group-hover:scale-100",
+            )}
             style={{
               borderColor: TOKENS.outlineGhost,
               background: `color-mix(in srgb, ${TOKENS.primary} 16%, ${TOKENS.surfaceHigh})`,
             }}
           >
-            <Target className="h-5 w-5" style={{ color: TOKENS.primary }} aria-hidden />
+            <Target
+              className="h-5 w-5 transition-colors duration-200 group-hover:text-[#6ee9b8]"
+              style={{ color: TOKENS.primary }}
+              aria-hidden
+            />
           </div>
         </div>
 
@@ -195,7 +217,7 @@ function GoalCard({
                 }}
                 disabled={busy || pendingSave}
                 title={pendingSave ? "Goal is still being saved" : undefined}
-                className={cn(actionBtn, "inline-flex items-center gap-1")}
+                className={cn(actionBtn, "inline-flex items-center gap-1 hover:bg-[color-mix(in_srgb,#4edea3_12%,transparent)]")}
                 style={{
                   borderColor: `color-mix(in srgb, ${TOKENS.primary} 40%, transparent)`,
                   color: TOKENS.primary,

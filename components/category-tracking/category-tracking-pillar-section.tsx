@@ -14,7 +14,12 @@ import {
   type TrackingFundCategoryMeta,
 } from "@/lib/category-tracking-shared"
 import { BENTO } from "@/lib/app-routes"
-import { CategoryTrackingSegmentedBlocks } from "@/components/category-tracking/category-tracking-console-ui"
+import {
+  computeCategoryPace,
+  CATEGORY_PACE_META,
+  CategoryTrackingPaceBar,
+  CategoryTrackingSparkline,
+} from "@/components/category-tracking/category-tracking-console-ui"
 import type { BucketTransferFlow } from "@/lib/category-bucket-transfer-api"
 
 function PillarCardIcon({
@@ -52,9 +57,9 @@ type PillarMatrixCardProps = {
   savingsAssignedToGoals: number
   movedIn: number
   movedOut: number
-  paceLabel: string
   elapsed: number
   usagePercent: number
+  historySeries: number[]
   formatCurrency: (amount: number) => string
 }
 
@@ -69,12 +74,15 @@ function PillarMatrixCard({
   savingsAssignedToGoals,
   movedIn,
   movedOut,
-  paceLabel,
   elapsed,
   usagePercent,
+  historySeries,
   formatCurrency,
 }: PillarMatrixCardProps) {
   const Icon = cat.Icon
+  const pace = computeCategoryPace(usagePercent, elapsed)
+  const paceColor = isOverspent ? ERROR_SOFT : CATEGORY_PACE_META[pace.state].color
+  const PaceIcon = CATEGORY_PACE_META[pace.state].Icon
 
   return (
     <Link
@@ -168,17 +176,45 @@ function PillarMatrixCard({
           </div>
         )}
       </div>
-      <p className="mt-3 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
-        Pace · <span style={{ color: TOKENS.onSurface }}>{paceLabel}</span>
-        {elapsed > 0 && elapsed < 1 && (
-          <span> · {(elapsed * 100).toFixed(0)}% month</span>
-        )}
-      </p>
-      <CategoryTrackingSegmentedBlocks
-        percent={Math.min(100, usagePercent)}
-        activeColor={isOverspent ? ERROR_SOFT : TOKENS.primary}
-        label={`${cat.label} usage ${usagePercent.toFixed(0)} percent`}
-      />
+      <div className="mt-3">
+        <CategoryTrackingPaceBar
+          usagePercent={usagePercent}
+          elapsed={elapsed}
+          color={paceColor}
+          label={`${cat.label} pace: ${pace.label}, ${usagePercent.toFixed(0)} percent of envelope used against ${(elapsed * 100).toFixed(0)} percent of the month elapsed`}
+        />
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
+            {usagePercent.toFixed(0)}% used
+            {elapsed > 0 && elapsed < 1 && ` · ${(elapsed * 100).toFixed(0)}% month`}
+          </span>
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: paceColor }}
+          >
+            <PaceIcon className="h-3 w-3 shrink-0" aria-hidden />
+            {pace.label}
+          </span>
+        </div>
+      </div>
+      {historySeries.length > 0 && (
+        <div
+          className="mt-3 flex items-center justify-between gap-2 border-t pt-3"
+          style={{ borderColor: TOKENS.outlineGhost }}
+        >
+          <span
+            className="text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: TOKENS.onSurfaceMuted }}
+          >
+            6-mo trend
+          </span>
+          <CategoryTrackingSparkline
+            values={historySeries}
+            color={cat.colorHex}
+            currentIndex={historySeries.length - 1}
+          />
+        </div>
+      )}
     </Link>
   )
 }
@@ -189,6 +225,7 @@ type CategoryTrackingPillarSectionProps = {
   savingsGeneralAvailable: number
   savingsAssignedToGoals: number
   elapsed: number
+  history: Record<string, Array<{ month: string; spent: number }>> | null
   formatCurrency: (amount: number) => string
 }
 
@@ -198,6 +235,7 @@ export function CategoryTrackingPillarSection({
   savingsGeneralAvailable,
   savingsAssignedToGoals,
   elapsed,
+  history,
   formatCurrency,
 }: CategoryTrackingPillarSectionProps) {
   const CATEGORIES = TRACKING_FUND_CATEGORIES
@@ -240,15 +278,7 @@ export function CategoryTrackingPillarSection({
                 : data.allocated + data.carryover
               : data.allocated
           const usagePercent = usageBase > 0 ? (deployed / usageBase) * 100 : 0
-          let paceLabel = "-"
-          if (elapsed <= 0) paceLabel = "Future"
-          else if (elapsed >= 1) paceLabel = "Closed"
-          else {
-            const paceRatio = usagePercent / (elapsed * 100)
-            if (paceRatio > 1.15) paceLabel = "Hot"
-            else if (paceRatio < 0.85) paceLabel = "Cool"
-            else paceLabel = "Balanced"
-          }
+          const historySeries = (history?.[cat.key] ?? []).slice(-6).map((h) => h.spent)
           const span =
             cat.key === "investment"
               ? "lg:col-span-6"
@@ -269,9 +299,9 @@ export function CategoryTrackingPillarSection({
               savingsAssignedToGoals={savingsAssignedToGoals}
               movedIn={movedIn}
               movedOut={movedOut}
-              paceLabel={paceLabel}
               elapsed={elapsed}
               usagePercent={usagePercent}
+              historySeries={historySeries}
               formatCurrency={formatCurrency}
             />
           )

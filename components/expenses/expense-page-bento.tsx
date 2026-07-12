@@ -79,7 +79,6 @@ export function ExpensePageBento(p: UseExpensePageResult) {
   const monthTotal = p.expenseStats.currentMonthTotal || 0
   const subcategoryInsights = p.expenseStats.subcategoryInsights
   const topCategories = subcategoryInsights.topCategories
-  const classifiedSharePct = pctOf(monthTotal, subcategoryInsights.totalClassified)
   const unclassifiedSharePct = pctOf(monthTotal, subcategoryInsights.unclassifiedAmount)
   const categoryPalette = [...EXPENSE_CATEGORY_CHART_COLORS]
   const categoryChartData = [
@@ -119,6 +118,21 @@ export function ExpensePageBento(p: UseExpensePageResult) {
     shareChartData.find((entry) => entry.category === selectedSubcategory) ??
     shareChartData[0] ??
     null
+  const categoryCount = categoryChartData.length
+  // "Biggest mover" = largest swing in either direction, not just the largest
+  // signed value (which would surface the smallest decline in an all-down month).
+  const biggestMover = categoryChartData
+    .filter((c) => c.category !== OTHER_BUCKET_CATEGORY && c.momentumPct != null)
+    .reduce<(typeof categoryChartData)[number] | null>(
+      (best, c) =>
+        !best || Math.abs(c.momentumPct as number) > Math.abs(best.momentumPct as number)
+          ? c
+          : best,
+      null,
+    )
+  const totalTransactions =
+    subcategoryInsights.topCategories.reduce((sum, c) => sum + c.count, 0) +
+    subcategoryInsights.otherCount
   const showSummarySkeleton =
     p.loadingSummary &&
     p.expenseStats.currentMonthTotal === 0 &&
@@ -153,22 +167,6 @@ export function ExpensePageBento(p: UseExpensePageResult) {
     p.setMessage,
   ])
 
-  const openHistoryForCategory = (category: string) => {
-    if (category === "unclassified" || category === OTHER_BUCKET_CATEGORY) return
-    p.setFilterExpenseCategory(category)
-    setFiltersOpen(true)
-    const scrollToHistory = () => {
-      const reduceMotion =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      historySectionRef.current?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "start",
-      })
-    }
-    scrollToHistory()
-  }
-
   const openBulkImport = () => {
     if (p.loadingAccounts) return
     p.setShowBulkForm(true)
@@ -196,16 +194,16 @@ export function ExpensePageBento(p: UseExpensePageResult) {
       <ExpenseCategorySection
         p={p}
         showSummarySkeleton={showSummarySkeleton}
-        leadCategory={categoryChartData[0] ?? null}
-        classifiedSharePct={classifiedSharePct}
-        unclassifiedSharePct={unclassifiedSharePct}
+        topThreeSharePct={subcategoryInsights.topThreeSharePct}
+        totalTransactions={totalTransactions}
+        categoryCount={categoryCount}
+        biggestMover={biggestMover}
         averageEntryAmount={subcategoryInsights.averageEntryAmount}
         categoryChartData={categoryChartData}
         shareChartData={shareChartData}
         selectedSubcategory={selectedSubcategory}
         onSelectSubcategory={setSelectedSubcategory}
         activeSubcategory={activeSubcategory}
-        onOpenHistoryForCategory={openHistoryForCategory}
       />
 
       <ExpenseLogDialog

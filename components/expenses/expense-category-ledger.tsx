@@ -4,10 +4,6 @@ import { useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { MomentumCell } from "@/components/wealth-console/momentum-cell"
-import {
-  expenseMicroLabelClass,
-  expenseMicroLabelStyle,
-} from "@/components/expenses/expense-console-ui"
 import { OTHER_BUCKET_CATEGORY } from "@/lib/expense-category-buckets"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import type { CategoryChartEntry } from "@/components/expenses/expense-category-chart"
@@ -73,80 +69,72 @@ export function ExpenseCategoryLedger({
 
   return (
     <div
-      className="rounded-[1.5rem] border p-4 sm:p-5"
-      style={{ borderColor: TOKENS.outlineGhost, background: TOKENS.surfaceLow }}
+      role="radiogroup"
+      aria-labelledby="expense-category-ledger-label"
+      onKeyDown={handleKeyDown}
     >
-      <p
-        id="expense-category-ledger-label"
-        className={expenseMicroLabelClass}
-        style={expenseMicroLabelStyle()}
-      >
-        Category ledger
-      </p>
-      <div
-        className="mt-4 space-y-3"
-        role="radiogroup"
-        aria-labelledby="expense-category-ledger-label"
-        onKeyDown={handleKeyDown}
-      >
-        {categories.map((category, index) => {
-          const checked = selectedCategory === category.category
-          return (
-            <button
-              key={category.category}
-              ref={(el) => {
-                optionRefs.current[index] = el
-              }}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              tabIndex={checked || (selectedCategory === null && index === 0) ? 0 : -1}
-              onClick={() => onSelectCategory(category.category)}
-              className={cn(
-                "grid w-full min-h-11 grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
-                consoleFocus,
-              )}
+      {categories.map((category, index) => {
+        const checked = selectedCategory === category.category
+        const isLast = index === categories.length - 1
+        return (
+          <button
+            key={category.category}
+            ref={(el) => {
+              optionRefs.current[index] = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked || (selectedCategory === null && index === 0) ? 0 : -1}
+            onClick={() => onSelectCategory(category.category)}
+            className={cn(
+              "grid w-full min-h-11 grid-cols-[1.75rem_1fr_3.25rem_5rem_4.5rem] items-center gap-3 pl-3 pr-1 py-3 text-left transition-colors hover:bg-white/[0.03]",
+              consoleFocus,
+            )}
+            style={{
+              borderLeft: `3px solid ${checked ? category.fill : "transparent"}`,
+              borderBottom: isLast ? undefined : `1px solid ${TOKENS.outlineGhost}`,
+              background: checked
+                ? `color-mix(in srgb, ${category.fill} 7%, transparent)`
+                : "transparent",
+            }}
+          >
+            <span
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
               style={{
-                borderColor: checked ? category.fill : TOKENS.outlineGhost,
-                background: checked ? TOKENS.surfaceContainer : "transparent",
+                color: category.fill,
+                background: TOKENS.surfaceHigh,
               }}
             >
-              <span
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold"
-                style={{
-                  color: category.fill,
-                  background: TOKENS.surfaceContainer,
-                  border: `1px solid ${TOKENS.outlineGhost}`,
-                }}
-              >
-                {index + 1}
-              </span>
-              <div className="min-w-0">
-                <p
-                  className="truncate text-sm font-medium"
-                  style={{ color: TOKENS.onSurface }}
-                >
-                  {category.label}
-                </p>
-                <p
-                  className="text-[11px] tabular-nums"
-                  style={{ color: TOKENS.onSurfaceMuted }}
-                >
-                  {category.count} transactions
-                </p>
-              </div>
-              <span
-                className="text-sm tabular-nums"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                {category.sharePct.toFixed(1)}%
-              </span>
-              <span
-                className="text-sm font-semibold tabular-nums"
+              {index + 1}
+            </span>
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-medium"
                 style={{ color: TOKENS.onSurface }}
               >
-                {formatCurrency(category.amount)}
-              </span>
+                {category.label}
+              </p>
+              <p
+                className="text-[11px] tabular-nums"
+                style={{ color: TOKENS.onSurfaceMuted }}
+              >
+                {category.count} transactions
+              </p>
+            </div>
+            <span
+              className="text-right text-sm tabular-nums"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              {category.sharePct.toFixed(1)}%
+            </span>
+            <span
+              className="text-right text-sm font-semibold tabular-nums"
+              style={{ color: TOKENS.onSurface }}
+            >
+              {formatCurrency(category.amount)}
+            </span>
+            <span className="justify-self-end">
               {category.category === OTHER_BUCKET_CATEGORY ? (
                 <span className="tabular-nums" style={{ color: TOKENS.onSurfaceMutedElevated }}>
                   —
@@ -158,10 +146,10 @@ export function ExpenseCategoryLedger({
                   positiveIsGood={false}
                 />
               )}
-            </button>
-          )
-        })}
-      </div>
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }

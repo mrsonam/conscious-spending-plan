@@ -57,3 +57,24 @@ export function groupEntriesByRecency<T extends { date: string }>(
     entries: buckets.get(key)!,
   }))
 }
+
+export type DayGroup<T> = { dateKey: string; date: Date; entries: T[] }
+
+/** Buckets entries (already date-sorted desc) into one group per calendar day, preserving relative order. */
+export function groupEntriesByDay<T extends { date: string }>(entries: T[]): DayGroup<T>[] {
+  const groups: DayGroup<T>[] = []
+  const indexByKey = new Map<string, number>()
+
+  for (const entry of entries) {
+    const dateKey = entry.date.slice(0, 10)
+    const existingIndex = indexByKey.get(dateKey)
+    if (existingIndex !== undefined) {
+      groups[existingIndex]!.entries.push(entry)
+    } else {
+      indexByKey.set(dateKey, groups.length)
+      groups.push({ dateKey, date: new Date(entry.date), entries: [entry] })
+    }
+  }
+
+  return groups
+}

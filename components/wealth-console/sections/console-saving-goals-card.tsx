@@ -138,9 +138,20 @@ export function ConsoleSavingGoalsCard({
 
               return (
                 <li key={goal.id}>
+                  <Link
+                    href={`${BENTO.savingGoals}/${goal.id}`}
+                    className={cn(
+                      consoleFocus,
+                      "group block rounded-xl border border-transparent px-3 py-2.5 -mx-1",
+                      "transition-[background-color,border-color,transform] duration-200 ease-out",
+                      "hover:border-white/10 hover:bg-white/4 hover:-translate-y-px",
+                      "active:translate-y-0 active:scale-[0.995]",
+                      "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+                    )}
+                  >
                   <div className="flex items-baseline justify-between gap-3">
                     <p
-                      className="min-w-0 truncate text-sm font-medium"
+                      className="min-w-0 truncate text-sm font-medium transition-colors duration-200 group-hover:text-white"
                       style={{ color: TOKENS.onSurface }}
                     >
                       {goal.name}
@@ -218,6 +229,7 @@ export function ConsoleSavingGoalsCard({
                       ) : null}
                     </p>
                   )}
+                  </Link>
                 </li>
               )
             })

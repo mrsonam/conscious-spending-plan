@@ -1,9 +1,10 @@
 "use client"
 
-import { Plus } from "lucide-react"
+import { Plus, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
+import { AppSelect } from "@/components/ui/app-select"
 import {
   consoleFocus,
   consoleHeroFigureClass,
@@ -16,6 +17,7 @@ import {
   expenseMicroLabelStyle,
 } from "@/components/expenses/expense-console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
+import { INCOME_PAGE_ERROR_SOFT as PULSE_RED } from "@/lib/income-page-types"
 import { useCountUp } from "@/hooks/use-count-up"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
 
@@ -38,6 +40,12 @@ export function ExpenseSummarySection({
 }: ExpenseSummarySectionProps) {
   const animatedSpend = useCountUp(p.expenseStats.currentMonthTotal)
   const sparklineValues = p.expenseStats.monthlyTotals.map((t) => t.total)
+  const selectedMonthLabel =
+    p.monthOptions.find((o) => o.month === p.selectedMonth && o.year === p.selectedYear)?.label ??
+    new Date(p.selectedYear, p.selectedMonth - 1).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    })
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
@@ -49,38 +57,38 @@ export function ExpenseSummarySection({
           <h2 id="expense-summary-heading" className="sr-only">
             This month
           </h2>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: TOKENS.primary, boxShadow: CARD_INSET }}
-                aria-hidden
-              />
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-                style={{ color: TOKENS.onSurfaceMuted }}
-              >
-                Live capital outflow
-              </p>
-            </div>
-            <MomChip pct={perf} positiveIsGood={false} />
+          <div className="flex items-center gap-2">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: TOKENS.loss, boxShadow: CARD_INSET }}
+              aria-hidden
+            />
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+              style={{ color: TOKENS.onSurfaceMuted }}
+            >
+              Live capital outflow · {selectedMonthLabel}
+            </p>
           </div>
 
-          <div className={cn("mt-4", consoleHeroFigureClass)}>
-            {showSummarySkeleton ? (
-              <ScrambleCurrencyValue
-                variant="loss"
-                min={400}
-                max={5400}
-                className={consoleHeroFigureInnerClass}
-              />
-            ) : (
-              <MajorFigureCurrency
-                amount={animatedSpend}
-                variant="loss"
-                className={consoleHeroFigureInnerClass}
-              />
-            )}
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+            <div className={consoleHeroFigureClass}>
+              {showSummarySkeleton ? (
+                <ScrambleCurrencyValue
+                  variant="loss"
+                  min={400}
+                  max={5400}
+                  className={consoleHeroFigureInnerClass}
+                />
+              ) : (
+                <MajorFigureCurrency
+                  amount={animatedSpend}
+                  variant="loss"
+                  className={consoleHeroFigureInnerClass}
+                />
+              )}
+            </div>
+            <MomChip pct={perf} positiveIsGood={false} />
           </div>
 
           <div className="mt-4">
@@ -106,6 +114,8 @@ export function ExpenseSummarySection({
                 <HeroSparkline
                   values={sparklineValues}
                   reducedMotion={reducedMotion}
+                  color={TOKENS.loss}
+                  formatValue={p.formatCurrency}
                   ariaLabel="Six-month spend trend"
                 />
               </>
@@ -114,62 +124,59 @@ export function ExpenseSummarySection({
         </div>
       </section>
 
-      <section className="lg:col-span-4" aria-labelledby="expense-command-heading">
-        <div
-          className="rounded-xl border p-6 sm:p-7"
-          style={{
-            background: TOKENS.surfaceContainer,
-            borderColor: TOKENS.outlineGhost,
-            boxShadow: CARD_INSET,
+      <section
+        className="flex flex-col items-stretch gap-2.5 sm:items-end lg:col-span-4"
+        aria-labelledby="expense-command-heading"
+      >
+        <h2 id="expense-command-heading" className="sr-only">
+          Command actions
+        </h2>
+        <label htmlFor="expense-summary-period" className="sr-only">
+          Statement period
+        </label>
+        <AppSelect
+          id="expense-summary-period"
+          value={`${p.selectedYear}-${p.selectedMonth}`}
+          onValueChange={(v) => {
+            const [y, m] = v.split("-").map(Number)
+            p.setSelectedYear(y)
+            p.setSelectedMonth(m)
           }}
-        >
-          <h2
-            id="expense-command-heading"
-            className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-            style={{ color: TOKENS.onSurfaceMuted }}
-          >
-            Command actions
-          </h2>
-          <p
-            className="mt-3 text-sm leading-snug"
-            style={{ color: TOKENS.onSurfaceMuted }}
-          >
-            Record a withdrawal from an account, tag it to a fund pillar, and
-            optionally set an expense type.
-          </p>
-
-          <button
-            type="button"
-            onClick={onLogOpen}
-            disabled={p.loadingAccounts}
-            className={cn(
-              "mt-5 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95",
-              consoleFocus,
-            )}
-            style={{
-              background: TOKENS.primary,
-              color: TOKENS.surface,
-              boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-            }}
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.5} />
-            {p.loadingAccounts ? "Connecting accounts..." : "Log new expense"}
-          </button>
-
+          className="border-transparent"
+          triggerClassName="h-10 w-40"
+          style={{
+            backgroundColor: TOKENS.surfaceLow,
+            borderColor: TOKENS.outlineGhost,
+            color: TOKENS.onSurface,
+          }}
+          options={p.monthOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+        />
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={onBulkOpen}
             disabled={p.loadingAccounts}
             className={cn(
-              "mt-3 w-full min-h-11 rounded-xl border py-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] transition-opacity hover:opacity-90",
+              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors hover:bg-white/6 disabled:opacity-50",
               consoleFocus,
             )}
-            style={{
-              borderColor: TOKENS.outlineGhost,
-              color: TOKENS.onSurfaceMuted,
-            }}
+            style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
           >
-            {p.loadingAccounts ? "Waiting for accounts..." : "Bulk import"}
+            <Upload className="h-3.5 w-3.5" strokeWidth={2.25} />
+            {p.loadingAccounts ? "Waiting…" : "Bulk"}
+          </button>
+          <button
+            type="button"
+            onClick={onLogOpen}
+            disabled={p.loadingAccounts}
+            className={cn(
+              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-opacity hover:opacity-95 disabled:opacity-50",
+              consoleFocus,
+            )}
+            style={{ background: PULSE_RED, color: TOKENS.surface }}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            {p.loadingAccounts ? "Connecting…" : "Log spend"}
           </button>
         </div>
       </section>

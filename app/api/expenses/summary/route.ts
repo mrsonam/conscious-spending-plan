@@ -5,7 +5,7 @@ import { getDbErrorResponse } from "@/lib/db-error"
 import { getExpenseSummary } from "@/lib/expense-summary"
 import { currencyFromSession } from "@/lib/user-currency"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth()
 
@@ -13,8 +13,16 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const monthParam = parseInt(searchParams.get("month") ?? "", 10)
+    const yearParam = parseInt(searchParams.get("year") ?? "", 10)
+    const hasValidMonth =
+      Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12 &&
+      Number.isInteger(yearParam) && yearParam >= 2000 && yearParam <= 2100
+    const referenceDate = hasValidMonth ? new Date(yearParam, monthParam - 1, 15) : undefined
+
     const currency = currencyFromSession(session.user.displayCurrency)
-    const summary = await getExpenseSummary(session.user.id)
+    const summary = await getExpenseSummary(session.user.id, referenceDate)
 
     return moneyJsonResponse(summary, currency, {
       headers: {

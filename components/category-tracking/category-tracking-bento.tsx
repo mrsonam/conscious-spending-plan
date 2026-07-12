@@ -165,6 +165,7 @@ export function CategoryTrackingBento(p: UseCategoryTrackingPageResult) {
               savingsGeneralAvailable={savingsGeneralAvailable}
               savingsAssignedToGoals={savingsAssignedToGoals}
               elapsed={elapsed}
+              history={history}
               formatCurrency={formatCurrency}
             />
 

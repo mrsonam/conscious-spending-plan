@@ -36,10 +36,16 @@ function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
-export async function getExpenseSummary(userId: string) {
+/**
+ * @param referenceDate Treated as "now" for every relative range (current
+ *   month, YTD, previous month, trailing 6-month average). Defaults to the
+ *   real current date; pass a date within a browsed month to get that
+ *   month's summary instead.
+ */
+export async function getExpenseSummary(userId: string, referenceDate: Date = new Date()) {
   const currency = await getUserDisplayCurrency(userId)
   const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
-  const now = new Date()
+  const now = referenceDate
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const endOfMonth = new Date(
     now.getFullYear(),

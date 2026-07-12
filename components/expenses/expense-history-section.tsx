@@ -15,9 +15,15 @@ import {
   expenseConsoleField,
   EXPENSE_HISTORY_FILTERS_ID,
 } from "@/components/expenses/expense-console-ui"
-import { groupEntriesByRecency } from "@/lib/ledger-groups"
+import { groupEntriesByDay } from "@/lib/ledger-groups"
+import { TRACKING_FUND_CATEGORIES } from "@/lib/category-tracking-shared"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import type { UseExpensePageResult } from "@/hooks/use-expense-page"
+
+function fundColor(value: string | null): string {
+  if (!value) return TOKENS.onSurfaceMuted
+  return TRACKING_FUND_CATEGORIES.find((c) => c.key === value)?.colorHex ?? TOKENS.onSurfaceMuted
+}
 
 type ExpenseHistorySectionProps = {
   p: UseExpensePageResult
@@ -56,7 +62,7 @@ export function ExpenseHistorySection({
             className="text-base font-semibold tracking-tight"
             style={{ color: TOKENS.onSurface }}
           >
-            Financial Transaction History
+            Spend timeline
           </h2>
           <p
             className="mt-1 text-xs"
@@ -186,122 +192,146 @@ export function ExpenseHistorySection({
               </p>
             </div>
           ) : (
-            groupEntriesByRecency(p.expenses).map((group) => (
-              <div key={group.key}>
-                <p
-                  className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em]"
-                  style={{ color: TOKENS.onSurfaceMutedElevated }}
-                >
-                  {group.label}
-                </p>
-                <div className="space-y-3">
-                  {group.entries.map((expense) => (
-                    <div
-                      key={expense.id}
-                      className="flex flex-col gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
-                      style={{
-                        background: TOKENS.surfaceLow,
-                        borderColor: TOKENS.outlineGhost,
-                        boxShadow: CARD_INSET,
-                      }}
-                    >
-                      <div className="min-w-0">
+            <div className="relative">
+              <div
+                className="absolute bottom-2 left-[15px] top-2 w-px"
+                style={{ background: TOKENS.outlineGhost }}
+                aria-hidden
+              />
+              <div className="space-y-6">
+                {groupEntriesByDay(p.expenses).map((group) => {
+                  const dayTotal = group.entries.reduce((s, e) => s + e.amount, 0)
+                  return (
+                    <div key={group.dateKey} className="relative pl-9">
+                      <span
+                        className="absolute left-2.5 top-1 h-3 w-3 rounded-full"
+                        style={{
+                          background: TOKENS.loss,
+                          boxShadow: `0 0 0 4px ${TOKENS.surfaceContainer}`,
+                        }}
+                        aria-hidden
+                      />
+                      <div className="flex items-baseline justify-between gap-2">
                         <p
-                          className="truncate text-sm font-semibold tracking-tight"
-                          style={{ color: TOKENS.onSurface }}
+                          className="text-[11px] font-bold uppercase tracking-[0.14em]"
+                          style={{ color: TOKENS.onSurfaceMutedElevated }}
                         >
-                          {expense.description?.trim() || "Unlabeled transaction"}
+                          {group.date.toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
                         </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {expense.category && (
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                              style={{
-                                background: `color-mix(in srgb, ${TOKENS.secondary} 16%, ${TOKENS.surfaceHigh})`,
-                                color: TOKENS.secondary,
-                                border: `1px solid ${TOKENS.outlineGhost}`,
-                              }}
-                            >
-                              {fundLabel(expense.category)}
-                            </span>
-                          )}
-                          {expense.expenseCategory && (
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                              style={{
-                                background: `color-mix(in srgb, ${TOKENS.loss} 18%, ${TOKENS.surfaceHigh})`,
-                                color: TOKENS.loss,
-                                border: `1px solid ${TOKENS.outlineGhost}`,
-                              }}
-                            >
-                              {expenseLabel(expense.expenseCategory)}
-                            </span>
-                          )}
-                          {!expense.category && !expense.expenseCategory && (
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                              style={{
-                                background: TOKENS.surfaceHigh,
-                                color: TOKENS.onSurfaceMuted,
-                                border: `1px solid ${TOKENS.outlineGhost}`,
-                              }}
-                            >
-                              Unclassified
-                            </span>
-                          )}
-                          <span
-                            className="text-xs tabular-nums"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            {p.formatDate(expense.date)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 sm:justify-end">
-                        <div className="text-left sm:text-right">
-                          <MajorFigureCurrency
-                            amount={expense.amount}
-                            variant="loss"
-                            className="text-base font-bold!"
-                            decimalEm={0.45}
-                          />
-                          <p
-                            className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                            style={{ color: TOKENS.onSurfaceMuted }}
-                          >
-                            {expense.account.name}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onEditExpense(expense)}
-                          className={cn(
-                            "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
-                            consoleFocus,
-                          )}
+                        <p
+                          className="text-xs font-semibold tabular-nums"
                           style={{ color: TOKENS.onSurfaceMuted }}
-                          aria-label={`Edit expense ${expense.description?.trim() || "transaction"}`}
                         >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => p.handleDelete(expense.id)}
-                          className={cn(
-                            "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
-                            consoleFocus,
-                          )}
-                          style={{ color: TOKENS.loss }}
-                          aria-label={`Delete expense ${expense.description?.trim() || "transaction"}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                          {p.formatCurrency(dayTotal)}
+                        </p>
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {group.entries.map((expense) => (
+                          <div
+                            key={expense.id}
+                            className="flex flex-col gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
+                            style={{
+                              background: TOKENS.surfaceLow,
+                              borderColor: TOKENS.outlineGhost,
+                              boxShadow: CARD_INSET,
+                            }}
+                          >
+                            <div className="min-w-0">
+                              <p
+                                className="truncate text-sm font-semibold tracking-tight"
+                                style={{ color: TOKENS.onSurface }}
+                              >
+                                {expense.description?.trim() || "Unlabeled transaction"}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                {expense.category && (
+                                  <span
+                                    className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                    style={{
+                                      background: `color-mix(in srgb, ${fundColor(expense.category)} 16%, ${TOKENS.surfaceHigh})`,
+                                      color: fundColor(expense.category),
+                                      border: `1px solid ${TOKENS.outlineGhost}`,
+                                    }}
+                                  >
+                                    {fundLabel(expense.category)}
+                                  </span>
+                                )}
+                                {expense.expenseCategory && (
+                                  <span
+                                    className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                    style={{
+                                      background: TOKENS.surfaceHigh,
+                                      color: TOKENS.onSurfaceMuted,
+                                      border: `1px solid ${TOKENS.outlineGhost}`,
+                                    }}
+                                  >
+                                    {expenseLabel(expense.expenseCategory)}
+                                  </span>
+                                )}
+                                {!expense.category && !expense.expenseCategory && (
+                                  <span
+                                    className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                    style={{
+                                      background: TOKENS.surfaceHigh,
+                                      color: TOKENS.onSurfaceMuted,
+                                      border: `1px solid ${TOKENS.outlineGhost}`,
+                                    }}
+                                  >
+                                    Unclassified
+                                  </span>
+                                )}
+                                <span
+                                  className="text-xs"
+                                  style={{ color: TOKENS.onSurfaceMuted }}
+                                >
+                                  {expense.account.name}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 sm:justify-end">
+                              <MajorFigureCurrency
+                                amount={expense.amount}
+                                variant="loss"
+                                className="text-sm font-bold!"
+                                decimalEm={0.4}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => onEditExpense(expense)}
+                                className={cn(
+                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                  consoleFocus,
+                                )}
+                                style={{ color: TOKENS.onSurfaceMuted }}
+                                aria-label={`Edit expense ${expense.description?.trim() || "transaction"}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => p.handleDelete(expense.id)}
+                                className={cn(
+                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                  consoleFocus,
+                                )}
+                                style={{ color: TOKENS.loss }}
+                                aria-label={`Delete expense ${expense.description?.trim() || "transaction"}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
-            ))
+            </div>
           )}
         </div>
 
