@@ -72,6 +72,12 @@ export async function POST(request: Request) {
           periodEnd,
           accountId: investmentAccount.id,
           excludeFromAllocation: true,
+          // Cash stays in the investment account, not a liquid bucket, so none of
+          // it should land in the savings pillar (unlike other excluded income).
+          allocationFixedCosts: 0n,
+          allocationSavings: 0n,
+          allocationInvestment: 0n,
+          allocationGuiltFreeSpending: 0n,
         },
       })
 
