@@ -23,8 +23,12 @@ import type {
   InsightsGoalRow,
   InsightsOverview,
   InsightsPillarRow,
-  PillarStatus,
 } from "@/lib/insights-overview"
+import {
+  computeCategoryPace,
+  categoryPaceMeta,
+  type CategoryPaceMode,
+} from "@/components/category-tracking/category-tracking-console-ui"
 
 function toneSurfaces(tone: ConsoleCardTone = "raised") {
   const recessed = tone === "recessed"
@@ -32,13 +36,6 @@ function toneSurfaces(tone: ConsoleCardTone = "raised") {
     cardBg: recessed ? TOKENS.surfaceLow : TOKENS.surfaceContainer,
     chipBg: recessed ? TOKENS.surfaceContainer : TOKENS.surfaceLow,
   }
-}
-
-const PILLAR_STATUS: Record<PillarStatus, { label: string; color: string }> = {
-  over: { label: "Over", color: TOKENS.loss },
-  tight: { label: "Tight", color: TOKENS.warning },
-  on_track: { label: "On track", color: TOKENS.primary },
-  idle: { label: "Idle", color: TOKENS.onSurfaceMuted },
 }
 
 const PACE_COPY = {
@@ -407,11 +404,41 @@ function MonthHealthScorecard({
   )
 }
 
+function pillarReportBadge(
+  pillar: InsightsPillarRow,
+  monthElapsedPct: number,
+): { label: string; color: string; hint: string | null } {
+  if (pillar.status === "over") {
+    return { label: "Over", color: TOKENS.loss, hint: null }
+  }
+  if (pillar.status === "idle" || pillar.allocated <= 0) {
+    return { label: "Idle", color: TOKENS.onSurfaceMuted, hint: null }
+  }
+
+  const mode: CategoryPaceMode = pillar.key === "investment" ? "invest" : "spend"
+  const elapsed = Math.min(1, Math.max(0, monthElapsedPct / 100))
+  const pace = computeCategoryPace(pillar.usedPct, elapsed)
+  const meta = categoryPaceMeta(pace.state, mode)
+
+  if (mode === "invest") {
+    if (pace.state === "hot") {
+      return { label: "Hot", color: meta.color, hint: "ahead of plan" }
+    }
+    if (pace.state === "cool") {
+      return { label: "Cool", color: meta.color, hint: "room to deploy" }
+    }
+  }
+
+  return { label: pace.label, color: meta.color, hint: null }
+}
+
 function PillarReportCard({
   pillars,
+  monthElapsedPct,
   loading,
 }: {
   pillars: InsightsPillarRow[]
+  monthElapsedPct: number
   loading: boolean
 }) {
   const { formatCurrency } = useFormatCurrency()
@@ -429,7 +456,7 @@ function PillarReportCard({
     >
       <ul className="space-y-3">
         {pillars.map((pillar) => {
-          const status = PILLAR_STATUS[pillar.status]
+          const badge = pillarReportBadge(pillar, monthElapsedPct)
           return (
             <li key={pillar.key}>
               <div className="flex items-center justify-between gap-3">
@@ -449,16 +476,17 @@ function PillarReportCard({
                       : pillar.allocated > 0
                         ? `${formatCurrency(pillar.remaining)} left of ${formatCurrency(pillar.allocated)}`
                         : "No allocation yet"}
+                    {badge.hint ? ` · ${badge.hint}` : null}
                   </p>
                 </div>
                 <span
                   className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
                   style={{
-                    color: status.color,
-                    background: `color-mix(in srgb, ${status.color} 16%, transparent)`,
+                    color: badge.color,
+                    background: `color-mix(in srgb, ${badge.color} 16%, transparent)`,
                   }}
                 >
-                  {status.label}
+                  {badge.label}
                 </span>
               </div>
               <div
@@ -469,7 +497,7 @@ function PillarReportCard({
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(100, pillar.usedPct)}%`,
-                    background: status.color,
+                    background: badge.color,
                   }}
                 />
               </div>
@@ -872,6 +900,7 @@ export function InsightsPageBento() {
       <div className="grid gap-4 lg:grid-cols-3 lg:gap-5 lg:items-stretch">
         <PillarReportCard
           pillars={overview?.pillars ?? []}
+          monthElapsedPct={overview?.health.monthElapsedPct ?? 0}
           loading={loading}
         />
         <SubscriptionAuditCard
