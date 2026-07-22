@@ -234,6 +234,9 @@ model Expense {
   source          String   @default("manual")
   syncStatus      String   @default("confirmed")
 
+  /// Set when this row is the pillar debit backing an outstanding Loan.
+  loan Loan?
+
   @@unique([userId, externalId])
   @@index([userId])
   @@index([accountId])
@@ -359,6 +362,10 @@ model Loan {
   repaidAmount BigInt    @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  /// Debits a fund pillar for the outstanding principal; removed on repayment.
+  expenseId String?  @unique
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([accountId])
