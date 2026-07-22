@@ -16,7 +16,9 @@ import { coerceMinor } from "../lib/money"
 
 async function backfillExcludedIncomeToSavings(userId: string) {
   const excluded = await prisma.incomeEntry.findMany({
-    where: { userId, excludeFromAllocation: true },
+    // Dividends are excluded income too, but their cash sits in the investment
+    // account (not a liquid bucket) and must never be routed to savings.
+    where: { userId, excludeFromAllocation: true, investmentDividend: null },
     select: {
       id: true,
       amount: true,

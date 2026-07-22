@@ -10,6 +10,7 @@ import {
 } from "@/lib/money-serialize"
 import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
 import { subtractMinor } from "@/lib/money"
+import { PRE_TRACKING_SAVINGS_ACCOUNT_TYPES } from "@/lib/pre-tracking-savings"
 
 export async function GET(request: Request) {
   try {
@@ -104,6 +105,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const loanDate = date ? new Date(date) : new Date()
+
     const loan = await prisma.$transaction(async (tx) => {
       // Atomic check-and-decrement: WHERE balance >= amount prevents overdraft
       // under concurrent requests (the pre-check above is only a fast path).
@@ -113,6 +116,29 @@ export async function POST(request: Request) {
       })
       if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
 
+      // Debit the savings pillar for the outstanding principal — the cash has
+      // left the account, so budget pillars must stop counting it as available.
+      // Skipped for non-liquid accounts (e.g. investment), whose funds were
+      // never reflected in a pillar to begin with. Reversed by deleting this
+      // expense when the loan is repaid.
+      const isLiquidAccount = (PRE_TRACKING_SAVINGS_ACCOUNT_TYPES as readonly string[]).includes(
+        account.accountType,
+      )
+      const pillarExpense = isLiquidAccount
+        ? await tx.expense.create({
+            data: {
+              userId: session.user.id,
+              accountId,
+              amount: amountMinor,
+              description: `Loan to ${borrowerName || "borrower"}`,
+              category: "savings",
+              expenseCategory: "loan",
+              date: loanDate,
+              source: "loan",
+            },
+          })
+        : null
+
       return tx.loan.create({
         data: {
           userId: session.user.id,
@@ -120,8 +146,9 @@ export async function POST(request: Request) {
           amount: amountMinor,
           description: description || null,
           borrowerName: borrowerName || null,
-          date: date ? new Date(date) : new Date(),
+          date: loanDate,
           dueDate: dueDate ? new Date(dueDate) : null,
+          expenseId: pillarExpense?.id,
         },
         include: {
           account: {
@@ -229,6 +256,11 @@ export async function PATCH(request: Request) {
         where: { id: creditAccountId },
         data: { balance: { increment: outstanding } },
       })
+
+      // Cash is back, so the pillar debit no longer applies.
+      if (loan.expenseId) {
+        await tx.expense.delete({ where: { id: loan.expenseId } })
+      }
 
       return tx.loan.findUniqueOrThrow({
         where: { id: loan.id },
