@@ -58,4 +58,13 @@ const after = savingsDisplayBreakdown(reconciled.savings!, 40)
 assert.equal(after.total, reconciled.savings!.displayRemaining)
 assert.equal(after.total, after.spendable + after.inGoals)
 
+// Goals over-assigned beyond the residual: spendable clamps to 0, but total
+// must stay the true residual — reconstructing it as spendable + goals would
+// wrongly report the (larger) goals figure instead. Callers must read
+// `.total` directly rather than recompute it.
+const overAssigned = savingsDisplayBreakdown(residualRow, 30000)
+assert.equal(overAssigned.total, 23326.68)
+assert.equal(overAssigned.spendable, 0)
+assert.notEqual(overAssigned.total, overAssigned.spendable + overAssigned.inGoals)
+
 console.log("deployable-balance.test.ts: all passed")

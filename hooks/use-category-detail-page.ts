@@ -210,6 +210,9 @@ export function useCategoryDetailPage(category: string) {
     savingsBreakdown != null
       ? savingsBreakdown.spendable
       : (currentRow?.displayRemaining ?? headroom)
+  // Read directly off the breakdown so "Total in savings" can never drift
+  // from spendable + goals — never reconstruct it via addition in the UI.
+  const savingsTotal = savingsBreakdown?.total ?? null
   const usageBase =
     category === "investment"
       ? (currentRow?.available ?? 0) > 0
@@ -243,6 +246,7 @@ export function useCategoryDetailPage(category: string) {
     deployed,
     prevDeployed,
     displayAmount,
+    savingsTotal,
     usagePercent,
     spendDelta,
   }

@@ -55,6 +55,7 @@ type PillarMatrixCardProps = {
   data: CategoryTrackingRow
   deployed: number
   savingsAssignedToGoals: number
+  savingsTotal: number | null
   movedIn: number
   movedOut: number
   elapsed: number
@@ -71,6 +72,7 @@ function PillarMatrixCard({
   data,
   deployed,
   savingsAssignedToGoals,
+  savingsTotal,
   movedIn,
   movedOut,
   elapsed,
@@ -130,7 +132,7 @@ function PillarMatrixCard({
           <div className="flex justify-between">
             <span>Total in savings</span>
             <span style={{ color: TOKENS.onSurface }}>
-              {formatCurrency(displayAmount + savingsAssignedToGoals)}
+              {formatCurrency(savingsTotal ?? displayAmount + savingsAssignedToGoals)}
             </span>
           </div>
         )}
@@ -295,6 +297,7 @@ export function CategoryTrackingPillarSection({
               data={data}
               deployed={deployed}
               savingsAssignedToGoals={savingsAssignedToGoals}
+              savingsTotal={savingsBreakdown?.total ?? null}
               movedIn={movedIn}
               movedOut={movedOut}
               elapsed={elapsed}
