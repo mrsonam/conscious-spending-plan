@@ -4,6 +4,7 @@ import { generateApiToken } from "@/lib/api-token"
 import { verifyPassword } from "@/lib/verify-password"
 import { normalizeEmail } from "@/lib/password-policy"
 import { routeErrorResponse, readJsonBody } from "@/lib/route-error"
+import { normalizeDisplayCurrency } from "@/lib/display-currency"
 
 const TOKENS_MAX = 25
 const NAME_MAX = 60
@@ -77,7 +78,10 @@ export async function POST(request: Request) {
       select: { id: true, name: true, token: true, createdAt: true },
     })
 
-    return NextResponse.json(created, { status: 201 })
+    return NextResponse.json(
+      { ...created, displayCurrency: normalizeDisplayCurrency(user.displayCurrency) },
+      { status: 201 },
+    )
   } catch (error) {
     return routeErrorResponse(error, "Error logging in from mobile")
   }
