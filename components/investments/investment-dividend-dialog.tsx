@@ -82,8 +82,8 @@ export function InvestmentDividendDialog({
               className="text-sm leading-relaxed"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              Cash dividends are credited to the selected brokerage account. Enter
-              the same ticker or name you use for the position (e.g. AAPL).
+              Cash dividends are credited to the selected brokerage account.
+              Pick a holding you already own in that account.
             </DialogDescription>
           </DialogHeader>
 
@@ -129,32 +129,42 @@ export function InvestmentDividendDialog({
                 className={investmentFieldLabelClass}
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
-                Stock / fund (ticker) *
+                Holding *
               </label>
-              <Input
+              <AppSelect
                 id="inv-div-symbol"
                 value={dividendSymbol}
-                onChange={(e) => onSymbolChange(e.target.value)}
-                placeholder="e.g. AAPL"
+                onValueChange={onSymbolChange}
+                disabled={submitting || dividendSymbolOptions.length === 0}
                 className={cn(investmentConsoleField, "border-transparent")}
                 style={{
                   backgroundColor: TOKENS.surfaceLow,
                   borderColor: TOKENS.outlineGhost,
                   color: TOKENS.onSurface,
                 }}
-                list="dividend-symbol-suggestions"
-                autoComplete="off"
+                placeholder={
+                  dividendSymbolOptions.length === 0
+                    ? "No holdings in this account"
+                    : "Select a holding"
+                }
                 {...investmentFieldAria("inv-div-symbol", fieldErrors.divSymbol)}
+                options={[
+                  { value: "", label: "Select a holding" },
+                  ...dividendSymbolOptions.map((s) => ({
+                    value: s,
+                    label: s,
+                  })),
+                ]}
               />
               <InvestmentFieldInlineError
                 controlId="inv-div-symbol"
                 message={fieldErrors.divSymbol}
               />
-              <datalist id="dividend-symbol-suggestions">
-                {dividendSymbolOptions.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
+              {dividendAccountId && dividendSymbolOptions.length === 0 ? (
+                <p className="mt-1.5 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+                  Log a purchase in this account before recording a dividend.
+                </p>
+              ) : null}
             </div>
 
             <div>

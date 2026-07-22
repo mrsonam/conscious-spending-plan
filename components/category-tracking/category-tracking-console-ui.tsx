@@ -109,14 +109,17 @@ export function CategoryTrackingSegmentedBlocks({
 }
 
 /**
- * Pace = usage% vs elapsed-month%. "Hot" means spend is outrunning the
- * calendar; "Cool" means it's lagging; "Balanced" is within +/-15%.
+ * Pace = usage% vs elapsed-month%.
+ * Spend pillars: Hot = using the envelope faster than the calendar (caution).
+ * Investment uses the same bands; colors/copy via categoryPaceMeta make Hot
+ * read as encouraged deployment and Cool as lagging on the plan.
  */
 export type CategoryPaceState = "future" | "closed" | "hot" | "cool" | "balanced"
+export type CategoryPaceMode = "spend" | "invest"
 
 export function computeCategoryPace(
   usagePercent: number,
-  elapsed: number
+  elapsed: number,
 ): { state: CategoryPaceState; label: string } {
   if (elapsed <= 0) return { state: "future", label: "Future" }
   if (elapsed >= 1) return { state: "closed", label: "Closed" }
@@ -126,12 +129,46 @@ export function computeCategoryPace(
   return { state: "balanced", label: "Balanced" }
 }
 
-export const CATEGORY_PACE_META: Record<CategoryPaceState, { Icon: LucideIcon; color: string }> = {
+const SPEND_PACE_META: Record<CategoryPaceState, { Icon: LucideIcon; color: string }> = {
   future: { Icon: Clock, color: TOKENS.onSurfaceMuted },
   closed: { Icon: CheckCircle2, color: TOKENS.onSurfaceMuted },
   hot: { Icon: Flame, color: ERROR_SOFT },
   cool: { Icon: Snowflake, color: TOKENS.secondary },
   balanced: { Icon: Gauge, color: TOKENS.primary },
+}
+
+/** Investment: Hot = ahead of plan (encouraged); Cool = behind (nudge). */
+const INVEST_PACE_META: Record<CategoryPaceState, { Icon: LucideIcon; color: string }> = {
+  future: { Icon: Clock, color: TOKENS.onSurfaceMuted },
+  closed: { Icon: CheckCircle2, color: TOKENS.onSurfaceMuted },
+  hot: { Icon: Flame, color: TOKENS.primary },
+  cool: { Icon: Snowflake, color: TOKENS.warning },
+  balanced: { Icon: Gauge, color: TOKENS.primary },
+}
+
+export function categoryPaceMeta(
+  state: CategoryPaceState,
+  mode: CategoryPaceMode = "spend",
+): { Icon: LucideIcon; color: string } {
+  return mode === "invest" ? INVEST_PACE_META[state] : SPEND_PACE_META[state]
+}
+
+/** @deprecated Prefer categoryPaceMeta(state, mode). Spend-pillar colors. */
+export const CATEGORY_PACE_META = SPEND_PACE_META
+
+export function categoryPaceDescription(
+  fundLabel: string,
+  paceLabel: string,
+  usagePercent: number,
+  elapsed: number,
+  mode: CategoryPaceMode = "spend",
+): string {
+  const used = `${usagePercent.toFixed(0)} percent of envelope used`
+  const month = `${(elapsed * 100).toFixed(0)} percent of the month elapsed`
+  if (mode === "invest") {
+    return `${fundLabel} pace: ${paceLabel} (deploying vs calendar), ${used} against ${month}`
+  }
+  return `${fundLabel} pace: ${paceLabel}, ${used} against ${month}`
 }
 
 /** Single-scale progress bar with a tick marking how far the month has elapsed. */

@@ -247,15 +247,17 @@ export function useInvestmentsPage(status: string) {
   }
 
   const dividendSymbolOptions = useMemo(() => {
+    const account = accounts.find((a) => a.id === dividendAccountId)
+    const source = account ? [account] : accounts
     const s = new Set<string>()
-    for (const a of accounts) {
+    for (const a of source) {
       for (const h of a.holdings) {
         const t = h.name.trim()
         if (t) s.add(t)
       }
     }
     return [...s].sort((a, b) => a.localeCompare(b))
-  }, [accounts])
+  }, [accounts, dividendAccountId])
 
   const handleDividendSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -266,8 +268,12 @@ export function useInvestmentsPage(status: string) {
     }
     const sym = dividendSymbol.trim()
     if (!sym) {
-      nextErrors.divSymbol =
-        "Enter the stock or fund name (same as your holding)."
+      nextErrors.divSymbol = "Select a holding."
+    } else if (
+      dividendAccountId &&
+      !dividendSymbolOptions.some((o) => o.toLowerCase() === sym.toLowerCase())
+    ) {
+      nextErrors.divSymbol = "Select a holding from this account."
     }
     const amt = tryParseMoneyInput(dividendAmount, currencyCode)
     if (amt === null || amt <= 0) {

@@ -12,6 +12,8 @@ import {
   CategoryTrackingBarProgress,
   CategoryTrackingSegmentedBlocks,
   categoryTrackingConsoleField,
+  computeCategoryPace,
+  categoryPaceMeta,
 } from "@/components/category-tracking/category-tracking-console-ui"
 import {
   consoleHeroFigureClass,
@@ -130,21 +132,15 @@ export function CategoryDetailView({
   const isInvestment = category === "investment"
   const isSavings = category === "savings"
   const deployedLabel = isInvestment ? "Transferred" : "Spent"
+  const paceMode = isInvestment ? "invest" : "spend"
+  const pace = computeCategoryPace(usagePercent, elapsed)
+  const paceMeta = categoryPaceMeta(pace.state, paceMode)
+  const paceColor = isOverspent ? ERROR_SOFT : paceMeta.color
 
   const pagedTransactions = useMemo(() => {
     const start = (page - 1) * CONSOLE_TABLE_PAGE_SIZE
     return transactions.slice(start, start + CONSOLE_TABLE_PAGE_SIZE)
   }, [page, transactions])
-
-  let paceLabel = "-"
-  if (elapsed <= 0) paceLabel = "Future"
-  else if (elapsed >= 1) paceLabel = "Closed"
-  else {
-    const paceRatio = usagePercent / (elapsed * 100)
-    if (paceRatio > 1.15) paceLabel = "Hot"
-    else if (paceRatio < 0.85) paceLabel = "Cool"
-    else paceLabel = "Balanced"
-  }
 
   return (
     <>
@@ -374,14 +370,21 @@ export function CategoryDetailView({
                   )}
                 </div>
                 <p className="mt-4 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
-                  Pace · <span style={{ color: TOKENS.onSurface }}>{paceLabel}</span>
+                  Pace ·{" "}
+                  <span style={{ color: paceColor }}>{pace.label}</span>
                   {elapsed > 0 && elapsed < 1 && (
                     <span> · {(elapsed * 100).toFixed(0)}% of month</span>
                   )}
+                  {isInvestment && pace.state === "hot" ? (
+                    <span> · ahead of plan</span>
+                  ) : null}
+                  {isInvestment && pace.state === "cool" ? (
+                    <span> · room to deploy</span>
+                  ) : null}
                 </p>
                 <CategoryTrackingSegmentedBlocks
                   percent={Math.min(100, usagePercent)}
-                  activeColor={isOverspent ? ERROR_SOFT : accent}
+                  activeColor={isOverspent ? ERROR_SOFT : isInvestment ? paceColor : accent}
                   label={`${meta.label} usage ${usagePercent.toFixed(0)} percent`}
                 />
               </div>

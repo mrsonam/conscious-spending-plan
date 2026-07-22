@@ -25,13 +25,21 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
   const openLog = () => {
     p.setMessage(null)
     p.clearFieldErrors()
+    p.setSelectedInvestmentAccountId(p.accounts[0]?.id ?? "")
     setLogOpen(true)
   }
 
   const openDividend = () => {
     p.setMessage(null)
     p.clearFieldErrors()
-    p.setDividendAccountId(p.accounts[0]?.id ?? "")
+    const accountId = p.accounts[0]?.id ?? ""
+    p.setDividendAccountId(accountId)
+    const firstHolding =
+      p.accounts
+        .find((a) => a.id === accountId)
+        ?.holdings.map((h) => h.name.trim())
+        .find((n) => n.length > 0) ?? ""
+    p.setDividendSymbol(firstHolding)
     setDividendOpen(true)
   }
 
@@ -228,6 +236,13 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
         onAccountChange={(id) => {
           p.setDividendAccountId(id)
           p.clearFieldError("divAccount")
+          const firstHolding =
+            p.accounts
+              .find((a) => a.id === id)
+              ?.holdings.map((h) => h.name.trim())
+              .find((n) => n.length > 0) ?? ""
+          p.setDividendSymbol(firstHolding)
+          p.clearFieldError("divSymbol")
         }}
         dividendSymbol={p.dividendSymbol}
         onSymbolChange={(v) => {

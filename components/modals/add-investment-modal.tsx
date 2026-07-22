@@ -80,7 +80,7 @@ export function AddInvestmentModal({
         (a: { accountType: string }) => a.accountType === "investment",
       )
       setAccounts(list)
-      if (list.length > 0 && !investmentAccountId) setInvestmentAccountId(list[0].id)
+      setInvestmentAccountId(list[0]?.id ?? "")
     })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 

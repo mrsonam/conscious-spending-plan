@@ -17,7 +17,8 @@ import {
 import { BENTO } from "@/lib/app-routes"
 import {
   computeCategoryPace,
-  CATEGORY_PACE_META,
+  categoryPaceMeta,
+  categoryPaceDescription,
   CategoryTrackingPaceBar,
   CategoryTrackingSparkline,
 } from "@/components/category-tracking/category-tracking-console-ui"
@@ -79,9 +80,11 @@ function PillarMatrixCard({
   formatCurrency,
 }: PillarMatrixCardProps) {
   const Icon = cat.Icon
+  const paceMode = cat.key === "investment" ? "invest" : "spend"
   const pace = computeCategoryPace(usagePercent, elapsed)
-  const paceColor = isOverspent ? ERROR_SOFT : CATEGORY_PACE_META[pace.state].color
-  const PaceIcon = CATEGORY_PACE_META[pace.state].Icon
+  const paceMeta = categoryPaceMeta(pace.state, paceMode)
+  const paceColor = isOverspent ? ERROR_SOFT : paceMeta.color
+  const PaceIcon = paceMeta.Icon
 
   return (
     <Link
@@ -180,7 +183,13 @@ function PillarMatrixCard({
           usagePercent={usagePercent}
           elapsed={elapsed}
           color={paceColor}
-          label={`${cat.label} pace: ${pace.label}, ${usagePercent.toFixed(0)} percent of envelope used against ${(elapsed * 100).toFixed(0)} percent of the month elapsed`}
+          label={categoryPaceDescription(
+            cat.label,
+            pace.label,
+            usagePercent,
+            elapsed,
+            paceMode,
+          )}
         />
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <span className="text-[10px] tabular-nums" style={{ color: TOKENS.onSurfaceMuted }}>
@@ -193,6 +202,8 @@ function PillarMatrixCard({
           >
             <PaceIcon className="h-3 w-3 shrink-0" aria-hidden />
             {pace.label}
+            {paceMode === "invest" && pace.state === "hot" ? " · strong" : null}
+            {paceMode === "invest" && pace.state === "cool" ? " · lagging" : null}
           </span>
         </div>
       </div>
