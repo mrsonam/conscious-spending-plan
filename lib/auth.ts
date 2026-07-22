@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google"
 import { randomBytes } from "node:crypto"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
+import { verifyPassword } from "./verify-password"
 import { normalizeDashboardTheme } from "./dashboard-theme"
 import {
   isValidDisplayCurrency,
@@ -52,14 +53,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         })
 
-        // Always run a bcrypt compare so response time doesn't reveal
-        // whether the email exists (dummy hash when there is no user).
-        const passwordHash =
-          user?.password ??
-          "$2b$12$qbcW7qz9ziTCKV2M/1Y0r.6BNCrzFOq4Dq4sISTS.fawUlzvBT246"
-        const isPasswordValid = await bcrypt.compare(
+        const isPasswordValid = await verifyPassword(
+          user?.password,
           credentials.password as string,
-          passwordHash
         )
 
         if (!user || !isPasswordValid) {

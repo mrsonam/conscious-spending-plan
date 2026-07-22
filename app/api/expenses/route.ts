@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import type { Prisma } from "@prisma/client"
-import { auth } from "@/lib/auth"
 import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
@@ -12,20 +11,22 @@ import {
   mapMoneyListToApi,
   AMOUNT_ONLY_FIELDS,
 } from "@/lib/money-serialize"
-import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
+
+    const userId = authed.userId
 
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get("startDate")
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     const searchParam = searchParams.get("search")?.trim() || null
 
     const where: Prisma.ExpenseWhereInput = {
-      userId: session.user.id,
+      userId,
     }
 
     if (startDate && endDate) {
@@ -112,11 +113,11 @@ export async function GET(request: Request) {
             })
           : Promise.resolve(null),
         usePagination && includeSummary
-          ? getExpenseSummary(session.user.id)
+          ? getExpenseSummary(userId)
           : Promise.resolve(null),
       ])
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(userId)
     const expensesOut = mapMoneyListToApi(
       expenses as Record<string, unknown>[],
       currency,
@@ -332,11 +333,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const userId = authed.userId
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
@@ -351,7 +354,7 @@ export async function PATCH(request: Request) {
     const existing = await prisma.expense.findFirst({
       where: {
         id,
-        userId: session.user.id,
+        userId,
       },
     })
 
@@ -375,7 +378,7 @@ export async function PATCH(request: Request) {
     } = body
     const accountId: string | undefined = body.accountId
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(userId)
 
     let amountMinor = existing.amount
     if (amount != null) {
@@ -404,7 +407,7 @@ export async function PATCH(request: Request) {
     const nextAccount = await prisma.account.findFirst({
       where: {
         id: nextAccountId,
-        userId: session.user.id,
+        userId,
       },
     })
 
@@ -470,7 +473,7 @@ export async function PATCH(request: Request) {
       })
     })
 
-    schedulePersistPreviousMonthClosing(session.user.id)
+    schedulePersistPreviousMonthClosing(userId)
 
     return moneyJsonResponse(
       {
@@ -498,14 +501,16 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
+
+    const userId = authed.userId
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
@@ -521,7 +526,7 @@ export async function DELETE(request: Request) {
     const expense = await prisma.expense.findFirst({
       where: {
         id,
-        userId: session.user.id,
+        userId,
       },
     })
 

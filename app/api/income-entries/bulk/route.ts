@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { logIncomeEntryForUser } from "@/lib/log-income-entry-server"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { mapIncomeEntryListToApi } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { addMinor, coerceMinor } from "@/lib/money"
 import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
 import { reallocateMonthIncomeForUser } from "@/lib/reallocate-month-income"
@@ -21,13 +21,14 @@ type BulkIncomeRow = {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const userId = authed.userId
+    const currency = await getUserDisplayCurrency(userId)
     const body = await request.json()
     const { accountId: bodyAccountId, entries: rawEntries } = body as {
       accountId?: string
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     const accountId = bodyAccountId
     if (accountId) {
       const account = await prisma.account.findFirst({
-        where: { id: accountId, userId: session.user.id },
+        where: { id: accountId, userId },
       })
       if (!account) {
         return NextResponse.json(
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
 
     for (const row of sorted) {
       const allocateToBudget = row.allocateToBudget !== false
-      const result = await logIncomeEntryForUser(session.user.id, currency, {
+      const result = await logIncomeEntryForUser(userId, currency, {
         amount: row.amount,
         description: row.description ?? null,
         date: row.date,
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
     for (const key of [...monthsToSync].sort()) {
       const [yearStr, monthStr] = key.split("-")
       await reallocateMonthIncomeForUser(
-        session.user.id,
+        userId,
         currency,
         Number(monthStr),
         Number(yearStr),
@@ -110,17 +111,17 @@ export async function POST(request: Request) {
       const savingsMinor = coerceMinor(entry?.allocationSavings ?? 0n)
       if (savingsMinor > 0n) {
         await applySavingGoalCreditsForIncome(prisma, {
-          userId: session.user.id,
+          userId,
           incomeEntryId: entryId,
           savingsAllocationMinor: savingsMinor,
         })
       }
     }
 
-    schedulePersistPreviousMonthClosing(session.user.id)
+    schedulePersistPreviousMonthClosing(userId)
 
     const created = await prisma.incomeEntry.findMany({
-      where: { id: { in: createdIds }, userId: session.user.id },
+      where: { id: { in: createdIds }, userId },
       include: { account: true },
       orderBy: { date: "desc" },
     })
