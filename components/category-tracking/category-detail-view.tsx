@@ -122,6 +122,7 @@ export function CategoryDetailView({
     elapsed,
     deployed,
     displayAmount,
+    savingsTotal,
     usagePercent,
     spendDelta,
   } = p
@@ -318,7 +319,7 @@ export function CategoryDetailView({
                       <div className="flex justify-between">
                         <span style={{ color: TOKENS.onSurfaceMuted }}>Total in savings</span>
                         <span className="tabular-nums font-medium">
-                          {formatCurrency(displayAmount + savingsAssignedToGoals)}
+                          {formatCurrency(savingsTotal ?? displayAmount + savingsAssignedToGoals)}
                         </span>
                       </div>
                       {savingsAssignedToGoals > 0 && (
