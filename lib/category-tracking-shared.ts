@@ -101,39 +101,42 @@ export function netPillarHeadroom(
 }
 
 /**
- * Savings you can still spend or move, total in the savings bucket minus
- * amounts assigned to saving goals, capped by envelope headroom after spend.
+ * Savings residual breakdown for display.
+ * Total is the savings residual (liquid-reconciled `displayRemaining` when set,
+ * otherwise envelope headroom after spend). Spendable is total − goals so the
+ * lines always add up: total = spendable + inGoals.
  */
-export function savingsSpendableAmount(
-  row: Pick<CategoryTrackingRow, "remaining" | "overspent">,
+export function savingsDisplayBreakdown(
+  row: Pick<CategoryTrackingRow, "remaining" | "overspent" | "displayRemaining">,
   savingsAssignedToGoals: number,
-  savingsGeneralAvailable: number
-): number {
-  const headroom = netPillarHeadroom(row)
-  const bucketTotal =
-    Math.round((Math.max(0, savingsGeneralAvailable) + Math.max(0, savingsAssignedToGoals)) * 100) /
-    100
-  const afterGoals = Math.max(
+  _savingsGeneralAvailable?: number,
+): { total: number; spendable: number; inGoals: number } {
+  const inGoals = Math.max(0, Math.round(savingsAssignedToGoals * 100) / 100)
+  const total = Math.max(
     0,
-    Math.round((bucketTotal - Math.max(0, savingsAssignedToGoals)) * 100) / 100
+    Math.round((row.displayRemaining ?? netPillarHeadroom(row)) * 100) / 100,
   )
-  return Math.round(Math.min(headroom, afterGoals) * 100) / 100
+  const spendable = Math.max(0, Math.round((total - inGoals) * 100) / 100)
+  return { total, spendable, inGoals }
+}
+
+/** Savings you can still spend or move: residual after goals. */
+export function savingsSpendableAmount(
+  row: Pick<CategoryTrackingRow, "remaining" | "overspent" | "displayRemaining">,
+  savingsAssignedToGoals: number,
+  _savingsGeneralAvailable?: number,
+): number {
+  return savingsDisplayBreakdown(row, savingsAssignedToGoals).spendable
 }
 
 function pillarDisplayRemaining(
   key: TrackingFundKey,
   row: CategoryTrackingRow,
-  savingsGeneralAvailable?: number,
+  _savingsGeneralAvailable?: number,
   savingsAssignedToGoals?: number
 ): number {
   if (key === "savings") {
-    const goals = Math.max(0, savingsAssignedToGoals ?? 0)
-    const total =
-      row.displayRemaining ??
-      (savingsGeneralAvailable != null
-        ? savingsGeneralAvailable + goals
-        : netPillarHeadroom(row))
-    return Math.max(0, Math.round((total - goals) * 100) / 100)
+    return savingsDisplayBreakdown(row, savingsAssignedToGoals ?? 0).spendable
   }
   if (row.displayRemaining != null) {
     return row.displayRemaining

@@ -10,6 +10,7 @@ import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import {
   TRACKING_FUND_CATEGORIES,
   netPillarHeadroom,
+  savingsDisplayBreakdown,
   type CategoryTrackingRow,
   type TrackingFundCategoryMeta,
 } from "@/lib/category-tracking-shared"
@@ -53,7 +54,6 @@ type PillarMatrixCardProps = {
   displayAmount: number
   data: CategoryTrackingRow
   deployed: number
-  savingsBucketTotal: number
   savingsAssignedToGoals: number
   movedIn: number
   movedOut: number
@@ -70,7 +70,6 @@ function PillarMatrixCard({
   displayAmount,
   data,
   deployed,
-  savingsBucketTotal,
   savingsAssignedToGoals,
   movedIn,
   movedOut,
@@ -131,7 +130,7 @@ function PillarMatrixCard({
           <div className="flex justify-between">
             <span>Total in savings</span>
             <span style={{ color: TOKENS.onSurface }}>
-              {formatCurrency(savingsBucketTotal)}
+              {formatCurrency(displayAmount + savingsAssignedToGoals)}
             </span>
           </div>
         )}
@@ -259,17 +258,17 @@ export function CategoryTrackingPillarSection({
           const deployed =
             cat.key === "investment" ? data.transferred : data.spent
           const envelopeHeadroom = netPillarHeadroom(data)
-          const savingsBucketTotal = savingsGeneralAvailable + savingsAssignedToGoals
+          const savingsBreakdown =
+            cat.key === "savings"
+              ? savingsDisplayBreakdown(
+                  data,
+                  savingsAssignedToGoals,
+                  savingsGeneralAvailable,
+                )
+              : null
           const displayAmount =
             cat.key === "savings"
-              ? Math.max(
-                  0,
-                  Math.round(
-                    ((data.displayRemaining ?? savingsBucketTotal) -
-                      Math.max(0, savingsAssignedToGoals)) *
-                      100,
-                  ) / 100,
-                )
+              ? (savingsBreakdown?.spendable ?? 0)
               : (data.displayRemaining ?? envelopeHeadroom)
           const usageBase =
             cat.key === "investment"
@@ -295,7 +294,6 @@ export function CategoryTrackingPillarSection({
               displayAmount={displayAmount}
               data={data}
               deployed={deployed}
-              savingsBucketTotal={savingsBucketTotal}
               savingsAssignedToGoals={savingsAssignedToGoals}
               movedIn={movedIn}
               movedOut={movedOut}

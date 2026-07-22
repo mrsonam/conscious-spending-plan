@@ -4,7 +4,10 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
-import { reconcileTrackingDisplayToLiquid } from "@/lib/category-tracking-shared"
+import {
+  reconcileTrackingDisplayToLiquid,
+  savingsDisplayBreakdown,
+} from "@/lib/category-tracking-shared"
 import { buildAllocatedSoFarFromEntries } from "@/lib/income-allocation"
 import { reconcilePlanToLiquid } from "@/lib/plan-liquid-reconcile"
 import { listCategoryBucketTransfersForMonth } from "@/lib/category-bucket-transfer-api"
@@ -212,6 +215,9 @@ export async function GET(request: Request) {
       tracking = reconcileTrackingDisplayToLiquid(tracking, planVsLiquid.liquidTotal)
     }
 
+    const savingsGoals = toD(savingsCtx.assignedToGoalsMinor)
+    const savingsBreakdown = savingsDisplayBreakdown(tracking.savings, savingsGoals)
+
     const totalIncomeMinor = incomeEntriesForMonth.reduce(
       (sum, e) => addMinor(sum, coerceMinor(e.amount)),
       0n,
@@ -233,8 +239,9 @@ export async function GET(request: Request) {
         month: currentMonth,
         year: currentYear,
         totalIncomeForMonth: Math.round(totalIncomeForMonth * 100) / 100,
-        savingsGeneralAvailable: toD(savingsCtx.availableMinor),
-        savingsAssignedToGoals: toD(savingsCtx.assignedToGoalsMinor),
+        // Spendable for transfers / UI = residual − goals (matches hero).
+        savingsGeneralAvailable: savingsBreakdown.spendable,
+        savingsAssignedToGoals: savingsGoals,
         bucketTransfers,
         heroDeployable,
         planVsLiquid: {

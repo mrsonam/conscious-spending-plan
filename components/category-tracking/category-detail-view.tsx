@@ -112,7 +112,6 @@ export function CategoryDetailView({
     previousMonthLabel,
     currentRow,
     previousRow,
-    savingsGeneralAvailable,
     savingsAssignedToGoals,
     flow,
     history,
@@ -323,7 +322,7 @@ export function CategoryDetailView({
                       <div className="flex justify-between">
                         <span style={{ color: TOKENS.onSurfaceMuted }}>Total in savings</span>
                         <span className="tabular-nums font-medium">
-                          {formatCurrency(savingsGeneralAvailable + savingsAssignedToGoals)}
+                          {formatCurrency(displayAmount + savingsAssignedToGoals)}
                         </span>
                       </div>
                       {savingsAssignedToGoals > 0 && (

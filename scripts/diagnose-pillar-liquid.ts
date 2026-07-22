@@ -6,6 +6,8 @@
 import { calculateCategoryTracking, TRACKING_CATEGORIES } from "../lib/category-tracking-calculation"
 import {
   netPillarHeadroom,
+  reconcileTrackingDisplayToLiquid,
+  savingsDisplayBreakdown,
   savingsSpendableAmount,
   sumDeployableBalance,
 } from "../lib/category-tracking-shared"
@@ -153,6 +155,14 @@ async function main() {
   const deployable = sumDeployableBalance(tracking, savingsGeneral, savingsGoals)
   console.log(`\nPillar sum (deployable): ${deployable}`)
   console.log(`Gap (liquid - pillars): ${Math.round((toD(liquidMinor) - deployable) * 100) / 100}`)
+
+  const uiTracking = reconcileTrackingDisplayToLiquid(tracking, toD(liquidMinor))
+  const uiSavings = savingsDisplayBreakdown(uiTracking.savings, savingsGoals)
+  console.log(`\nUI savings breakdown:`)
+  console.log(`  Total in savings: ${uiSavings.total}`)
+  console.log(`  In goals: ${uiSavings.inGoals}`)
+  console.log(`  Spendable: ${uiSavings.spendable}`)
+  console.log(`  check spendable+goals: ${Math.round((uiSavings.spendable + uiSavings.inGoals) * 100) / 100}`)
 
   console.log(`\nCategory balances in DB:`)
   for (const b of categoryBalances) {

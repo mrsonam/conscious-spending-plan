@@ -7,6 +7,7 @@ import {
   TRACKING_FUND_CATEGORIES,
   getMonthElapsedFraction,
   netPillarHeadroom,
+  savingsDisplayBreakdown,
   type CategoryTrackingRow,
   type TrackingFundKey,
 } from "@/lib/category-tracking-shared"
@@ -197,19 +198,18 @@ export function useCategoryDetailPage(category: string) {
       : (previousRow?.spent ?? 0)
 
   const headroom = currentRow ? netPillarHeadroom(currentRow) : 0
-  const displayAmount =
+  const savingsBreakdown =
     category === "savings" && currentRow
-      ? Math.max(
-          0,
-          Math.round(
-            ((currentRow.displayRemaining ??
-              savingsGeneralAvailable + savingsAssignedToGoals) -
-              Math.max(0, savingsAssignedToGoals)) *
-              100,
-          ) / 100,
+      ? savingsDisplayBreakdown(
+          currentRow,
+          savingsAssignedToGoals,
+          savingsGeneralAvailable,
         )
+      : null
+  const displayAmount =
+    savingsBreakdown != null
+      ? savingsBreakdown.spendable
       : (currentRow?.displayRemaining ?? headroom)
-
   const usageBase =
     category === "investment"
       ? (currentRow?.available ?? 0) > 0
