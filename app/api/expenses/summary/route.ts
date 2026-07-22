@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { getExpenseSummary } from "@/lib/expense-summary"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -21,8 +21,8 @@ export async function GET(request: Request) {
       Number.isInteger(yearParam) && yearParam >= 2000 && yearParam <= 2100
     const referenceDate = hasValidMonth ? new Date(yearParam, monthParam - 1, 15) : undefined
 
-    const currency = currencyFromSession(session.user.displayCurrency)
-    const summary = await getExpenseSummary(session.user.id, referenceDate)
+    const currency = await getUserDisplayCurrency(authed.userId)
+    const summary = await getExpenseSummary(authed.userId, referenceDate)
 
     return moneyJsonResponse(summary, currency, {
       headers: {
