@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getIncomePageStats } from "@/lib/income-summary"
 import {
@@ -18,7 +18,7 @@ import {
   mapIncomeEntryToApi,
 } from "@/lib/money-serialize"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { addMinor, coerceMinor } from "@/lib/money"
 
 function sumAllocationsForMonth(
@@ -70,16 +70,17 @@ function sumAllocationsForMonth(
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const userId = authed.userId
+    const currency = await getUserDisplayCurrency(userId)
     const { searchParams } = new URL(request.url)
     const latest = searchParams.get("latest") === "true"
     const currentMonth = searchParams.get("currentMonth") === "true"
@@ -89,7 +90,7 @@ export async function GET(request: Request) {
     const includeStats = searchParams.get("includeStats") !== "false"
 
     if (currentMonth) {
-      const allMonthEntries = await getIncomeEntriesForMonthByDate(session.user.id)
+      const allMonthEntries = await getIncomeEntriesForMonthByDate(userId)
       const monthEntries = allMonthEntries.filter(
         (entry) => entry.excludeFromAllocation !== true,
       )
@@ -120,7 +121,7 @@ export async function GET(request: Request) {
       }
 
       const fundAllocation = await prisma.fundAllocation.findUnique({
-        where: { userId: session.user.id }
+        where: { userId: userId }
       })
 
       if (!fundAllocation) {
@@ -168,7 +169,7 @@ export async function GET(request: Request) {
 
     if (latest) {
       const latestEntry = await prisma.incomeEntry.findFirst({
-        where: { userId: session.user.id },
+        where: { userId: userId },
         orderBy: { date: "desc" },
       })
 
@@ -177,7 +178,7 @@ export async function GET(request: Request) {
       }
 
       const fundAllocation = await prisma.fundAllocation.findUnique({
-        where: { userId: session.user.id }
+        where: { userId: userId }
       })
 
       if (!fundAllocation) {
@@ -193,7 +194,7 @@ export async function GET(request: Request) {
       )
       const breakdown = incomeAllocationToApi(incomeMinor, alloc, currency)
 
-      const allMonthEntries = await getCurrentMonthIncomeEntries(session.user.id)
+      const allMonthEntries = await getCurrentMonthIncomeEntries(userId)
       return moneyJsonResponse(
         {
           breakdown,
@@ -217,7 +218,7 @@ export async function GET(request: Request) {
 
     const hasDateRange = startDateParam && endDateParam
     if (hasDateRange || forStatement) {
-      const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId: session.user.id }
+      const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId: userId }
       if (hasDateRange) {
         const start = new Date(startDateParam)
         const end = new Date(endDateParam)
@@ -256,15 +257,15 @@ export async function GET(request: Request) {
 
     const [entries, total, stats] = await Promise.all([
       prisma.incomeEntry.findMany({
-        where: { userId: session.user.id },
+        where: { userId: userId },
         include: { account: true },
         orderBy: { date: "desc" },
         skip,
         take: limit,
       }),
-      prisma.incomeEntry.count({ where: { userId: session.user.id } }),
+      prisma.incomeEntry.count({ where: { userId: userId } }),
       includeStats
-        ? getIncomePageStats(session.user.id)
+        ? getIncomePageStats(userId)
         : Promise.resolve(null),
     ])
 
@@ -295,23 +296,25 @@ export async function GET(request: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
 
+    const userId = authed.userId
+
     const [incomeResult, balanceResult] = await Promise.all([
       prisma.incomeEntry.deleteMany({
-        where: { userId: session.user.id }
+        where: { userId }
       }),
       prisma.categoryBalance.deleteMany({
-        where: { userId: session.user.id }
+        where: { userId }
       })
     ])
 
