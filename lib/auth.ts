@@ -1,9 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
-import { randomBytes } from "node:crypto"
 import { prisma } from "./prisma"
-import bcrypt from "bcryptjs"
 import { verifyPassword } from "./verify-password"
 import { normalizeDashboardTheme } from "./dashboard-theme"
 import {
@@ -11,7 +9,7 @@ import {
   normalizeDisplayCurrency,
 } from "./display-currency"
 import { normalizeEmail } from "./password-policy"
-import { defaultFundAllocationNestedCreate } from "@/lib/fund-allocation-fields"
+import { findOrCreateOAuthUser } from "./oauth-user"
 
 // Validate required environment variables
 if (!process.env.NEXTAUTH_SECRET) {
@@ -78,36 +76,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account }) {
-      // Handle Google OAuth sign-in
       if (account?.provider === "google" && user.email) {
-        // Check if user exists, if not create them
-        const existingUser = await prisma.user.findFirst({
-          where: {
-            email: {
-              equals: normalizeEmail(user.email),
-              mode: "insensitive",
-            },
-          },
-        })
-
-        if (!existingUser) {
-          // Create new user with Google OAuth
-          // Generate an unguessable placeholder password (never used to log in)
-          const randomPassword = await bcrypt.hash(randomBytes(32).toString("hex"), 10)
-
-          const googleEmail = normalizeEmail(user.email)
-          
-          await prisma.user.create({
-            data: {
-              email: googleEmail,
-              password: randomPassword, // Not used for OAuth users, but required by schema
-              name: user.name || null,
-              fundAllocation: {
-                create: defaultFundAllocationNestedCreate(),
-              }
-            }
-          })
-        }
+        await findOrCreateOAuthUser(user.email, user.name ?? null)
       }
       return true
     },
