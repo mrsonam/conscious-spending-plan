@@ -130,13 +130,26 @@ export function ConsoleTopCategoriesCard({
             Array.from({ length: 3 }).map((_, i) => <CategoryRowSkeleton key={i} />)
           ) : ranked.length === 0 ? (
             <li
-              className="flex flex-1 items-center rounded-xl border border-dashed px-4 py-8 text-center text-sm leading-snug"
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.onSurfaceMuted,
-              }}
+              className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center"
+              style={{ borderColor: TOKENS.outlineGhost }}
             >
-              No spending yet this month.
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ background: chipBg, color: TOKENS.onSurfaceMuted }}
+              >
+                <PieChart className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: TOKENS.onSurface }}>
+                  No spending yet this month
+                </p>
+                <p
+                  className="mt-1 text-xs leading-relaxed"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Categories will show up here as you log expenses.
+                </p>
+              </div>
             </li>
           ) : (
             ranked.map((row) => {

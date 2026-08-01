@@ -117,13 +117,26 @@ export function ConsoleSavingGoalsCard({
             Array.from({ length: 2 }).map((_, i) => <GoalRowSkeleton key={i} />)
           ) : shown.length === 0 ? (
             <li
-              className="rounded-xl border border-dashed px-4 py-8 text-center text-sm leading-snug"
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.onSurfaceMuted,
-              }}
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center"
+              style={{ borderColor: TOKENS.outlineGhost }}
             >
-              No goals yet. Create one to give your savings a job.
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ background: chipBg, color: TOKENS.onSurfaceMuted }}
+              >
+                <Target className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: TOKENS.onSurface }}>
+                  No goals yet
+                </p>
+                <p
+                  className="mt-1 text-xs leading-relaxed"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Create one to give your savings a job.
+                </p>
+              </div>
             </li>
           ) : (
             shown.map((goal) => {
