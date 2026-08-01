@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { loadDashboardConsoleSecondaryData } from "@/lib/dashboard-console-server"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
-    const payload = await loadDashboardConsoleSecondaryData(session.user.id, currency)
+    const currency = await getUserDisplayCurrency(authed.userId)
+    const payload = await loadDashboardConsoleSecondaryData(authed.userId, currency)
 
     return moneyJsonResponse(payload, currency, {
       headers: {
