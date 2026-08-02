@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { addMinor } from "@/lib/money"
 import { computeHoldingAmountMinor } from "@/lib/investment-money"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { toApiMoney, sumAmountMinor } from "@/lib/investments-api-map"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { addShares, compareShares, sharesToApiString } from "@/lib/shares"
@@ -12,13 +12,13 @@ import { Decimal } from "@prisma/client/runtime/library"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await request.json()
     const {
       investmentAccountId,
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       const investmentAccount = await tx.account.findFirst({
         where: {
           id: investmentAccountId,
-          userId: session.user.id,
+          userId: authed.userId,
           accountType: "investment",
         },
       })
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
       const holding = await tx.investmentHolding.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountId: investmentAccount.id,
           name: investmentName,
           amount: computed.amountMinor,
@@ -132,21 +132,21 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const toD = (m: bigint) => toApiMoney(m, currency)
 
     const [accounts, dividends] = await Promise.all([
       prisma.account.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountType: "investment",
         },
         include: {
@@ -155,7 +155,7 @@ export async function GET() {
         orderBy: { createdAt: "asc" },
       }),
       prisma.investmentDividend.findMany({
-        where: { userId: session.user.id },
+        where: { userId: authed.userId },
       }),
     ])
 
