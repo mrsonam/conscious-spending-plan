@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { parseMoneyFromApi } from "@/lib/money-api"
@@ -9,13 +10,13 @@ import {
   mapMoneyListToApi,
   ACCOUNT_MONEY_FIELDS,
 } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -23,11 +24,11 @@ export async function GET() {
     }
 
     const accounts = await prisma.account.findMany({
-      where: { userId: session.user.id },
+      where: { userId: authed.userId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     })
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     return moneyJsonResponse(
       {
         accounts: mapMoneyListToApi(

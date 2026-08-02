@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
 import { incomeAllocationToApi, excludedIncomeSavingsAllocationMinor } from "@/lib/income-allocation"
 import { logIncomeEntryForUser } from "@/lib/log-income-entry-server"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const {
       income,
       description,
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       allocateToBudget = true,
     } = await request.json()
 
-    const result = await logIncomeEntryForUser(session.user.id, currency, {
+    const result = await logIncomeEntryForUser(authed.userId, currency, {
       amount: income,
       description,
       date,
@@ -32,12 +32,12 @@ export async function POST(request: Request) {
       allocateToBudget,
     })
 
-    schedulePersistPreviousMonthClosing(session.user.id)
+    schedulePersistPreviousMonthClosing(authed.userId)
 
     let depositAccount = null
     if (result.depositAccountId) {
       depositAccount = await prisma.account.findFirst({
-        where: { id: result.depositAccountId, userId: session.user.id },
+        where: { id: result.depositAccountId, userId: authed.userId },
       })
     }
 
