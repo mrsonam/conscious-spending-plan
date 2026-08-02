@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getCurrentMonthYear, getPreviousMonthRemainingAndOverspentByCategory } from "@/lib/monthly-tracking"
 import { TRACKING_CATEGORIES, calculateCategoryTracking } from "@/lib/category-tracking-calculation"
@@ -14,7 +14,7 @@ import { listCategoryBucketTransfersForMonth } from "@/lib/category-bucket-trans
 import { loadGeneralSavingsContext } from "@/lib/saving-goal-general-savings"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { minorSumToDollars } from "@/lib/money-aggregates"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { addMinor, coerceMinor } from "@/lib/money"
 
 /**
@@ -27,16 +27,16 @@ import { addMinor, coerceMinor } from "@/lib/money"
  */
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
 
     const { searchParams } = new URL(request.url)
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       prisma.categoryBalance.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           month: currentMonth,
           year: currentYear,
         },
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
       prisma.expense.groupBy({
         by: ["category"],
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: {
             gte: startOfMonth,
             lte: endOfMonth,
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
       prisma.transfer.groupBy({
         by: ["category"],
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: {
             gte: startOfMonth,
             lte: endOfMonth,
@@ -118,7 +118,7 @@ export async function GET(request: Request) {
       }),
       prisma.incomeEntry.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: { gte: startOfMonth, lte: endOfMonth },
         },
         select: {
@@ -131,21 +131,21 @@ export async function GET(request: Request) {
         },
       }),
       prisma.fundAllocation.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: authed.userId },
       }),
       getPreviousMonthRemainingAndOverspentByCategory(
-        session.user.id,
+        authed.userId,
         currentMonth,
         currentYear
       ),
       loadGeneralSavingsContext(
         prisma,
-        session.user.id,
+        authed.userId,
         currentMonth,
         currentYear
       ),
       listCategoryBucketTransfersForMonth(
-        session.user.id,
+        authed.userId,
         currentMonth,
         currentYear,
         currency
@@ -195,7 +195,7 @@ export async function GET(request: Request) {
     })
 
     const planVsLiquid = await reconcilePlanToLiquid(
-      session.user.id,
+      authed.userId,
       currentMonth,
       currentYear,
       currency,
