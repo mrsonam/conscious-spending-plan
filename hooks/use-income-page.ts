@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type {
   FundAllocation,
   IncomeBreakdown,
@@ -62,6 +62,30 @@ const EMPTY_INCOME_STATS: IncomePageStats = {
   monthlyTotals: [],
 }
 
+function monthDateRange(year: number, month: number): { startDate: string; endDate: string } {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const lastDay = new Date(year, month, 0).getDate()
+  return {
+    startDate: `${year}-${pad(month)}-01`,
+    endDate: `${year}-${pad(month)}-${pad(lastDay)}`,
+  }
+}
+
+function isInMonth(dateStr: string, year: number, month: number): boolean {
+  const { startDate, endDate } = monthDateRange(year, month)
+  const day = dateStr.slice(0, 10)
+  return day >= startDate && day <= endDate
+}
+
+/** True when `dateStr` falls within the two-month window Source Architecture fetches for `year`/`month`. */
+function isInSourceWindow(dateStr: string, year: number, month: number): boolean {
+  const { startDate, endDate } = sourceArchitectureDateRange(
+    new Date(year, month - 1, 15),
+  )
+  const day = dateStr.slice(0, 10)
+  return day >= startDate && day <= endDate
+}
+
 export function useIncomePage(
   status: string,
   router: { push: (path: string) => void },
@@ -100,6 +124,30 @@ export function useIncomePage(
   const [bulkAllocateToBudget, setBulkAllocateToBudget] = useState(true)
   const [submittingBulk, setSubmittingBulk] = useState(false)
   const [incomeStats, setIncomeStats] = useState<IncomePageStats>(EMPTY_INCOME_STATS)
+
+  const initialPeriod = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(initialPeriod.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(initialPeriod.getFullYear())
+
+  const monthOptions = useMemo(() => {
+    const options: { value: string; label: string; month: number; year: number }[] = []
+    const start = new Date()
+    let year = start.getFullYear()
+    let month = start.getMonth() + 1
+    for (let i = 0; i < 24; i++) {
+      const label = new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      })
+      options.push({ value: `${year}-${month}`, label, month, year })
+      month -= 1
+      if (month < 1) {
+        month = 12
+        year -= 1
+      }
+    }
+    return options
+  }, [])
 
   const summaryFetchGenRef = useRef(0)
   const sourceFetchGenRef = useRef(0)
@@ -150,7 +198,7 @@ export function useIncomePage(
     async (force = false, options?: FetchOptions) => {
       const silent = options?.silent === true
       const requestGen = ++summaryFetchGenRef.current
-      const cacheKey = "income:summary"
+      const cacheKey = `income:summary:${selectedYear}-${selectedMonth}`
 
       if (!force && !silent) {
         const cached = peekCachedJson<IncomePageStats>(cacheKey, 30_000)
@@ -165,7 +213,7 @@ export function useIncomePage(
       }
 
       try {
-        const path = "/api/income-entries/summary"
+        const path = `/api/income-entries/summary?month=${selectedMonth}&year=${selectedYear}`
         const data = await fetchJsonAndCache<IncomePageStats>(
           cacheKey,
           force || silent ? withCacheBust(path) : path,
@@ -182,14 +230,14 @@ export function useIncomePage(
         }
       }
     },
-    [applyIncomeStats],
+    [applyIncomeStats, selectedMonth, selectedYear],
   )
 
   const fetchIncomeSource = useCallback(
     async (force = false, options?: FetchOptions) => {
       const silent = options?.silent === true
       const requestGen = ++sourceFetchGenRef.current
-      const cacheKey = "income:source"
+      const cacheKey = `income:source:${selectedYear}-${selectedMonth}`
 
       if (!force && !silent) {
         const cached = peekCachedJson<{ entries?: IncomeEntry[] }>(cacheKey, 30_000)
@@ -204,7 +252,9 @@ export function useIncomePage(
       }
 
       try {
-        const { startDate, endDate } = sourceArchitectureDateRange()
+        const { startDate, endDate } = sourceArchitectureDateRange(
+          new Date(selectedYear, selectedMonth - 1, 15),
+        )
         const path = `/api/income-entries?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
         const data = await fetchJsonAndCache<{ entries?: IncomeEntry[] }>(
           cacheKey,
@@ -222,14 +272,22 @@ export function useIncomePage(
         }
       }
     },
-    [applySourceEntriesPayload],
+    [applySourceEntriesPayload, selectedMonth, selectedYear],
   )
 
   const fetchIncomeEntries = useCallback(
     async (page: number = 1, force = false, options?: FetchOptions) => {
       const silent = options?.silent === true
       const requestGen = ++historyFetchGenRef.current
-      const cacheKey = `income:list:page:${page}`
+      const { startDate, endDate } = monthDateRange(selectedYear, selectedMonth)
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(CONSOLE_TABLE_PAGE_SIZE),
+        includeStats: "false",
+        startDate,
+        endDate,
+      })
+      const cacheKey = `income:list:${params.toString()}`
 
       if (!force && !silent) {
         const cached = peekCachedJson<Record<string, unknown>>(cacheKey, 30_000)
@@ -245,7 +303,7 @@ export function useIncomePage(
       }
 
       try {
-        const path = `/api/income-entries?page=${page}&limit=${CONSOLE_TABLE_PAGE_SIZE}&includeStats=false`
+        const path = `/api/income-entries?${params.toString()}`
         const data = await fetchJsonAndCache<Record<string, unknown>>(
           cacheKey,
           force || silent ? withCacheBust(path) : path,
@@ -263,7 +321,7 @@ export function useIncomePage(
         }
       }
     },
-    [applyIncomeListPayload],
+    [applyIncomeListPayload, selectedMonth, selectedYear],
   )
 
   useLayoutEffect(() => {
@@ -277,13 +335,12 @@ export function useIncomePage(
       "income:accounts",
       60_000,
     )
-    const cachedSummary = peekCachedJson<IncomePageStats>("income:summary", 30_000)
-    const cachedSource = peekCachedJson<{ entries?: IncomeEntry[] }>(
-      "income:source",
+    const cachedSummary = peekCachedJson<IncomePageStats>(
+      `income:summary:${selectedYear}-${selectedMonth}`,
       30_000,
     )
-    const cachedHistory = peekCachedJson<Record<string, unknown>>(
-      "income:list:page:1",
+    const cachedSource = peekCachedJson<{ entries?: IncomeEntry[] }>(
+      `income:source:${selectedYear}-${selectedMonth}`,
       30_000,
     )
 
@@ -297,20 +354,11 @@ export function useIncomePage(
       applySourceEntriesPayload(cachedSource)
       setLoadingSource(false)
     }
-    if (cachedHistory) {
-      applyIncomeListPayload(cachedHistory)
-      setHasLoadedHistory(true)
-    }
     if (cachedAllocation && cachedAccounts) {
       setLoadingForm(false)
     }
-  }, [
-    status,
-    applyAccountsPayload,
-    applyIncomeListPayload,
-    applyIncomeStats,
-    applySourceEntriesPayload,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -324,20 +372,9 @@ export function useIncomePage(
         "income:accounts",
         60_000,
       )
-      const cachedSummary = peekCachedJson<IncomePageStats>(
-        "income:summary",
-        30_000,
-      )
-      const cachedSource = peekCachedJson<{ entries?: IncomeEntry[] }>(
-        "income:source",
-        30_000,
-      )
-
       if (!cachedAllocation || !cachedAccounts) {
         setLoadingForm(true)
       }
-      if (!cachedSummary) setLoadingSummary(true)
-      if (!cachedSource) setLoadingSource(true)
       setLoadingHistory(false)
 
       setDate(getLocalDateString())
@@ -361,20 +398,27 @@ export function useIncomePage(
         }
         setLoadingForm(false)
       })
+    }
+  }, [status, router, applyAccountsPayload])
 
+  // Separate from the accounts effect so changing the selected month (which
+  // changes fetchIncomeSummary/fetchIncomeSource's identity) doesn't also
+  // re-fetch allocation/accounts.
+  useEffect(() => {
+    if (status === "authenticated") {
       void fetchIncomeSummary(false)
       void fetchIncomeSource(false)
     }
-  }, [
-    status,
-    router,
-    applyAccountsPayload,
-    applyIncomeListPayload,
-    applyIncomeStats,
-    applySourceEntriesPayload,
-    fetchIncomeSummary,
-    fetchIncomeSource,
-  ])
+  }, [status, fetchIncomeSummary, fetchIncomeSource])
+
+  // Re-fetch the history list when the selected month changes, but only once
+  // it has actually been loaded (matches the lazy-load pattern above).
+  useEffect(() => {
+    if (status === "authenticated" && hasLoadedHistory) {
+      setIncomePage(1)
+      void fetchIncomeEntries(1)
+    }
+  }, [selectedMonth, selectedYear, status, hasLoadedHistory, fetchIncomeEntries])
 
   const applyOptimisticIncome = useCallback(
     (
@@ -384,24 +428,35 @@ export function useIncomePage(
       account: IncomePageAccount | null,
     ) => {
       setBreakdown(breakdown)
-      setIncomeStats((prev) =>
-        applyOptimisticIncomeSummaryDelta(prev, depositAmount, entry.date),
-      )
 
-      if (isInCurrentMonth(entry.date)) {
+      // The hero stats and history list are scoped to the selected month; only
+      // flash an optimistic update when the new entry actually belongs to the
+      // month currently on screen. Otherwise the silent reconcile after the
+      // request settles brings things up to date instead.
+      const inSelectedMonth = isInMonth(entry.date, selectedYear, selectedMonth)
+
+      if (inSelectedMonth) {
+        setIncomeStats((prev) =>
+          applyOptimisticIncomeSummaryDelta(prev, depositAmount, entry.date),
+        )
+      }
+
+      if (isInSourceWindow(entry.date, selectedYear, selectedMonth)) {
         setSourceEntries((prev) => {
           if (prev.some((row) => row.id === entry.id)) return prev
           return [entry, ...prev]
         })
       }
 
-      setHasLoadedHistory(true)
-      setIncomePage(1)
-      setIncomeEntries((prev) => {
-        if (prev.some((row) => row.id === entry.id)) return prev
-        return [entry, ...prev]
-      })
-      setIncomeTotal((total) => total + 1)
+      if (inSelectedMonth) {
+        setHasLoadedHistory(true)
+        setIncomePage(1)
+        setIncomeEntries((prev) => {
+          if (prev.some((row) => row.id === entry.id)) return prev
+          return [entry, ...prev]
+        })
+        setIncomeTotal((total) => total + 1)
+      }
 
       if (account) {
         setAccounts((prev) =>
@@ -413,7 +468,7 @@ export function useIncomePage(
         )
       }
     },
-    [],
+    [selectedMonth, selectedYear],
   )
 
   const rollbackIncomeLog = useCallback((snapshot: IncomeLogSnapshot) => {
@@ -935,6 +990,11 @@ export function useIncomePage(
     incomeTotal,
     incomePage,
     incomeLimit: CONSOLE_TABLE_PAGE_SIZE,
+    selectedMonth,
+    setSelectedMonth,
+    selectedYear,
+    setSelectedYear,
+    monthOptions,
     income,
     setIncome,
     description,

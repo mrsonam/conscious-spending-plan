@@ -3,10 +3,19 @@ import type { IncomePageStats } from "@/lib/income-page-types"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { getUserDisplayCurrency } from "@/lib/user-currency"
 
-export async function getIncomePageStats(userId: string): Promise<IncomePageStats> {
+/**
+ * @param referenceDate Treated as "now" for every relative range (current
+ *   month, YTD, previous month, trailing 6-month totals). Defaults to the
+ *   real current date; pass a date within a browsed month to get that
+ *   month's stats instead.
+ */
+export async function getIncomePageStats(
+  userId: string,
+  referenceDate: Date = new Date(),
+): Promise<IncomePageStats> {
   const currency = await getUserDisplayCurrency(userId)
   const toD = (v: bigint | null | undefined) => minorSumToDollars(v, currency)
-  const now = new Date()
+  const now = referenceDate
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const lastMonthEnd = new Date(
     now.getFullYear(),
@@ -28,7 +37,7 @@ export async function getIncomePageStats(userId: string): Promise<IncomePageStat
     999,
   )
   const yearStart = new Date(now.getFullYear(), 0, 1)
-  const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+  const yearEnd = currentMonthEnd
 
   function monthKey(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`

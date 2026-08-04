@@ -22,6 +22,8 @@ type Props = {
   incomeStats: IncomePageStats
   loading: boolean
   className?: string
+  /** Treated as "now" for the current/prior month split. Defaults to the real current date. */
+  referenceDate?: Date
 }
 
 function PanelShell({
@@ -113,18 +115,20 @@ export function IncomeSourceArchitecture({
   incomeStats,
   loading,
   className,
+  referenceDate = new Date(),
 }: Props) {
   const { formatCurrency } = useFormatCurrency()
   const reducedMotion = usePrefersReducedMotion()
-  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long" }).format(
-    new Date(),
-  )
+  const monthLabel = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(referenceDate)
 
   if (loading) {
     return <IncomeSourceArchitectureSkeleton className={className} />
   }
 
-  const grouped = groupIncomeSources(entries, entries)
+  const grouped = groupIncomeSources(entries, entries, { now: referenceDate })
 
   return (
     <PanelShell className={className}>

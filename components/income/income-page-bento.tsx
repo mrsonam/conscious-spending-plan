@@ -48,6 +48,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
 } from "lucide-react"
 
 const consoleField =
@@ -288,6 +289,12 @@ export function IncomePageBento(p: UseIncomePageResult) {
   const perf = p.incomeStats.monthOverMonthPct
   const animatedRevenue = useCountUp(p.incomeStats.currentMonthTotal)
   const sparklineValues = p.incomeStats.monthlyTotals.map((t) => t.total)
+  const selectedMonthLabel =
+    p.monthOptions.find((o) => o.month === p.selectedMonth && o.year === p.selectedYear)?.label ??
+    new Date(p.selectedYear, p.selectedMonth - 1).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    })
 
   return (
     <>
@@ -299,7 +306,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               className="text-[10px] font-semibold uppercase tracking-[0.28em]"
               style={{ color: TOKENS.onSurfaceMuted }}
             >
-              Current monthly revenue
+              Current monthly revenue · {selectedMonthLabel}
             </p>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
               {showMetricSkeleton ? (
@@ -361,61 +368,59 @@ export function IncomePageBento(p: UseIncomePageResult) {
           </div>
         </section>
 
-        <section className="lg:col-span-4">
-          <div
-            className="rounded-xl border p-6 sm:p-7"
-            style={{
-              background: TOKENS.surfaceContainer,
-              borderColor: TOKENS.outlineGhost,
-              boxShadow: CARD_INSET,
+        <section
+          className="flex flex-col items-stretch gap-2.5 sm:items-end lg:col-span-4"
+          aria-labelledby="income-command-heading"
+        >
+          <h2 id="income-command-heading" className="sr-only">
+            Command actions
+          </h2>
+          <label htmlFor="income-summary-period" className="sr-only">
+            Statement period
+          </label>
+          <AppSelect
+            id="income-summary-period"
+            value={`${p.selectedYear}-${p.selectedMonth}`}
+            onValueChange={(v) => {
+              const [y, m] = v.split("-").map(Number)
+              p.setSelectedYear(y)
+              p.setSelectedMonth(m)
             }}
-          >
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              Command actions
-            </p>
-            <p
-              className="mt-3 text-sm leading-snug"
-              style={{ color: TOKENS.onSurfaceMuted }}
-            >
-              Instantiate a new income entry with contextual tags and
-              allocation rules.
-            </p>
-
-            <button
-              type="button"
-              onClick={openLogDialog}
-              disabled={p.loadingForm || !p.allocation}
-              className={cn(
-                "mt-5 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50",
-                consoleFocus,
-              )}
-              style={{
-                background: TOKENS.primary,
-                color: TOKENS.surface,
-                boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-              }}
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.5} />
-              Log new income
-            </button>
-
+            className="border-transparent"
+            triggerClassName="h-10 w-40"
+            style={{
+              backgroundColor: TOKENS.surfaceLow,
+              borderColor: TOKENS.outlineGhost,
+              color: TOKENS.onSurface,
+            }}
+            options={p.monthOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={openBulkImport}
               disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
               className={cn(
-                "mt-3 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:bg-white/6 disabled:opacity-50",
+                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors hover:bg-white/6 disabled:opacity-50",
                 consoleFocus,
               )}
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.onSurfaceMuted,
-              }}
+              style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
             >
-              Bulk import
+              <Upload className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {p.loadingForm ? "Waiting…" : "Bulk"}
+            </button>
+            <button
+              type="button"
+              onClick={openLogDialog}
+              disabled={p.loadingForm || !p.allocation}
+              className={cn(
+                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-opacity hover:opacity-95 disabled:opacity-50",
+                consoleFocus,
+              )}
+              style={{ background: TOKENS.primary, color: TOKENS.surface }}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+              {p.loadingForm ? "Connecting…" : "Log income"}
             </button>
           </div>
         </section>
@@ -426,6 +431,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
         entries={p.sourceEntries}
         incomeStats={p.incomeStats}
         loading={showSourceSkeleton}
+        referenceDate={new Date(p.selectedYear, p.selectedMonth - 1, 15)}
         className="mt-4 lg:mt-5"
       />
 

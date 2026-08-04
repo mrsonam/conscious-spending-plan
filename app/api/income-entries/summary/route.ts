@@ -13,8 +13,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const monthParam = parseInt(searchParams.get("month") ?? "", 10)
+    const yearParam = parseInt(searchParams.get("year") ?? "", 10)
+    const hasValidMonth =
+      Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12 &&
+      Number.isInteger(yearParam) && yearParam >= 2000 && yearParam <= 2100
+    const referenceDate = hasValidMonth ? new Date(yearParam, monthParam - 1, 15) : undefined
+
     const currency = await getUserDisplayCurrency(authed.userId)
-    const stats = await getIncomePageStats(authed.userId)
+    const stats = await getIncomePageStats(authed.userId, referenceDate)
 
     return moneyJsonResponse(stats, currency, {
       headers: {

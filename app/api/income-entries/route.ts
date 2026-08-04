@@ -217,7 +217,8 @@ export async function GET(request: Request) {
     }
 
     const hasDateRange = startDateParam && endDateParam
-    if (hasDateRange || forStatement) {
+    const hasPageParam = searchParams.has("page")
+    if ((hasDateRange && !hasPageParam) || forStatement) {
       const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId: userId }
       if (hasDateRange) {
         const start = new Date(startDateParam)
@@ -255,15 +256,23 @@ export async function GET(request: Request) {
     const limit = Math.min(20, Math.max(5, parseInt(searchParams.get("limit") || "10", 10)))
     const skip = (page - 1) * limit
 
+    const where: { userId: string; date?: { gte: Date; lte: Date } } = { userId }
+    if (hasDateRange) {
+      const start = new Date(startDateParam)
+      const end = new Date(endDateParam)
+      end.setHours(23, 59, 59, 999)
+      where.date = { gte: start, lte: end }
+    }
+
     const [entries, total, stats] = await Promise.all([
       prisma.incomeEntry.findMany({
-        where: { userId: userId },
+        where,
         include: { account: true },
         orderBy: { date: "desc" },
         skip,
         take: limit,
       }),
-      prisma.incomeEntry.count({ where: { userId: userId } }),
+      prisma.incomeEntry.count({ where }),
       includeStats
         ? getIncomePageStats(userId)
         : Promise.resolve(null),

@@ -38,7 +38,10 @@ export function prefetchRouteData(href: string) {
     case BENTO.income:
       warmIfMissing("income:allocation", `/api/fund-allocation?t=${t}`)
       warmIfMissing("income:accounts", `/api/accounts?t=${t}`)
-      warmIfMissing("income:summary", `/api/income-entries/summary?t=${t}`)
+      warmIfMissing(
+        `income:summary:${year}-${month}`,
+        `/api/income-entries/summary?month=${month}&year=${year}&t=${t}`,
+      )
       break
     case BENTO.expenses:
       warmIfMissing("accounts", `/api/accounts?t=${t}`)
