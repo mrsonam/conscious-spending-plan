@@ -21,7 +21,10 @@ import {
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
 import { ensurePreTrackingSavingsBalances, invalidatePreTrackingEnsureCache } from "@/lib/pre-tracking-savings"
-import { ensureCategoryBucketTransferTable } from "@/lib/ensure-category-bucket-transfer-table"
+import {
+  ensureCategoryBucketTransferTable,
+  isMissingCategoryBucketTransferTable,
+} from "@/lib/ensure-category-bucket-transfer-table"
 import { upsertEnvelopeBalancesForMonth } from "@/lib/envelope-balance-recompute"
 import { computeGeneralSavingsAvailableMinor } from "@/lib/saving-goal-general-savings"
 
@@ -166,7 +169,6 @@ export async function transferCategoryBucketFunds(params: {
   invalidatePreTrackingEnsureCache(userId)
   await ensurePreTrackingSavingsBalances(userId, { force: true })
   await ensureMonthlyCategoryBalances(userId, month, year)
-  await ensureCategoryBucketTransferTable()
 
   const snapshot = await loadMonthTrackingSnapshot(userId, month, year, currency)
   const sourceRow = snapshot.tracking[fromCategory as TrackingCategory]
@@ -209,18 +211,30 @@ export async function transferCategoryBucketFunds(params: {
     return { ok: false, error: "Source envelope is too low for this transfer" }
   }
 
-  await prisma.$transaction(async (tx: Tx) => {
-    await tx.categoryBucketTransfer.create({
-      data: {
-        userId,
-        fromCategory,
-        toCategory,
-        amount: amountMinor,
-        month,
-        year,
-      },
+  const createTransfer = () =>
+    prisma.$transaction(async (tx: Tx) => {
+      await tx.categoryBucketTransfer.create({
+        data: {
+          userId,
+          fromCategory,
+          toCategory,
+          amount: amountMinor,
+          month,
+          year,
+        },
+      })
     })
-  })
+
+  try {
+    await createTransfer()
+  } catch (error) {
+    // Only fall back to the direct connection (needed for DDL on a Supabase
+    // pooler) when the table is actually missing; the pooled connection
+    // handles every other case, including when the direct URL is stale.
+    if (!isMissingCategoryBucketTransferTable(error)) throw error
+    await ensureCategoryBucketTransferTable()
+    await createTransfer()
+  }
 
   await upsertEnvelopeBalancesForMonth(userId, month, year, currency)
   await ensureMonthClosing(userId, month, year)

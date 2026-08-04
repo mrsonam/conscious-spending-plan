@@ -24,28 +24,32 @@ export async function getBucketTransferNetByCategory(
 ): Promise<Record<FundCategory, bigint>> {
   const nets = emptyBucketNets()
 
-  await ensureCategoryBucketTransferTable()
-
-  try {
-    const rows = await prisma.categoryBucketTransfer.findMany({
+  const queryRows = () =>
+    prisma.categoryBucketTransfer.findMany({
       where: { userId, month, year },
       select: { fromCategory: true, toCategory: true, amount: true },
     })
 
-    for (const row of rows) {
-      const amount = coerceMinor(row.amount)
-      if (isFundCategory(row.fromCategory)) {
-        nets[row.fromCategory] = subtractMinor(nets[row.fromCategory], amount)
-      }
-      if (isFundCategory(row.toCategory)) {
-        nets[row.toCategory] = addMinor(nets[row.toCategory], amount)
-      }
-    }
+  let rows
+  try {
+    rows = await queryRows()
   } catch (error) {
-    if (isMissingCategoryBucketTransferTable(error)) {
-      return nets
+    // Only fall back to the direct connection (needed for DDL on a Supabase
+    // pooler) when the table is actually missing; the pooled connection
+    // handles every other case, including when the direct URL is stale.
+    if (!isMissingCategoryBucketTransferTable(error)) throw error
+    await ensureCategoryBucketTransferTable()
+    rows = await queryRows()
+  }
+
+  for (const row of rows) {
+    const amount = coerceMinor(row.amount)
+    if (isFundCategory(row.fromCategory)) {
+      nets[row.fromCategory] = subtractMinor(nets[row.fromCategory], amount)
     }
-    throw error
+    if (isFundCategory(row.toCategory)) {
+      nets[row.toCategory] = addMinor(nets[row.toCategory], amount)
+    }
   }
 
   return nets
