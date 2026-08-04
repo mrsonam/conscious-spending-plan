@@ -918,6 +918,7 @@ export function useExpensePage(
 
       toastSuccess("Expense updated.")
 
+      setSubmitting(true)
       void (async () => {
         try {
           const response = await fetch(
@@ -958,6 +959,7 @@ export function useExpensePage(
           )
         } finally {
           expenseLogInFlightRef.current = false
+          setSubmitting(false)
         }
       })()
 
@@ -988,6 +990,7 @@ export function useExpensePage(
     resetLogForm()
     setShowAddForm(false)
 
+    setSubmitting(true)
     void (async () => {
       try {
         const response = await fetch("/api/expenses", {
@@ -1018,6 +1021,7 @@ export function useExpensePage(
         )
       } finally {
         expenseLogInFlightRef.current = false
+        setSubmitting(false)
       }
     })()
 

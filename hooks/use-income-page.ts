@@ -613,6 +613,7 @@ export function useIncomePage(
 
       toastSuccess("Income updated.")
 
+      setCalculating(true)
       void (async () => {
         try {
           const response = await fetch(
@@ -650,6 +651,7 @@ export function useIncomePage(
           )
         } finally {
           incomeLogInFlightRef.current = false
+          setCalculating(false)
         }
       })()
 
@@ -689,6 +691,7 @@ export function useIncomePage(
 
     resetLogForm()
 
+    setCalculating(true)
     void (async () => {
       try {
         const response = await fetch("/api/calculate", {
@@ -725,6 +728,7 @@ export function useIncomePage(
         )
       } finally {
         incomeLogInFlightRef.current = false
+        setCalculating(false)
       }
     })()
 

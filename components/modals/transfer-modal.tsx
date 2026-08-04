@@ -148,6 +148,7 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
     toastSuccess("Transfer completed!")
     if (onSuccess) onSuccess()
 
+    setTransferring(true)
     void (async () => {
       try {
         const response = await fetch("/api/transfers", {
@@ -175,6 +176,8 @@ export function TransferModal({ open, onOpenChange, onSuccess }: TransferModalPr
         setFormError("An error occurred")
         toastError("An error occurred")
         onOpenChange(true)
+      } finally {
+        setTransferring(false)
       }
     })()
   }

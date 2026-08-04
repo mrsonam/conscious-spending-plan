@@ -313,6 +313,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
           body: { name, bankName, accountType, startingFunds: balance, isDefault, ...detailsPayload },
         }
 
+    setSavingAccount(true)
     void (async () => {
       try {
         const response = await fetch("/api/accounts", {
@@ -335,6 +336,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         setAccounts(snapshot)
         setAccountFormError("An error occurred")
         toastError("An error occurred")
+      } finally {
+        setSavingAccount(false)
       }
     })()
   }
@@ -450,6 +453,7 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
     setTransferDate(getLocalDateString())
     toastSuccess("Transfer completed!")
 
+    setTransferring(true)
     void (async () => {
       try {
         const response = await fetch("/api/transfers", {
@@ -472,6 +476,8 @@ export function useAccountsPage(authStatus: "loading" | "authenticated" | "unaut
         setAccounts(snapshot)
         setTransferFormError("An error occurred")
         toastError("An error occurred")
+      } finally {
+        setTransferring(false)
       }
     })()
   }

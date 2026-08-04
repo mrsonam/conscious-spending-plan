@@ -198,6 +198,7 @@ export function useSavingGoalsPage(
     toastSuccess("Saving goal created")
     resetForm()
 
+    setSubmitting(true)
     void (async () => {
       try {
         const res = await fetch("/api/saving-goals", {
@@ -222,6 +223,8 @@ export function useSavingGoalsPage(
         setSummary(snapshot.summary)
         setFormError("An error occurred")
         toastError("An error occurred")
+      } finally {
+        setSubmitting(false)
       }
     })()
 
