@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppSelect } from "@/components/ui/app-select"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
@@ -156,6 +157,7 @@ export function SubscriptionsPageBento() {
 
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
@@ -472,8 +474,14 @@ export function SubscriptionsPageBento() {
     })()
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Remove this subscription from the list? The recurring charge will stay in Expenses until you delete it there.")) return
+  const handleDelete = (id: string) => {
+    setDeleteId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteId) return
+    const id = deleteId
+    setDeleteId(null)
 
     const snapshot = cloneSubscriptionState(subscriptions, monthlyActiveTotal)
     const optimistic = applyOptimisticSubscriptionDelete(subscriptions, monthlyActiveTotal, id)
@@ -858,7 +866,7 @@ export function SubscriptionsPageBento() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => void handleDelete(s.id)}
+                      onClick={() => handleDelete(s.id)}
                       className="rounded-lg p-2 transition-colors hover:bg-white/10"
                       style={{ color: ERROR_SOFT }}
                       title="Remove"
@@ -1217,6 +1225,17 @@ export function SubscriptionsPageBento() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Remove subscription"
+        description="Remove this subscription from the list? The recurring charge will stay in Expenses until you delete it there."
+        confirmText="Remove"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   )
 }
