@@ -2,6 +2,7 @@
 
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 
 export const TRENDS_MONTH_OPTIONS = [
   { label: "6 months", value: 6 },
@@ -77,7 +78,10 @@ export function TrendsPeriodSelector({
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[12px] font-medium transition-[background-color,color,box-shadow,transform] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100",
+            consoleFocus,
+          )}
           style={{
             background: value === opt.value ? TOKENS.surfaceHigh : "transparent",
             color: value === opt.value ? TOKENS.onSurface : TOKENS.onSurfaceMuted,

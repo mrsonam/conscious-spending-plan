@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { BENTO } from "@/lib/app-routes"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
@@ -80,7 +81,7 @@ const FundFieldBento = React.memo(
 
     return (
       <div
-        className="relative overflow-hidden rounded-2xl border transition-[transform] duration-300 hover:-translate-y-0.5"
+        className="relative overflow-hidden rounded-2xl border"
         style={{
           background: TOKENS.surfaceContainer,
           borderColor: TOKENS.outlineGhost,
@@ -136,7 +137,10 @@ const FundFieldBento = React.memo(
                     key={opt.value}
                     type="button"
                     onClick={() => updateField(typeField, opt.value)}
-                    className="relative flex-1 rounded-lg px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-200"
+                    className={cn(
+                      "relative flex-1 rounded-lg px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                      consoleFocus,
+                    )}
                     style={{
                       background: active ? TOKENS.surfaceContainer : "transparent",
                       color: active ? TOKENS.primary : TOKENS.onSurfaceMuted,
@@ -306,16 +310,15 @@ const FundFieldBento = React.memo(
                 </div>
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full" style={{ background: TOKENS.surfaceHigh }}>
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="console-budget-fill h-full w-full origin-left rounded-full"
                     style={{
-                      width: `${Math.min(100, percentageUsed)}%`,
+                      transform: `scaleX(${Math.min(100, percentageUsed) / 100})`,
                       background:
                         percentageUsed >= 100
                           ? ERROR_SOFT
                           : percentageUsed >= 80
                             ? "#eab308"
                             : accent,
-                      boxShadow: undefined,
                     }}
                   />
                 </div>
@@ -384,6 +387,68 @@ const PILLARS: {
     Icon: CreditCard,
   },
 ]
+
+function AllocationTotalBanner({ allocation }: { allocation: FundAllocation }) {
+  const percentagePillars = PILLARS.filter(
+    (p) => allocation[p.typeField] === "percentage",
+  )
+  const fixedPillars = PILLARS.filter((p) => allocation[p.typeField] === "fixed")
+  const percentageTotal = percentagePillars.reduce(
+    (sum, p) => sum + (Number(allocation[p.valueField]) || 0),
+    0,
+  )
+  const rounded = Math.round(percentageTotal * 10) / 10
+
+  if (fixedPillars.length > 0) {
+    return (
+      <p
+        className="rounded-xl border px-4 py-3 text-xs leading-relaxed sm:mx-5"
+        style={{
+          borderColor: TOKENS.outlineGhost,
+          background: TOKENS.surfaceLow,
+          color: TOKENS.onSurfaceMuted,
+        }}
+      >
+        <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+          {rounded}%
+        </span>{" "}
+        of income allocated across percentage-based pillars ·{" "}
+        {fixedPillars.length} pillar{fixedPillars.length === 1 ? "" : "s"} use a
+        fixed dollar amount, so this total won&apos;t reach 100% on its own.
+      </p>
+    )
+  }
+
+  const isOver = rounded > 100.05
+  const isUnder = rounded < 99.95
+  const tone = isOver ? ERROR_SOFT : isUnder ? TOKENS.warning : TOKENS.primary
+  const message = isOver
+    ? `Over-allocated by ${(rounded - 100).toFixed(1)}%`
+    : isUnder
+      ? `${(100 - rounded).toFixed(1)}% of income is unassigned`
+      : "Fully allocated"
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs sm:mx-5"
+      style={{
+        borderColor: `color-mix(in srgb, ${tone} 35%, ${TOKENS.outlineGhost})`,
+        background: `color-mix(in srgb, ${tone} 8%, ${TOKENS.surfaceLow})`,
+        color: TOKENS.onSurfaceMuted,
+      }}
+    >
+      <span>
+        <span className="font-semibold" style={{ color: TOKENS.onSurface }}>
+          {rounded}%
+        </span>{" "}
+        of income allocated
+      </span>
+      <span className="font-bold uppercase tracking-wide" style={{ color: tone }}>
+        {message}
+      </span>
+    </div>
+  )
+}
 
 export function FundsPageBento() {
   const {
@@ -484,6 +549,8 @@ export function FundsPageBento() {
       <form noValidate onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         <FormStatusAlert message={message} className="sm:px-5" />
 
+        <AllocationTotalBanner allocation={allocation} />
+
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:gap-7">
           {PILLARS.map((p) => (
             <FundFieldBento
@@ -509,7 +576,10 @@ export function FundsPageBento() {
         {savingGoalsSummary ? (
           <Link
             href={BENTO.savingGoals}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 transition-opacity hover:opacity-95 sm:px-5"
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 sm:px-5",
+              consoleFocus,
+            )}
             style={{
               borderColor: TOKENS.outlineGhost,
               background: `color-mix(in srgb, ${TOKENS.primary} 8%, ${TOKENS.surfaceContainer})`,
@@ -539,7 +609,10 @@ export function FundsPageBento() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-8 py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-all duration-200 hover:opacity-[0.97] active:scale-[0.99] disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+            className={cn(
+              "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl px-8 py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-200 hover:opacity-[0.97] active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100 sm:w-auto sm:min-w-[220px]",
+              consoleFocus,
+            )}
             style={{
               background: TOKENS.primary,
               color: TOKENS.surface,

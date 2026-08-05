@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import {
   CheckCircle2,
+  ChevronLeft,
   CreditCard,
   Landmark,
   Loader2,
@@ -13,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react"
 import { TOKENS } from "@/lib/wealth-console-tokens"
+import { BENTO } from "@/lib/app-routes"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { cn } from "@/lib/utils"
@@ -660,6 +663,9 @@ function EditAccountModal({
                           className={cn(consoleField, "mt-1 border-transparent font-mono tracking-widest")}
                           style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                         />
+                        <p className="mt-1.5 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Only the last 4 digits are saved — the full number is never stored.
+                        </p>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -705,7 +711,10 @@ function EditAccountModal({
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
+              className={cn(
+                "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
             >
               {saving ? (
@@ -797,6 +806,18 @@ export function AccountDetailView({
 
   return (
     <>
+        <Link
+          href={BENTO.accounts}
+          className={cn(
+            "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-1 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors hover:text-white",
+            consoleFocus,
+          )}
+          style={{ color: TOKENS.onSurfaceMuted }}
+        >
+          <ChevronLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Accounts
+        </Link>
+
         {loading && <Skeleton />}
 
         {error && (

@@ -105,10 +105,7 @@ export function SmartInsights({
 
   return (
     <section
-      className={cn(
-        "rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6",
-        className,
-      )}
+      className={cn("rounded-xl p-5 sm:p-6", className)}
       style={{
         background: cardBg,
         boxShadow: CARD_INSET,
@@ -144,7 +141,7 @@ export function SmartInsights({
           onClick={load}
           disabled={loading}
           className={cn(
-            "rounded-lg p-2 transition-colors disabled:opacity-40",
+            "rounded-lg p-2 transition-[background-color,transform] duration-150 active:scale-90 disabled:opacity-40 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
             consoleFocus,
           )}
           style={{ color: TOKENS.onSurfaceMuted }}
@@ -190,7 +187,7 @@ export function SmartInsights({
             type="button"
             onClick={load}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors",
+              "rounded-lg px-3 py-1.5 text-[12px] font-medium transition-[background-color,transform] duration-150 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{

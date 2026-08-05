@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import {
@@ -97,7 +99,10 @@ export function CashFlowForecastBento() {
               key={opt.value}
               type="button"
               onClick={() => changeDays(opt.value)}
-              className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-[12px] font-medium transition-[background-color,color,box-shadow,transform] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{
                 background:
                   days === opt.value ? TOKENS.surfaceHigh : "transparent",

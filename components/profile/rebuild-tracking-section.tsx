@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { toastSuccess, toastError } from "@/lib/app-toast"
 
@@ -49,7 +50,10 @@ export function RebuildTrackingSection() {
         type="button"
         disabled={busy}
         onClick={() => void onClick()}
-        className="mt-4 flex w-full touch-manipulation items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-opacity disabled:opacity-60"
+        className={cn(
+          "mt-4 flex w-full touch-manipulation items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+          consoleFocus,
+        )}
         style={{
           background: TOKENS.surfaceHigh,
           color: TOKENS.onSurface,

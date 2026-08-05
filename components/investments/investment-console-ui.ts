@@ -14,7 +14,7 @@ export const investmentFieldLabelClass =
   "text-[10px] font-semibold uppercase tracking-wider"
 
 export const investmentConsoleButtonClass = cn(
-  "transition-colors hover:bg-white/6",
+  "transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
   consoleFocus,
 )
 
@@ -36,7 +36,7 @@ export function investmentPlBadgeStyle(positive: boolean) {
 }
 
 export const investmentSleeveActionClass = cn(
-  "mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em]",
+  "mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-transform duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
   consoleFocus,
 )
 

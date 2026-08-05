@@ -100,7 +100,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                         >
                           Net worth
                         </p>
-                        <div className="mt-2 text-3xl leading-[1.05] tracking-tight sm:text-4xl">
+                        <div className="mt-2 text-2xl leading-[1.05] tracking-tight sm:text-3xl">
                           {showNetWorthSkeleton ? (
                             <ScrambleCurrencyValue min={2500} max={28000} />
                           ) : (
@@ -268,7 +268,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                         </div>
                         <p
                           className="mt-2 text-[11px] leading-snug"
-                          style={{ color: TOKENS.onSurfaceMuted }}
+                          style={{ color: TOKENS.onSurfaceMutedElevated }}
                         >
                           Total expenses · this month
                         </p>
@@ -345,7 +345,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                             <SkeletonBlock className="mt-4 h-2.5 w-full rounded-full" />
                             <p
                               className="mt-2 text-[10px]"
-                              style={{ color: TOKENS.onSurfaceMuted }}
+                              style={{ color: TOKENS.onSurfaceMutedElevated }}
                             >
                               Expenses + invested vs monthly allocation
                             </p>
@@ -371,7 +371,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                             </div>
                             <p
                               className="mt-2 text-[10px]"
-                              style={{ color: TOKENS.onSurfaceMuted }}
+                              style={{ color: TOKENS.onSurfaceMutedElevated }}
                             >
                               Expenses + invested vs monthly allocation
                             </p>
@@ -455,7 +455,7 @@ export function ConsolePulseSection({ vm }: { vm: WealthConsoleDashboardVM }) {
                           <SkeletonBlock className="mt-3 h-1 w-full rounded-full" />
                         ) : null}
                         {showInvestmentMonthSkeleton ? (
-                          <div className="mt-2 text-[10px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                          <div className="mt-2 text-[10px]" style={{ color: TOKENS.onSurfaceMutedElevated }}>
                             allocation syncing
                           </div>
                         ) : null}

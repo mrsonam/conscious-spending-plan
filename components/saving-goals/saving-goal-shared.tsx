@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import type { SavingGoalRow } from "@/hooks/use-saving-goals-page"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
@@ -152,7 +153,10 @@ export function TransferModal({
             <button
               type="submit"
               disabled={submitting || availableAmount <= 0}
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-opacity duration-200 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                "flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ background: TOKENS.primary, color: TOKENS.surface }}
             >
               {submitting ? (
@@ -313,7 +317,10 @@ export function GoalFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-opacity duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(
+                "inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{
                 background: TOKENS.primary,
                 color: TOKENS.surface,

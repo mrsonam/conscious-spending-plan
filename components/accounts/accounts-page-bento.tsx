@@ -23,6 +23,7 @@ import {
   INCOME_PAGE_WARN_SURFACE as WARN_SURFACE,
 } from "@/lib/income-page-types"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
 import {
@@ -244,7 +245,10 @@ export function AccountsPageBento() {
         <button
           type="button"
           onClick={openAdd}
-          className="mt-6 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]"
+          className={cn(
+            "mt-6 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+            consoleFocus,
+          )}
           style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
         >
           <Link2 className="h-4 w-4" />
@@ -263,7 +267,10 @@ export function AccountsPageBento() {
               type="button"
               onClick={openTransfer}
               disabled={accounts.length < 2}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-40"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />
@@ -272,7 +279,10 @@ export function AccountsPageBento() {
             <button
               type="button"
               onClick={openAdd}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
             >
               <Link2 className="h-4 w-4" />
@@ -394,7 +404,10 @@ export function AccountsPageBento() {
             </div>
             <button
               type="button"
-              className="rounded-lg border p-2"
+              className={cn(
+                "rounded-lg border p-2 transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
               aria-label="More"
             >
@@ -416,7 +429,10 @@ export function AccountsPageBento() {
               key={id}
               type="button"
               onClick={() => setLedgerTab(id)}
-              className="rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{
                 background: ledgerTab === id ? TOKENS.surfaceHigh : "transparent",
                 color: ledgerTab === id ? TOKENS.primary : TOKENS.onSurfaceMuted,
@@ -498,7 +514,10 @@ export function AccountsPageBento() {
                             setMessage(null)
                             startEdit(a)
                           }}
-                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.06]"
+                          className={cn(
+                            "rounded-lg border p-1.5 transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
+                            consoleFocus,
+                          )}
                           style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.secondary }}
                           aria-label="Edit"
                         >
@@ -507,7 +526,10 @@ export function AccountsPageBento() {
                         <button
                           type="button"
                           onClick={() => handleDelete(a.id)}
-                          className="rounded-lg border p-1.5 transition-colors hover:bg-white/[0.06]"
+                          className={cn(
+                            "rounded-lg border p-1.5 transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
+                            consoleFocus,
+                          )}
                           style={{ borderColor: TOKENS.outlineGhost, color: ERROR_SOFT }}
                           aria-label="Delete"
                         >
@@ -527,10 +549,25 @@ export function AccountsPageBento() {
             Showing {filteredSorted.length} account{filteredSorted.length === 1 ? "" : "s"}
           </span>
           <div className="flex flex-wrap gap-4">
-            <button type="button" onClick={exportCsv} className="font-semibold uppercase tracking-wide" style={{ color: TOKENS.secondary }}>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className={cn(
+                "rounded-md font-semibold uppercase tracking-wide transition-[opacity,transform] duration-150 hover:opacity-80 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
+              style={{ color: TOKENS.secondary }}
+            >
               Export ledger (.csv)
             </button>
-            <Link href={BENTO.statement} className="font-semibold uppercase tracking-wide" style={{ color: TOKENS.secondary }}>
+            <Link
+              href={BENTO.statement}
+              className={cn(
+                "rounded-md font-semibold uppercase tracking-wide transition-[opacity,transform] duration-150 hover:opacity-80 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
+              style={{ color: TOKENS.secondary }}
+            >
               View statements
             </Link>
           </div>
@@ -761,6 +798,9 @@ export function AccountsPageBento() {
                           className={cn(consoleField, "mt-1 border-transparent font-mono tracking-widest")}
                           style={{ backgroundColor: TOKENS.surfaceLow, borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface }}
                         />
+                        <p className="mt-1.5 text-[11px]" style={{ color: TOKENS.onSurfaceMuted }}>
+                          Only the last 4 digits are saved — the full number is never stored.
+                        </p>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -805,7 +845,10 @@ export function AccountsPageBento() {
               <button
                 type="submit"
                 disabled={savingAccount}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
                 {savingAccount ? (
@@ -989,7 +1032,10 @@ export function AccountsPageBento() {
               <button
                 type="submit"
                 disabled={transferring}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
                 {transferring ? (

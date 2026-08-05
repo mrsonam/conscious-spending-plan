@@ -17,6 +17,7 @@ import {
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { BENTO } from "@/lib/app-routes"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { parseMoneyInput } from "@/lib/money-input"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
@@ -38,8 +39,10 @@ const SOURCE_LABEL: Record<SavingGoalLedgerRow["source"], string> = {
   archive_reset: "Archived",
 }
 
-const actionBtn =
-  "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+const actionBtn = cn(
+  "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[opacity,transform] duration-200 hover:opacity-90 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+  consoleFocus,
+)
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -116,7 +119,10 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
         <p className="text-sm">{error ?? "Saving goal not found"}</p>
         <Link
           href={BENTO.savingGoals}
-          className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] underline-offset-2 hover:underline"
+          className={cn(
+            "mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-md text-xs font-bold uppercase tracking-[0.16em] underline-offset-2 transition-transform duration-150 hover:underline active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+            consoleFocus,
+          )}
           style={{ color: TOKENS.primary }}
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -198,7 +204,10 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
     <div className="w-full min-w-0 space-y-6 sm:space-y-8">
       <Link
         href={BENTO.savingGoals}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] underline-offset-2 hover:underline"
+        className={cn(
+          "inline-flex min-h-11 items-center gap-1.5 rounded-md text-xs font-semibold uppercase tracking-[0.14em] underline-offset-2 transition-transform duration-150 hover:underline active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+          consoleFocus,
+        )}
         style={{ color: TOKENS.onSurfaceMuted }}
       >
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
@@ -376,7 +385,10 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => exportLedgerCsv(goal.name, ledger)}
-              className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide hover:bg-white/5"
+              className={cn(
+                "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />

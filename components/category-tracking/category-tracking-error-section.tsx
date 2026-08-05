@@ -27,7 +27,7 @@ export function CategoryTrackingErrorSection({ onRetry }: CategoryTrackingErrorS
         type="button"
         onClick={onRetry}
         className={cn(
-          "mt-4 inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-[0.18em]",
+          "mt-4 inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-[0.18em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
           consoleFocus,
         )}
         style={{

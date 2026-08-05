@@ -80,7 +80,7 @@ export function CategoryTrackingHistorySection({
                 className="px-2 py-2.5 text-right font-semibold uppercase tracking-wider"
                 style={{ color: TOKENS.onSurfaceMuted }}
               >
-                Fun
+                Guilt
               </th>
               <th
                 scope="col"

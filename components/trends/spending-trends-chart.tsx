@@ -124,6 +124,13 @@ export function SpendingTrendsChart({
   ])
   const maxVal = Math.max(...allAmounts, 0)
 
+  const handleBarClick = onMonthClick
+    ? (entry: { payload?: { month?: number; year?: number } }) => {
+        const row = entry?.payload
+        if (row?.month && row?.year) onMonthClick(row.month, row.year)
+      }
+    : undefined
+
   return (
     <>
       {(avgMonthlySpend !== undefined || momSpendPct !== null) && (
@@ -203,18 +210,33 @@ export function SpendingTrendsChart({
             radius={[0, 0, 0, 0]}
             maxBarSize={40}
             cursor={onMonthClick ? "pointer" : undefined}
-            onClick={
-              onMonthClick
-                ? (entry) => {
-                    const row = entry?.payload as { month?: number; year?: number }
-                    if (row?.month && row?.year) onMonthClick(row.month, row.year)
-                  }
-                : undefined
-            }
+            onClick={handleBarClick}
           />
-          <Bar dataKey="spend.savings" stackId="spend" fill={CATEGORY_COLORS.savings} maxBarSize={40} />
-          <Bar dataKey="spend.investment" stackId="spend" fill={CATEGORY_COLORS.investment} maxBarSize={40} />
-          <Bar dataKey="spend.guiltFreeSpending" stackId="spend" fill={CATEGORY_COLORS.guiltFreeSpending} radius={[4, 4, 0, 0]} maxBarSize={40} />
+          <Bar
+            dataKey="spend.savings"
+            stackId="spend"
+            fill={CATEGORY_COLORS.savings}
+            maxBarSize={40}
+            cursor={onMonthClick ? "pointer" : undefined}
+            onClick={handleBarClick}
+          />
+          <Bar
+            dataKey="spend.investment"
+            stackId="spend"
+            fill={CATEGORY_COLORS.investment}
+            maxBarSize={40}
+            cursor={onMonthClick ? "pointer" : undefined}
+            onClick={handleBarClick}
+          />
+          <Bar
+            dataKey="spend.guiltFreeSpending"
+            stackId="spend"
+            fill={CATEGORY_COLORS.guiltFreeSpending}
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
+            cursor={onMonthClick ? "pointer" : undefined}
+            onClick={handleBarClick}
+          />
           <Line
             type="monotone"
             dataKey="totalIncome"

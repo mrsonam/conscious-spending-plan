@@ -5,6 +5,7 @@ import { useCallback, useState } from "react"
 import { Header } from "@/components/layout/header"
 import { TOKENS } from "@/lib/wealth-console-tokens"
 import { ConsoleEmptyState } from "@/components/wealth-console/console-empty-state"
+import { ConsoleJumpNav } from "@/components/wealth-console/console-jump-nav"
 import { ConsolePulsePlaceholder } from "@/components/wealth-console/console-pulse-placeholder"
 import { ConsoleQuickActions } from "@/components/wealth-console/console-quick-actions"
 import { AddExpenseModal } from "@/components/modals/add-expense-modal"
@@ -112,6 +113,7 @@ export function WealthConsoleView(
                 Loading dashboard data
               </p>
             ) : null}
+            <ConsoleJumpNav className="mb-6 sm:mb-8" />
             <ConsoleBudgetAlertsStrip alerts={vm.spendingAlerts} />
             <ConsoleOverviewSection vm={vm} />
             <ConsoleQuickActions

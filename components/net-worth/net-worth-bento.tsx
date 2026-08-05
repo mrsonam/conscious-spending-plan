@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { TrendingUp, TrendingDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { NetWorthChart, type NetWorthSnapshot } from "./net-worth-chart"
@@ -140,7 +142,10 @@ export function NetWorthBento({
               key={opt.value}
               type="button"
               onClick={() => changeMonths(opt.value)}
-              className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors"
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{
                 background: months === opt.value ? TOKENS.surfaceHigh : "transparent",
                 color: months === opt.value ? TOKENS.primary : TOKENS.onSurfaceMuted,

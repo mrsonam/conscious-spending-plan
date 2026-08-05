@@ -1032,3 +1032,25 @@ html[data-csp-dashboard-theme="console"] .skeleton-base,
     opacity: var(--csp-fade-to, 1);
   }
 }
+
+/* ── insight tile directional slide (dashboard pulse) ─────────────────────── */
+@keyframes console-insight-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--console-insight-slide-x, 10px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.console-insight-slide-in {
+  animation: console-insight-slide-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-insight-slide-in {
+    animation: none;
+  }
+}

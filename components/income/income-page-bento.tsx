@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
@@ -247,7 +248,12 @@ export function IncomePageBento(p: UseIncomePageResult) {
     setExporting(true)
     try {
       const res = await fetch("/api/income-entries?forStatement=true")
-      if (!res.ok) return
+      if (!res.ok) {
+        toast.error("Export failed", {
+          description: "Could not fetch income entries. Try again.",
+        })
+        return
+      }
       const data = (await res.json()) as { entries?: IncomeEntry[] }
       const entries = data.entries ?? []
       const header = [
@@ -279,8 +285,14 @@ export function IncomePageBento(p: UseIncomePageResult) {
       a.download = `income-export-${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
+      toast.success("Export ready", {
+        description: `${entries.length} income ${entries.length === 1 ? "entry" : "entries"} downloaded.`,
+      })
     } catch (error) {
       console.error("Income CSV export failed:", error)
+      toast.error("Export failed", {
+        description: "Something went wrong building the CSV. Try again.",
+      })
     } finally {
       setExporting(false)
     }
@@ -401,7 +413,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               onClick={openBulkImport}
               disabled={p.loadingForm || !p.allocation || p.accounts.length === 0}
               className={cn(
-                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors hover:bg-white/6 disabled:opacity-50",
+                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
                 consoleFocus,
               )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -414,7 +426,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               onClick={openLogDialog}
               disabled={p.loadingForm || !p.allocation}
               className={cn(
-                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-opacity hover:opacity-95 disabled:opacity-50",
+                "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
                 consoleFocus,
               )}
               style={{ background: TOKENS.primary, color: TOKENS.surface }}
@@ -429,7 +441,6 @@ export function IncomePageBento(p: UseIncomePageResult) {
       {/* Row 2: full-width source architecture */}
       <IncomeSourceArchitecture
         entries={p.sourceEntries}
-        incomeStats={p.incomeStats}
         loading={showSourceSkeleton}
         referenceDate={new Date(p.selectedYear, p.selectedMonth - 1, 15)}
         className="mt-4 lg:mt-5"
@@ -688,7 +699,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
               disabled={exporting || p.loadingHistory}
               onClick={exportCsv}
               className={cn(
-                "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50",
+                "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
                 consoleFocus,
               )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -736,7 +747,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                                 aria-expanded={expanded}
                                 aria-controls={contentId}
                                 className={cn(
-                                  "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/4",
+                                  "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left transition-[background-color,transform] duration-150 hover:bg-white/4 active:scale-[0.995] motion-reduce:transition-none motion-reduce:active:scale-100",
                                   consoleFocus,
                                 )}
                               >
@@ -817,7 +828,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                                   type="button"
                                   onClick={() => openEditDialog(entry)}
                                   className={cn(
-                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                     consoleFocus,
                                   )}
                                   style={{ color: TOKENS.onSurfaceMuted }}
@@ -829,7 +840,7 @@ export function IncomePageBento(p: UseIncomePageResult) {
                                   type="button"
                                   onClick={() => p.setDeleteEntryId(entry.id)}
                                   className={cn(
-                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                    "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                     consoleFocus,
                                   )}
                                   style={{ color: TOKENS.loss }}

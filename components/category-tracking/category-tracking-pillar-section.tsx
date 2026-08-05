@@ -92,7 +92,7 @@ function PillarMatrixCard({
     <Link
       href={BENTO.categoryDetail(cat.key)}
       className={cn(
-        "group block rounded-xl border p-4 transition-colors hover:bg-white/4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 sm:p-5",
+        "group block rounded-xl border p-4 transition-[background-color,transform] duration-150 hover:bg-white/4 active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45 sm:p-5",
         span,
       )}
       style={{

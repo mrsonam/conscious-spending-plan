@@ -66,7 +66,7 @@ export function ConsoleSavingGoalsCard({
     >
       <div
         className={cn(
-          "flex h-full flex-col rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6",
+          "flex h-full flex-col rounded-xl p-5 sm:p-6",
           floating && "lg:-translate-y-2",
         )}
         style={{
@@ -104,7 +104,7 @@ export function ConsoleSavingGoalsCard({
             href={BENTO.savingGoals}
             className={cn(
               consoleFocus,
-              "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-colors hover:bg-white/5",
+              "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
             )}
             aria-label="Open saving goals"
           >

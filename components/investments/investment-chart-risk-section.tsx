@@ -85,7 +85,7 @@ export function InvestmentChartRiskSection({
                 type="button"
                 onClick={() => onChartRangeChange(r)}
                 className={cn(
-                  "min-h-11 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em]",
+                  "min-h-11 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
                   consoleFocus,
                 )}
                 style={{
@@ -139,9 +139,9 @@ export function InvestmentChartRiskSection({
             style={{ background: TOKENS.surfaceHigh }}
           >
             <div
-              className="h-full rounded-full transition-all"
+              className="console-budget-fill h-full w-full origin-left rounded-full"
               style={{
-                width: `${Math.min(100, liquidityPct)}%`,
+                transform: `scaleX(${Math.min(100, liquidityPct) / 100})`,
                 background: TOKENS.primary,
               }}
             />
@@ -165,9 +165,9 @@ export function InvestmentChartRiskSection({
             style={{ background: TOKENS.surfaceHigh }}
           >
             <div
-              className="h-full rounded-full transition-all"
+              className="console-budget-fill h-full w-full origin-left rounded-full"
               style={{
-                width: `${Math.min(100, concentrationStdev * 2)}%`,
+                transform: `scaleX(${Math.min(100, concentrationStdev * 2) / 100})`,
                 background: TOKENS.secondary,
               }}
             />
@@ -204,7 +204,7 @@ export function InvestmentChartRiskSection({
           onClick={onRefreshPrices}
           disabled={loadingMarketPrices}
           className={cn(
-            "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-60",
+            "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
             consoleFocus,
           )}
           style={{

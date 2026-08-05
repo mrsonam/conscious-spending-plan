@@ -33,6 +33,7 @@ export function ConsoleInsightTile({
   const count = insights.length
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [direction, setDirection] = useState<"next" | "prev">("next")
 
   // Clamp index when the insight list shrinks (e.g. data refresh).
   useEffect(() => {
@@ -45,11 +46,13 @@ export function ConsoleInsightTile({
 
   const goPrev = useCallback(() => {
     if (count <= 1) return
+    setDirection("prev")
     setIndex((i) => (i - 1 + count) % count)
   }, [count])
 
   const goNext = useCallback(() => {
     if (count <= 1) return
+    setDirection("next")
     setIndex((i) => (i + 1) % count)
   }, [count])
 
@@ -126,7 +129,7 @@ export function ConsoleInsightTile({
                     type="button"
                     onClick={goPrev}
                     aria-label="Previous insight"
-                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45"
+                    className="flex h-7 w-7 items-center justify-center rounded-md transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45"
                     style={{ color: TOKENS.onSurfaceMuted }}
                   >
                     <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -135,7 +138,7 @@ export function ConsoleInsightTile({
                     type="button"
                     onClick={goNext}
                     aria-label="Next insight"
-                    className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45"
+                    className="flex h-7 w-7 items-center justify-center rounded-md transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4edea3]/45"
                     style={{ color: TOKENS.onSurfaceMuted }}
                   >
                     <ChevronRight className="h-4 w-4" aria-hidden />
@@ -144,8 +147,13 @@ export function ConsoleInsightTile({
               ) : null}
             </div>
             <p
-              className="mt-1 text-sm leading-relaxed"
-              style={{ color: TOKENS.onSurface }}
+              key={index}
+              className="console-insight-slide-in mt-1 text-sm leading-relaxed"
+              style={{
+                color: TOKENS.onSurface,
+                ["--console-insight-slide-x" as string]:
+                  direction === "next" ? "10px" : "-10px",
+              }}
               aria-live="polite"
             >
               {insight.text}
@@ -163,7 +171,10 @@ export function ConsoleInsightTile({
                     role="tab"
                     aria-selected={i === index}
                     aria-label={`Insight ${i + 1}`}
-                    onClick={() => setIndex(i)}
+                    onClick={() => {
+                      setDirection(i >= index ? "next" : "prev")
+                      setIndex(i)
+                    }}
                     className="h-1.5 rounded-full transition-[width,background-color] duration-200"
                     style={{
                       width: i === index ? "1rem" : "0.375rem",

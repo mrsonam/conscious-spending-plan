@@ -227,6 +227,7 @@ export function useCategoryDetailPage(category: string) {
     valid,
     meta,
     loading,
+    fetchData,
     selectedMonth,
     selectedYear,
     setSelectedMonth,

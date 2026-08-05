@@ -108,7 +108,7 @@ export function InvestmentPanelToolbar({
             tabIndex={panelMode === "analytics" ? 0 : -1}
             onClick={() => onPanelModeChange("analytics")}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em]",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{
@@ -129,7 +129,7 @@ export function InvestmentPanelToolbar({
             tabIndex={panelMode === "reports" ? 0 : -1}
             onClick={() => onPanelModeChange("reports")}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em]",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{

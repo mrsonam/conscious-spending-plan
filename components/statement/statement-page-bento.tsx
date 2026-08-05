@@ -1,12 +1,18 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { DateInput } from "@/components/ui/date-input"
 import { AppSelect } from "@/components/ui/app-select"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { ScrambleCurrencyValue } from "@/components/ui/scramble-number"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
+import {
+  consoleFocus,
+  consoleHeroFigureClass,
+  consoleHeroFigureInnerClass,
+} from "@/components/wealth-console/console-ui"
 import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import type { StatementTransaction, StatementAccount } from "@/hooks/use-statement-page"
 import {
@@ -173,6 +179,14 @@ export function StatementPageBento({
       a.download = `statement-${new Date().toISOString().slice(0, 10)}.csv`
       a.click()
       URL.revokeObjectURL(url)
+      toast.success("Export ready", {
+        description: `${transactions.length} ${transactions.length === 1 ? "row" : "rows"} downloaded.`,
+      })
+    } catch (error) {
+      console.error("Statement CSV export failed:", error)
+      toast.error("Export failed", {
+        description: "Something went wrong building the CSV. Try again.",
+      })
     } finally {
       setExporting(false)
     }
@@ -202,20 +216,20 @@ export function StatementPageBento({
               {anyFilters ? "Filtered statement" : `${monthLabel} statement`}
             </p>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-              <div className="text-4xl font-black leading-none tracking-tight sm:text-5xl">
+              <div className={consoleHeroFigureClass}>
                 {loadingSummary ? (
                   <ScrambleCurrencyValue
                     variant={totals.net >= 0 ? "prosperity" : "loss"}
                     min={400}
                     max={22000}
-                    className="font-black!"
+                    className={consoleHeroFigureInnerClass}
                     decimalEm={0.45}
                   />
                 ) : (
                   <MajorFigureCurrency
                     amount={Math.abs(totals.net)}
                     variant={totals.net >= 0 ? "prosperity" : "loss"}
-                    className="font-black!"
+                    className={consoleHeroFigureInnerClass}
                     decimalEm={0.45}
                   />
                 )}
@@ -340,7 +354,10 @@ export function StatementPageBento({
               type="button"
               disabled={exporting || transactions.length === 0}
               onClick={exportCsv}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50"
+              className={cn(
+                "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-95 disabled:opacity-50",
+                consoleFocus,
+              )}
               style={{
                 background: TOKENS.primary,
                 color: TOKENS.surface,
@@ -349,18 +366,6 @@ export function StatementPageBento({
             >
               <Download className="h-4 w-4" strokeWidth={2.5} />
               Export statement
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              className="mt-3 w-full rounded-xl border py-3 text-center text-[10px] font-bold uppercase tracking-[0.18em] transition-opacity hover:opacity-90"
-              style={{
-                borderColor: TOKENS.outlineGhost,
-                color: TOKENS.onSurfaceMuted,
-              }}
-            >
-              Filters
             </button>
           </div>
         </section>
@@ -387,9 +392,13 @@ export function StatementPageBento({
           </div>
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6"
+            className={cn(
+              "inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors hover:bg-white/6",
+              consoleFocus,
+            )}
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
             aria-label="Filter"
+            aria-expanded={filtersOpen}
             title="Toggle filters"
             onClick={() => setFiltersOpen((v) => !v)}
           >
@@ -399,7 +408,7 @@ export function StatementPageBento({
 
         <div
           className={cn(
-            "mt-4 overflow-hidden transition-[max-height,opacity] duration-300",
+            "mt-4 overflow-hidden transition-[max-height,opacity] duration-300 motion-reduce:transition-none",
             filtersOpen ? "max-h-[260px] opacity-100" : "max-h-0 opacity-0",
           )}
         >
@@ -426,7 +435,10 @@ export function StatementPageBento({
                     setFilterEndDate("")
                     setFilterAccountId("")
                   }}
-                  className="rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em]"
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors hover:bg-white/6",
+                    consoleFocus,
+                  )}
                   style={{
                     borderColor: TOKENS.outlineGhost,
                     color: TOKENS.onSurfaceMuted,
@@ -559,7 +571,7 @@ export function StatementPageBento({
                 return (
                   <div
                     key={`${t.type}:${t.id}`}
-                    className="flex flex-col gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                     style={{
                       background: TOKENS.surfaceLow,
                       borderColor: TOKENS.outlineGhost,

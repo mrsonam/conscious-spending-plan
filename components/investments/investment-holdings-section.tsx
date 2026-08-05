@@ -45,9 +45,19 @@ export function InvestmentHoldingsSection({
   onDeletePurchase,
 }: InvestmentHoldingsSectionProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleAccountShowAll = (key: string) => {
+    setExpandedAccounts((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -82,6 +92,10 @@ export function InvestmentHoldingsSection({
           const filtered = acc.holdings.filter((h) =>
             matchesSearch(searchQuery, h.name, acc.name, acc.bankName),
           )
+          const accountKey = `${acc.id}-${idx}`
+          const showAllHoldings = expandedAccounts.has(accountKey)
+          const visibleHoldings = showAllHoldings ? filtered : filtered.slice(0, 6)
+          const hiddenCount = filtered.length - visibleHoldings.length
 
           return (
             <article
@@ -131,7 +145,7 @@ export function InvestmentHoldingsSection({
                     borderColor: `color-mix(in srgb, ${TOKENS.outlineGhost} 70%, transparent)`,
                   }}
                 >
-                  {filtered.slice(0, 6).map((h) => {
+                  {visibleHoldings.map((h) => {
                     const symbol = h.name.trim().toUpperCase()
                     const currentPrice = marketPrices[symbol]
                     const hasMarket =
@@ -151,7 +165,7 @@ export function InvestmentHoldingsSection({
                           type="button"
                           onClick={() => toggle(holdingKey)}
                           className={cn(
-                            "flex w-full flex-wrap items-center justify-between gap-3 text-left",
+                            "flex w-full flex-wrap items-center justify-between gap-3 rounded-lg text-left transition-[background-color,transform] duration-150 hover:bg-white/[0.03] active:scale-[0.995] motion-reduce:transition-none motion-reduce:active:scale-100",
                             consoleFocus,
                           )}
                         >
@@ -254,7 +268,7 @@ export function InvestmentHoldingsSection({
                                           onEditPurchase(p, acc.id, h.name)
                                         }}
                                         className={cn(
-                                          "rounded-md p-1.5 transition-colors hover:bg-white/10",
+                                          "rounded-md p-1.5 transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                           consoleFocus,
                                         )}
                                         style={{ color: TOKENS.onSurfaceMuted }}
@@ -271,7 +285,7 @@ export function InvestmentHoldingsSection({
                                           onDeletePurchase(p, acc.id, h.name)
                                         }}
                                         className={cn(
-                                          "rounded-md p-1.5 transition-colors hover:bg-white/10",
+                                          "rounded-md p-1.5 transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                           consoleFocus,
                                         )}
                                         style={{ color: ERROR_SOFT }}
@@ -291,6 +305,19 @@ export function InvestmentHoldingsSection({
                   })}
                 </ul>
               )}
+              {filtered.length > 6 ? (
+                <button
+                  type="button"
+                  onClick={() => toggleAccountShowAll(accountKey)}
+                  className={cn(
+                    "mt-3 inline-flex min-h-11 items-center text-xs font-semibold transition-[color,transform] duration-150 hover:text-white active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                    consoleFocus,
+                  )}
+                  style={{ color: TOKENS.secondary }}
+                >
+                  {showAllHoldings ? "Show fewer" : `+${hiddenCount} more`}
+                </button>
+              ) : null}
             </article>
           )
         })}

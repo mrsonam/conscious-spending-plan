@@ -21,7 +21,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DateInput } from "@/components/ui/date-input"
+import { AppSelect } from "@/components/ui/app-select"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import { cn } from "@/lib/utils"
@@ -132,6 +134,8 @@ export function SuperannuationPageBento() {
   const [contribModalOpen, setContribModalOpen] = useState(false)
   const [deductionModalOpen, setDeductionModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<SuperAccount | null>(null)
+  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState<SuperAccount | null>(null)
+  const [deleteContribConfirmId, setDeleteContribConfirmId] = useState<string | null>(null)
 
   // Current page per account transaction table
   const [accountPages, setAccountPages] = useState<Record<string, number>>({})
@@ -846,7 +850,10 @@ export function SuperannuationPageBento() {
                       <button
                         type="button"
                         onClick={() => openEditAccount(account)}
-                        className="rounded-lg p-2 transition-colors hover:bg-white/[0.06]"
+                        className={cn(
+                          "rounded-lg p-2 transition-colors hover:bg-white/[0.06]",
+                          consoleFocus,
+                        )}
                         style={{ color: TOKENS.onSurfaceMuted }}
                         aria-label={`Edit ${account.name}`}
                       >
@@ -854,8 +861,11 @@ export function SuperannuationPageBento() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteAccount(account.id)}
-                        className="rounded-lg p-2 transition-colors hover:bg-white/[0.06]"
+                        onClick={() => setDeleteAccountConfirm(account)}
+                        className={cn(
+                          "rounded-lg p-2 transition-colors hover:bg-white/[0.06]",
+                          consoleFocus,
+                        )}
                         style={{ color: TOKENS.loss }}
                         aria-label={`Delete ${account.name}`}
                       >
@@ -921,8 +931,11 @@ export function SuperannuationPageBento() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleDeleteContribution(c.id)}
-                              className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/[0.06]"
+                              onClick={() => setDeleteContribConfirmId(c.id)}
+                              className={cn(
+                                "rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white/[0.06]",
+                                consoleFocus,
+                              )}
                               style={{ color: TOKENS.onSurfaceMuted }}
                               aria-label="Delete entry"
                             >
@@ -1023,21 +1036,29 @@ export function SuperannuationPageBento() {
             <form onSubmit={handleAddContribution} className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className={labelClass}>
                 <FieldLabel>Super Account *</FieldLabel>
-                <select value={contribAccountId} onChange={(e) => setContribAccountId(e.target.value)} required
-                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <AppSelect
+                  value={contribAccountId}
+                  onValueChange={setContribAccountId}
+                  className={selectClass}
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
+                  options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                />
               </label>
               <label className={labelClass}>
                 <FieldLabel>Type *</FieldLabel>
-                <select value={contribType} onChange={(e) => setContribType(e.target.value)}
-                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
-                  <option value="employer">Employer (SG)</option>
-                  <option value="salary_sacrifice">Salary Sacrifice</option>
-                  <option value="personal">Personal</option>
-                  <option value="government">Govt Co-contribution</option>
-                  <option value="investment">Investment Return</option>
-                </select>
+                <AppSelect
+                  value={contribType}
+                  onValueChange={setContribType}
+                  className={selectClass}
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
+                  options={[
+                    { value: "employer", label: "Employer (SG)" },
+                    { value: "salary_sacrifice", label: "Salary Sacrifice" },
+                    { value: "personal", label: "Personal" },
+                    { value: "government", label: "Govt Co-contribution" },
+                    { value: "investment", label: "Investment Return" },
+                  ]}
+                />
               </label>
               <label className={labelClass}>
                 <FieldLabel>Amount *</FieldLabel>
@@ -1084,18 +1105,26 @@ export function SuperannuationPageBento() {
             <form onSubmit={handleAddDeduction} className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className={labelClass}>
                 <FieldLabel>Super Account *</FieldLabel>
-                <select value={deductAccountId} onChange={(e) => setDeductAccountId(e.target.value)} required
-                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                <AppSelect
+                  value={deductAccountId}
+                  onValueChange={setDeductAccountId}
+                  className={selectClass}
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
+                  options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                />
               </label>
               <label className={labelClass}>
                 <FieldLabel>Type *</FieldLabel>
-                <select value={deductType} onChange={(e) => setDeductType(e.target.value)}
-                  className={selectClass} style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}>
-                  <option value="fee">Admin Fee</option>
-                  <option value="tax">Government Tax</option>
-                </select>
+                <AppSelect
+                  value={deductType}
+                  onValueChange={setDeductType}
+                  className={selectClass}
+                  style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surface }}
+                  options={[
+                    { value: "fee", label: "Admin Fee" },
+                    { value: "tax", label: "Government Tax" },
+                  ]}
+                />
               </label>
               <label className={labelClass}>
                 <FieldLabel>Amount *</FieldLabel>
@@ -1126,6 +1155,36 @@ export function SuperannuationPageBento() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteAccountConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteAccountConfirm(null)}
+        title="Delete super account"
+        description={
+          deleteAccountConfirm
+            ? `This removes "${deleteAccountConfirm.name}" and its entire contribution history. This cannot be undone.`
+            : ""
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteAccountConfirm) void handleDeleteAccount(deleteAccountConfirm.id)
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteContribConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteContribConfirmId(null)}
+        title="Delete entry"
+        description="This removes the entry from your contribution history. This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteContribConfirmId) void handleDeleteContribution(deleteContribConfirmId)
+        }}
+      />
 
     </div>
   )

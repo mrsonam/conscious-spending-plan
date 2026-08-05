@@ -8,6 +8,7 @@ import { parseMoneyInput } from "@/lib/money-input"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { BENTO } from "@/lib/app-routes"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import {
   useSavingGoalsPage,
@@ -64,8 +65,8 @@ function GoalProgressBar({
       aria-valuemax={100}
     >
       <div
-        className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
-        style={{ width: `${pct}%`, background: accent }}
+        className="console-budget-fill h-full w-full origin-left rounded-full"
+        style={{ transform: `scaleX(${pct / 100})`, background: accent }}
       />
     </div>
   )
@@ -93,8 +94,10 @@ function GoalCard({
   const busy = actionGoalId === goal.id
   const pendingSave = isOptimisticClientId(goal.id)
   const canEdit = goal.status === "active"
-  const actionBtn =
-    "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,border-color,transform,opacity] duration-200 hover:bg-white/[0.06] active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+  const actionBtn = cn(
+    "cursor-pointer rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,border-color,transform,opacity] duration-200 hover:bg-white/[0.06] active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+    consoleFocus,
+  )
 
   const router = useRouter()
 
@@ -465,7 +468,10 @@ export function SavingGoalsPageBento({
             </p>
             <Link
               href={BENTO.funds}
-              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold underline-offset-2 transition-colors duration-200 hover:underline"
+              className={cn(
+                "mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-md text-xs font-semibold underline-offset-2 transition-[color,transform] duration-150 hover:underline active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ color: TOKENS.primary }}
             >
               <Wallet className="h-3.5 w-3.5" aria-hidden />
@@ -476,7 +482,10 @@ export function SavingGoalsPageBento({
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-opacity duration-200 hover:opacity-95"
+              className={cn(
+                "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{
                 background: TOKENS.primary,
                 color: TOKENS.surface,
@@ -558,7 +567,10 @@ export function SavingGoalsPageBento({
           <button
             type="button"
             onClick={openCreate}
-            className="mt-4 cursor-pointer text-xs font-bold uppercase tracking-[0.16em] underline-offset-2 transition-colors duration-200 hover:underline"
+            className={cn(
+              "mt-4 cursor-pointer rounded-md text-xs font-bold uppercase tracking-[0.16em] underline-offset-2 transition-[color,transform] duration-150 hover:underline active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+              consoleFocus,
+            )}
             style={{ color: TOKENS.primary }}
           >
             Create your first goal

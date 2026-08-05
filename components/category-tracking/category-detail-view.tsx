@@ -1,13 +1,15 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronRight } from "lucide-react"
+import Link from "next/link"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { AppSelect } from "@/components/ui/app-select"
 import { ConsolePaginationBar } from "@/components/wealth-console/console-pagination"
 import { CARD_INSET, CONSOLE_TABLE_PAGE_SIZE, TOKENS } from "@/lib/wealth-console-tokens"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
+import { BENTO } from "@/lib/app-routes"
 import {
   CategoryTrackingBarProgress,
   CategoryTrackingSegmentedBlocks,
@@ -15,7 +17,9 @@ import {
   computeCategoryPace,
   categoryPaceMeta,
 } from "@/components/category-tracking/category-tracking-console-ui"
+import { CategoryTrackingErrorSection } from "@/components/category-tracking/category-tracking-error-section"
 import {
+  consoleFocus,
   consoleHeroFigureClass,
   consoleHeroFigureInnerClass,
 } from "@/components/wealth-console/console-ui"
@@ -105,6 +109,7 @@ export function CategoryDetailView({
   const {
     meta,
     loading,
+    fetchData,
     selectedMonth,
     selectedYear,
     setSelectedMonth,
@@ -145,6 +150,18 @@ export function CategoryDetailView({
 
   return (
     <>
+        <Link
+          href={BENTO.categoryTracking}
+          className={cn(
+            "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-1 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors hover:text-white",
+            consoleFocus,
+          )}
+          style={{ color: TOKENS.onSurfaceMuted }}
+        >
+          <ChevronLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Category tracking
+        </Link>
+
         {loading && !currentRow ? (
           <div className="space-y-4" aria-busy="true" aria-label="Loading category">
             <section className="px-1 py-2 sm:px-2">
@@ -173,9 +190,7 @@ export function CategoryDetailView({
             ))}
           </div>
         ) : !meta || !currentRow ? (
-          <p className="text-sm" style={{ color: TOKENS.loss }}>
-            Could not load category data.
-          </p>
+          <CategoryTrackingErrorSection onRetry={() => void fetchData()} />
         ) : (
           <>
             {/* Hero */}
@@ -312,13 +327,18 @@ export function CategoryDetailView({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span style={{ color: TOKENS.onSurfaceMuted }}>Envelope</span>
-                    <span className="tabular-nums font-medium">{formatCurrency(currentRow.allocated)}</span>
+                    <span className="tabular-nums font-medium" style={{ color: TOKENS.onSurface }}>
+                      {formatCurrency(currentRow.allocated)}
+                    </span>
                   </div>
                   {isSavings && (
                     <>
                       <div className="flex justify-between">
                         <span style={{ color: TOKENS.onSurfaceMuted }}>Total in savings</span>
-                        <span className="tabular-nums font-medium">
+                        <span
+                          className="tabular-nums font-medium"
+                          style={{ color: TOKENS.onSurface }}
+                        >
                           {formatCurrency(savingsTotal ?? displayAmount + savingsAssignedToGoals)}
                         </span>
                       </div>
@@ -419,9 +439,20 @@ export function CategoryDetailView({
                           ? Math.min(100, (row.spent / row.allocated) * 100)
                           : 0
                       return (
-                        <div
+                        <button
                           key={`${row.year}-${row.monthNum}`}
-                          className="rounded-lg px-2 py-1"
+                          type="button"
+                          aria-pressed={isSelected}
+                          disabled={isSelected}
+                          onClick={() => {
+                            setSelectedMonth(row.monthNum)
+                            setSelectedYear(row.year)
+                            setPage(1)
+                          }}
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-left transition-[background-color,transform] duration-150 hover:bg-white/4 active:scale-[0.99] disabled:cursor-default motion-reduce:transition-none motion-reduce:active:scale-100",
+                            consoleFocus,
+                          )}
                           style={
                             isSelected
                               ? {
@@ -455,7 +486,7 @@ export function CategoryDetailView({
                             color={row.overspent > 0 ? ERROR_SOFT : accent}
                             label={`${row.month} ${deployedLabel.toLowerCase()}`}
                           />
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -476,7 +507,11 @@ export function CategoryDetailView({
                 <h2 className="text-base font-semibold tracking-tight" style={{ color: TOKENS.onSurface }}>
                   Transactions
                 </h2>
-                <p className="mt-1 text-xs" style={{ color: TOKENS.onSurfaceMuted }}>
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                  aria-live="polite"
+                >
                   {loading
                     ? "Loading…"
                     : transactions.length === 0

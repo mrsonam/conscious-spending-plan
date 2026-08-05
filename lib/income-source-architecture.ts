@@ -53,6 +53,11 @@ function sumByLabel(entries: IncomeEntry[], year: number, monthIndex: number): M
   return map
 }
 
+/** Distinct income source labels contributing this month (not capped to topN). */
+export function countCurrentMonthSources(entries: IncomeEntry[], now = new Date()): number {
+  return sumByLabel(entries, now.getFullYear(), now.getMonth()).size
+}
+
 export function groupIncomeSources(
   entries: IncomeEntry[],
   priorMonthEntries: IncomeEntry[] = entries,

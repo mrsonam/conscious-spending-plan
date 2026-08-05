@@ -164,7 +164,7 @@ export function ConsoleQuickActions({
                   </span>
                   <span
                     className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.16em]"
-                    style={{ color: TOKENS.onSurfaceMuted }}
+                    style={{ color: TOKENS.onSurfaceMutedElevated }}
                   >
                     {action.hint}
                   </span>

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { MajorFigureCurrency } from "@/lib/currency-major-figure"
 import { INCOME_PAGE_ERROR_SOFT as ERROR_SOFT } from "@/lib/income-page-types"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 import { useLoansPage } from "@/hooks/use-loans-page"
 import { FormErrorAlert, FormStatusAlert } from "@/components/wealth-console/form-status-alert"
@@ -89,6 +90,8 @@ export function LoansPageBento() {
 
   const [lentOpen, setLentOpen] = useState(false)
   const [borrowedOpen, setBorrowedOpen] = useState(false)
+  const [showAllRepaidLoans, setShowAllRepaidLoans] = useState(false)
+  const [showAllRepaidBorrowed, setShowAllRepaidBorrowed] = useState(false)
   const [lentRepayDialog, setLentRepayDialog] = useState<{ loanId: string; toAccountId: string } | null>(null)
   const [borrowedRepayDialog, setBorrowedRepayDialog] = useState<{
     borrowedLoanId: string
@@ -229,7 +232,10 @@ export function LoansPageBento() {
             <button
               type="button"
               onClick={openBorrowed}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em]"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
             >
               <ArrowDownRight className="h-3.5 w-3.5" />
@@ -238,7 +244,10 @@ export function LoansPageBento() {
             <button
               type="button"
               onClick={openLent}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
             >
               <ArrowUpRight className="h-4 w-4" />
@@ -371,7 +380,10 @@ export function LoansPageBento() {
                         onClick={() =>
                           setLentRepayDialog({ loanId: loan.id, toAccountId: loan.accountId })
                         }
-                        className="shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+                        className={cn(
+                          "shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                          consoleFocus,
+                        )}
                         style={{ borderColor: TOKENS.primary, color: TOKENS.primary, background: TOKENS.surfaceContainer }}
                       >
                         Mark repaid
@@ -454,7 +466,10 @@ export function LoansPageBento() {
                               fromAccountId: loan.accountId,
                             })
                           }
-                          className="shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+                          className={cn(
+                            "shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                            consoleFocus,
+                          )}
                           style={{
                             borderColor: ERROR_SOFT,
                             color: ERROR_SOFT,
@@ -490,7 +505,7 @@ export function LoansPageBento() {
                 None yet.
               </p>
             ) : (
-              repaidLoans.slice(0, 8).map((loan) => (
+              (showAllRepaidLoans ? repaidLoans : repaidLoans.slice(0, 8)).map((loan) => (
                 <div
                   key={loan.id}
                   className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs"
@@ -506,6 +521,19 @@ export function LoansPageBento() {
                 </div>
               ))
             )}
+            {repaidLoans.length > 8 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllRepaidLoans((v) => !v)}
+                className={cn(
+                  "inline-flex min-h-9 items-center text-xs font-semibold transition-colors hover:text-white",
+                  consoleFocus,
+                )}
+                style={{ color: TOKENS.secondary }}
+              >
+                {showAllRepaidLoans ? "Show fewer" : `+${repaidLoans.length - 8} more`}
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -525,7 +553,7 @@ export function LoansPageBento() {
                 None yet.
               </p>
             ) : (
-              repaidBorrowed.slice(0, 10).map((loan) => (
+              (showAllRepaidBorrowed ? repaidBorrowed : repaidBorrowed.slice(0, 10)).map((loan) => (
                 <div
                   key={loan.id}
                   className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs"
@@ -541,6 +569,19 @@ export function LoansPageBento() {
                 </div>
               ))
             )}
+            {repaidBorrowed.length > 10 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllRepaidBorrowed((v) => !v)}
+                className={cn(
+                  "inline-flex min-h-9 items-center text-xs font-semibold transition-colors hover:text-white sm:col-span-2",
+                  consoleFocus,
+                )}
+                style={{ color: TOKENS.secondary }}
+              >
+                {showAllRepaidBorrowed ? "Show fewer" : `+${repaidBorrowed.length - 10} more`}
+              </button>
+            ) : null}
           </div>
         </section>
       </div>
@@ -680,7 +721,10 @@ export function LoansPageBento() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
                 {submitting ? (
@@ -814,7 +858,10 @@ export function LoansPageBento() {
               <button
                 type="submit"
                 disabled={borrowedSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-60"
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-[0.2em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
               >
                 {borrowedSubmitting ? (
@@ -883,7 +930,10 @@ export function LoansPageBento() {
                   type="button"
                   disabled={repaySubmitting}
                   onClick={() => setLentRepayDialog(null)}
-                  className="rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  className={cn(
+                    "rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                    consoleFocus,
+                  )}
                   style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
                 >
                   Cancel
@@ -898,7 +948,10 @@ export function LoansPageBento() {
                       if (ok) setLentRepayDialog(null)
                     })()
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                    consoleFocus,
+                  )}
                   style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
                 >
                   {repaySubmitting ? (
@@ -966,7 +1019,10 @@ export function LoansPageBento() {
                   type="button"
                   disabled={repaySubmitting}
                   onClick={() => setBorrowedRepayDialog(null)}
-                  className="rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  className={cn(
+                    "rounded-xl border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                    consoleFocus,
+                  )}
                   style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurface, background: TOKENS.surfaceHigh }}
                 >
                   Cancel
@@ -984,7 +1040,10 @@ export function LoansPageBento() {
                       if (ok) setBorrowedRepayDialog(null)
                     })()
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] disabled:opacity-50"
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                    consoleFocus,
+                  )}
                   style={{ background: TOKENS.primary, color: TOKENS.surface, boxShadow: "0 12px 28px rgba(0,0,0,0.25)" }}
                 >
                   {repaySubmitting ? (

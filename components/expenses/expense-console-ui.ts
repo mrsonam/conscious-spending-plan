@@ -24,7 +24,7 @@ export const expenseFieldLabelClass =
   "text-[10px] font-semibold uppercase tracking-wider"
 
 export const expenseConsoleButtonClass = cn(
-  "transition-colors hover:bg-white/6",
+  "transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
   consoleFocus,
 )
 

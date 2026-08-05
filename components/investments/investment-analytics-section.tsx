@@ -61,6 +61,11 @@ export function InvestmentAnalyticsSection({
                   </p>
                 ) : null}
                 <div
+                  role="progressbar"
+                  aria-valuenow={Math.round(pct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${row.symbol} ${pct.toFixed(0)} percent of portfolio`}
                   className="mt-1.5 h-2 w-full overflow-hidden rounded-full"
                   style={{ background: TOKENS.surfaceHigh }}
                 >

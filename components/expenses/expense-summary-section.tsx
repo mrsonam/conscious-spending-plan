@@ -157,7 +157,7 @@ export function ExpenseSummarySection({
             onClick={onBulkOpen}
             disabled={p.loadingAccounts}
             className={cn(
-              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors hover:bg-white/6 disabled:opacity-50",
+              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-xs font-bold uppercase tracking-[0.12em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -170,7 +170,7 @@ export function ExpenseSummarySection({
             onClick={onLogOpen}
             disabled={p.loadingAccounts}
             className={cn(
-              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-opacity hover:opacity-95 disabled:opacity-50",
+              "inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-[0.12em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{ background: PULSE_RED, color: TOKENS.surface }}

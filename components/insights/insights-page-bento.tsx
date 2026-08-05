@@ -195,10 +195,7 @@ function CardShell({
 
   return (
     <section
-      className={cn(
-        "flex h-full flex-col rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6",
-        className,
-      )}
+      className={cn("flex h-full flex-col rounded-xl p-5 sm:p-6", className)}
       style={{
         background: cardBg,
         boxShadow: CARD_INSET,
@@ -231,7 +228,7 @@ function CardShell({
           href={href}
           className={cn(
             consoleFocus,
-            "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-colors hover:bg-white/5",
+            "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
           )}
           aria-label={hrefLabel}
         >
@@ -490,6 +487,11 @@ function PillarReportCard({
                 </span>
               </div>
               <div
+                role="progressbar"
+                aria-valuenow={Math.round(Math.min(100, pillar.usedPct))}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${pillar.label} ${Math.round(pillar.usedPct)} percent used`}
                 className="mt-2 h-1.5 overflow-hidden rounded-full"
                 style={{ background: TOKENS.surfaceHigh }}
               >
@@ -669,6 +671,11 @@ function GoalsProgressCard({
                 {goal.target != null ? (
                   <>
                     <div
+                      role="progressbar"
+                      aria-valuenow={Math.round(goal.completionPct ?? 0)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${goal.name} ${Math.round(goal.completionPct ?? 0)} percent complete`}
                       className="mt-2 h-1.5 overflow-hidden rounded-full"
                       style={{ background: TOKENS.surfaceHigh }}
                     >
@@ -734,7 +741,7 @@ function WhatToDoNext({
 
   return (
     <section
-      className="rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6"
+      className="rounded-xl p-5 sm:p-6"
       style={{
         background: cardBg,
         boxShadow: CARD_INSET,
@@ -784,7 +791,7 @@ function WhatToDoNext({
                 href={step.href}
                 className={cn(
                   consoleFocus,
-                  "group flex flex-col justify-between rounded-xl px-4 py-3.5 transition-colors hover:opacity-[0.98]",
+                  "group flex flex-col justify-between rounded-xl px-4 py-3.5 transition-[opacity,transform] duration-150 hover:opacity-[0.98] active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100",
                 )}
                 style={{
                   background: chipBg,

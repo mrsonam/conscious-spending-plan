@@ -72,7 +72,7 @@ export const TRACKING_FUND_CATEGORIES: TrackingFundCategoryMeta[] = [
   {
     key: "guiltFreeSpending",
     label: "Guilt-free",
-    short: "Fun",
+    short: "Guilt",
     colorHex: "#8b5cf6",
     Icon: CreditCardIcon,
     iconClass: "text-violet-600",

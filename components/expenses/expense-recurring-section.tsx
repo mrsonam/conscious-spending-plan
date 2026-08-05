@@ -456,7 +456,7 @@ export function ExpenseRecurringSection({
                       type="button"
                       onClick={() => p.handleDeleteRecurring(r.id)}
                       className={cn(
-                        "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors",
+                        "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                         consoleFocus,
                       )}
                       style={{ color: ERROR_SOFT }}

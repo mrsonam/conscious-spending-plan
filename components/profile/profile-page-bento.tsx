@@ -8,7 +8,8 @@ import { useProductTour } from "@/components/product-tour/product-tour-provider"
 import { AppCacheResetSection } from "@/components/profile/app-cache-reset"
 import { RebuildTrackingSection } from "@/components/profile/rebuild-tracking-section"
 import { AppSelect } from "@/components/ui/app-select"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import {
   DEFAULT_DISPLAY_CURRENCY,
   normalizeDisplayCurrency,
@@ -16,13 +17,13 @@ import {
 import { buildCurrencySelectOptions } from "@/components/ui/currency-select-options"
 
 function getInitials(email: string) {
-  return email
-    .split("@")[0]
-    .split(".")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
+  const local = email.split("@")[0]
+  const parts = local.split(".").filter(Boolean)
+  const initials =
+    parts.length > 1
+      ? parts.map((n) => n[0]).join("")
+      : local.slice(0, 2)
+  return initials.toUpperCase().slice(0, 2)
 }
 
 export function ProfilePageBento() {
@@ -207,15 +208,17 @@ export function ProfilePageBento() {
                 }}
               />
             </div>
-            <Button
+            <button
               type="button"
-              variant="outline"
               disabled={currencySaving}
               onClick={() => void saveDisplayCurrency()}
-              className="shrink-0 border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd] hover:bg-white/10"
+              className={cn(
+                "inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-[rgba(218,226,253,0.12)] bg-[#131b2e] px-4 text-sm font-medium text-[#dae2fd] transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
             >
               {currencySaving ? "Saving…" : "Save"}
-            </Button>
+            </button>
           </div>
           {currencyMessage ? (
             <p className="mt-3 text-sm" style={{ color: TOKENS.primary }}>
@@ -236,15 +239,17 @@ export function ProfilePageBento() {
           <p className="mt-1 text-sm" style={{ color: TOKENS.onSurfaceMuted }}>
             Replay the spotlight walkthrough of sidebar tabs and core features.
           </p>
-          <Button
+          <button
             type="button"
-            variant="outline"
             onClick={() => startTour()}
-            className="mt-4 gap-2 border-[rgba(218,226,253,0.12)] bg-[#131b2e] text-[#dae2fd] hover:bg-white/10"
+            className={cn(
+              "mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[rgba(218,226,253,0.12)] bg-[#131b2e] px-4 text-sm font-medium text-[#dae2fd] transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+              consoleFocus,
+            )}
           >
             <Compass className="h-4 w-4" />
             Replay tour
-          </Button>
+          </button>
         </section>
         <section
           className="rounded-xl border p-5 sm:p-6 lg:col-span-12"

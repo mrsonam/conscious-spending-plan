@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FormErrorAlert } from "@/components/wealth-console/form-status-alert"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { categoryTrackingConsoleField } from "@/components/category-tracking/category-tracking-console-ui"
 import {
   TRACKING_FUND_CATEGORIES,
@@ -234,7 +235,10 @@ export function CategoryTrackingBucketTransferDialog({
             <button
               type="submit"
               disabled={submitting || maxTransfer <= 0}
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-opacity duration-200 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className={cn(
+                "flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-200 hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
               style={{ background: TOKENS.primary, color: TOKENS.surface }}
             >
               {submitting ? (
@@ -277,7 +281,10 @@ export function CategoryTrackingTransferTrigger({
         onClick={onOpen}
         disabled={disabled}
         title={disabled ? disabledReason : undefined}
-        className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] transition-colors duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+        className={cn(
+          "mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] transition-[opacity,transform] duration-200 hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+          consoleFocus,
+        )}
         style={{
           borderColor: `color-mix(in srgb, ${TOKENS.primary} 35%, transparent)`,
           color: TOKENS.primary,

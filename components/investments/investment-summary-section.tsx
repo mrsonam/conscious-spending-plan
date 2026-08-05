@@ -139,7 +139,7 @@ export function InvestmentSummarySection({
               type="button"
               onClick={onLogDividend}
               className={cn(
-                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em]",
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                 consoleFocus,
               )}
               style={{
@@ -155,7 +155,7 @@ export function InvestmentSummarySection({
               type="button"
               onClick={onAddInvestment}
               className={cn(
-                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em]",
+                "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                 consoleFocus,
               )}
               style={{

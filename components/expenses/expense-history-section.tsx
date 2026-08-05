@@ -77,7 +77,7 @@ export function ExpenseHistorySection({
           <button
             type="button"
             className={cn(
-              "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors hover:bg-white/6",
+              "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -91,7 +91,7 @@ export function ExpenseHistorySection({
           <button
             type="button"
             className={cn(
-              "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-colors hover:bg-white/6 disabled:opacity-50",
+              "inline-flex h-11 w-11 min-h-11 min-w-11 items-center justify-center rounded-lg border transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-90 disabled:opacity-50 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
               consoleFocus,
             )}
             style={{ borderColor: TOKENS.outlineGhost, color: TOKENS.onSurfaceMuted }}
@@ -233,7 +233,7 @@ export function ExpenseHistorySection({
                         {group.entries.map((expense) => (
                           <div
                             key={expense.id}
-                            className="flex flex-col gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-white/4 sm:flex-row sm:items-center sm:justify-between"
+                            className="flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                             style={{
                               background: TOKENS.surfaceLow,
                               borderColor: TOKENS.outlineGhost,
@@ -303,7 +303,7 @@ export function ExpenseHistorySection({
                                 type="button"
                                 onClick={() => onEditExpense(expense)}
                                 className={cn(
-                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                   consoleFocus,
                                 )}
                                 style={{ color: TOKENS.onSurfaceMuted }}
@@ -315,7 +315,7 @@ export function ExpenseHistorySection({
                                 type="button"
                                 onClick={() => p.handleDelete(expense.id)}
                                 className={cn(
-                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]",
+                                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-[background-color,transform] duration-150 hover:bg-white/[0.06] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                                   consoleFocus,
                                 )}
                                 style={{ color: TOKENS.loss }}

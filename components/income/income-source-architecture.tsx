@@ -1,16 +1,14 @@
 "use client"
 
-import { type ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
-import { MomChip } from "@/components/wealth-console/mom-chip"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { MomentumCell } from "@/components/wealth-console/momentum-cell"
 import { RadialRing } from "@/components/wealth-console/radial-ring"
+import { type IncomeEntry } from "@/lib/income-page-types"
 import {
-  type IncomeEntry,
-  type IncomePageStats,
-} from "@/lib/income-page-types"
-import {
+  countCurrentMonthSources,
   groupIncomeSources,
   type IncomeSourceRow,
 } from "@/lib/income-source-architecture"
@@ -19,7 +17,6 @@ import { CARD_INSET, TOKENS } from "@/lib/wealth-console-tokens"
 
 type Props = {
   entries: IncomeEntry[]
-  incomeStats: IncomePageStats
   loading: boolean
   className?: string
   /** Treated as "now" for the current/prior month split. Defaults to the real current date. */
@@ -112,13 +109,13 @@ export function IncomeSourceArchitectureSkeleton({
 
 export function IncomeSourceArchitecture({
   entries,
-  incomeStats,
   loading,
   className,
   referenceDate = new Date(),
 }: Props) {
   const { formatCurrency } = useFormatCurrency()
   const reducedMotion = usePrefersReducedMotion()
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const monthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
     year: "numeric",
@@ -129,6 +126,9 @@ export function IncomeSourceArchitecture({
   }
 
   const grouped = groupIncomeSources(entries, entries, { now: referenceDate })
+  const sourceCount = countCurrentMonthSources(entries, referenceDate)
+  const toggleSelected = (key: string) =>
+    setSelectedKey((current) => (current === key ? null : key))
 
   return (
     <PanelShell className={className}>
@@ -141,7 +141,16 @@ export function IncomeSourceArchitecture({
             {monthLabel}
           </p>
         </div>
-        <MomChip pct={incomeStats.monthOverMonthPct} />
+        <div
+          className="inline-flex items-center rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
+          style={{
+            background: TOKENS.surfaceLow,
+            border: `1px solid ${TOKENS.outlineGhost}`,
+            color: TOKENS.onSurfaceMutedElevated,
+          }}
+        >
+          {sourceCount} {sourceCount === 1 ? "source" : "sources"}
+        </div>
       </div>
 
       {grouped.rows.length === 0 ? (
@@ -159,6 +168,8 @@ export function IncomeSourceArchitecture({
               }))}
               totalAmount={formatCurrency(grouped.currentTotal)}
               reducedMotion={reducedMotion}
+              selectedKey={selectedKey}
+              onSelectKey={toggleSelected}
               ariaLabel={`Income composition: ${grouped.rows
                 .map((row) => `${row.label} ${row.sharePct.toFixed(1)}%`)
                 .join(", ")}`}
@@ -177,13 +188,22 @@ export function IncomeSourceArchitecture({
               <span className="justify-self-end">MoM</span>
             </div>
             <ul className="mt-2 space-y-3 sm:mt-3">
-              {grouped.rows.map((row) => (
+              {grouped.rows.map((row) => {
+                const dimmed = selectedKey != null && selectedKey !== row.label
+                return (
                 <li
                   key={row.label}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(5.5rem,auto)_4.5rem_5.5rem]"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 transition-opacity duration-200 sm:grid-cols-[minmax(0,1.4fr)_minmax(5.5rem,auto)_4.5rem_5.5rem]"
+                  style={{ opacity: dimmed ? 0.35 : 1 }}
                 >
-                  <p
-                    className="flex min-w-0 items-center gap-2 text-sm"
+                  <button
+                    type="button"
+                    onClick={() => toggleSelected(row.label)}
+                    aria-pressed={selectedKey === row.label}
+                    className={cn(
+                      consoleFocus,
+                      "flex min-w-0 items-center gap-2 rounded-md text-left text-sm transition-[transform] duration-150 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+                    )}
                     style={{ color: TOKENS.onSurface }}
                     title={row.label}
                   >
@@ -194,7 +214,7 @@ export function IncomeSourceArchitecture({
                     />
                     <span className="sr-only">Source: </span>
                     <span className="truncate">{row.label}</span>
-                  </p>
+                  </button>
                   <p
                     className="justify-self-end text-sm font-medium tabular-nums"
                     style={{ color: TOKENS.onSurface }}
@@ -214,7 +234,8 @@ export function IncomeSourceArchitecture({
                     <SourceMomCell row={row} />
                   </div>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           </div>
         </div>

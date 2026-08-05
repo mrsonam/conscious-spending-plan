@@ -99,7 +99,7 @@ export function ConsoleSubscriptionsCard({
     >
       <div
         className={cn(
-          "flex h-full flex-col rounded-xl p-5 transition-colors hover:opacity-[0.98] sm:p-6",
+          "flex h-full flex-col rounded-xl p-5 sm:p-6",
           floating && "lg:-translate-y-2",
         )}
         style={{
@@ -137,7 +137,7 @@ export function ConsoleSubscriptionsCard({
             href={BENTO.subscriptions}
             className={cn(
               consoleFocus,
-              "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-colors hover:bg-white/5",
+              "inline-flex min-h-11 shrink-0 items-center rounded-md p-1 transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
             )}
             aria-label="Open subscriptions"
           >
@@ -200,7 +200,7 @@ export function ConsoleSubscriptionsCard({
                       href={BENTO.subscriptions}
                       className={cn(
                         consoleFocus,
-                        "group block rounded-xl border px-3.5 py-3 transition-colors hover:bg-white/4",
+                        "group block rounded-xl border px-3.5 py-3 transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/10 hover:bg-white/4 hover:-translate-y-px active:translate-y-0 active:scale-[0.995] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                       )}
                       style={{
                         background: chipBg,
@@ -243,7 +243,9 @@ export function ConsoleSubscriptionsCard({
                                 urgent && "font-bold",
                               )}
                               style={{
-                                color: urgent ? TOKENS.warning : TOKENS.onSurfaceMuted,
+                                color: urgent
+                                  ? TOKENS.warning
+                                  : TOKENS.onSurfaceMutedElevated,
                               }}
                             >
                               {dueLabel(days)} · {formatDateShort(u.date)}

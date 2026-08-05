@@ -83,7 +83,7 @@ export function DetailCard({
           href={detailHref}
           className={cn(
             consoleFocus,
-            "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-white/5",
+            "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
           )}
           style={{ color: TOKENS.onSurfaceMuted }}
           aria-label={`View ${title} details`}

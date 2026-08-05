@@ -50,9 +50,9 @@ export function CategoryTrackingBarProgress({
         style={{ background: TOKENS.surfaceHigh }}
       >
         <div
-          className="h-full rounded-full transition-[width] duration-300"
+          className="console-budget-fill h-full w-full origin-left rounded-full"
           style={{
-            width: `${value}%`,
+            transform: `scaleX(${value / 100})`,
             background: color,
             boxShadow: CARD_INSET,
           }}
@@ -203,8 +203,12 @@ export function CategoryTrackingPaceBar({
         style={{ background: TOKENS.surfaceHigh }}
       >
         <div
-          className="h-full rounded-full transition-[width] duration-300"
-          style={{ width: `${fillPct}%`, background: color, boxShadow: CARD_INSET }}
+          className="console-budget-fill h-full w-full origin-left rounded-full"
+          style={{
+            transform: `scaleX(${fillPct / 100})`,
+            background: color,
+            boxShadow: CARD_INSET,
+          }}
         />
         {showMarker && (
           <span

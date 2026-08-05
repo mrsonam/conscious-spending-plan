@@ -6,7 +6,6 @@ import {
   fetchJsonAndCache,
   peekCachedJson,
 } from "@/lib/client-fetch-cache"
-import { Button } from "@/components/ui/button"
 import { DateInput } from "@/components/ui/date-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,6 +38,7 @@ import {
 } from "@/lib/subscription-utils"
 import { CalendarClock, Plus, Trash2, Pencil, Calendar, ArrowRight, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { consoleFocus } from "@/components/wealth-console/console-ui"
 import { getLocalDateString } from "@/lib/date-utils"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { parseMoneyInput } from "@/lib/money-input"
@@ -158,6 +158,7 @@ export function SubscriptionsPageBento() {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
 
   const [accountId, setAccountId] = useState("")
   const [amount, setAmount] = useState("")
@@ -679,7 +680,7 @@ export function SubscriptionsPageBento() {
                     return (
                       <div
                         key={cat.key}
-                        className="min-w-[2px] shrink-0 transition-all"
+                        className="min-w-[2px] shrink-0 transition-[width] duration-300 motion-reduce:transition-none"
                         style={{ width: `${w}%`, background: color }}
                         title={`${cat.label} (${w.toFixed(1)}%)`}
                       />
@@ -757,7 +758,7 @@ export function SubscriptionsPageBento() {
               </div>
             ) : (
               <ul className="mt-5 space-y-3">
-                {upcoming.slice(0, 6).map((u) => (
+                {(showAllUpcoming ? upcoming : upcoming.slice(0, 6)).map((u) => (
                   <li
                     key={`${u.subscriptionId}-${u.kind}-${u.date}`}
                     className="flex flex-col gap-1.5 rounded-lg border p-3.5 transition-colors"
@@ -777,6 +778,19 @@ export function SubscriptionsPageBento() {
                 ))}
               </ul>
             )}
+            {!loading && upcoming.length > 6 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllUpcoming((v) => !v)}
+                className={cn(
+                  "mt-3 inline-flex min-h-9 items-center text-xs font-semibold transition-colors hover:text-white",
+                  consoleFocus,
+                )}
+                style={{ color: TOKENS.secondary }}
+              >
+                {showAllUpcoming ? "Show fewer" : `+${upcoming.length - 6} more`}
+              </button>
+            ) : null}
           </div>
         </section>
       </div>
@@ -788,15 +802,18 @@ export function SubscriptionsPageBento() {
             <Activity className="h-5 w-5" style={{ color: TOKENS.secondary }} />
             <h2 className="text-lg font-semibold tracking-tight" style={{ color: TOKENS.onSurface }}>Registry</h2>
           </div>
-          <Button
+          <button
             type="button"
             onClick={openCreate}
-            className="gap-2 rounded-xl font-bold uppercase tracking-wider"
+            className={cn(
+              "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold uppercase tracking-wider transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+              consoleFocus,
+            )}
             style={{ background: TOKENS.primary, color: TOKENS.surface }}
           >
             <Plus className="h-4 w-4" />
             Add Entity
-          </Button>
+          </button>
         </div>
 
         {loading ? (
@@ -847,7 +864,20 @@ export function SubscriptionsPageBento() {
               return (
                 <div
                   key={s.id}
-                  className="group relative flex flex-col justify-between rounded-xl border p-5 transition-all focus-within:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] md:hover:-translate-y-0.5"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openEdit(s)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      openEdit(s)
+                    }
+                  }}
+                  aria-label={`Edit ${title}`}
+                  className={cn(
+                    "group relative flex cursor-pointer flex-col justify-between rounded-xl border p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.995] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+                    consoleFocus,
+                  )}
                   style={{
                     background: TOKENS.surfaceContainer,
                     borderColor: isInactive ? ERROR_SOFT : TOKENS.outlineGhost,
@@ -857,8 +887,14 @@ export function SubscriptionsPageBento() {
                   <div className="absolute top-3 right-3 flex opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 gap-1">
                     <button
                       type="button"
-                      onClick={() => openEdit(s)}
-                      className="rounded-lg p-2 transition-colors hover:bg-white/10"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEdit(s)
+                      }}
+                      className={cn(
+                        "rounded-lg p-2 transition-colors hover:bg-white/10",
+                        consoleFocus,
+                      )}
                       style={{ color: TOKENS.secondary }}
                       title="Edit"
                     >
@@ -866,8 +902,14 @@ export function SubscriptionsPageBento() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(s.id)}
-                      className="rounded-lg p-2 transition-colors hover:bg-white/10"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(s.id)
+                      }}
+                      className={cn(
+                        "rounded-lg p-2 transition-colors hover:bg-white/10",
+                        consoleFocus,
+                      )}
                       style={{ color: ERROR_SOFT }}
                       title="Remove"
                     >
@@ -1197,14 +1239,16 @@ export function SubscriptionsPageBento() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => {
                   setOpen(false)
                   resetForm()
                 }}
-                className="rounded-xl border"
+                className={cn(
+                  "inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-medium transition-[background-color,transform] duration-150 hover:bg-white/6 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{
                   background: TOKENS.surfaceLow,
                   borderColor: TOKENS.outlineGhost,
@@ -1212,15 +1256,18 @@ export function SubscriptionsPageBento() {
                 }}
               >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-xl font-bold"
+                className={cn(
+                  "inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold transition-[opacity,transform] duration-150 hover:opacity-95 active:scale-[0.97] disabled:opacity-60 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+                  consoleFocus,
+                )}
                 style={{ background: TOKENS.primary, color: TOKENS.surface }}
               >
                 {submitting ? "Saving…" : editId ? "Save" : "Create"}
-              </Button>
+              </button>
             </div>
           </form>
         </DialogContent>
