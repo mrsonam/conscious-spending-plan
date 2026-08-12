@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
@@ -32,6 +33,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const [tourActive, setTourActive] = useState(false)
   const [checked, setChecked] = useState(false)
+  const autoStartCheckedRef = useRef(false)
 
   const clearTourQuery = useCallback(() => {
     if (searchParams.get("tour") !== "1") return
@@ -51,7 +53,14 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
   }, [clearTourQuery])
 
   useEffect(() => {
+    // Only auto-start the tour once per mount (i.e. once per login) — this
+    // effect must not re-fire on every page change, which happens because
+    // useSearchParams() returns a new reference on each navigation.
+    if (autoStartCheckedRef.current) return
+    autoStartCheckedRef.current = true
+
     let cancelled = false
+    const wantsTourFromQuery = searchParams.get("tour") === "1"
 
     async function load() {
       try {
@@ -65,7 +74,7 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
           isDemoAccount?: boolean
         }
         if (cancelled) return
-        if (data.needsTour || data.isDemoAccount || searchParams.get("tour") === "1") {
+        if (data.needsTour || data.isDemoAccount || wantsTourFromQuery) {
           window.setTimeout(() => setTourActive(true), 400)
         }
       } catch (error) {
@@ -79,7 +88,8 @@ export function ProductTourProvider({ children }: { children: React.ReactNode })
     return () => {
       cancelled = true
     }
-  }, [searchParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once per mount
+  }, [])
 
   const value = useMemo(
     () => ({ startTour, tourActive }),
