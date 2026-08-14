@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 
 // Fetch current stock prices from Alpha Vantage API
 // You can also use other APIs like Yahoo Finance, IEX Cloud, etc.
@@ -7,9 +7,9 @@ export async function POST(request: Request) {
   try {
     console.log("Stock prices API called")
 
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

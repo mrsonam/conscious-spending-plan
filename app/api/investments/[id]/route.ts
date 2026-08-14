@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { computeHoldingAmountMinor } from "@/lib/investment-money"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { sharesToApiString } from "@/lib/shares"
 
@@ -11,16 +11,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { id } = await params
 
     const existing = await prisma.investmentHolding.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json(
@@ -50,7 +50,7 @@ export async function PATCH(
       const account = await tx.account.findFirst({
         where: {
           id: existing.accountId,
-          userId: session.user.id,
+          userId: authed.userId,
           accountType: "investment",
         },
       })
@@ -121,19 +121,19 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
 
     const existing = await prisma.investmentHolding.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json(
