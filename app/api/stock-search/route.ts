@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 
 const YAHOO_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -50,8 +50,8 @@ async function searchYahoo(
  */
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

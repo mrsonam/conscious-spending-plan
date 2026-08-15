@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 /** Record a dividend payment credited to an investment account (cash in). */
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await request.json()
     const { investmentAccountId, name, amount, date } = body
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       const investmentAccount = await tx.account.findFirst({
         where: {
           id: investmentAccountId,
-          userId: session.user.id,
+          userId: authed.userId,
           accountType: "investment",
         },
       })
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
       const incomeEntry = await tx.incomeEntry.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           amount: amountMinor,
           description: `Dividend: ${trimmedName}`,
           date: dividendDate,
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
       const dividend = await tx.investmentDividend.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountId: investmentAccount.id,
           name: trimmedName,
           amount: amountMinor,
