@@ -43,10 +43,14 @@ export async function GET(
     const entriesAsc = await prisma.savingGoalLedgerEntry.findMany({
       where: { savingGoalId: id, userId: session.user.id },
       orderBy: { createdAt: "asc" },
+      include: { expense: { select: { description: true } } },
     })
     // Prisma types `source` as plain `string`; narrow it to the ledger union
-    // the pure functions expect (the column only ever holds these 4 values).
-    const typedEntries = entriesAsc as unknown as SavingGoalLedgerEntryLike[]
+    // the pure functions expect (the column only ever holds these 5 values).
+    const typedEntries = entriesAsc.map((e) => ({
+      ...(e as unknown as SavingGoalLedgerEntryLike),
+      expenseDescription: e.expense?.description ?? null,
+    }))
 
     const withBalances = computeRunningBalancesMinor(typedEntries)
     const summary = summarizeSavingGoalLedgerMinor(typedEntries)

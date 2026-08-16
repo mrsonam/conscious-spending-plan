@@ -3,6 +3,7 @@ import { addMinor, type MinorAmount } from "@/lib/money"
 export type SavingGoalLedgerSource =
   | "income"
   | "manual_transfer"
+  | "expense"
   | "withdrawal"
   | "archive_reset"
 
@@ -45,7 +46,7 @@ export function summarizeSavingGoalLedgerMinor(entries: SavingGoalLedgerEntryLik
     } else if (e.source === "manual_transfer") {
       fromManualTransfersMinor = addMinor(fromManualTransfersMinor, e.amountMinor)
     } else {
-      // withdrawal | archive_reset — stored as negative amounts
+      // expense | withdrawal | archive_reset — stored as negative amounts
       withdrawnMinor = addMinor(withdrawnMinor, -e.amountMinor)
     }
   }

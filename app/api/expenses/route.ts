@@ -14,6 +14,7 @@ import {
 import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { minorSumToDollars } from "@/lib/money-aggregates"
 import { schedulePersistPreviousMonthClosing } from "@/lib/monthly-tracking"
+import { validateGoalExpenseWithdrawal } from "@/lib/saving-goal-expense-link"
 
 export async function GET(request: Request) {
   try {
@@ -92,6 +93,7 @@ export async function GET(request: Request) {
             createdAt: true,
             category: true,
             expenseCategory: true,
+            savingGoalId: true,
             accountId: true,
             account: {
               select: {
@@ -195,12 +197,14 @@ export async function POST(request: Request) {
       category,
       expenseCategory,
       date,
+      savingGoalId,
     }: {
       amount?: number
       description?: string | null
       category?: string | null
       expenseCategory?: string | null
       date?: string
+      savingGoalId?: string | null
     } = body
     let accountId: string | undefined = body.accountId
 
@@ -219,6 +223,19 @@ export async function POST(request: Request) {
         { error: "Amount is required and must be greater than 0" },
         { status: 400 }
       )
+    }
+
+    // A saving goal can only be linked to a 'savings' fund-pillar expense.
+    const linkedGoalId = category === "savings" ? savingGoalId || null : null
+    if (linkedGoalId) {
+      const goal = await prisma.savingGoal.findFirst({
+        where: { id: linkedGoalId, userId },
+        select: { status: true, currentMinor: true },
+      })
+      const validation = validateGoalExpenseWithdrawal(goal, amountMinor)
+      if (!validation.ok) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
+      }
     }
 
     // Fall back to the user's default account when caller (e.g. a Shortcut)
@@ -282,7 +299,20 @@ export async function POST(request: Request) {
       })
       if (updated.count === 0) throw new Error("INSUFFICIENT_FUNDS")
 
-      return tx.expense.create({
+      if (linkedGoalId) {
+        const goalUpdated = await tx.savingGoal.updateMany({
+          where: {
+            id: linkedGoalId,
+            userId,
+            status: "active",
+            currentMinor: { gte: amountMinor },
+          },
+          data: { currentMinor: { decrement: amountMinor } },
+        })
+        if (goalUpdated.count === 0) throw new Error("GOAL_INSUFFICIENT")
+      }
+
+      const expense = await tx.expense.create({
         data: {
           userId,
           accountId,
@@ -291,6 +321,7 @@ export async function POST(request: Request) {
           category,
           expenseCategory,
           date: expenseDate,
+          savingGoalId: linkedGoalId,
         },
         include: {
           account: {
@@ -302,6 +333,20 @@ export async function POST(request: Request) {
           },
         },
       })
+
+      if (linkedGoalId) {
+        await tx.savingGoalLedgerEntry.create({
+          data: {
+            userId,
+            savingGoalId: linkedGoalId,
+            expenseId: expense.id,
+            source: "expense",
+            amountMinor: -amountMinor,
+          },
+        })
+      }
+
+      return expense
     })
 
     schedulePersistPreviousMonthClosing(userId)
@@ -320,6 +365,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
       return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
+    if (error instanceof Error && error.message === "GOAL_INSUFFICIENT") {
+      return NextResponse.json(
+        { error: "Amount exceeds the goal's available balance" },
+        { status: 400 }
+      )
     }
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
@@ -369,12 +420,14 @@ export async function PATCH(request: Request) {
       category,
       expenseCategory,
       date,
+      savingGoalId,
     }: {
       amount?: number
       description?: string | null
       category?: string | null
       expenseCategory?: string | null
       date?: string
+      savingGoalId?: string | null
     } = body
     const accountId: string | undefined = body.accountId
 
@@ -395,6 +448,34 @@ export async function PATCH(request: Request) {
           { error: "Amount must be greater than 0" },
           { status: 400 },
         )
+      }
+    }
+
+    // A saving goal can only stay linked while the expense stays a 'savings'
+    // fund-pillar expense. Omitting savingGoalId in the request preserves
+    // whatever this expense was already linked to.
+    const nextCategory = category !== undefined ? category || null : existing.category
+    const requestedGoalId =
+      savingGoalId !== undefined ? savingGoalId || null : existing.savingGoalId
+    const nextLinkedGoalId = nextCategory === "savings" ? requestedGoalId : null
+
+    if (nextLinkedGoalId) {
+      const goal = await prisma.savingGoal.findFirst({
+        where: { id: nextLinkedGoalId, userId },
+        select: { status: true, currentMinor: true },
+      })
+      // This expense may have already reserved `existing.amount` from this
+      // same goal; add it back before checking the new amount fits.
+      const effectiveCurrentMinor =
+        goal && existing.savingGoalId === nextLinkedGoalId
+          ? goal.currentMinor + existing.amount
+          : (goal?.currentMinor ?? 0n)
+      const validation = validateGoalExpenseWithdrawal(
+        goal ? { status: goal.status, currentMinor: effectiveCurrentMinor } : null,
+        amountMinor,
+      )
+      if (!validation.ok) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
       }
     }
 
@@ -449,7 +530,35 @@ export async function PATCH(request: Request) {
         })
       }
 
-      return tx.expense.update({
+      // Reverse the goal withdrawal this expense previously made, if any.
+      if (existing.savingGoalId) {
+        const oldEntry = await tx.savingGoalLedgerEntry.findUnique({
+          where: { expenseId: existing.id },
+        })
+        if (oldEntry) {
+          await tx.savingGoal.update({
+            where: { id: existing.savingGoalId },
+            data: { currentMinor: { increment: -oldEntry.amountMinor } },
+          })
+          await tx.savingGoalLedgerEntry.delete({ where: { id: oldEntry.id } })
+        }
+      }
+
+      // Re-apply the (possibly new/changed) goal withdrawal.
+      if (nextLinkedGoalId) {
+        const goalUpdated = await tx.savingGoal.updateMany({
+          where: {
+            id: nextLinkedGoalId,
+            userId,
+            status: "active",
+            currentMinor: { gte: amountMinor },
+          },
+          data: { currentMinor: { decrement: amountMinor } },
+        })
+        if (goalUpdated.count === 0) throw new Error("GOAL_INSUFFICIENT")
+      }
+
+      const updatedExpense = await tx.expense.update({
         where: { id },
         data: {
           accountId: nextAccountId,
@@ -460,6 +569,7 @@ export async function PATCH(request: Request) {
             expenseCategory: expenseCategory || null,
           }),
           date: expenseDate,
+          savingGoalId: nextLinkedGoalId,
         },
         include: {
           account: {
@@ -471,6 +581,20 @@ export async function PATCH(request: Request) {
           },
         },
       })
+
+      if (nextLinkedGoalId) {
+        await tx.savingGoalLedgerEntry.create({
+          data: {
+            userId,
+            savingGoalId: nextLinkedGoalId,
+            expenseId: id,
+            source: "expense",
+            amountMinor: -amountMinor,
+          },
+        })
+      }
+
+      return updatedExpense
     })
 
     schedulePersistPreviousMonthClosing(userId)
@@ -488,6 +612,12 @@ export async function PATCH(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "INSUFFICIENT_FUNDS") {
       return NextResponse.json({ error: "Insufficient funds in the account" }, { status: 400 })
+    }
+    if (error instanceof Error && error.message === "GOAL_INSUFFICIENT") {
+      return NextResponse.json(
+        { error: "Amount exceeds the goal's available balance" },
+        { status: 400 }
+      )
     }
     const dbErr = getDbErrorResponse(error)
     if (dbErr) return NextResponse.json(dbErr.body, { status: dbErr.status })
@@ -537,8 +667,22 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Delete expense and restore account balance in a transaction
+    // Delete expense, restore account balance, and undo any saving goal
+    // withdrawal it made, all in a transaction
     await prisma.$transaction(async (tx) => {
+      if (expense.savingGoalId) {
+        const entry = await tx.savingGoalLedgerEntry.findUnique({
+          where: { expenseId: expense.id },
+        })
+        if (entry) {
+          await tx.savingGoal.update({
+            where: { id: expense.savingGoalId },
+            data: { currentMinor: { increment: -entry.amountMinor } },
+          })
+          await tx.savingGoalLedgerEntry.delete({ where: { id: entry.id } })
+        }
+      }
+
       await tx.expense.delete({
         where: { id },
       })

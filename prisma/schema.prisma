@@ -237,11 +237,17 @@ model Expense {
   /// Set when this row is the pillar debit backing an outstanding Loan.
   loan Loan?
 
+  /// Set when this is a 'savings' category expense withdrawn from a specific goal.
+  savingGoalId          String?
+  savingGoal            SavingGoal?            @relation(fields: [savingGoalId], references: [id], onDelete: SetNull)
+  savingGoalLedgerEntry SavingGoalLedgerEntry?
+
   @@unique([userId, externalId])
   @@index([userId])
   @@index([accountId])
   @@index([userId, date])
   @@index([userId, expenseCategory])
+  @@index([savingGoalId])
 }
 
 model RecurringExpense {
@@ -407,13 +413,14 @@ model SavingGoal {
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
   ledgerEntries SavingGoalLedgerEntry[]
+  expenses      Expense[]
 
   @@index([userId, status])
 }
 
 /// Ledger row for every balance change on a saving goal: income credit, manual
-/// transfer, withdrawal, or archive reset. `sum(amountMinor)` for a goal
-/// always equals its `currentMinor`.
+/// transfer, expense withdrawal, full cash-out withdrawal, or archive reset.
+/// `sum(amountMinor)` for a goal always equals its `currentMinor`.
 model SavingGoalLedgerEntry {
   id            String       @id @default(cuid())
   userId        String
@@ -422,13 +429,16 @@ model SavingGoalLedgerEntry {
   savingGoal    SavingGoal   @relation(fields: [savingGoalId], references: [id], onDelete: Cascade)
   incomeEntryId String?
   incomeEntry   IncomeEntry? @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
-  source        String       @default("income") // income | manual_transfer | withdrawal | archive_reset
+  expenseId     String?      @unique
+  expense       Expense?     @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  source        String       @default("income") // income | manual_transfer | expense | withdrawal | archive_reset
   amountMinor   BigInt // signed: positive = money in, negative = money out
   createdAt     DateTime     @default(now())
 
   @@unique([savingGoalId, incomeEntryId])
   @@index([userId])
   @@index([incomeEntryId])
+  @@index([expenseId])
 }
 
 /// Plan-level move between fund buckets (Category Tracking envelope transfer).

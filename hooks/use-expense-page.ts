@@ -16,6 +16,7 @@ import type {
   ExpenseEntry,
   ExpenseMessage,
   ExpensePageAccount,
+  ExpensePageSavingGoal,
   ExpensePageStats,
   RecurringExpense,
 } from "@/lib/expense-page-types"
@@ -56,7 +57,12 @@ type ExpenseLogSnapshot = {
   expenseStats: ExpensePageStats
 }
 
-export type ExpenseLogFieldKey = "accountId" | "amount" | "date" | "fundCategory"
+export type ExpenseLogFieldKey =
+  | "accountId"
+  | "amount"
+  | "date"
+  | "fundCategory"
+  | "savingGoalId"
 export type ExpenseRecurringFieldKey =
   | "recurringAccountId"
   | "recurringAmount"
@@ -96,6 +102,7 @@ export function useExpensePage(
 ) {
   const { formatCurrency, currencyCode } = useFormatCurrency()
   const [accounts, setAccounts] = useState<ExpensePageAccount[]>([])
+  const [savingGoals, setSavingGoals] = useState<ExpensePageSavingGoal[]>([])
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([])
   const [expensesTotal, setExpensesTotal] = useState(0)
   const [expensesPage, setExpensesPage] = useState(1)
@@ -118,6 +125,7 @@ export function useExpensePage(
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
   const [fundCategory, setFundCategory] = useState("")
+  const [savingGoalId, setSavingGoalId] = useState("")
   const [expenseCategory, setExpenseCategory] = useState("")
   const [date, setDate] = useState(() => getLocalDateString())
   const [submitting, setSubmitting] = useState(false)
@@ -306,6 +314,29 @@ export function useExpensePage(
     }
   }, [])
 
+  const fetchSavingGoals = useCallback(async (force = false) => {
+    const cacheKey = "saving-goals-picker"
+    const cached = !force
+      ? peekCachedJson<{ goals: ExpensePageSavingGoal[] }>(cacheKey, 60_000)
+      : undefined
+
+    if (cached) {
+      setSavingGoals(cached.goals || [])
+    }
+
+    try {
+      const data = await fetchJsonAndCache<{ goals: ExpensePageSavingGoal[] }>(
+        cacheKey,
+        force ? withCacheBust("/api/saving-goals?status=active") : "/api/saving-goals?status=active",
+        undefined,
+        { force },
+      )
+      setSavingGoals(data.goals || [])
+    } catch (error) {
+      console.error("Error fetching saving goals:", error)
+    }
+  }, [])
+
   const fetchExpenseSummary = useCallback(async (force = false, options?: FetchOptions) => {
     const silent = options?.silent === true
     const requestGen = ++summaryFetchGenRef.current
@@ -470,9 +501,10 @@ export function useExpensePage(
         fetchExpenseSummary(true, fetchOpts),
         fetchAccounts(true, fetchOpts),
         fetchExpenses(page, true, fetchOpts),
+        fetchSavingGoals(true),
       ])
     },
-    [expensesPage, fetchExpenseSummary, fetchAccounts, fetchExpenses],
+    [expensesPage, fetchExpenseSummary, fetchAccounts, fetchExpenses, fetchSavingGoals],
   )
 
   const fetchRecurring = useCallback(async (force = false) => {
@@ -535,8 +567,9 @@ export function useExpensePage(
       router.push("/login")
     } else if (status === "authenticated") {
       void fetchAccounts()
+      void fetchSavingGoals()
     }
-  }, [status, router, fetchAccounts])
+  }, [status, router, fetchAccounts, fetchSavingGoals])
 
   // Separate from the accounts effect so changing the selected month (which
   // changes fetchExpenseSummary's identity) doesn't also re-fetch accounts.
@@ -797,6 +830,7 @@ export function useExpensePage(
     setAmount("")
     setDescription("")
     setFundCategory("")
+    setSavingGoalId("")
     setExpenseCategory("")
     setDate(getLocalDateString())
     if (accounts.length > 0) {
@@ -813,6 +847,7 @@ export function useExpensePage(
     setAmount(String(expense.amount))
     setDescription(expense.description ?? "")
     setFundCategory(expense.category ?? "")
+    setSavingGoalId(expense.savingGoalId ?? "")
     setExpenseCategory(expense.expenseCategory ?? "")
     setDate(expense.date.slice(0, 10))
   }, [clearFieldErrors])
@@ -824,6 +859,23 @@ export function useExpensePage(
     const selectedAccount = accounts.find((acc) => acc.id === accountId)
     const isCashAccount = selectedAccount?.accountType === "cash"
 
+    const amountNum = parseMoneyInput(amount, currencyCode)
+    const selectedGoal =
+      fundCategory === "savings" && savingGoalId
+        ? savingGoals.find((g) => g.id === savingGoalId)
+        : undefined
+    const editingExisting = editingExpenseId
+      ? expenses.find((e) => e.id === editingExpenseId)
+      : undefined
+    // Editing an expense that already withdrew from this same goal frees up
+    // its old amount again, so it counts back toward what's available.
+    const goalAvailable = selectedGoal
+      ? selectedGoal.current +
+        (editingExisting?.savingGoalId === savingGoalId
+          ? (editingExisting?.amount ?? 0)
+          : 0)
+      : undefined
+
     const logErrors = buildFieldErrors<ExpenseLogFieldKey>([
       ["accountId", requireSelection(accountId, "an account")],
       ["amount", requirePositiveNumber(amount, "Amount")],
@@ -834,6 +886,12 @@ export function useExpensePage(
           ? "Please select a fund category."
           : null,
       ],
+      [
+        "savingGoalId",
+        selectedGoal && goalAvailable != null && amountNum > goalAvailable
+          ? `This goal only has ${formatCurrency(goalAvailable)} available.`
+          : null,
+      ],
     ])
     if (hasFieldErrors(logErrors)) {
       setFieldErrors((prev) => {
@@ -842,6 +900,7 @@ export function useExpensePage(
         delete next.amount
         delete next.date
         delete next.fundCategory
+        delete next.savingGoalId
         return { ...next, ...logErrors }
       })
       return false
@@ -852,10 +911,10 @@ export function useExpensePage(
       delete next.amount
       delete next.date
       delete next.fundCategory
+      delete next.savingGoalId
       return next
     })
 
-    const amountNum = parseMoneyInput(amount, currencyCode)
     if (!selectedAccount) return false
     if (expenseLogInFlightRef.current) return false
 
@@ -867,12 +926,15 @@ export function useExpensePage(
       expenseStats,
     }
 
+    const linkedGoalId = fundCategory === "savings" ? savingGoalId || null : null
+
     const payload = {
       accountId,
       amount: amountNum,
       description: description || null,
       category: fundCategory || null,
       expenseCategory: expenseCategory || null,
+      savingGoalId: linkedGoalId,
       date,
     }
 
@@ -894,6 +956,7 @@ export function useExpensePage(
         description: description || null,
         category: fundCategory || null,
         expenseCategory: expenseCategory || null,
+        savingGoalId: linkedGoalId,
         date,
         account: {
           id: selectedAccount.id,
@@ -974,6 +1037,7 @@ export function useExpensePage(
       description: description || null,
       category: fundCategory || null,
       expenseCategory: expenseCategory || null,
+      savingGoalId: linkedGoalId,
       date,
       account: {
         id: selectedAccount.id,
@@ -1221,6 +1285,7 @@ export function useExpensePage(
 
   return {
     accounts,
+    savingGoals,
     expenses,
     expensesTotal,
     expensesPage,
@@ -1248,6 +1313,8 @@ export function useExpensePage(
     setDescription,
     fundCategory,
     setFundCategory,
+    savingGoalId,
+    setSavingGoalId,
     expenseCategory,
     setExpenseCategory,
     date,

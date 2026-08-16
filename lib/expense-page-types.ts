@@ -9,6 +9,13 @@ export interface ExpensePageAccount {
   isDefault: boolean
 }
 
+export interface ExpensePageSavingGoal {
+  id: string
+  name: string
+  status: string
+  current: number
+}
+
 export interface ExpenseEntry {
   id: string
   accountId: string
@@ -16,6 +23,7 @@ export interface ExpenseEntry {
   description: string | null
   category: string | null
   expenseCategory: string | null
+  savingGoalId: string | null
   date: string
   createdAt?: string
   account: {

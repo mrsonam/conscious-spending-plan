@@ -9,10 +9,11 @@ import type { SavingGoalRow } from "@/hooks/use-saving-goals-page"
 
 export interface SavingGoalLedgerRow {
   id: string
-  source: "income" | "manual_transfer" | "withdrawal" | "archive_reset"
+  source: "income" | "manual_transfer" | "expense" | "withdrawal" | "archive_reset"
   amount: number
   runningBalance: number
   incomeEntryId: string | null
+  expenseDescription: string | null
   createdAt: string
 }
 

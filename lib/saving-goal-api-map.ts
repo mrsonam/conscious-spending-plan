@@ -30,7 +30,10 @@ export function mapSavingGoalListToApi(goals: GoalRecord[], currency: string) {
   return goals.map((g) => mapSavingGoalToApi(g, currency))
 }
 
-type LedgerEntryRecord = SavingGoalLedgerEntryLike & { runningBalanceMinor: bigint }
+type LedgerEntryRecord = SavingGoalLedgerEntryLike & {
+  runningBalanceMinor: bigint
+  expenseDescription?: string | null
+}
 
 /** Client-facing ledger row: signed dollar amount + running balance. */
 export function mapSavingGoalLedgerEntryToApi(entry: LedgerEntryRecord, currency: string) {
@@ -40,6 +43,7 @@ export function mapSavingGoalLedgerEntryToApi(entry: LedgerEntryRecord, currency
     amount: serializeMoneyForApi(entry.amountMinor, currency),
     runningBalance: serializeMoneyForApi(entry.runningBalanceMinor, currency),
     incomeEntryId: entry.incomeEntryId,
+    expenseDescription: entry.expenseDescription ?? null,
     createdAt: entry.createdAt,
   }
 }

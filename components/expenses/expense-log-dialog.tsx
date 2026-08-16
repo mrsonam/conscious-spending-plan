@@ -93,7 +93,10 @@ export function ExpenseLogDialog({
                   p.setAccountId(v)
                   p.clearFieldError("accountId")
                   const a = p.accounts.find((acc) => acc.id === v)
-                  if (a?.accountType === "cash") p.setFundCategory("")
+                  if (a?.accountType === "cash") {
+                    p.setFundCategory("")
+                    p.setSavingGoalId("")
+                  }
                 }}
                 disabled={p.submitting}
                
@@ -187,6 +190,10 @@ export function ExpenseLogDialog({
                     onValueChange={(v) => {
                       p.setFundCategory(v)
                       p.clearFieldError("fundCategory")
+                      if (v !== "savings") {
+                        p.setSavingGoalId("")
+                        p.clearFieldError("savingGoalId")
+                      }
                     }}
                     disabled={p.submitting}
                    
@@ -211,6 +218,45 @@ export function ExpenseLogDialog({
                 </div>
               )
             })()}
+            {p.fundCategory === "savings" && (
+              <div>
+                <label
+                  htmlFor="exp-saving-goal"
+                  className={expenseFieldLabelClass}
+                  style={{ color: TOKENS.onSurfaceMuted }}
+                >
+                  Saving goal
+                </label>
+                <AppSelect
+                  id="exp-saving-goal"
+                  value={p.savingGoalId}
+                  onValueChange={(v) => {
+                    p.setSavingGoalId(v)
+                    p.clearFieldError("savingGoalId")
+                  }}
+                  disabled={p.submitting}
+                  className={cn(expenseConsoleField, "mt-1 border-transparent")}
+                  style={{
+                    backgroundColor: TOKENS.surfaceLow,
+                    borderColor: TOKENS.outlineGhost,
+                    color: TOKENS.onSurface,
+                  }}
+                  placeholder="General savings"
+                  aria-invalid={!!fe.savingGoalId}
+                  {...formFieldAria("exp-saving-goal", fe.savingGoalId)}
+                  options={[
+                    { value: "", label: "General savings (no specific goal)" },
+                    ...p.savingGoals
+                      .filter((g) => g.status === "active")
+                      .map((g) => ({
+                        value: g.id,
+                        label: `${g.name} — ${p.formatCurrency(g.current)} available`,
+                      })),
+                  ]}
+                />
+                <FormFieldError controlId="exp-saving-goal" message={fe.savingGoalId} />
+              </div>
+            )}
             <div>
               <label
                 htmlFor="exp-ec"

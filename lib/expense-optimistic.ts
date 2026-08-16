@@ -55,11 +55,13 @@ export function buildOptimisticExpenseEntry(input: {
   description: string | null
   category: string | null
   expenseCategory: string | null
+  savingGoalId?: string | null
   date: string
   account: ExpenseEntry["account"]
 }): ExpenseEntry {
   return {
     ...input,
+    savingGoalId: input.savingGoalId ?? null,
     createdAt: new Date().toISOString(),
   }
 }

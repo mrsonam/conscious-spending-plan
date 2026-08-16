@@ -35,8 +35,17 @@ import {
 const SOURCE_LABEL: Record<SavingGoalLedgerRow["source"], string> = {
   income: "Paycheck",
   manual_transfer: "Manual transfer",
+  expense: "Expense",
   withdrawal: "Withdrawal",
   archive_reset: "Archived",
+}
+
+/** For expense withdrawals, show what it was spent on; otherwise the source label. */
+function ledgerRowSourceLabel(row: SavingGoalLedgerRow): string {
+  if (row.source === "expense" && row.expenseDescription) {
+    return row.expenseDescription
+  }
+  return SOURCE_LABEL[row.source]
 }
 
 const actionBtn = cn(
@@ -52,6 +61,12 @@ function formatDate(iso: string) {
   })
 }
 
+/** Quotes a CSV field if it contains a comma, quote, or newline (expense descriptions are free text). */
+function csvField(value: string): string {
+  if (!/[",\n]/.test(value)) return value
+  return `"${value.replace(/"/g, '""')}"`
+}
+
 function exportLedgerCsv(goalName: string, ledger: SavingGoalLedgerRow[]) {
   const header = ["Date", "Source", "Amount", "RunningBalance"]
   const lines = [
@@ -59,7 +74,7 @@ function exportLedgerCsv(goalName: string, ledger: SavingGoalLedgerRow[]) {
     ...ledger.map((row) =>
       [
         new Date(row.createdAt).toISOString().slice(0, 10),
-        SOURCE_LABEL[row.source],
+        csvField(ledgerRowSourceLabel(row)),
         row.amount.toFixed(2),
         row.runningBalance.toFixed(2),
       ].join(",")
@@ -419,7 +434,7 @@ export function SavingGoalDetailBento({ id }: { id: string }) {
                       {formatDate(row.createdAt)}
                     </td>
                     <td className="px-3 py-2.5 text-left" style={{ color: TOKENS.onSurface }}>
-                      {SOURCE_LABEL[row.source]}
+                      {ledgerRowSourceLabel(row)}
                     </td>
                     <td
                       className="px-3 py-2.5 text-right font-semibold tabular-nums"
