@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { mapMoneyListToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { addMinor, coerceMinor } from "@/lib/money"
 
 type BulkRow = {
@@ -18,13 +18,13 @@ type BulkRow = {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await request.json()
     const { accountId: bodyAccountId, expenses: rawExpenses } = body as {
       accountId?: string
@@ -47,10 +47,10 @@ export async function POST(request: Request) {
     let accountId = bodyAccountId
     if (!accountId) {
       const defaultAccount = await prisma.account.findFirst({
-        where: { userId: session.user.id, isDefault: true },
+        where: { userId: authed.userId, isDefault: true },
       })
       const firstAccount = await prisma.account.findFirst({
-        where: { userId: session.user.id },
+        where: { userId: authed.userId },
       })
       accountId = defaultAccount?.id ?? firstAccount?.id ?? undefined
     }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     const account = await prisma.account.findFirst({
-      where: { id: accountId, userId: session.user.id },
+      where: { id: accountId, userId: authed.userId },
     })
 
     if (!account) {
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
           rows.map((r) =>
             tx.expense.create({
               data: {
-                userId: session.user.id,
+                userId: authed.userId,
                 accountId,
                 amount: r.amountMinor,
                 description: r.description,

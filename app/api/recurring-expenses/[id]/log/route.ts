@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { coerceMinor } from "@/lib/money"
 
 /** POST: Create a one-time expense from this recurring template (optionally with a specific date). */
@@ -12,15 +12,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { id } = await params
     const recurring = await prisma.recurringExpense.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
       include: { account: true },
     })
     if (!recurring) {
@@ -35,7 +35,7 @@ export async function POST(
     const amountMinor = coerceMinor(recurring.amount)
 
     const account = await prisma.account.findFirst({
-      where: { id: recurring.accountId, userId: session.user.id },
+      where: { id: recurring.accountId, userId: authed.userId },
     })
     if (!account) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -58,7 +58,7 @@ export async function POST(
 
       return tx.expense.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountId: recurring.accountId,
           amount: amountMinor,
           description: recurring.description,
