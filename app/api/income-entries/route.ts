@@ -304,39 +304,3 @@ export async function GET(request: Request) {
     )
   }
 }
-
-export async function DELETE(request: Request) {
-  try {
-    const authed = await authFromRequest(request)
-
-    if (!authed) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const userId = authed.userId
-
-    const [incomeResult, balanceResult] = await Promise.all([
-      prisma.incomeEntry.deleteMany({
-        where: { userId }
-      }),
-      prisma.categoryBalance.deleteMany({
-        where: { userId }
-      })
-    ])
-
-    return NextResponse.json({ 
-      message: "Income data reset successfully",
-      deletedIncomeCount: incomeResult.count,
-      deletedBalanceCount: balanceResult.count
-    })
-  } catch (error) {
-    console.error("Error deleting income entries:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
-  }
-}
