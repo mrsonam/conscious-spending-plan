@@ -1,25 +1,25 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { moneyJsonResponse } from "@/lib/api-money-response"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { coerceMinor, subtractMinor } from "@/lib/money"
 import { reverseSavingGoalCreditsForIncome } from "@/lib/saving-goal-credits-server"
 import { updateIncomeEntryForUser } from "@/lib/update-income-entry-server"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { id } = await params
     const body = await request.json()
     const {
@@ -67,7 +67,7 @@ export async function PATCH(
     }
 
     const result = await updateIncomeEntryForUser(
-      session.user.id,
+      authed.userId,
       id,
       {
         incomeMinor,
@@ -99,13 +99,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -115,7 +115,7 @@ export async function DELETE(
     const { id } = await params
 
     const entry = await prisma.incomeEntry.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
 
     if (!entry) {
@@ -151,7 +151,7 @@ export async function DELETE(
             if (allocMinor <= 0n) continue
             const row = await tx.categoryBalance.findFirst({
               where: {
-                userId: session.user.id,
+                userId: authed.userId,
                 category: key,
                 month: targetMonth,
                 year: targetYear,
@@ -170,7 +170,7 @@ export async function DELETE(
 
         if (entry.accountId && entryAmount > 0n) {
           const account = await tx.account.findFirst({
-            where: { id: entry.accountId, userId: session.user.id },
+            where: { id: entry.accountId, userId: authed.userId },
           })
           if (account) {
             await tx.account.update({
@@ -182,7 +182,7 @@ export async function DELETE(
 
         if (hadAllocation && (entry.allocationSavings ?? 0n) > 0n) {
           await reverseSavingGoalCreditsForIncome(tx, {
-            userId: session.user.id,
+            userId: authed.userId,
             incomeEntryId: id,
           })
         }

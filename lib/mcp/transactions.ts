@@ -13,12 +13,15 @@ export type ProposedTransaction = {
   fundCategory?: string
   expenseCategory?: string
   allocateToBudget?: boolean
+  savingGoalId?: string
 }
 
 export type ValidationContext = {
   accounts: Array<{ id: string; name: string; balanceMinor: bigint }>
   defaultAccountId: string | null
   currency: string
+  /** Active saving goals; omitted when the caller doesn't need goal checks. */
+  savingGoals?: Array<{ id: string }>
 }
 
 export type ValidatedTransaction = {
@@ -77,6 +80,14 @@ export function validateTransaction(
     }
   }
 
+  if (tx.savingGoalId) {
+    if (tx.type !== "expense" || tx.fundCategory !== "savings") {
+      issues.push("A saving goal can only be linked to an expense in the savings fund category.")
+    } else if (!ctx.savingGoals?.some((g) => g.id === tx.savingGoalId)) {
+      issues.push(`Unknown or inactive saving goal "${tx.savingGoalId}".`)
+    }
+  }
+
   return { amountMinor, accountId, issues }
 }
 
@@ -101,4 +112,41 @@ export function findPossibleDuplicates(
       e.amountMinor === candidate.amountMinor &&
       Math.abs(e.date.getTime() - target) <= windowDays * DAY_MS + DAY_MS / 2,
   )
+}
+
+/** First and last day (YYYY-MM-DD) of the month containing `date`, as the income page sends them. */
+export function monthBounds(date: string) {
+  const [y, m] = date.split("-").map(Number)
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const mm = String(m).padStart(2, "0")
+  return { periodStart: `${y}-${mm}-01`, periodEnd: `${y}-${mm}-${String(lastDay).padStart(2, "0")}` }
+}
+
+export type SpendingRow = {
+  amountMinor: bigint
+  fundCategory: string | null
+  expenseCategory: string | null
+}
+
+/** Totals per expense category and per fund pillar, largest first. */
+export function summarizeSpending(rows: SpendingRow[]) {
+  const byExpense = new Map<string, { totalMinor: bigint; count: number }>()
+  const byFund = new Map<string, { totalMinor: bigint; count: number }>()
+  let totalMinor = 0n
+  const add = (map: typeof byExpense, key: string, amount: bigint) => {
+    const row = map.get(key) ?? { totalMinor: 0n, count: 0 }
+    row.totalMinor += amount
+    row.count += 1
+    map.set(key, row)
+  }
+  for (const r of rows) {
+    totalMinor += r.amountMinor
+    add(byExpense, r.expenseCategory || "uncategorized", r.amountMinor)
+    add(byFund, r.fundCategory || "uncategorized", r.amountMinor)
+  }
+  const sorted = (map: typeof byExpense) =>
+    [...map.entries()]
+      .map(([category, v]) => ({ category, ...v }))
+      .sort((a, b) => (b.totalMinor > a.totalMinor ? 1 : b.totalMinor < a.totalMinor ? -1 : 0))
+  return { totalMinor, count: rows.length, byExpenseCategory: sorted(byExpense), byFundCategory: sorted(byFund) }
 }

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 
-import { findPossibleDuplicates, validateTransaction } from "../lib/mcp/transactions"
+import {
+  findPossibleDuplicates,
+  monthBounds,
+  summarizeSpending,
+  validateTransaction,
+} from "../lib/mcp/transactions"
 import { isSafeCallbackPath, isAllowedRedirectUri, verifyPkceS256 } from "../lib/oauth-server"
 
 const accounts = [
@@ -51,6 +56,22 @@ const income = validateTransaction(
 assert.deepEqual(income.issues, [])
 assert.equal(income.accountId, null)
 
+// Saving goals: only on savings expenses, only active goals.
+const goalCtx = { accounts, defaultAccountId: "acc1", currency: "AUD", savingGoals: [{ id: "g1" }] }
+const goalBase = { type: "expense" as const, amount: 10, date: "2026-11-01", description: "Holiday fund", expenseCategory: "travel" }
+assert.deepEqual(
+  validateTransaction({ ...goalBase, fundCategory: "savings", savingGoalId: "g1" }, goalCtx).issues,
+  [],
+)
+assert.ok(
+  validateTransaction({ ...goalBase, fundCategory: "guiltFreeSpending", savingGoalId: "g1" }, goalCtx)
+    .issues.some((i) => i.includes("savings fund category")),
+)
+assert.ok(
+  validateTransaction({ ...goalBase, fundCategory: "savings", savingGoalId: "gone" }, goalCtx)
+    .issues.some((i) => i.includes("saving goal")),
+)
+
 // --- findPossibleDuplicates ------------------------------------------------
 
 const existing = [
@@ -86,5 +107,30 @@ assert.equal(
   true,
 )
 assert.equal(verifyPkceS256("wrong", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), false)
+
+// --- monthBounds -----------------------------------------------------------
+
+assert.deepEqual(monthBounds("2026-02-14"), { periodStart: "2026-02-01", periodEnd: "2026-02-28" })
+assert.deepEqual(monthBounds("2028-02-03"), { periodStart: "2028-02-01", periodEnd: "2028-02-29" })
+assert.deepEqual(monthBounds("2026-12-31"), { periodStart: "2026-12-01", periodEnd: "2026-12-31" })
+
+// --- summarizeSpending -----------------------------------------------------
+
+const spend = summarizeSpending([
+  { amountMinor: 1000n, fundCategory: "fixedCosts", expenseCategory: "groceries" },
+  { amountMinor: 2500n, fundCategory: "guiltFreeSpending", expenseCategory: "food" },
+  { amountMinor: 500n, fundCategory: "fixedCosts", expenseCategory: "groceries" },
+  { amountMinor: 100n, fundCategory: null, expenseCategory: null },
+])
+assert.equal(spend.totalMinor, 4100n)
+assert.equal(spend.count, 4)
+assert.deepEqual(
+  spend.byExpenseCategory.map((r) => [r.category, r.totalMinor, r.count]),
+  [["food", 2500n, 1], ["groceries", 1500n, 2], ["uncategorized", 100n, 1]],
+)
+assert.deepEqual(
+  spend.byFundCategory.map((r) => [r.category, r.totalMinor]),
+  [["guiltFreeSpending", 2500n], ["fixedCosts", 1500n], ["uncategorized", 100n]],
+)
 
 console.log("mcp-transactions tests passed")
