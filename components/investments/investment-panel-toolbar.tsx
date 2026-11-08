@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useRef } from "react"
-import { BarChart3, FileText, Search } from "lucide-react"
+import { useRef } from "react"
+import { BarChart3, Coins, FileText, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TOKENS, CARD_INSET } from "@/lib/wealth-console-tokens"
 import { consoleFocus } from "@/components/wealth-console/console-ui"
@@ -9,8 +9,13 @@ import {
   investmentConsoleField,
   INVESTMENTS_PANEL_TABS_ID,
 } from "@/components/investments/investment-console-ui"
+import type { InvestmentPanelMode as PanelMode } from "@/components/investments/investment-shared"
 
-type PanelMode = "analytics" | "reports"
+const PANEL_TABS: Array<{ mode: PanelMode; label: string; icon: typeof BarChart3 }> = [
+  { mode: "analytics", label: "Analytics", icon: BarChart3 },
+  { mode: "reports", label: "Reports", icon: FileText },
+  { mode: "dividends", label: "Dividends", icon: Coins },
+]
 
 type InvestmentPanelToolbarProps = {
   searchQuery: string
@@ -25,33 +30,24 @@ export function InvestmentPanelToolbar({
   panelMode,
   onPanelModeChange,
 }: InvestmentPanelToolbarProps) {
-  const analyticsTabRef = useRef<HTMLButtonElement>(null)
-  const reportsTabRef = useRef<HTMLButtonElement>(null)
+  const tabRefs = useRef<Partial<Record<PanelMode, HTMLButtonElement | null>>>({})
 
-  const focusTab = useCallback((mode: PanelMode) => {
-    if (mode === "analytics") analyticsTabRef.current?.focus()
-    else reportsTabRef.current?.focus()
-  }, [])
+  const selectTab = (mode: PanelMode) => {
+    onPanelModeChange(mode)
+    tabRefs.current[mode]?.focus()
+  }
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.preventDefault()
-      const next: PanelMode = panelMode === "analytics" ? "reports" : "analytics"
-      onPanelModeChange(next)
-      focusTab(next)
-      return
-    }
-    if (event.key === "Home") {
-      event.preventDefault()
-      onPanelModeChange("analytics")
-      focusTab("analytics")
-      return
-    }
-    if (event.key === "End") {
-      event.preventDefault()
-      onPanelModeChange("reports")
-      focusTab("reports")
-    }
+    const index = PANEL_TABS.findIndex((t) => t.mode === panelMode)
+    const last = PANEL_TABS.length - 1
+    let next: number | null = null
+    if (event.key === "ArrowRight") next = index === last ? 0 : index + 1
+    else if (event.key === "ArrowLeft") next = index === 0 ? last : index - 1
+    else if (event.key === "Home") next = 0
+    else if (event.key === "End") next = last
+    if (next === null) return
+    event.preventDefault()
+    selectTab(PANEL_TABS[next].mode)
   }
 
   return (
@@ -98,48 +94,32 @@ export function InvestmentPanelToolbar({
           style={{ background: TOKENS.surfaceHigh, boxShadow: CARD_INSET }}
           onKeyDown={handleTabKeyDown}
         >
-          <button
-            ref={analyticsTabRef}
-            type="button"
-            role="tab"
-            id={`${INVESTMENTS_PANEL_TABS_ID}-analytics`}
-            aria-selected={panelMode === "analytics"}
-            aria-controls="investments-panel-analytics"
-            tabIndex={panelMode === "analytics" ? 0 : -1}
-            onClick={() => onPanelModeChange("analytics")}
-            className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
-              consoleFocus,
-            )}
-            style={{
-              background: panelMode === "analytics" ? TOKENS.surfaceContainer : "transparent",
-              color: panelMode === "analytics" ? TOKENS.primary : TOKENS.onSurfaceMuted,
-            }}
-          >
-            <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-            Analytics
-          </button>
-          <button
-            ref={reportsTabRef}
-            type="button"
-            role="tab"
-            id={`${INVESTMENTS_PANEL_TABS_ID}-reports`}
-            aria-selected={panelMode === "reports"}
-            aria-controls="investments-panel-reports"
-            tabIndex={panelMode === "reports" ? 0 : -1}
-            onClick={() => onPanelModeChange("reports")}
-            className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
-              consoleFocus,
-            )}
-            style={{
-              background: panelMode === "reports" ? TOKENS.surfaceContainer : "transparent",
-              color: panelMode === "reports" ? TOKENS.primary : TOKENS.onSurfaceMuted,
-            }}
-          >
-            <FileText className="h-3.5 w-3.5" aria-hidden />
-            Reports
-          </button>
+          {PANEL_TABS.map(({ mode, label, icon: Icon }) => (
+            <button
+              key={mode}
+              ref={(el) => {
+                tabRefs.current[mode] = el
+              }}
+              type="button"
+              role="tab"
+              id={`${INVESTMENTS_PANEL_TABS_ID}-${mode}`}
+              aria-selected={panelMode === mode}
+              aria-controls={`investments-panel-${mode}`}
+              tabIndex={panelMode === mode ? 0 : -1}
+              onClick={() => onPanelModeChange(mode)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] transition-transform duration-150 active:scale-[0.95] motion-reduce:transition-none motion-reduce:active:scale-100",
+                consoleFocus,
+              )}
+              style={{
+                background: panelMode === mode ? TOKENS.surfaceContainer : "transparent",
+                color: panelMode === mode ? TOKENS.primary : TOKENS.onSurfaceMuted,
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </section>

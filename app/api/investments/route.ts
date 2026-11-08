@@ -249,9 +249,9 @@ export async function GET(request: Request) {
       }
     })
 
+    // Full history (newest first): the Dividends tab groups every payment by month.
     const recentDividends = [...dividends]
       .sort((a, b) => b.date.getTime() - a.date.getTime())
-      .slice(0, 24)
       .map((d) => ({
         id: d.id,
         date: d.date.toISOString(),

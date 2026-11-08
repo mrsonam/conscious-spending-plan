@@ -15,6 +15,7 @@ import {
   type RecentDividendRow,
   type EditingPurchase,
   type ChartRange,
+  type InvestmentPanelMode,
 } from "@/components/investments/investment-shared"
 import { useFormatCurrency } from "@/hooks/use-format-currency"
 import { tryParseMoneyInput } from "@/lib/money-input"
@@ -28,6 +29,7 @@ import {
   applyOptimisticPurchaseDelete,
   cloneInvestmentState,
 } from "@/lib/investment-optimistic"
+import { summarizeDividends } from "@/lib/investment-dividends"
 
 /** Same cache key as dashboard secondary load, warm cache when navigating between pages. */
 const INVESTMENTS_CACHE_KEY = "dashboard:investments"
@@ -63,7 +65,7 @@ export function useInvestmentsPage(status: string) {
   const [recentDividends, setRecentDividends] = useState<RecentDividendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [panelMode, setPanelMode] = useState<"analytics" | "reports">("analytics")
+  const [panelMode, setPanelMode] = useState<InvestmentPanelMode>("analytics")
   const [searchQuery, setSearchQuery] = useState("")
   const [loadingMarketPrices, setLoadingMarketPrices] = useState(false)
   const [marketPrices, setMarketPrices] = useState<Record<string, number>>({})
@@ -927,6 +929,17 @@ export function useInvestmentsPage(status: string) {
           ? "Last 12 months performance"
           : "Full history (deployed capital → portfolio value)"
 
+  const dividendSummary = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const rows = q
+      ? recentDividends.filter((d) => {
+          const account = accounts.find((a) => a.id === d.accountId)?.name ?? ""
+          return d.name.toLowerCase().includes(q) || account.toLowerCase().includes(q)
+        })
+      : recentDividends
+    return summarizeDividends(rows, accounts)
+  }, [recentDividends, accounts, searchQuery])
+
   const filteredRecentActivity = useMemo(() => {
     return recentActivity.filter((r) => {
       const q = searchQuery.trim().toLowerCase()
@@ -997,6 +1010,7 @@ export function useInvestmentsPage(status: string) {
     allocationBySymbol,
     recentActivity,
     filteredRecentActivity,
+    dividendSummary,
     portfolioGains,
     portfolioMarkValue,
     portfolioChartData,

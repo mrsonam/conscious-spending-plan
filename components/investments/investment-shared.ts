@@ -36,6 +36,8 @@ export interface InvestmentAccountSummary {
   holdings: InvestmentHolding[]
 }
 
+export type InvestmentPanelMode = "analytics" | "reports" | "dividends"
+
 export interface RecentDividendRow {
   id: string
   date: string

@@ -6,6 +6,7 @@ import { InvestmentAnalyticsSection } from "@/components/investments/investment-
 import { InvestmentChartRiskSection } from "@/components/investments/investment-chart-risk-section"
 import { InvestmentDeleteDialog } from "@/components/investments/investment-delete-dialog"
 import { InvestmentDividendDialog } from "@/components/investments/investment-dividend-dialog"
+import { InvestmentDividendsSection } from "@/components/investments/investment-dividends-section"
 import { InvestmentEditDialog } from "@/components/investments/investment-edit-dialog"
 import { InvestmentHoldingsSection } from "@/components/investments/investment-holdings-section"
 import { InvestmentLogDialog } from "@/components/investments/investment-log-dialog"
@@ -164,9 +165,15 @@ export function InvestmentsPageBento(p: UseInvestmentsPageResult) {
           total={p.allocationBySymbol.total}
           formatCurrency={p.formatCurrency}
         />
-      ) : (
+      ) : p.panelMode === "reports" ? (
         <InvestmentReportsSection
           rows={p.filteredRecentActivity.slice(0, 12)}
+          formatCurrency={p.formatCurrency}
+        />
+      ) : (
+        <InvestmentDividendsSection
+          summary={p.dividendSummary}
+          filtered={p.searchQuery.trim().length > 0}
           formatCurrency={p.formatCurrency}
         />
       )}
