@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import {
@@ -9,18 +9,18 @@ import {
   mapMoneyFieldsToApi,
   mapMoneyListToApi,
 } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { refreshTrackingChainFromMonth } from "@/lib/category-tracking-refresh"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { fromAccountId, toAccountId, amount, description, date, category } =
       await request.json()
 
@@ -56,10 +56,10 @@ export async function POST(request: Request) {
 
     const [fromAccount, toAccount] = await Promise.all([
       prisma.account.findFirst({
-        where: { id: fromAccountId, userId: session.user.id },
+        where: { id: fromAccountId, userId: authed.userId },
       }),
       prisma.account.findFirst({
-        where: { id: toAccountId, userId: session.user.id },
+        where: { id: toAccountId, userId: authed.userId },
       }),
     ])
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
 
       return tx.transfer.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           fromAccountId,
           toAccountId,
           amount: amountMinor,
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
 
     try {
       await refreshTrackingChainFromMonth(
-        session.user.id,
+        authed.userId,
         currency,
         transferDate.getMonth() + 1,
         transferDate.getFullYear(),
@@ -159,13 +159,13 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
@@ -174,7 +174,7 @@ export async function GET(request: Request) {
       userId: string
       date?: { gte?: Date; lte?: Date }
     } = {
-      userId: session.user.id,
+      userId: authed.userId,
     }
 
     if (startDate || endDate) {

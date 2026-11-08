@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
 import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { id } = await params
     const existing = await prisma.recurringExpense.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json({ error: "Recurring expense not found" }, { status: 404 })
@@ -57,7 +57,7 @@ export async function PATCH(
 
     if (accountId != null) {
       const account = await prisma.account.findFirst({
-        where: { id: accountId, userId: session.user.id },
+        where: { id: accountId, userId: authed.userId },
       })
       if (!account) {
         return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -117,18 +117,18 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
     const existing = await prisma.recurringExpense.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json({ error: "Recurring expense not found" }, { status: 404 })

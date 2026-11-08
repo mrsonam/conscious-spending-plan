@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { mapSavingGoalToApi } from "@/lib/saving-goal-api-map"
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/lib/saving-goal-allocation"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { transferToSavingGoal } from "@/lib/saving-goal-general-savings"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import {
   computeRunningBalancesMinor,
   summarizeSavingGoalLedgerMinor,
@@ -21,27 +21,27 @@ import { loadSavingGoalProjections } from "@/lib/saving-goal-projection"
 import { serializeMoneyForApi } from "@/lib/money-api"
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
 
     const goal = await prisma.savingGoal.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!goal) {
       return NextResponse.json({ error: "Saving goal not found" }, { status: 404 })
     }
 
     const entriesAsc = await prisma.savingGoalLedgerEntry.findMany({
-      where: { savingGoalId: id, userId: session.user.id },
+      where: { savingGoalId: id, userId: authed.userId },
       orderBy: { createdAt: "asc" },
       include: { expense: { select: { description: true } } },
     })
@@ -54,7 +54,7 @@ export async function GET(
 
     const withBalances = computeRunningBalancesMinor(typedEntries)
     const summary = summarizeSavingGoalLedgerMinor(typedEntries)
-    const projections = await loadSavingGoalProjections(session.user.id, [goal], currency)
+    const projections = await loadSavingGoalProjections(authed.userId, [goal], currency)
 
     return moneyJsonResponse(
       {
@@ -86,13 +86,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = (await request.json()) as {
       name?: string
       target?: number | string | null
@@ -102,7 +102,7 @@ export async function PATCH(
     }
 
     const goal = await prisma.savingGoal.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
 
     if (!goal) {
@@ -112,7 +112,7 @@ export async function PATCH(
     if (body.action === "archive") {
       const updated = await prisma.$transaction(async (tx) => {
         const fresh = await tx.savingGoal.findFirst({
-          where: { id, userId: session.user.id },
+          where: { id, userId: authed.userId },
         })
         if (!fresh) {
           throw new Error("Saving goal not found")
@@ -120,7 +120,7 @@ export async function PATCH(
         if (fresh.currentMinor > 0n) {
           await tx.savingGoalLedgerEntry.create({
             data: {
-              userId: session.user.id,
+              userId: authed.userId,
               savingGoalId: id,
               source: "archive_reset",
               amountMinor: -fresh.currentMinor,
@@ -155,7 +155,7 @@ export async function PATCH(
 
       const result = await prisma.$transaction((tx) =>
         transferToSavingGoal(tx, {
-          userId: session.user.id,
+          userId: authed.userId,
           goalId: id,
           amountMinor,
         })
@@ -185,7 +185,7 @@ export async function PATCH(
       }
       const updated = await prisma.$transaction(async (tx) => {
         const fresh = await tx.savingGoal.findFirst({
-          where: { id, userId: session.user.id },
+          where: { id, userId: authed.userId },
         })
         if (!fresh) {
           throw new Error("Saving goal not found")
@@ -193,7 +193,7 @@ export async function PATCH(
         if (fresh.currentMinor > 0n) {
           await tx.savingGoalLedgerEntry.create({
             data: {
-              userId: session.user.id,
+              userId: authed.userId,
               savingGoalId: id,
               source: "withdrawal",
               amountMinor: -fresh.currentMinor,
@@ -251,7 +251,7 @@ export async function PATCH(
       const percentBps = displayPercentToBps(percentNum)
 
       const activeGoals = await prisma.savingGoal.findMany({
-        where: { userId: session.user.id, status: "active" },
+        where: { userId: authed.userId, status: "active" },
         select: { id: true, percentBps: true },
       })
 
@@ -290,19 +290,19 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
 
     const goal = await prisma.savingGoal.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
 
     if (!goal) {

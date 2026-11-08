@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 
 import {
+  checkBudgetSplit,
   findPossibleDuplicates,
   monthBounds,
   summarizeSpending,
@@ -72,6 +73,23 @@ assert.ok(
     .issues.some((i) => i.includes("saving goal")),
 )
 
+// Transfers: need a different, known destination; source falls back to default.
+const tctx = { accounts, defaultAccountId: "acc1", currency: "AUD" }
+const transfer = validateTransaction(
+  { type: "transfer", amount: 50, date: "2026-11-02", description: "To savings", toAccountId: "acc2" },
+  tctx,
+)
+assert.deepEqual(transfer.issues, [])
+assert.equal(transfer.accountId, "acc1")
+assert.ok(
+  validateTransaction({ type: "transfer", amount: 50, date: "2026-11-02", description: "x", toAccountId: "acc1" }, tctx)
+    .issues.some((i) => i.includes("two different accounts")),
+)
+assert.ok(
+  validateTransaction({ type: "transfer", amount: 50, date: "2026-11-02", description: "x" }, tctx)
+    .issues.some((i) => i.includes("toAccountId")),
+)
+
 // --- findPossibleDuplicates ------------------------------------------------
 
 const existing = [
@@ -132,5 +150,21 @@ assert.deepEqual(
   spend.byFundCategory.map((r) => [r.category, r.totalMinor]),
   [["guiltFreeSpending", 2500n], ["fixedCosts", 1500n], ["uncategorized", 100n]],
 )
+
+// --- checkBudgetSplit ------------------------------------------------------
+
+const split = (fc: number, s: number, inv: number, g: number) => ({
+  fixedCosts: { type: "percentage" as const, value: fc },
+  savings: { type: "percentage" as const, value: s },
+  investment: { type: "percentage" as const, value: inv },
+  guiltFreeSpending: { type: "percentage" as const, value: g },
+})
+assert.deepEqual(checkBudgetSplit(split(50, 20, 10, 20)), [])
+assert.ok(checkBudgetSplit(split(60, 20, 10, 20))[0].includes("110%"))
+assert.deepEqual(
+  checkBudgetSplit({ ...split(50, 20, 10, 0), guiltFreeSpending: { type: "fixed", value: 800 } }),
+  [],
+)
+assert.ok(checkBudgetSplit(split(50, -5, 10, 20)).some((i) => i.includes("savings")))
 
 console.log("mcp-transactions tests passed")

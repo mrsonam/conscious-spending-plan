@@ -1,7 +1,7 @@
 import { EXPENSE_CATEGORIES, FUND_CATEGORIES } from "@/lib/expense-page-constants"
 import { parseMoneyFromApi } from "@/lib/money-api"
 
-export type TransactionType = "expense" | "income"
+export type TransactionType = "expense" | "income" | "transfer"
 
 /** One transaction as Claude proposes it (amounts in major units, e.g. dollars). */
 export type ProposedTransaction = {
@@ -9,7 +9,10 @@ export type ProposedTransaction = {
   amount: number
   date: string
   description: string
+  /** Expense/income account; for transfers, the account the money leaves. */
   accountId?: string
+  /** Transfers only: the account the money goes into. */
+  toAccountId?: string
   fundCategory?: string
   expenseCategory?: string
   allocateToBudget?: boolean
@@ -67,8 +70,21 @@ export function validateTransaction(
     else issues.push(`Unknown account "${tx.accountId}". Use an id from get_logging_context.`)
   } else if (ctx.defaultAccountId) {
     accountId = ctx.defaultAccountId
-  } else if (tx.type === "expense") {
+  } else if (tx.type !== "income") {
     issues.push("No account given and the user has no default account set.")
+  }
+
+  if (tx.type === "transfer") {
+    if (!tx.toAccountId) {
+      issues.push("Transfers need toAccountId (the account the money goes into).")
+    } else if (!ctx.accounts.some((a) => a.id === tx.toAccountId)) {
+      issues.push(`Unknown account "${tx.toAccountId}". Use an id from get_logging_context.`)
+    } else if (tx.toAccountId === accountId) {
+      issues.push("A transfer needs two different accounts.")
+    }
+    if (tx.fundCategory && !FUND_VALUES.has(tx.fundCategory)) {
+      issues.push(`Invalid fund category "${tx.fundCategory}".`)
+    }
   }
 
   if (tx.type === "expense") {
@@ -149,4 +165,23 @@ export function summarizeSpending(rows: SpendingRow[]) {
       .map(([category, v]) => ({ category, ...v }))
       .sort((a, b) => (b.totalMinor > a.totalMinor ? 1 : b.totalMinor < a.totalMinor ? -1 : 0))
   return { totalMinor, count: rows.length, byExpenseCategory: sorted(byExpense), byFundCategory: sorted(byFund) }
+}
+
+export type PillarSetting = { type: "percentage" | "fixed"; value: number }
+
+/**
+ * Sanity-check a budget split: values must be non-negative and percentage
+ * pillars can't add up to more than 100%. Returns the problems, if any.
+ */
+export function checkBudgetSplit(pillars: Record<string, PillarSetting>) {
+  const issues: string[] = []
+  let percentTotal = 0
+  for (const [name, p] of Object.entries(pillars)) {
+    if (!Number.isFinite(p.value) || p.value < 0) issues.push(`${name} must be 0 or more.`)
+    if (p.type === "percentage") percentTotal += p.value
+  }
+  if (percentTotal > 100.0001) {
+    issues.push(`Percentages add up to ${Math.round(percentTotal * 100) / 100}%, which is more than 100%.`)
+  }
+  return issues
 }

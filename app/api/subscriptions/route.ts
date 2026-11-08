@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { prismaSubscription } from "@/lib/prisma-subscription"
 import {
@@ -14,7 +14,7 @@ import { getDbErrorResponse } from "@/lib/db-error"
 import { getExchangeRate } from "@/lib/fx-rate"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { dollarsToMinor } from "@/lib/money"
 
 const VALID_FREQ = SUPPORTED_SUBSCRIPTION_FREQUENCIES
@@ -71,12 +71,12 @@ function subscriptionToApi(sub: SubscriptionRow, currency: string) {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get("status")
     const upcomingDays = Math.min(
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
     )
 
     const where: { userId: string; status?: string } = {
-      userId: session.user.id,
+      userId: authed.userId,
     }
     if (statusFilter && VALID_STATUS.includes(statusFilter as (typeof VALID_STATUS)[number])) {
       where.status = statusFilter
@@ -195,12 +195,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await request.json()
     const {
       accountId,
@@ -264,7 +264,7 @@ export async function POST(request: Request) {
       : "active"
 
     const account = await prisma.account.findFirst({
-      where: { id: accountId, userId: session.user.id },
+      where: { id: accountId, userId: authed.userId },
     })
     if (!account) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -290,7 +290,7 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const recurring = await tx.recurringExpense.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountId,
           amount: amountMinor,
           description: description || null,
@@ -309,7 +309,7 @@ export async function POST(request: Request) {
 
       const subscription = await (tx as { subscription: { create: (args: object) => Promise<unknown> } }).subscription.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           recurringExpenseId: recurring.id,
           provider: typeof provider === "string" ? provider.trim() || null : null,
           label: typeof label === "string" ? label.trim() || null : null,

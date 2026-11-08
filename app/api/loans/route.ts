@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import {
@@ -8,24 +8,24 @@ import {
   mapMoneyFieldsToApi,
   mapMoneyListToApi,
 } from "@/lib/money-serialize"
-import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { subtractMinor } from "@/lib/money"
 import { PRE_TRACKING_SAVINGS_ACCOUNT_TYPES } from "@/lib/pre-tracking-savings"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
 
     const where: { userId: string; status?: string } = {
-      userId: session.user.id,
+      userId: authed.userId,
     }
     if (status) where.status = status
 
@@ -61,13 +61,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = await getUserDisplayCurrency(session.user.id)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { accountId, amount, description, borrowerName, date, dueDate } =
       await request.json()
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     }
 
     const account = await prisma.account.findFirst({
-      where: { id: accountId, userId: session.user.id },
+      where: { id: accountId, userId: authed.userId },
     })
 
     if (!account) {
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
       const pillarExpense = isLiquidAccount
         ? await tx.expense.create({
             data: {
-              userId: session.user.id,
+              userId: authed.userId,
               accountId,
               amount: amountMinor,
               description: `Loan to ${borrowerName || "borrower"}`,
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
       return tx.loan.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           accountId,
           amount: amountMinor,
           description: description || null,
@@ -183,13 +183,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = await getUserDisplayCurrency(session.user.id)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { loanId, toAccountId } = (await request.json()) as {
       loanId?: string
       toAccountId?: string
@@ -203,7 +203,7 @@ export async function PATCH(request: Request) {
     }
 
     const loan = await prisma.loan.findFirst({
-      where: { id: loanId, userId: session.user.id },
+      where: { id: loanId, userId: authed.userId },
     })
 
     if (!loan) {
@@ -229,7 +229,7 @@ export async function PATCH(request: Request) {
     let creditAccountId = loan.accountId
     if (typeof toAccountId === "string" && toAccountId.trim().length > 0) {
       const destination = await prisma.account.findFirst({
-        where: { id: toAccountId.trim(), userId: session.user.id },
+        where: { id: toAccountId.trim(), userId: authed.userId },
       })
       if (!destination) {
         return NextResponse.json(

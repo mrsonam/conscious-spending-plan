@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 import { readJsonBody, routeErrorResponse } from "@/lib/route-error"
@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await readJsonBody<{
       superAccountId?: string
       amount?: unknown
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const account = await prisma.superannuationAccount.findFirst({
-      where: { id: body.superAccountId, userId: session.user.id },
+      where: { id: body.superAccountId, userId: authed.userId },
     })
     if (!account) {
       return NextResponse.json({ error: "Super account not found" }, { status: 404 })
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const [contribution, updatedAccount] = await prisma.$transaction([
       prisma.superannuationContribution.create({
         data: {
-          userId: session.user.id,
+          userId: authed.userId,
           superAccountId: body.superAccountId,
           amount: amountMinor,
           type: contribType,
@@ -93,8 +93,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -105,7 +105,7 @@ export async function DELETE(request: Request) {
     }
 
     const contribution = await prisma.superannuationContribution.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!contribution) {
       return NextResponse.json({ error: "Contribution not found" }, { status: 404 })

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import {
   mapSavingGoalListToApi,
@@ -17,21 +17,21 @@ import { loadGeneralSavingsContext } from "@/lib/saving-goal-general-savings"
 import { loadSavingGoalProjections } from "@/lib/saving-goal-projection"
 import { ensurePreTrackingSavingsBalances } from "@/lib/pre-tracking-savings"
 import { serializeMoneyForApi } from "@/lib/money-api"
-import { currencyFromSession, getUserDisplayCurrency } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
 
     const where: { userId: string; status?: string } = {
-      userId: session.user.id,
+      userId: authed.userId,
     }
     if (status) where.status = status
 
@@ -43,11 +43,11 @@ export async function GET(request: Request) {
     const activeGoals = goals.filter((g) => g.status === "active")
     const assignedBps = sumGoalPercentBps(activeGoals)
 
-    await ensurePreTrackingSavingsBalances(session.user.id)
+    await ensurePreTrackingSavingsBalances(authed.userId)
 
     const [{ availableMinor }, projections] = await Promise.all([
-      loadGeneralSavingsContext(prisma, session.user.id),
-      loadSavingGoalProjections(session.user.id, goals, currency),
+      loadGeneralSavingsContext(prisma, authed.userId),
+      loadSavingGoalProjections(authed.userId, goals, currency),
     ])
 
     const goalsOut = mapSavingGoalListToApi(
@@ -78,12 +78,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = await getUserDisplayCurrency(session.user.id)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = (await request.json()) as {
       name?: string
       target?: number | string | null
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     const percentBps = displayPercentToBps(percentNum)
 
     const activeGoals = await prisma.savingGoal.findMany({
-      where: { userId: session.user.id, status: "active" },
+      where: { userId: authed.userId, status: "active" },
       select: { id: true, percentBps: true },
     })
 
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
     const goal = await prisma.savingGoal.create({
       data: {
-        userId: session.user.id,
+        userId: authed.userId,
         name,
         targetMinor: targetParsed.value,
         percentBps,

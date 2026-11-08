@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getDbErrorResponse } from "@/lib/db-error"
 import { parseMoneyFromApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
 import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 function serializeRecurring(
   recurring: Record<string, unknown>,
@@ -20,16 +20,16 @@ function serializeRecurring(
   return out
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const recurring = await prisma.recurringExpense.findMany({
-      where: { userId: session.user.id },
+      where: { userId: authed.userId },
       include: {
         account: { select: { id: true, name: true, bankName: true } },
       },
@@ -59,12 +59,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await request.json()
     const {
       accountId,
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     const account = await prisma.account.findFirst({
-      where: { id: accountId, userId: session.user.id },
+      where: { id: accountId, userId: authed.userId },
     })
     if (!account) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
 
     const recurring = await prisma.recurringExpense.create({
       data: {
-        userId: session.user.id,
+        userId: authed.userId,
         accountId,
         amount: amountMinor,
         description: description || null,

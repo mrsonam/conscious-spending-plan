@@ -1,32 +1,32 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { defaultFundAllocationCreate } from "@/lib/fund-allocation-fields"
 import {
   fundAllocationFromApi,
   fundAllocationToApi,
 } from "@/lib/fund-allocation-money"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { getDbErrorResponse } from "@/lib/db-error"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
 
     let fundAllocation = await prisma.fundAllocation.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: authed.userId },
     })
 
     if (!fundAllocation) {
       fundAllocation = await prisma.fundAllocation.create({
-        data: defaultFundAllocationCreate(session.user.id),
+        data: defaultFundAllocationCreate(authed.userId),
       })
     }
 
@@ -44,23 +44,23 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth()
+    const authed = await authFromRequest(request)
 
-    if (!session?.user?.id) {
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const data = fundAllocationFromApi(
       (await request.json()) as Record<string, unknown>,
       currency
     )
 
     const fundAllocation = await prisma.fundAllocation.upsert({
-      where: { userId: session.user.id },
+      where: { userId: authed.userId },
       update: data,
       create: {
-        userId: session.user.id,
+        userId: authed.userId,
         ...data,
       },
     })

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 import { routeErrorResponse } from "@/lib/route-error"
@@ -12,12 +12,12 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 export async function GET(req: Request) {
   try {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const authed = await authFromRequest(req)
+  if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const userId = session.user.id
-  const currency = currencyFromSession(session.user.displayCurrency)
+  const userId = authed.userId
+  const currency = await getUserDisplayCurrency(authed.userId)
   const toD = (minor: number) => serializeMoneyForApi(coerceMinor(BigInt(Math.round(minor))), currency)
 
   const { searchParams } = new URL(req.url)

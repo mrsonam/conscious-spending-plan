@@ -11,47 +11,55 @@ import {
   DELETE as deleteIncomeEntry,
   PATCH as patchIncomeEntry,
 } from "@/app/api/income-entries/[id]/route"
-import { GET as getCategoryTracking } from "@/app/api/category-tracking/route"
+import { POST as postTransfer } from "@/app/api/transfers/route"
 import { EXPENSE_CATEGORIES, FUND_CATEGORIES } from "@/lib/expense-page-constants"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { prisma } from "@/lib/prisma"
 import { getUserDisplayCurrency } from "@/lib/user-currency"
 import {
   findPossibleDuplicates,
-  isIsoDate,
   monthBounds,
-  summarizeSpending,
   validateTransaction,
   type ExistingTransaction,
   type ProposedTransaction,
 } from "@/lib/mcp/transactions"
+import {
+  DESTRUCTIVE,
+  READ_ONLY,
+  WRITE,
+  badDate,
+  callRoute,
+  errorResult,
+  expenseEnum,
+  fundEnum,
+  isoDay,
+  json,
+  routeError,
+  type McpCaller,
+} from "@/lib/mcp/shared"
+import { registerInsightTools } from "@/lib/mcp/tools-insights"
+import { registerPlanningTools } from "@/lib/mcp/tools-planning"
 
-export type McpCaller = {
-  userId: string
-  /** Raw bearer token, forwarded so writes go through the existing API routes unchanged. */
-  token: string
-  origin: string
-}
+export type { McpCaller } from "@/lib/mcp/shared"
 
 const INSTRUCTIONS = `Conscious Spending Plan: the user's personal budgeting app.
 
-Workflow for logging income and expenses (from chat text or screenshots of bank transactions):
+Workflow for logging income, expenses and transfers (from chat text or screenshots of bank transactions):
 1. Call get_logging_context to load the user's accounts, categories, saving goals and recent history.
-2. Extract each transaction. Use the user's recent history to pick categories the way they usually do.
+2. Extract each transaction. Use the user's recent history to pick categories the way they usually do. Money moving between two of the user's own accounts is a transfer, not an expense or income.
 3. Call preview_transactions with the full list.
-4. Show the user a clear table (date, description, amount, income/expense, category, account) including any duplicate or balance warnings, and ask them to confirm or correct it.
+4. Show the user a clear table (date, description, amount, type, category, account) including any duplicate or balance warnings, and ask them to confirm or correct it.
 5. Only after the user explicitly confirms, call log_transactions with exactly the confirmed list.
-Never log anything the user has not confirmed in this conversation. Skip transfers between the user's own accounts unless they ask for them.
+Never log anything the user has not confirmed in this conversation.
 
 Fixing mistakes: find the transaction with search_transactions, show the user exactly what will change (or be deleted), and only call update_transaction or delete_transaction after they confirm.
 
-Questions about money: use get_budget_status for "how much do I have left this month" and get_spending_summary for "how much did I spend on X".`
+If the user shares their bank balance, use reconcile_account to compare it with the app and point out what might be missing.
 
-const fundEnum = z.enum(FUND_CATEGORIES.map((c) => c.value) as [string, ...string[]])
-const expenseEnum = z.enum(EXPENSE_CATEGORIES.map((c) => c.value) as [string, ...string[]])
+Every other tool that changes data (investments, saving goals, recurring payments, loans, super, budget split) also needs the user's explicit confirmation first. Read-only tools answer questions: budget status, spending summary, net worth, trends, cash-flow forecast, portfolio, goals, recurring payments, loans, super and the budget split.`
 
 const transactionSchema = z.object({
-  type: z.enum(["expense", "income"]),
+  type: z.enum(["expense", "income", "transfer"]),
   // Positivity is checked per row by validateTransaction so the preview can report it.
   amount: z.number().describe("Positive amount in major units, e.g. 42.5"),
   date: z.string().describe("YYYY-MM-DD"),
@@ -59,10 +67,18 @@ const transactionSchema = z.object({
   accountId: z
     .string()
     .optional()
-    .describe("Account id from get_logging_context; omit to use the user's default account"),
+    .describe(
+      "Account id from get_logging_context (for transfers: the account money leaves); omit to use the user's default account",
+    ),
+  toAccountId: z
+    .string()
+    .optional()
+    .describe("Transfers only: the account the money goes into"),
   fundCategory: fundEnum
     .optional()
-    .describe("Expenses only: the spending-plan pillar the money comes from"),
+    .describe(
+      "Expenses: the spending-plan pillar the money comes from (required). Transfers: optional pillar the move counts towards, e.g. investment when funding a brokerage account",
+    ),
   expenseCategory: expenseEnum.optional().describe("Expenses only: the detailed category"),
   savingGoalId: z
     .string()
@@ -81,16 +97,6 @@ const transactionSchema = z.object({
 const transactionsInput = {
   transactions: z.array(transactionSchema).min(1).max(50),
 }
-
-function json(value: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] }
-}
-
-function errorResult(message: string) {
-  return { content: [{ type: "text" as const, text: message }], isError: true }
-}
-
-const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
 async function loadContext(userId: string) {
   const [currency, user, accounts, goals] = await Promise.all([
@@ -122,57 +128,22 @@ async function loadExistingAround(userId: string, dates: string[]): Promise<Exis
   if (times.length === 0) return []
   const pad = 4 * 24 * 60 * 60 * 1000
   const range = { gte: new Date(Math.min(...times) - pad), lte: new Date(Math.max(...times) + pad) }
-  const [expenses, income] = await Promise.all([
-    prisma.expense.findMany({
-      where: { userId, date: range },
-      select: { id: true, amount: true, date: true, description: true },
-    }),
-    prisma.incomeEntry.findMany({
-      where: { userId, date: range },
-      select: { id: true, amount: true, date: true, description: true },
-    }),
+  const select = { id: true, amount: true, date: true, description: true }
+  const [expenses, income, transfers] = await Promise.all([
+    prisma.expense.findMany({ where: { userId, date: range }, select }),
+    prisma.incomeEntry.findMany({ where: { userId, date: range }, select }),
+    prisma.transfer.findMany({ where: { userId, date: range }, select }),
   ])
   return [
     ...expenses.map((e) => ({ ...e, type: "expense" as const, amountMinor: e.amount })),
     ...income.map((e) => ({ ...e, type: "income" as const, amountMinor: e.amount })),
+    ...transfers.map((e) => ({ ...e, type: "transfer" as const, amountMinor: e.amount })),
   ]
 }
 
-type RouteHandler = (
-  req: Request,
-  ctx: { params: Promise<{ id: string }> },
-) => Promise<Response>
-
-/** Invoke an existing API route handler as the caller (bearer token), returning its JSON. */
-async function callRoute(
-  handler: RouteHandler,
-  caller: McpCaller,
-  method: string,
-  path: string,
-  body?: unknown,
-  params: Record<string, string> = {},
-) {
-  const res = await handler(
-    new Request(`${caller.origin}${path}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${caller.token}`,
-        ...(body !== undefined ? { "content-type": "application/json" } : {}),
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
-    { params: Promise.resolve(params as { id: string }) },
-  )
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  return { ok: res.ok, data }
-}
-
-const routeError = (data: Record<string, unknown>, fallback: string) =>
-  String(data.error ?? fallback)
-
 export function createMcpServer(caller: McpCaller) {
   const server = new McpServer(
-    { name: "conscious-spending-plan", version: "1.1.0" },
+    { name: "conscious-spending-plan", version: "1.2.0" },
     { instructions: INSTRUCTIONS },
   )
 
@@ -181,13 +152,13 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Get accounts, categories and recent history",
       description:
-        "Load everything needed to categorize transactions: the user's accounts (with ids and balances), default account, currency, valid fund and expense categories, active saving goals, and their most recent expenses and income as examples of how they categorize. Call this first.",
-      annotations: { readOnlyHint: true, openWorldHint: false },
+        "Load everything needed to categorize transactions: the user's accounts (with ids and balances), default account, currency, valid fund and expense categories, active saving goals, and their most recent expenses, income and transfers as examples of how they categorize. Call this first.",
+      annotations: READ_ONLY,
     },
     async () => {
       const ctx = await loadContext(caller.userId)
       const money = (m: bigint) => serializeMoneyForApi(m, ctx.currency)
-      const [expenses, income] = await Promise.all([
+      const [expenses, income, transfers] = await Promise.all([
         prisma.expense.findMany({
           where: { userId: caller.userId },
           orderBy: { date: "desc" },
@@ -211,6 +182,19 @@ export function createMcpServer(caller: McpCaller) {
             amount: true,
             excludeFromAllocation: true,
             account: { select: { name: true } },
+          },
+        }),
+        prisma.transfer.findMany({
+          where: { userId: caller.userId },
+          orderBy: { date: "desc" },
+          take: 10,
+          select: {
+            date: true,
+            description: true,
+            amount: true,
+            category: true,
+            fromAccount: { select: { name: true } },
+            toAccount: { select: { name: true } },
           },
         }),
       ])
@@ -248,6 +232,14 @@ export function createMcpServer(caller: McpCaller) {
           allocateToBudget: !e.excludeFromAllocation,
           account: e.account?.name,
         })),
+        recentTransfers: transfers.map((t) => ({
+          date: isoDay(t.date),
+          description: t.description,
+          amount: money(t.amount),
+          from: t.fromAccount.name,
+          to: t.toAccount.name,
+          fundCategory: t.category,
+        })),
       })
     },
   )
@@ -257,9 +249,9 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Check transactions before logging",
       description:
-        "Validate a list of proposed income/expense transactions without saving anything. Returns, per transaction, the resolved account, any problems, possible duplicates already logged (same amount within 3 days), and whether an account or saving goal would go below zero. Show the result to the user and ask them to confirm before calling log_transactions.",
+        "Validate a list of proposed income/expense/transfer transactions without saving anything. Returns, per transaction, the resolved accounts, any problems, possible duplicates already logged (same amount within 3 days), and whether an account or saving goal would go below zero. Show the result to the user and ask them to confirm before calling log_transactions.",
       inputSchema: transactionsInput,
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: READ_ONLY,
     },
     async ({ transactions }) => {
       const ctx = await loadContext(caller.userId)
@@ -269,7 +261,7 @@ export function createMcpServer(caller: McpCaller) {
       )
       const remaining = new Map(ctx.accounts.map((a) => [a.id, a.balanceMinor]))
       const goalRemaining = new Map(ctx.savingGoals.map((g) => [g.id, g.currentMinor]))
-      const accountName = (id: string | null) =>
+      const accountName = (id: string | null | undefined) =>
         ctx.accounts.find((a) => a.id === id)?.name ?? null
       const goalName = (id: string | undefined) =>
         ctx.savingGoals.find((g) => g.id === id)?.name ?? null
@@ -277,14 +269,17 @@ export function createMcpServer(caller: McpCaller) {
       const rows = transactions.map((t, index) => {
         const v = validateTransaction(t as ProposedTransaction, ctx)
         const warnings: string[] = []
-        if (v.amountMinor != null && v.accountId && t.type === "expense") {
+        if (v.amountMinor != null && v.accountId && t.type !== "income") {
           const left = (remaining.get(v.accountId) ?? 0n) - v.amountMinor
           remaining.set(v.accountId, left)
           if (left < 0n) {
             warnings.push(
-              `Not enough balance in ${accountName(v.accountId)}; the app will reject this expense.`,
+              `Not enough balance in ${accountName(v.accountId)}; the app will reject this ${t.type}.`,
             )
           }
+        }
+        if (v.amountMinor != null && t.type === "transfer" && t.toAccountId && remaining.has(t.toAccountId)) {
+          remaining.set(t.toAccountId, remaining.get(t.toAccountId)! + v.amountMinor)
         }
         if (v.amountMinor != null && t.savingGoalId && goalRemaining.has(t.savingGoalId)) {
           const left = goalRemaining.get(t.savingGoalId)! - v.amountMinor
@@ -310,6 +305,7 @@ export function createMcpServer(caller: McpCaller) {
           index,
           ...t,
           account: accountName(v.accountId),
+          ...(t.type === "transfer" ? { toAccount: accountName(t.toAccountId) } : {}),
           savingGoal: goalName(t.savingGoalId),
           ready: v.issues.length === 0,
           problems: v.issues,
@@ -331,14 +327,9 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Log confirmed transactions",
       description:
-        "Save income and expenses to the user's account. ONLY call this after showing the user the preview and receiving their explicit confirmation in this conversation; pass exactly the confirmed transactions. Each expense is deducted from its account balance (and its saving goal, if linked); income is added and (unless allocateToBudget is false) split across the spending plan.",
+        "Save income, expenses and transfers to the user's account. ONLY call this after showing the user the preview and receiving their explicit confirmation in this conversation; pass exactly the confirmed transactions. Each expense is deducted from its account balance (and its saving goal, if linked); income is added and (unless allocateToBudget is false) split across the spending plan; transfers move money between two accounts.",
       inputSchema: transactionsInput,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
+      annotations: WRITE,
     },
     async ({ transactions }) => {
       const ctx = await loadContext(caller.userId)
@@ -367,6 +358,7 @@ export function createMcpServer(caller: McpCaller) {
 
       for (const [index, { t, v }] of validated.entries()) {
         const base = { index, type: t.type, description: t.description, amount: t.amount }
+        let outcome: { ok: boolean; id?: string; error: string }
         if (t.type === "expense") {
           const { ok, data } = await callRoute(postExpense, caller, "POST", "/api/expenses", {
             amount: t.amount,
@@ -377,12 +369,25 @@ export function createMcpServer(caller: McpCaller) {
             accountId: v.accountId,
             savingGoalId: t.savingGoalId ?? null,
           })
-          const expense = data.expense as { id?: string } | undefined
-          results.push(
-            ok
-              ? { ...base, logged: true, id: expense?.id }
-              : { ...base, logged: false, error: routeError(data, "Failed to log expense") },
-          )
+          outcome = {
+            ok,
+            id: (data.expense as { id?: string } | undefined)?.id,
+            error: routeError(data, "Failed to log expense"),
+          }
+        } else if (t.type === "transfer") {
+          const { ok, data } = await callRoute(postTransfer, caller, "POST", "/api/transfers", {
+            fromAccountId: v.accountId,
+            toAccountId: t.toAccountId,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+            category: t.fundCategory ?? null,
+          })
+          outcome = {
+            ok,
+            id: (data.transfer as { id?: string } | undefined)?.id,
+            error: routeError(data, "Failed to log transfer"),
+          }
         } else {
           const { ok, data } = await callRoute(
             postIncomeBulk,
@@ -401,13 +406,17 @@ export function createMcpServer(caller: McpCaller) {
               ],
             },
           )
-          const entries = data.entries as Array<{ id?: string }> | undefined
-          results.push(
-            ok
-              ? { ...base, logged: true, id: entries?.[0]?.id }
-              : { ...base, logged: false, error: routeError(data, "Failed to log income") },
-          )
+          outcome = {
+            ok,
+            id: (data.entries as Array<{ id?: string }> | undefined)?.[0]?.id,
+            error: routeError(data, "Failed to log income"),
+          }
         }
+        results.push(
+          outcome.ok
+            ? { ...base, logged: true, id: outcome.id }
+            : { ...base, logged: false, error: outcome.error },
+        )
       }
 
       return json({
@@ -423,9 +432,9 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Search logged transactions",
       description:
-        "Find the user's income and expenses, newest first. All filters are optional; with none it returns the most recent transactions. Returns ids for update_transaction and delete_transaction.",
+        "Find the user's income, expenses and transfers, newest first. All filters are optional; with none it returns the most recent transactions. Returns ids for update_transaction and delete_transaction (expenses and income only).",
       inputSchema: {
-        type: z.enum(["expense", "income", "all"]).optional().describe("Default all"),
+        type: z.enum(["expense", "income", "transfer", "all"]).optional().describe("Default all"),
         from: z.string().optional().describe("Start date YYYY-MM-DD (inclusive)"),
         to: z.string().optional().describe("End date YYYY-MM-DD (inclusive)"),
         text: z.string().optional().describe("Case-insensitive match on description"),
@@ -434,12 +443,11 @@ export function createMcpServer(caller: McpCaller) {
         accountId: z.string().optional(),
         limit: z.number().int().min(1).max(100).optional().describe("Default 20"),
       },
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: READ_ONLY,
     },
     async ({ type = "all", from, to, text, fundCategory, expenseCategory, accountId, limit = 20 }) => {
-      for (const d of [from, to]) {
-        if (d && !isIsoDate(d)) return errorResult(`Invalid date "${d}"; use YYYY-MM-DD.`)
-      }
+      const invalid = badDate(from, to)
+      if (invalid) return invalid
       const currency = await getUserDisplayCurrency(caller.userId)
       const money = (m: bigint) => serializeMoneyForApi(m, currency)
       const date =
@@ -450,7 +458,9 @@ export function createMcpServer(caller: McpCaller) {
             }
           : undefined
       const description = text ? { contains: text, mode: "insensitive" as const } : undefined
-      const wantsIncome = type !== "expense" && !fundCategory && !expenseCategory
+      const expenseOnly = Boolean(fundCategory || expenseCategory)
+      const wants = (t: "expense" | "income" | "transfer") =>
+        (type === "all" || type === t) && (t === "expense" || !expenseOnly)
 
       const expenseWhere: Prisma.ExpenseWhereInput = {
         userId: caller.userId,
@@ -466,11 +476,16 @@ export function createMcpServer(caller: McpCaller) {
         ...(description ? { description } : {}),
         ...(accountId ? { accountId } : {}),
       }
+      const transferWhere: Prisma.TransferWhereInput = {
+        userId: caller.userId,
+        ...(date ? { date } : {}),
+        ...(description ? { description } : {}),
+        ...(accountId ? { OR: [{ fromAccountId: accountId }, { toAccountId: accountId }] } : {}),
+      }
 
-      const [expenses, income] = await Promise.all([
-        type === "income"
-          ? []
-          : prisma.expense.findMany({
+      const [expenses, income, transfers] = await Promise.all([
+        wants("expense")
+          ? prisma.expense.findMany({
               where: expenseWhere,
               orderBy: { date: "desc" },
               take: limit,
@@ -484,8 +499,9 @@ export function createMcpServer(caller: McpCaller) {
                 savingGoal: { select: { name: true } },
                 account: { select: { name: true } },
               },
-            }),
-        wantsIncome
+            })
+          : [],
+        wants("income")
           ? prisma.incomeEntry.findMany({
               where: incomeWhere,
               orderBy: { date: "desc" },
@@ -497,6 +513,22 @@ export function createMcpServer(caller: McpCaller) {
                 amount: true,
                 excludeFromAllocation: true,
                 account: { select: { name: true } },
+              },
+            })
+          : [],
+        wants("transfer")
+          ? prisma.transfer.findMany({
+              where: transferWhere,
+              orderBy: { date: "desc" },
+              take: limit,
+              select: {
+                id: true,
+                date: true,
+                description: true,
+                amount: true,
+                category: true,
+                fromAccount: { select: { name: true } },
+                toAccount: { select: { name: true } },
               },
             })
           : [],
@@ -522,6 +554,16 @@ export function createMcpServer(caller: McpCaller) {
           allocateToBudget: !e.excludeFromAllocation,
           account: e.account?.name ?? null,
         })),
+        ...transfers.map((t) => ({
+          id: t.id,
+          type: "transfer",
+          date: isoDay(t.date),
+          description: t.description,
+          amount: money(t.amount),
+          from: t.fromAccount.name,
+          to: t.toAccount.name,
+          fundCategory: t.category,
+        })),
       ]
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, limit)
@@ -534,7 +576,7 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Edit a logged transaction",
       description:
-        "Change fields on an existing income or expense (find its id with search_transactions). Only pass the fields to change. ONLY call after showing the user the before/after and receiving their explicit confirmation. Account balances, budget allocations and saving goals are adjusted by the app.",
+        "Change fields on an existing income or expense (find its id with search_transactions; transfers can't be edited here). Only pass the fields to change. ONLY call after showing the user the before/after and receiving their explicit confirmation. Account balances, budget allocations and saving goals are adjusted by the app.",
       inputSchema: {
         id: z.string(),
         type: z.enum(["expense", "income"]),
@@ -551,17 +593,11 @@ export function createMcpServer(caller: McpCaller) {
           .describe("Expenses only; null unlinks the goal"),
         allocateToBudget: z.boolean().optional().describe("Income only"),
       },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: DESTRUCTIVE,
     },
     async ({ id, type, ...changes }) => {
-      if (changes.date && !isIsoDate(changes.date)) {
-        return errorResult(`Invalid date "${changes.date}"; use YYYY-MM-DD.`)
-      }
+      const invalid = badDate(changes.date)
+      if (invalid) return invalid
       if (type === "expense") {
         if (changes.allocateToBudget !== undefined) {
           return errorResult("allocateToBudget only applies to income.")
@@ -624,17 +660,12 @@ export function createMcpServer(caller: McpCaller) {
     {
       title: "Delete a logged transaction",
       description:
-        "Permanently delete one income or expense by id (find it with search_transactions). ONLY call after showing the user exactly which transaction will be deleted and receiving their explicit confirmation. The app reverses its effect on account balances, budget allocations and saving goals.",
+        "Permanently delete one income or expense by id (find it with search_transactions; transfers can't be deleted here). ONLY call after showing the user exactly which transaction will be deleted and receiving their explicit confirmation. The app reverses its effect on account balances, budget allocations and saving goals.",
       inputSchema: {
         id: z.string(),
         type: z.enum(["expense", "income"]),
       },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: DESTRUCTIVE,
     },
     async ({ id, type }) => {
       const { ok, data } =
@@ -654,112 +685,8 @@ export function createMcpServer(caller: McpCaller) {
     },
   )
 
-  server.registerTool(
-    "get_budget_status",
-    {
-      title: "Budget status for a month",
-      description:
-        "How the user's spending plan is tracking for a month: per fund pillar (fixed costs, savings, investment, guilt-free spending) the allocated amount, spent so far and what's left, plus total income and savings available. Defaults to the current month.",
-      inputSchema: {
-        month: z.number().int().min(1).max(12).optional(),
-        year: z.number().int().min(2000).max(2100).optional(),
-      },
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async ({ month, year }) => {
-      const query = month && year ? `?month=${month}&year=${year}` : ""
-      const res = await getCategoryTracking(
-        new Request(`${caller.origin}/api/category-tracking${query}`, {
-          headers: { authorization: `Bearer ${caller.token}` },
-        }),
-      )
-      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-      if (!res.ok) return errorResult(routeError(data, "Failed to load budget status"))
-      const currency = await getUserDisplayCurrency(caller.userId)
-      return json({
-        currency,
-        month: data.month,
-        year: data.year,
-        totalIncomeForMonth: data.totalIncomeForMonth,
-        pillars: data.tracking,
-        savingsGeneralAvailable: data.savingsGeneralAvailable,
-        savingsAssignedToGoals: data.savingsAssignedToGoals,
-      })
-    },
-  )
-
-  server.registerTool(
-    "get_spending_summary",
-    {
-      title: "Spending summary by category",
-      description:
-        "Total expenses between two dates, broken down by detailed expense category and by fund pillar, plus the largest individual expenses. Optionally narrow to one account or a description search.",
-      inputSchema: {
-        from: z.string().describe("Start date YYYY-MM-DD (inclusive)"),
-        to: z.string().describe("End date YYYY-MM-DD (inclusive)"),
-        accountId: z.string().optional(),
-        text: z.string().optional().describe("Case-insensitive match on description"),
-      },
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async ({ from, to, accountId, text }) => {
-      if (!isIsoDate(from) || !isIsoDate(to)) {
-        return errorResult("from and to must be dates in YYYY-MM-DD format.")
-      }
-      const currency = await getUserDisplayCurrency(caller.userId)
-      const money = (m: bigint) => serializeMoneyForApi(m, currency)
-      const expenses = await prisma.expense.findMany({
-        where: {
-          userId: caller.userId,
-          date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T23:59:59.999Z`) },
-          ...(accountId ? { accountId } : {}),
-          ...(text ? { description: { contains: text, mode: "insensitive" as const } } : {}),
-        },
-        select: {
-          id: true,
-          date: true,
-          description: true,
-          amount: true,
-          category: true,
-          expenseCategory: true,
-        },
-      })
-      const summary = summarizeSpending(
-        expenses.map((e) => ({
-          amountMinor: e.amount,
-          fundCategory: e.category,
-          expenseCategory: e.expenseCategory,
-        })),
-      )
-      const largest = [...expenses]
-        .sort((a, b) => (b.amount > a.amount ? 1 : b.amount < a.amount ? -1 : 0))
-        .slice(0, 5)
-      return json({
-        currency,
-        from,
-        to,
-        total: money(summary.totalMinor),
-        count: summary.count,
-        byExpenseCategory: summary.byExpenseCategory.map((r) => ({
-          category: r.category,
-          total: money(r.totalMinor),
-          count: r.count,
-        })),
-        byFundCategory: summary.byFundCategory.map((r) => ({
-          category: r.category,
-          total: money(r.totalMinor),
-          count: r.count,
-        })),
-        largestExpenses: largest.map((e) => ({
-          id: e.id,
-          date: isoDay(e.date),
-          description: e.description,
-          amount: money(e.amount),
-          expenseCategory: e.expenseCategory,
-        })),
-      })
-    },
-  )
+  registerInsightTools(server, caller)
+  registerPlanningTools(server, caller)
 
   return server
 }

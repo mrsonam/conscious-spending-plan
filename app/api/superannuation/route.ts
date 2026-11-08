@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 import { readJsonBody, routeErrorResponse } from "@/lib/route-error"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
 
     const accounts = await prisma.superannuationAccount.findMany({
-      where: { userId: session.user.id },
+      where: { userId: authed.userId },
       include: {
         contributions: {
           orderBy: { date: "desc" },
@@ -59,12 +59,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await readJsonBody<{
       name?: string
       fundType?: string
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     const account = await prisma.superannuationAccount.create({
       data: {
-        userId: session.user.id,
+        userId: authed.userId,
         name: body.name.trim(),
         fundType: body.fundType?.trim() || null,
         provider: body.provider?.trim() || null,
@@ -124,12 +124,12 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const body = await readJsonBody<{
       id?: string
       name?: string
@@ -148,7 +148,7 @@ export async function PUT(request: Request) {
     }
 
     const existing = await prisma.superannuationAccount.findFirst({
-      where: { id: body.id, userId: session.user.id },
+      where: { id: body.id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -191,8 +191,8 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -203,7 +203,7 @@ export async function DELETE(request: Request) {
     }
 
     const existing = await prisma.superannuationAccount.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })

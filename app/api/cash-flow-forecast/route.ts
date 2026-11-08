@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 import {
@@ -79,8 +79,8 @@ function detectIncomePattern(
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     )
     const lookbackMonths = 6
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
 
     const now = new Date()
@@ -110,11 +110,11 @@ export async function GET(request: Request) {
     const [accounts, recurringExpenses, incomeEntries, allExpenses] =
       await Promise.all([
         prisma.account.findMany({
-          where: { userId: session.user.id },
+          where: { userId: authed.userId },
           select: { balance: true, accountType: true },
         }),
         prisma.recurringExpense.findMany({
-          where: { userId: session.user.id, isActive: true },
+          where: { userId: authed.userId, isActive: true },
           select: {
             amount: true,
             frequency: true,
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
         }),
         prisma.incomeEntry.findMany({
           where: {
-            userId: session.user.id,
+            userId: authed.userId,
             date: { gte: analysisStart, lte: now },
             excludeFromAllocation: false,
           },
@@ -136,7 +136,7 @@ export async function GET(request: Request) {
         }),
         prisma.expense.findMany({
           where: {
-            userId: session.user.id,
+            userId: authed.userId,
             date: { gte: analysisStart, lte: now },
           },
           select: { amount: true, date: true, expenseCategory: true },

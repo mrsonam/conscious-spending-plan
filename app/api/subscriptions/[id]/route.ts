@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { moneyJsonResponse } from "@/lib/api-money-response"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { prismaSubscription } from "@/lib/prisma-subscription"
 import { getDbErrorResponse } from "@/lib/db-error"
@@ -8,7 +8,7 @@ import { parseMoneyFromApi, serializeMoneyForApi } from "@/lib/money-api"
 import { mapMoneyFieldsToApi, AMOUNT_ONLY_FIELDS } from "@/lib/money-serialize"
 import { validateRecurringSchedule } from "@/lib/recurring-expense-schedule"
 import { SUPPORTED_SUBSCRIPTION_FREQUENCIES } from "@/lib/subscription-utils"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 
 const VALID_STATUS = ["active", "paused", "cancelled"] as const
 const VALID_FREQ = SUPPORTED_SUBSCRIPTION_FREQUENCIES
@@ -18,15 +18,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const { id } = await params
     const existing = await prismaSubscription.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
       include: { recurringExpense: true },
     })
     if (!existing) {
@@ -80,7 +80,7 @@ export async function PATCH(
 
     if (recurring?.accountId != null) {
       const acc = await prisma.account.findFirst({
-        where: { id: recurring.accountId, userId: session.user.id },
+        where: { id: recurring.accountId, userId: authed.userId },
       })
       if (!acc) {
         return NextResponse.json({ error: "Account not found" }, { status: 404 })
@@ -224,18 +224,18 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
     const existing = await prismaSubscription.findFirst({
-      where: { id, userId: session.user.id },
+      where: { id, userId: authed.userId },
     })
     if (!existing) {
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 })

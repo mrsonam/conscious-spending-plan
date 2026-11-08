@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { authFromRequest } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
-import { currencyFromSession } from "@/lib/user-currency"
+import { getUserDisplayCurrency } from "@/lib/user-currency"
 import { serializeMoneyForApi } from "@/lib/money-api"
 import { coerceMinor } from "@/lib/money"
 
@@ -20,15 +20,15 @@ function monthLabel(month: number, year: number) {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const authed = await authFromRequest(request)
+    if (!authed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
     const monthsBack = Math.min(Math.max(parseInt(searchParams.get("months") ?? "12", 10), 3), 24)
 
-    const currency = currencyFromSession(session.user.displayCurrency)
+    const currency = await getUserDisplayCurrency(authed.userId)
     const toD = (minor: bigint) => serializeMoneyForApi(minor, currency)
 
     // Build month buckets from oldest → current
@@ -47,14 +47,14 @@ export async function GET(request: Request) {
     const [expenses, incomeEntries, holdingPurchases] = await Promise.all([
       prisma.expense.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: { gte: rangeStart, lte: rangeEnd },
         },
         select: { amount: true, category: true, expenseCategory: true, date: true },
       }),
       prisma.incomeEntry.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: { gte: rangeStart, lte: rangeEnd },
           excludeFromAllocation: false,
         },
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       // YTD "Invested" stat), not as investment-pillar expenses.
       prisma.investmentHolding.findMany({
         where: {
-          userId: session.user.id,
+          userId: authed.userId,
           date: { gte: rangeStart, lte: rangeEnd },
         },
         select: { amount: true, date: true },
