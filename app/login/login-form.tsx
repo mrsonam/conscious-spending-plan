@@ -29,6 +29,7 @@ import {
   requireField,
 } from "@/lib/form-validation"
 import { useFormFieldErrors } from "@/hooks/use-form-field-errors"
+import { isSafeCallbackPath } from "@/lib/oauth-paths"
 import { FormFieldError, formFieldAria } from "@/components/forms/form-field-error"
 
 export function LoginForm() {
@@ -41,6 +42,10 @@ export function LoginForm() {
     useFormFieldErrors<"email" | "password">()
   const [credentialsLoading, setCredentialsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  // Return to e.g. the Claude connector consent screen after signing in.
+  const rawCallback = searchParams.get("callbackUrl")
+  const callbackUrl = rawCallback && isSafeCallbackPath(rawCallback) ? rawCallback : null
 
   const fromPortfolio =
     searchParams.get(PORTFOLIO_DEMO_QUERY_KEY) === PORTFOLIO_DEMO_QUERY_VALUE
@@ -76,9 +81,8 @@ export function LoginForm() {
         setCredentialsLoading(false)
         return
       }
-      const destination = isDemoAccountEmail(email)
-        ? "/dashboard?tour=1"
-        : "/dashboard"
+      const destination =
+        callbackUrl ?? (isDemoAccountEmail(email) ? "/dashboard?tour=1" : "/dashboard")
       router.push(destination)
       router.refresh()
     } catch {
@@ -92,7 +96,7 @@ export function LoginForm() {
     clearFieldErrors()
     setGoogleLoading(true)
     try {
-      await signIn("google", { callbackUrl: "/dashboard" })
+      await signIn("google", { callbackUrl: callbackUrl ?? "/dashboard" })
     } catch {
       setFormError("Failed to sign in with Google. Please try again.")
       setGoogleLoading(false)

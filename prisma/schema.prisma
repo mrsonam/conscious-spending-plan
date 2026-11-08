@@ -36,6 +36,7 @@ model User {
   savingGoalLedgerEntries  SavingGoalLedgerEntry[]
   categoryBucketTransfers  CategoryBucketTransfer[]
   apiTokens                ApiToken[]
+  oauthAuthorizationCodes  OAuthAuthorizationCode[]
   netWorthSnapshots        NetWorthSnapshot[]
   redbarkConnection        RedbarkConnection?
   superannuationAccounts   SuperannuationAccount[]
@@ -67,6 +68,37 @@ model ApiToken {
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
   revokedAt  DateTime?
+  /// Set when the token was issued through the OAuth flow (e.g. the Claude connector).
+  oauthClientId String?
+  oauthClient   OAuthClient? @relation(fields: [oauthClientId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([oauthClientId])
+}
+
+/// OAuth client registered via dynamic client registration (RFC 7591), e.g. Claude.
+model OAuthClient {
+  id           String                   @id @default(cuid())
+  name         String
+  redirectUris String[]
+  createdAt    DateTime                 @default(now())
+  tokens       ApiToken[]
+  codes        OAuthAuthorizationCode[]
+}
+
+/// Short-lived, single-use authorization code (PKCE S256), exchanged for an ApiToken.
+model OAuthAuthorizationCode {
+  id            String      @id @default(cuid())
+  codeHash      String      @unique
+  clientId      String
+  client        OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String
+  codeChallenge String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime    @default(now())
 
   @@index([userId])
 }
